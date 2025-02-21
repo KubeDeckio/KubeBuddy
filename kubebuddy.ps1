@@ -453,7 +453,7 @@ function Show-LongRunningPods {
 
     Write-Host "`n[Long Running Pods]" -ForegroundColor Cyan
     $thresholds = Get-KubeBuddyThresholds
-    $stalePods = kubectl get pods $Namespace -o json | ConvertFrom-Json
+    $stalePods = kubectl get pods $namespace -o json | ConvertFrom-Json
 
     # Filter only pods exceeding warning/critical threshold
     $filteredPods = @()
@@ -636,7 +636,7 @@ function Show-FailedPods {
     Write-Host "`n[Failed Pods]" -ForegroundColor Cyan
 
     # Fetch failed pods
-    $failedPods = kubectl get pods $Namespace -o json | ConvertFrom-Json |
+    $failedPods = kubectl get pods $namespace -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     Where-Object { $_.status.phase -eq "Failed" }
 
@@ -799,7 +799,7 @@ function Show-PendingPods {
 
     Write-Host "`n[Pending Pods]" -ForegroundColor Cyan
 
-    $pendingPods = kubectl get pods $Namespace -o json | ConvertFrom-Json |
+    $pendingPods = kubectl get pods $namespace -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     Where-Object { $_.status.phase -eq "Pending" }
 
@@ -878,7 +878,7 @@ function Show-CrashLoopBackOffPods {
 
     Write-Host "`n[CrashLoopBackOff Pods]" -ForegroundColor Cyan
 
-    $crashPods = kubectl get pods $Namespace -o json | ConvertFrom-Json |
+    $crashPods = kubectl get pods $namespace -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     Where-Object { $_.status.containerStatuses.restartCount -gt 5 -and $_.status.containerStatuses.state.waiting.reason -eq "CrashLoopBackOff" }
 
@@ -1305,34 +1305,36 @@ function Show-PodMenu {
 
         # Ask for namespace preference
         Write-Host "🤖 Would you like to check:" -ForegroundColor Yellow
-        Write-Host "   A) All namespaces 🌍"
-        Write-Host "   B) Choose a specific namespace"
-        Write-Host "   🔙 Back (Q)"
+        Write-Host "   1️⃣ All namespaces 🌍"
+        Write-Host "   2️⃣ Choose a specific namespace"
+        Write-Host "   🔙 Back (B)"
 
         $nsChoice = Read-Host "`nEnter choice"
         Clear-Host
 
-        if ($nsChoice -match "^[Qq]$") { return }
+        if ($nsChoice -match "^[Bb]$") { return }
 
-        # Get Namespace if not 'All'
-        $namespace = ""
-        if ($nsChoice -match "^[Bb]$") {
+        # Set Namespace: Use "--all-namespaces" or "--namespace <name>"
+        $namespace = "--all-namespaces"
+        if ($nsChoice -match "^[2]$") {
             do {
-                $namespace = Read-Host "`nEnter the namespace (or type 'L' to list available ones)"
+                $selectedNamespace = Read-Host "`nEnter the namespace (or type 'L' to list available ones)"
                 
-                if ($namespace -match "^[Ll]$") {
+                if ($selectedNamespace -match "^[Ll]$") {
                     Write-Host "`n🔍 Fetching available namespaces..." -ForegroundColor Cyan
                     kubectl get namespaces --no-headers | ForEach-Object { $_.Split()[0] }
                     Write-Host ""
-                    $namespace = ""  # Reset so it prompts again after listing
+                    $selectedNamespace = ""  # Reset to prompt again
                 }
-            } until ($namespace -match "^[a-zA-Z0-9-]+$" -and $namespace -ne "")
+            } until ($selectedNamespace -match "^[a-zA-Z0-9-]+$" -and $selectedNamespace -ne "")
+
+            $namespace = "-n $selectedNamespace"
         }
 
         # Clear screen but keep the "Using namespace" message
         Clear-Host
         Write-Host "`n🤖 Using namespace: " -NoNewline -ForegroundColor Cyan
-        Write-Host $(if ($namespace -eq "") { "All Namespaces 🌍" } else { $namespace }) -ForegroundColor Yellow
+        Write-Host $(if ($namespace -eq "--all-namespaces") { "All Namespaces 🌍" } else { $namespace -replace '-n ', '' }) -ForegroundColor Yellow
         Write-Host ""
 
         do {
