@@ -119,26 +119,80 @@ function Get-RestartSummary {
     }
 }
 
-# Function: Show Hero Metrics (Summary of Nodes, Pods, Restarts)
 function Show-HeroMetrics {
     # Get summaries
     $nodeSummary = Get-NodeSummary
     $podSummary = Get-PodSummary
     $restartSummary = Get-RestartSummary
 
-    # Define fixed-width padding
-    $col2 = 10   # Total count width
-    $col3 = 14   # Status width
-    $col4 = 16   # Issues / warnings width
+    # Fetch pod distribution per node
+    $nodePodCounts = (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items | Group-Object { $_.spec.nodeName }
+    $podCounts = $nodePodCounts | ForEach-Object { $_.Count }
+    $avgPods = [math]::Round(($podCounts | Measure-Object -Average).Average, 1)
+    $maxPods = ($podCounts | Measure-Object -Maximum).Maximum
+    $minPods = ($podCounts | Measure-Object -Minimum).Minimum
 
-    # Store output in an array instead of printing directly
+    # Fetch live CPU & Memory usage
+    $nodeUsageRaw = kubectl top nodes --no-headers
+    $totalCPU = 0; $totalMem = 0; $usedCPU = 0; $usedMem = 0
+
+    $nodeUsageRaw | ForEach-Object {
+        $fields = $_ -split "\s+"
+        if ($fields.Count -ge 5) {
+            $cpuValue = $fields[1] -replace "m", ""
+            $memValue = $fields[3] -replace "Mi", ""
+
+            # Only add if not "<unknown>"
+            if ($cpuValue -match "^\d+$") { $usedCPU += [int]$cpuValue }
+            if ($memValue -match "^\d+$") { $usedMem += [int]$memValue }
+
+            # Assume 1000m per core for CPU, 64GB per node for memory
+            $totalCPU += 1000
+            $totalMem += 65536
+        }
+    }
+
+    # Prevent divide-by-zero issues
+    $cpuUsagePercent = if ($totalCPU -gt 0) { [math]::Round(($usedCPU / $totalCPU) * 100, 2) } else { 0 }
+    $memUsagePercent = if ($totalMem -gt 0) { [math]::Round(($usedMem / $totalMem) * 100, 2) } else { 0 }
+
+    # Get pending pods count
+    $pendingPods = (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items | Where-Object { $_.status.phase -eq "Pending" }
+    $totalPending = $pendingPods.Count
+
+    # Get failed jobs count
+    $failedJobs = (kubectl get jobs --all-namespaces -o json | ConvertFrom-Json).items | Where-Object { $_.status.failed -gt 0 }
+    $totalFailedJobs = $failedJobs.Count
+
+    # Table formatting
+    $col1 = 18  # Metric Name
+    $col2 = 10  # Total Count
+    $col3 = 14  # Status
+    $col4 = 16  # Issues
+
+    # Store output
     $output = @()
-    $output += "🚀 Nodes:    {0,$col2}   🟩 Healthy: {1,$col3}   🟥 Issues:   {2,$col4}" -f $nodeSummary.Total, $nodeSummary.Healthy, $nodeSummary.Issues
-    $output += "📦 Pods:     {0,$col2}   🟩 Running: {1,$col3}   🟥 Failed:   {2,$col4}" -f $podSummary.Total, $podSummary.Running, $podSummary.Failed
-    $output += "🔄 Restarts: {0,$col2}   🟨 Warnings:{1,$col3}   🟥 Critical: {2,$col4}" -f $restartSummary.Total, $restartSummary.Warning, $restartSummary.Critical
+    $output += "`n📊 Cluster Metrics Summary"
+    $output += "------------------------------------------------------------------------------------------"
+    $output += "{0,-$col1} {1,$col2}   {2,$col3}   {3,$col4}" -f "Category", "Total", "Healthy/Running", "Issues"
+    $output += "------------------------------------------------------------------------------------------"
+    $output += "🚀 Nodes:          {0,$col2}   🟩 Healthy: {1,$col3}   🟥 Issues:   {2,$col4}" -f $nodeSummary.Total, $nodeSummary.Healthy, $nodeSummary.Issues
+    $output += "📦 Pods:           {0,$col2}   🟩 Running: {1,$col3}   🟥 Failed:   {2,$col4}" -f $podSummary.Total, $podSummary.Running, $podSummary.Failed
+    $output += "🔄 Restarts:       {0,$col2}   🟨 Warnings:{1,$col3}   🟥 Critical: {2,$col4}" -f $restartSummary.Total, $restartSummary.Warning, $restartSummary.Critical
+    $output += "⏳ Pending Pods:   {0,$col2}   🟡 Waiting: {1,$col3}   " -f $totalPending, $totalPending
+    $output += "📉 Job Failures:   {0,$col2}   🔴 Failed:  {1,$col3}   " -f $totalFailedJobs, $totalFailedJobs
+    $output += "------------------------------------------------------------------------------------------"
+    $output += "📊 Pod Distribution: Avg: {0} | Max: {1} | Min: {2}" -f $avgPods, $maxPods, $minPods
+    $output += ""
+    $output += "💾 Resource Usage"
+    $output += "------------------------------------------------------------------------------------------"
+    $output += "🖥  CPU Usage:     {0,$col2}%" -f $cpuUsagePercent
+    $output += "💾 Memory Usage:   {0,$col2}%" -f $memUsagePercent
+    $output += "------------------------------------------------------------------------------------------"
 
-    return $output -join "`n"  # Return the output as a single string with line breaks
+    return $output -join "`n"
 }
+
 
 
 # Overview functions
@@ -350,9 +404,29 @@ function Show-PodsWithHighRestarts {
         [int]$PageSize = 10  # Number of pods per page
     )
 
-    Write-Host "`n[Pods with High Restarts]" -ForegroundColor Cyan
+    Write-Host "`n[Pods with High Restarts]`n" -ForegroundColor Cyan
     $thresholds = Get-KubeBuddyThresholds
-    $restartPods = kubectl get pods $Namespace -o json | ConvertFrom-Json
+
+    if ($Namespace -ne "") {
+        try {
+            $restartPods = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+        
+    }
+    else {
+        try {
+            $restartPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+    }
+    
 
     # Filter out pods with normal restarts
     $filteredPods = @()
@@ -395,6 +469,7 @@ function Show-PodsWithHighRestarts {
 
     if ($totalPods -eq 0) {
         Write-Host "✅ No pods with excessive restarts." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -451,9 +526,28 @@ function Show-LongRunningPods {
         [int]$PageSize = 10  # Number of pods per page
     )
 
-    Write-Host "`n[Long Running Pods]" -ForegroundColor Cyan
+    Write-Host "`n[Long Running Pods]`n" -ForegroundColor Cyan
     $thresholds = Get-KubeBuddyThresholds
-    $stalePods = kubectl get pods $namespace -o json | ConvertFrom-Json
+    if ($Namespace -ne "") {
+        try {
+            $stalePods = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+        
+    }
+    else {
+        try {
+            $stalePods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+    }
+    
 
     # Filter only pods exceeding warning/critical threshold
     $filteredPods = @()
@@ -492,6 +586,7 @@ function Show-LongRunningPods {
 
     if ($totalPods -eq 0) {
         Write-Host "✅ No long-running pods." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -577,6 +672,7 @@ function Show-DaemonSetIssues {
 
     if ($totalDaemonSets -eq 0) {
         Write-Host "✅ All DaemonSets are fully running." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -636,14 +732,38 @@ function Show-FailedPods {
     Write-Host "`n[Failed Pods]" -ForegroundColor Cyan
 
     # Fetch failed pods
-    $failedPods = kubectl get pods $namespace -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Where-Object { $_.status.phase -eq "Failed" }
+
+    if ($Namespace -ne "") {
+        try {
+            $failedPods = kubectl get pods -n $namespace -o json 2>&1 | ConvertFrom-Json |
+            Select-Object -ExpandProperty items |
+            Where-Object { $_.status.phase -eq "Failed" }
+            
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+        
+    }
+    else {
+        try {
+            $failedPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json |
+            Select-Object -ExpandProperty items |
+            Where-Object { $_.status.phase -eq "Failed" }
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+    }
+    
 
     $totalPods = $failedPods.Count
 
     if ($totalPods -eq 0) {
         Write-Host "✅ No failed pods found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -735,6 +855,7 @@ function Show-EmptyNamespaces {
 
     if ($totalNamespaces -eq 0) {
         Write-Host "✅ No empty namespaces found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -799,14 +920,39 @@ function Show-PendingPods {
 
     Write-Host "`n[Pending Pods]" -ForegroundColor Cyan
 
-    $pendingPods = kubectl get pods $namespace -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Where-Object { $_.status.phase -eq "Pending" }
+
+    if ($Namespace -ne "") {
+        try {
+            $pendingPods = kubectl get pods -n $namespace -o json 2>&1 | ConvertFrom-Json |
+            Select-Object -ExpandProperty items |
+            Where-Object { $_.status.phase -eq "Pending" }
+            # if (-not $pendingPods -or -not $pendingPods.items) { throw "No pods found or failed to retrieve pods." }
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+        
+    }
+    else {
+        try {
+            $pendingPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json |
+            Select-Object -ExpandProperty items |
+            Where-Object { $_.status.phase -eq "Pending" }
+            # if (-not $pendingPods -or -not $pendingPods.items) { throw "No pods found or failed to retrieve pods." }
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+    }
+    
 
     $totalPods = $pendingPods.Count
 
     if ($totalPods -eq 0) {
         Write-Host "✅ No pending pods found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -878,14 +1024,35 @@ function Show-CrashLoopBackOffPods {
 
     Write-Host "`n[CrashLoopBackOff Pods]" -ForegroundColor Cyan
 
-    $crashPods = kubectl get pods $namespace -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Where-Object { $_.status.containerStatuses.restartCount -gt 5 -and $_.status.containerStatuses.state.waiting.reason -eq "CrashLoopBackOff" }
+    if ($Namespace -ne "") {
+        try {
+            $crashPods = kubectl get pods -n $namespace -o json 2>&1 | ConvertFrom-Json |
+            Select-Object -ExpandProperty items |
+            Where-Object { $_.status.containerStatuses.restartCount -gt 5 -and $_.status.containerStatuses.state.waiting.reason -eq "CrashLoopBackOff" }
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+        
+    }
+    else {
+        try {
+            $crashPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json |
+            Select-Object -ExpandProperty items |
+            Where-Object { $_.status.containerStatuses.restartCount -gt 5 -and $_.status.containerStatuses.state.waiting.reason -eq "CrashLoopBackOff" }
+        }
+        catch {
+            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
+            return
+        }
+    }
 
     $totalPods = $crashPods.Count
 
     if ($totalPods -eq 0) {
         Write-Host "✅ No CrashLoopBackOff pods found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -980,6 +1147,7 @@ function Show-ServicesWithoutEndpoints {
 
     if ($totalServices -eq 0) {
         Write-Host "✅ All services have endpoints." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -1053,6 +1221,7 @@ function Show-UnusedPVCs {
 
     if ($unusedPVCs.Count -eq 0) {
         Write-Host "✅ No unused PVCs found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -1076,22 +1245,226 @@ function Check-KubernetesVersion {
 }
 
 function Show-StuckJobs {
-    param([int]$StuckThresholdHours = 2)
+    param(
+        [int]$StuckThresholdHours = 2,
+        [int]$PageSize = 10
+    )
 
     Write-Host "`n[Stuck Kubernetes Jobs]" -ForegroundColor Cyan
-    $jobs = kubectl get jobs --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
 
-    $stuckJobs = $jobs | Where-Object { 
-        $_.status.conditions -notmatch "Complete" -and
-        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $StuckThresholdHours)
-    }
+    # Fetch jobs, capturing both stdout and stderr
+    $kubectlOutput = kubectl get jobs --all-namespaces -o json 2>&1 | Out-String
 
-    if ($stuckJobs.Count -eq 0) {
-        Write-Host "✅ No stuck jobs found." -ForegroundColor Green
+    # Check for actual errors in kubectl output
+    if ($kubectlOutput -match "error|not found|forbidden") {
+        Write-Host "⚠️ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
-    $stuckJobs | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, @{Label = "Job"; Expression = { $_.metadata.name } }, @{Label = "Age (Hours)"; Expression = { ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours) -as [int] } } -AutoSize
+    # Ensure valid JSON before parsing
+    if ($kubectlOutput -match "^{") {
+        $jobs = $kubectlOutput | ConvertFrom-Json | Select-Object -ExpandProperty items
+    }
+    else {
+        Write-Host "⚠️ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Ensure $jobs is an array before processing
+    if (-not $jobs -or $jobs.Count -eq 0) {
+        Write-Host "✅ No jobs found in the cluster." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Filter stuck jobs
+    $stuckJobs = $jobs | Where-Object { 
+        (-not $_.status.conditions -or $_.status.conditions.type -notcontains "Complete") -and # Not marked complete
+        $_.status.PSObject.Properties['active'] -and $_.status.active -gt 0 -and # Has active pods
+        (-not $_.status.PSObject.Properties['ready'] -or $_.status.ready -eq 0) -and # No ready pods
+        (-not $_.status.PSObject.Properties['succeeded'] -or $_.status.succeeded -eq 0) -and # Not succeeded
+        (-not $_.status.PSObject.Properties['failed'] -or $_.status.failed -eq 0) -and # Not failed
+        $_.status.PSObject.Properties['startTime'] -and # Has a startTime
+        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $StuckThresholdHours)
+    }
+
+    # No stuck jobs found
+    if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
+        Write-Host "✅ No stuck jobs found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Pagination Setup
+    $totalJobs = $stuckJobs.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalJobs / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[Stuck Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalJobs)
+
+        $tableData = @()
+
+        for ($i = $startIndex; $i -lt $endIndex; $i++) {
+            $job = $stuckJobs[$i]
+            $ns = $job.metadata.namespace
+            $jobName = $job.metadata.name
+            $ageHours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
+
+            $tableData += [PSCustomObject]@{
+                Namespace = $ns
+                Job       = $jobName
+                Age_Hours = $ageHours
+                Status    = "🟡 Stuck"
+            }
+        }
+
+        $tableData | Format-Table -AutoSize
+
+        # Pagination controls
+        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+
+        $options = @()
+        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
+        if ($currentPage -gt 0) { $options += "P = Previous" }
+        $options += "C = Continue"
+
+        Write-Host ($options -join ", ") -ForegroundColor Yellow
+
+        do {
+            $paginationInput = Read-Host "Enter your choice"
+        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
+                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
+                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
+
+        if ($paginationInput -match "^[Nn]$") {
+            $currentPage++
+        }
+        elseif ($paginationInput -match "^[Pp]$") {
+            $currentPage--
+        }
+        elseif ($paginationInput -match "^[Cc]$") {
+            break # Exit pagination and continue script
+        }
+
+    } while ($true)
+}
+
+function Show-FailedJobs {
+    param(
+        [int]$StuckThresholdHours = 2,
+        [int]$PageSize = 10
+    )
+
+    Write-Host "`n[Failed Kubernetes Jobs]" -ForegroundColor Cyan
+
+    # Fetch jobs, capturing both stdout and stderr
+    $kubectlOutput = kubectl get jobs --all-namespaces -o json 2>&1 | Out-String
+
+    # Check for actual errors in kubectl output
+    if ($kubectlOutput -match "error|not found|forbidden") {
+        Write-Host "⚠️ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Ensure valid JSON before parsing
+    if ($kubectlOutput -match "^{") {
+        $jobs = $kubectlOutput | ConvertFrom-Json | Select-Object -ExpandProperty items
+    }
+    else {
+        Write-Host "⚠️ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Ensure $jobs is an array before processing
+    if (-not $jobs -or $jobs.Count -eq 0) {
+        Write-Host "✅ No jobs found in the cluster." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Filter failed jobs
+    $failedJobs = $jobs | Where-Object { 
+        $_.status.PSObject.Properties['failed'] -and $_.status.failed -gt 0 -and # Job has failed
+        (-not $_.status.PSObject.Properties['succeeded'] -or $_.status.succeeded -eq 0) -and # Not succeeded
+        $_.status.PSObject.Properties['startTime'] -and # Has a startTime
+        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $StuckThresholdHours)
+    }
+
+    # No failed jobs found
+    if (-not $failedJobs -or $failedJobs.Count -eq 0) {
+        Write-Host "✅ No failed jobs found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Pagination Setup
+    $totalJobs = $failedJobs.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalJobs / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[Failed Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalJobs)
+
+        $tableData = @()
+
+        for ($i = $startIndex; $i -lt $endIndex; $i++) {
+            $job = $failedJobs[$i]
+            $ns = $job.metadata.namespace
+            $jobName = $job.metadata.name
+            $ageHours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
+            $failCount = if ($job.status.PSObject.Properties['failed']) { $job.status.failed } else { "Unknown" }
+
+            $tableData += [PSCustomObject]@{
+                Namespace = $ns
+                Job       = $jobName
+                Age_Hours = $ageHours
+                Failures  = $failCount
+                Status    = "🔴 Failed"
+            }
+        }
+
+        $tableData | Format-Table -AutoSize
+
+        # Pagination controls
+        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+
+        $options = @()
+        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
+        if ($currentPage -gt 0) { $options += "P = Previous" }
+        $options += "C = Continue"
+
+        Write-Host ($options -join ", ") -ForegroundColor Yellow
+
+        do {
+            $paginationInput = Read-Host "Enter your choice"
+        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
+                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
+                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
+
+        if ($paginationInput -match "^[Nn]$") {
+            $currentPage++
+        }
+        elseif ($paginationInput -match "^[Pp]$") {
+            $currentPage--
+        }
+        elseif ($paginationInput -match "^[Cc]$") {
+            break # Exit pagination and continue script
+        }
+
+    } while ($true)
 }
 
 function Show-OrphanedConfigMapsSecrets {
@@ -1149,6 +1522,7 @@ function Show-OrphanedConfigMapsSecrets {
 
     if ($orphanedConfigMaps.Count -eq 0 -and $orphanedSecrets.Count -eq 0) {
         Write-Host "✅ No orphaned ConfigMaps or Secrets found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
@@ -1188,24 +1562,52 @@ function Check-RBACMisconfigurations {
 
     if ($invalidRBAC.Count -eq 0) {
         Write-Host "✅ No RBAC misconfigurations found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
     $invalidRBAC | Format-Table -AutoSize
 }
 
-
 function Show-ClusterSummary {
-    Write-Host "`n🔍 Fetching Cluster Summary..." -ForegroundColor Cyan
-    Show-ClusterInfo
-    Write-Host "`n📢 Checking Kubernetes Version Compatibility..." -ForegroundColor Cyan
-    Write-Host -NoNewline "`r🤖 Checking..." -ForegroundColor Yellow
+    Clear-Host
+    Write-Host "`n[Cluster Summary]" -ForegroundColor Cyan
+
+    # Cluster Information (Integrated)
+    Write-Host -NoNewline "`n🤖 Retrieving Cluster Information...             ⏳ Fetching..." -ForegroundColor Yellow
+    
+    # Fetch Kubernetes Version & Cluster Name
+    $versionInfo = kubectl version -o json | ConvertFrom-Json
+    $k8sVersion = if ($versionInfo.serverVersion.gitVersion) { $versionInfo.serverVersion.gitVersion } else { "Unknown" }
+    $clusterName = (kubectl config current-context)
+
+    # Overwrite "Fetching..." with "Done!" before displaying details
+    Write-Host "`r🤖 Retrieving Cluster Information...             ✅ Done!      " -ForegroundColor Green
+
+    # Print Cluster Information
+    
+    Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
+    Write-Host "is " -NoNewline
+    Write-Host "$clusterName" -ForegroundColor Yellow
+    Write-Host "Kubernetes Version " -NoNewline -ForegroundColor Green
+    Write-Host "is " -NoNewline
+    Write-Host "$k8sVersion" -ForegroundColor Yellow
+
+    # Print Remaining Cluster Info
+    kubectl cluster-info
+
+    # Kubernetes Version Check
+    Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility...   ⏳ Fetching..." -ForegroundColor Yellow
     $versionCheck = Check-KubernetesVersion
-    Write-Host "`r$versionCheck"
-    Write-Host "`n📊 Fetching Cluster Metrics..." -ForegroundColor Cyan
-    Write-Host -NoNewline "`r🤖 Checking..." -ForegroundColor Yellow
+    Write-Host "`r🤖 Checking Kubernetes Version Compatibility...   ✅ Done!      " -ForegroundColor Green
+    Write-Host "`n$versionCheck"
+
+    # Cluster Metrics
+    Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                   ⏳ Fetching..." -ForegroundColor Yellow
     $summary = Show-HeroMetrics
-    Write-Host "`r$summary"
+    Write-Host "`r🤖 Fetching Cluster Metrics...                   ✅ Done!      " -ForegroundColor Green
+    Write-Host "`n$summary"
+
     Read-Host "`nPress Enter to return to the main menu"
     Clear-Host
 }
@@ -1229,11 +1631,12 @@ function Invoke-KubeBuddy {
         $options = @(
             "1️⃣  Cluster Summary 📊"
             "2️⃣  Node Details 🖥️"
-            "3️⃣  Pod Management 🚀"
-            "4️⃣  Service & Networking 🌐"
-            "5️⃣  Storage Management 📦"
-            "6️⃣  RBAC & Security 🔐"
-            "7️⃣  Kubernetes Jobs 🏗️"
+            "3️⃣  Namespace Management 📂"
+            "4️⃣  Pod Management 🚀"
+            "5️⃣  Kubernetes Jobs 🏢"
+            "6️⃣  Service & Networking 🌐"
+            "7️⃣  Storage Management 📦"
+            "8️⃣  RBAC & Security 🔐"
             "❌  Exit (Q) ❌"
         )
 
@@ -1246,11 +1649,12 @@ function Invoke-KubeBuddy {
         switch ($choice) {
             "1" { Show-ClusterSummary }
             "2" { Show-NodeMenu }
-            "3" { Show-PodMenu }
-            "4" { Show-ServiceMenu }
-            "5" { Show-StorageMenu }
-            "6" { Show-RBACMenu }
-            "7" { Show-JobsMenu }
+            "3" { show-NamespaceMenu }
+            "4" { Show-PodMenu }
+            "5" { Show-JobsMenu }
+            "6" { Show-ServiceMenu }
+            "7" { Show-StorageMenu }
+            "8" { Show-RBACMenu }
             "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
@@ -1291,7 +1695,6 @@ function Show-NodeMenu {
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
-        Read-Host "`nPress Enter to return to the Node Menu"
         Clear-Host
 
     } while ($true)
@@ -1301,10 +1704,10 @@ function Show-NodeMenu {
 function Show-PodMenu {
     do {
         Write-Host "`n🚀 Pod Management Menu" -ForegroundColor Cyan
-        Write-Host "--------------------------------"
+        Write-Host "--------------------------------`n"
 
         # Ask for namespace preference
-        Write-Host "🤖 Would you like to check:" -ForegroundColor Yellow
+        Write-Host "🤖 Would you like to check:`n" -ForegroundColor Yellow
         Write-Host "   1️⃣ All namespaces 🌍"
         Write-Host "   2️⃣ Choose a specific namespace"
         Write-Host "   🔙 Back (B)"
@@ -1314,37 +1717,46 @@ function Show-PodMenu {
 
         if ($nsChoice -match "^[Bb]$") { return }
 
-        # Set Namespace: Use "--all-namespaces" or "--namespace <name>"
-        $namespace = "--all-namespaces"
+        $namespace = ""
         if ($nsChoice -match "^[2]$") {
             do {
-                $selectedNamespace = Read-Host "`nEnter the namespace (or type 'L' to list available ones)"
-                
+                $selectedNamespace = Read-Host "`n🤖 Enter the namespace (or type 'L' to list available ones)"
+                Clear-Host
                 if ($selectedNamespace -match "^[Ll]$") {
-                    Write-Host "`n🔍 Fetching available namespaces..." -ForegroundColor Cyan
-                    kubectl get namespaces --no-headers | ForEach-Object { $_.Split()[0] }
+                    Write-Host -NoNewline "`r🤖 Fetching available namespaces..." -ForegroundColor Yellow
+                    Start-Sleep -Seconds 1  # Optional small delay for UX
+                    
+                    # Capture namespaces first
+                    $namespaces = kubectl get namespaces --no-headers | ForEach-Object { $_.Split()[0] }
+                    
+                    # Clear previous line and print the list properly
+                    Write-Host "`r🤖 Namespaces fetched successfully." -ForegroundColor Green
+                    Write-Host "`n🤖 Available Namespaces:`n" -ForegroundColor Cyan
+                    $namespaces | ForEach-Object { Write-Host $_ }
+                    
                     Write-Host ""
                     $selectedNamespace = ""  # Reset to prompt again
                 }
             } until ($selectedNamespace -match "^[a-zA-Z0-9-]+$" -and $selectedNamespace -ne "")
 
-            $namespace = "-n $selectedNamespace"
+            $namespace = "$selectedNamespace"
         }
 
-        # Clear screen but keep the "Using namespace" message
-        Clear-Host
-        Write-Host "`n🤖 Using namespace: " -NoNewline -ForegroundColor Cyan
-        Write-Host $(if ($namespace -eq "--all-namespaces") { "All Namespaces 🌍" } else { $namespace -replace '-n ', '' }) -ForegroundColor Yellow
-        Write-Host ""
+
 
         do {
-            Write-Host "`n📦 Choose a pod operation:" -ForegroundColor Cyan
+            # Clear screen but keep the "Using namespace" message
+            Clear-Host
+            Write-Host "`n🤖 Using namespace: " -NoNewline -ForegroundColor Cyan
+            Write-Host $(if ($namespace -eq "") { "All Namespaces 🌍" } else { $namespace }) -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "📦 Choose a pod operation:`n" -ForegroundColor Cyan
 
             $podOptions = @(
-                "1️⃣  Show pending pods"
-                "2️⃣  Show failed pods"
-                "3️⃣  Show pods with high restarts"
-                "4️⃣  Show long-running pods"
+                "1️⃣  Show pods with high restarts"
+                "2️⃣  Show long-running pods"
+                "3️⃣  Show failed pods"
+                "4️⃣  Show pending pods"
                 "5️⃣  Show CrashLoopBackOff pods"
                 "🔙  Back (B) | ❌ Exit (Q)"
             )
@@ -1354,38 +1766,37 @@ function Show-PodMenu {
             $podChoice = Read-Host "`n🤖 Enter your choice"
             Clear-Host
 
-        switch ($podChoice) {
-            "1" { 
-                Write-Host -NoNewline "`r🤖 Checking pods with high restarts..." -ForegroundColor Yellow
-                Show-PodsWithHighRestarts -Namespace $Namespace
+            switch ($podChoice) {
+                "1" { 
+                    Write-Host -NoNewline "`r🤖 Checking pods with high restarts...`n" -ForegroundColor Yellow
+                    Show-PodsWithHighRestarts -Namespace $Namespace
+                }
+                "2" { 
+                    Write-Host -NoNewline "`r🤖 Checking long-running pods...`n" -ForegroundColor Yellow
+                    Show-LongRunningPods -Namespace $Namespace
+                }
+                "3" { 
+                    write-Host -NoNewline "`r🤖 Checking failed pods...`n" -ForegroundColor Yellow
+                    Show-FailedPods -Namespace $Namespace
+                }
+                "4" { 
+                    Write-Host -NoNewline "`r🤖 Checking pending pods...`n" -ForegroundColor Yellow
+                    Show-PendingPods -Namespace $Namespace
+                }
+                "5" {
+                    write-Host -NoNewline "`r🤖 Checking CrashLoopBackOff pods...`n" -ForegroundColor Yellow
+                    Show-CrashLoopBackOffPods -Namespace $Namespace
+                }
+                "B" { return }
+                "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+                default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
             }
-            "2" { 
-                Write-Host -NoNewline "`r🤖 Checking long-running pods..." -ForegroundColor Yellow
-                Show-LongRunningPods -Namespace $Namespace
-            }
-            "3" { 
-                write-Host -NoNewline "`r🤖 Checking failed pods..." -ForegroundColor Yellow
-                Show-FailedPods -Namespace $Namespace
-            }
-            "4" { 
-                Write-Host -NoNewline "`r🤖 Checking pending pods..." -ForegroundColor Yellow
-                Show-PendingPods -Namespace $Namespace
-            }
-            "5" {
-                write-Host -NoNewline "`r🤖 Checking CrashLoopBackOff pods..." -ForegroundColor Yellow
-                Show-CrashLoopBackOffPods -Namespace $Namespace
-            }
-            "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
-            default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
-        }
 
-        Read-Host "`nPress Enter to return to the Pod Menu"
-        Clear-Host
+            Clear-Host
+
+        } while ($true)
 
     } while ($true)
-
-} while ($true)
 }
 
 # 🌐 Service & Networking Menu
@@ -1419,7 +1830,6 @@ function Show-ServiceMenu {
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
-        Read-Host "`nPress Enter to return to the Service Menu"
         Clear-Host
 
     } while ($true)
@@ -1451,7 +1861,6 @@ function Show-StorageMenu {
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
-        Read-Host "`nPress Enter to return to the Storage Menu"
         Clear-Host
 
     } while ($true)
@@ -1488,7 +1897,6 @@ function Show-RBACMenu {
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
-        Read-Host "`nPress Enter to return to the RBAC Menu"
         Clear-Host
 
     } while ($true)
@@ -1497,11 +1905,12 @@ function Show-RBACMenu {
 # 🏗️ Kubernetes Jobs Menu
 function Show-JobsMenu {
     do {
-        Write-Host "`n🏗️ Kubernetes Jobs Menu" -ForegroundColor Cyan
+        Write-Host "`n🏢 Kubernetes Jobs Menu" -ForegroundColor Cyan
         Write-Host "------------------------------------"
 
         $jobOptions = @(
             "1️⃣  Show stuck Kubernetes jobs"
+            "2️⃣  Show failed Kubernetes jobs"
             "🔙  Back (B) | ❌ Exit (Q)"
         )
 
@@ -1515,12 +1924,15 @@ function Show-JobsMenu {
                 write-Host -NoNewline "`r🤖 Checking stuck Kubernetes jobs..." -ForegroundColor Yellow
                 Show-StuckJobs 
             }
+            "2" { 
+                write-Host -NoNewline "`r🤖 Checking stuck Kubernetes jobs..." -ForegroundColor Yellow
+                Show-FailedJobs 
+            }
             "B" { return }
-            "Q" { exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
-        Read-Host "`nPress Enter to return to the Jobs Menu"
         Clear-Host
 
     } while ($true)
