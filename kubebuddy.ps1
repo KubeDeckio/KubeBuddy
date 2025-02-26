@@ -1,3 +1,38 @@
+# Define report file location (global scope)
+$ReportFile = "$pwd/kubebuddy-report.txt"
+
+function Write-ToReport {
+    param(
+        [string]$Message
+    )
+    # if ($Global:Report) {
+        Add-Content -Path $ReportFile -Value $Message
+    # }
+}
+
+function Generate-FullReport {
+    Write-Host "🤖 Generating full report..."
+    $Global:Report = $true
+    Clear-Content -Path $ReportFile -ErrorAction SilentlyContinue
+    Write-ToReport "Kubebuddy Report - Generated on $(Get-Date)"
+    Write-ToReport "========================================"
+    
+    Write-ToReport "\nCluster Summary:"
+    Show-ClusterSummary
+    
+    Write-ToReport "\nDeployments List:"
+    
+    
+    Write-ToReport "\nNodes Information:"
+    
+    
+    Write-ToReport "\nServices List:"
+    
+    
+    $Global:Report = $false
+    Write-Host "Report generated: $ReportFile"
+}
+
 function Get-KubeBuddyThresholds {
     param(
         [switch]$Silent  # Suppress output when set
@@ -2068,6 +2103,9 @@ function Show-ClusterSummary {
     $k8sVersion = if ($versionInfo.serverVersion.gitVersion) { $versionInfo.serverVersion.gitVersion } else { "Unknown" }
     $clusterName = (kubectl config current-context)
 
+    Write-ToReport "Cluster Name is $clusterName"
+    Write-ToReport "Kubernetes Version is $k8sVersion"
+
     # Overwrite "Fetching..." with "Done!" before displaying details
     Write-Host "`r🤖 Retrieving Cluster Information...             ✅ Done!      " -ForegroundColor Green
 
@@ -2083,17 +2121,23 @@ function Show-ClusterSummary {
     # Print Remaining Cluster Info
     kubectl cluster-info
 
+    kubectl cluster-info | ForEach-Object { Write-ToReport $_ }
+
     # Kubernetes Version Check
     Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility...   ⏳ Fetching..." -ForegroundColor Yellow
     $versionCheck = Check-KubernetesVersion
     Write-Host "`r🤖 Checking Kubernetes Version Compatibility...  ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$versionCheck"
 
+    Write-ToReport $versionCheck
+
     # Cluster Metrics
     Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                    ⏳ Fetching..." -ForegroundColor Yellow
     $summary = Show-HeroMetrics
     Write-Host "`r🤖 Fetching Cluster Metrics...                   ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$summary"
+
+    Write-ToReport $summary
 
     Read-Host "`nPress Enter to return to the main menu"
     Clear-Host
@@ -2144,6 +2188,7 @@ function Invoke-KubeBuddy {
             "[7]  Service & Networking 🌐"
             "[8]  Storage Management 📦"
             "[9]  RBAC & Security 🔐"
+            "[10] Generate Report"
             "[Q]  Exit ❌"
         )
 
@@ -2163,6 +2208,7 @@ function Invoke-KubeBuddy {
             "7" { Show-ServiceMenu }
             "8" { Show-StorageMenu }
             "9" { Show-RBACMenu }
+            "10" { Generate-FullReport }
             "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
