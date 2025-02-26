@@ -1542,55 +1542,73 @@ function Show-FailedJobs {
 }
 
 function Show-OrphanedConfigMapsSecrets {
-    Write-Host "`n[Orphaned ConfigMaps & Secrets]" -ForegroundColor Cyan
+    param(
+        [int]$PageSize = 10
+    )
 
-    # Fetch all ConfigMaps and Secrets, excluding Helm-related ones
-    $configMaps = kubectl get configmaps --all-namespaces -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Where-Object { $_.metadata.name -notmatch "^sh\.helm\.release\.v1\." }
+    Write-Host "`n[🔍 Orphaned ConfigMaps & Secrets]" -ForegroundColor Cyan
 
-    $secrets = kubectl get secrets --all-namespaces -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Where-Object { $_.metadata.name -notmatch "^sh\.helm\.release\.v1\." }
+    # Fetch ConfigMaps & Secrets (excluding Helm-related and system-managed ones)
+    Write-Host -NoNewline "`n🤖 Fetching ConfigMaps & Secrets..." -ForegroundColor Yellow
+    $excludedSecretPatterns = @("^sh\.helm\.release\.v1\.", "^bootstrap-token-", "^default-token-", "^kube-root-ca.crt$", "^kubernetes.io/service-account-token")
 
-    # Fetch all Pods, Deployments, StatefulSets, DaemonSets
+    $configMaps = kubectl get configmaps --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
+        Where-Object { $_.metadata.name -notmatch ($excludedSecretPatterns -join "|") }
+
+    $secrets = kubectl get secrets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
+        Where-Object { $_.metadata.name -notmatch ($excludedSecretPatterns -join "|") }
+
+    Write-Host "`r✅ ConfigMaps & Secrets fetched." -ForegroundColor Green
+
+    # Fetch workloads (Pods, Deployments, StatefulSets, DaemonSets, Ingress, and ServiceAccounts)
+    Write-Host -NoNewline "`n🤖 Fetching workloads & service accounts..." -ForegroundColor Yellow
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    $deployments = kubectl get deployments --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    $statefulSets = kubectl get statefulsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    $daemonSets = kubectl get daemonsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $workloads = @(kubectl get deployments,statefulsets,daemonsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items)
+    $ingresses = kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $serviceAccounts = kubectl get serviceaccounts --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
 
-    # Extract used ConfigMaps and Secrets
-    $usedConfigMaps = @()
+    Write-Host "`r✅ Workloads & ServiceAccounts fetched." -ForegroundColor Green
+
+    # **Detect Used Secrets**
+    Write-Host -NoNewline "`n🤖 Analyzing ConfigMap & Secret usage..." -ForegroundColor Yellow
     $usedSecrets = @()
+    $usedConfigMaps = @()
 
-    # Check usage in Pods
-    $usedConfigMaps += $pods | ForEach-Object { $_.spec.volumes | Where-Object { $_.configMap } } | Select-Object -ExpandProperty configMap | Select-Object -ExpandProperty name
-    $usedSecrets += $pods | ForEach-Object { $_.spec.volumes | Where-Object { $_.secret } } | Select-Object -ExpandProperty secret | Select-Object -ExpandProperty secretName
+    # Collect used Secrets & ConfigMaps from Pods & Workloads
+    foreach ($resource in $pods + $workloads) {
+        $usedSecrets += $resource.spec.volumes | Where-Object { $_.secret } | Select-Object -ExpandProperty secret | Select-Object -ExpandProperty secretName
+        $usedConfigMaps += $resource.spec.volumes | Where-Object { $_.configMap } | Select-Object -ExpandProperty configMap | Select-Object -ExpandProperty name
 
-    # Check usage in Deployments, StatefulSets, and DaemonSets
-    $workloads = $deployments + $statefulSets + $daemonSets
-
-    foreach ($workload in $workloads) {
-        if ($workload.spec.template.spec.volumes) {
-            $usedConfigMaps += $workload.spec.template.spec.volumes | Where-Object { $_.configMap } | Select-Object -ExpandProperty configMap | Select-Object -ExpandProperty name
-            $usedSecrets += $workload.spec.template.spec.volumes | Where-Object { $_.secret } | Select-Object -ExpandProperty secret | Select-Object -ExpandProperty secretName
-        }
-
-        if ($workload.spec.template.spec.containers) {
-            foreach ($container in $workload.spec.template.spec.containers) {
-                if ($container.envFrom) {
-                    $usedConfigMaps += $container.envFrom | Where-Object { $_.configMapRef } | Select-Object -ExpandProperty configMapRef | Select-Object -ExpandProperty name
-                    $usedSecrets += $container.envFrom | Where-Object { $_.secretRef } | Select-Object -ExpandProperty secretRef | Select-Object -ExpandProperty name
-                }
+        foreach ($container in $resource.spec.containers) {
+            if ($container.env) {
+                $usedSecrets += $container.env | Where-Object { $_.valueFrom.secretKeyRef } | Select-Object -ExpandProperty valueFrom | Select-Object -ExpandProperty secretKeyRef | Select-Object -ExpandProperty name
+                $usedConfigMaps += $container.env | Where-Object { $_.valueFrom.configMapKeyRef } | Select-Object -ExpandProperty valueFrom | Select-Object -ExpandProperty configMapKeyRef | Select-Object -ExpandProperty name
+            }
+            if ($container.envFrom) {
+                $usedSecrets += $container.envFrom | Where-Object { $_.secretRef } | Select-Object -ExpandProperty secretRef | Select-Object -ExpandProperty name
+                $usedConfigMaps += $container.envFrom | Where-Object { $_.configMapRef } | Select-Object -ExpandProperty configMapRef | Select-Object -ExpandProperty name
             }
         }
     }
 
-    # Remove duplicates
-    $usedConfigMaps = $usedConfigMaps | Select-Object -Unique
-    $usedSecrets = $usedSecrets | Select-Object -Unique
+    # **Collect used Secrets from Ingress TLS**
+    $usedSecrets += $ingresses | ForEach-Object { $_.spec.tls | Select-Object -ExpandProperty secretName }
 
-    # Find unused ConfigMaps and Secrets
+    # **Collect used Secrets from ServiceAccounts**
+    $usedSecrets += $serviceAccounts | ForEach-Object {
+        $_.secrets | Select-Object -ExpandProperty name
+        $_.imagePullSecrets | Select-Object -ExpandProperty name
+    }
+
+    # **Collect service account token secrets**
+    $usedSecrets += kubectl get secrets --field-selector=type=kubernetes.io/service-account-token -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
+        Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
+
+    # Remove duplicates & nulls
+    $usedSecrets = $usedSecrets | Where-Object { $_ } | Sort-Object -Unique
+    $usedConfigMaps = $usedConfigMaps | Where-Object { $_ } | Sort-Object -Unique
+
+    # **Find orphaned ConfigMaps & Secrets**
     $orphanedConfigMaps = $configMaps | Where-Object { $_.metadata.name -notin $usedConfigMaps }
     $orphanedSecrets = $secrets | Where-Object { $_.metadata.name -notin $usedSecrets }
 
@@ -1600,11 +1618,70 @@ function Show-OrphanedConfigMapsSecrets {
         return
     }
 
-    Write-Host "`nOrphaned ConfigMaps (excluding Helm releases):" -ForegroundColor Yellow
-    $orphanedConfigMaps | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, @{Label = "ConfigMap"; Expression = { $_.metadata.name } } -AutoSize
+    # **Store orphaned items**
+    $orphanedItems = @()
+    foreach ($cm in $orphanedConfigMaps) {
+        $orphanedItems += [PSCustomObject]@{
+            "Namespace" = $cm.metadata.namespace
+            "Type"      = "📜 ConfigMap"
+            "Name"      = $cm.metadata.name
+        }
+    }
+    foreach ($secret in $orphanedSecrets) {
+        $orphanedItems += [PSCustomObject]@{
+            "Namespace" = $secret.metadata.namespace
+            "Type"      = "🔑 Secret"
+            "Name"      = $secret.metadata.name
+        }
+    }
 
-    Write-Host "`nOrphaned Secrets (excluding Helm releases):" -ForegroundColor Yellow
-    $orphanedSecrets | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, @{Label = "Secret"; Expression = { $_.metadata.name } } -AutoSize
+    # **Pagination Setup**
+    $totalItems = $orphanedItems.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalItems / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🔍 Orphaned ConfigMaps & Secrets - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`nThis check identifies unused ConfigMaps and Secrets that might be safe to delete."
+        Write-Host "Secrets are checked in Pods, Deployments, StatefulSets, DaemonSets, Ingress, and ServiceAccounts." -ForegroundColor Yellow
+
+        # Display current page
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalItems)
+
+        $tableData = $orphanedItems[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table -AutoSize
+        }
+
+        # Pagination controls
+        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+
+        $options = @()
+        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
+        if ($currentPage -gt 0) { $options += "P = Previous" }
+        $options += "C = Continue"
+
+        Write-Host ($options -join ", ") -ForegroundColor Yellow
+
+        do {
+            $paginationInput = Read-Host "Enter your choice"
+        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
+                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
+                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
+
+        if ($paginationInput -match "^[Nn]$") {
+            $currentPage++
+        }
+        elseif ($paginationInput -match "^[Pp]$") {
+            $currentPage--
+        }
+        elseif ($paginationInput -match "^[Cc]$") {
+            break
+        }
+
+    } while ($true)
 }
 
 function Check-RBACMisconfigurations {
