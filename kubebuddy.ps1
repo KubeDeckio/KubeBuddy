@@ -20,7 +20,7 @@ function Generate-FullReport {
     }
 
     # Write report header
-    Write-ToReport "Kubebuddy Report - Generated on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    Write-ToReport "🤖 Kubebuddy Report - Generated on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     Write-ToReport "========================================"
 
     # Cluster summary
@@ -2130,7 +2130,7 @@ function Show-ClusterSummary {
     Write-Host "$k8sVersion" -ForegroundColor Yellow
 
     # Print Remaining Cluster Info
-    kubectl cluster-info
+    #kubectl cluster-info
 
     kubectl cluster-info | ForEach-Object { Write-ToReport $_ }
 
@@ -2140,7 +2140,7 @@ function Show-ClusterSummary {
     Write-Host "`r🤖 Checking Kubernetes Version Compatibility...  ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$versionCheck"
 
-    Write-ToReport $versionCheck
+    Write-ToReport `n$versionCheck
 
     # Cluster Metrics
     Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                    ⏳ Fetching..." -ForegroundColor Yellow
