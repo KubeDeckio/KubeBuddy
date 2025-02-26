@@ -2173,7 +2173,7 @@ function Invoke-KubeBuddy {
 function Show-WorkloadMenu {
     do {
         Clear-Host
-        Write-Host "`n[⚙️ Workload Management]" -ForegroundColor Cyan
+        Write-Host "`n[⚙️  Workload Management]" -ForegroundColor Cyan
         Write-Host "------------------------------------------" -ForegroundColor DarkGray
 
         $options = @(
