@@ -156,16 +156,36 @@ function Show-HeroMetrics {
     $cpuUsagePercent = if ($totalCPU -gt 0) { [math]::Round(($usedCPU / $totalCPU) * 100, 2) } else { 0 }
     $memUsagePercent = if ($totalMem -gt 0) { [math]::Round(($usedMem / $totalMem) * 100, 2) } else { 0 }
 
+    $cpuStatus = if ($cpuUsagePercent -ge 80) { "🔴 Critical" }
+    elseif ($cpuUsagePercent -ge 50) { "🟡 Warning" }
+    else { "🟩 Normal" }
+
+    $memStatus = if ($memUsagePercent -ge 80) { "🔴 Critical" }
+    elseif ($memUsagePercent -ge 50) { "🟡 Warning" }
+    else { "🟩 Normal" }
+
     # Get pending pods count
     $pendingPods = (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items | Where-Object { $_.status.phase -eq "Pending" }
     $totalPending = $pendingPods.Count
 
+    $stuckPods = (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items | Where-Object {
+        ($_.status.containerStatuses.state.waiting.reason -match "CrashLoopBackOff") -or
+        ($_.status.phase -eq "Pending" -and $_.status.PSObject.Properties['startTime'] -and `
+        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalMinutes -gt 15)) -or
+        ($_.status.conditions.reason -match "ContainersNotReady") -or
+        ($_.status.conditions.reason -match "PodInitializing") -or
+        ($_.status.conditions.reason -match "ImagePullBackOff")
+    }
+    
+    $totalStuckPods = $stuckPods.Count
+    
     # Get failed jobs count
     $failedJobs = (kubectl get jobs --all-namespaces -o json | ConvertFrom-Json).items | Where-Object { $_.status.failed -gt 0 }
     $totalFailedJobs = $failedJobs.Count
 
+    $totalNodes = $nodeSummary.Total
+
     # Table formatting
-    $col1 = 18  # Metric Name
     $col2 = 10  # Total Count
     $col3 = 14  # Status
     $col4 = 16  # Issues
@@ -174,20 +194,21 @@ function Show-HeroMetrics {
     $output = @()
     $output += "`n📊 Cluster Metrics Summary"
     $output += "------------------------------------------------------------------------------------------"
-    $output += "{0,-$col1} {1,$col2}   {2,$col3}   {3,$col4}" -f "Category", "Total", "Healthy/Running", "Issues"
-    $output += "------------------------------------------------------------------------------------------"
     $output += "🚀 Nodes:          {0,$col2}   🟩 Healthy: {1,$col3}   🟥 Issues:   {2,$col4}" -f $nodeSummary.Total, $nodeSummary.Healthy, $nodeSummary.Issues
     $output += "📦 Pods:           {0,$col2}   🟩 Running: {1,$col3}   🟥 Failed:   {2,$col4}" -f $podSummary.Total, $podSummary.Running, $podSummary.Failed
     $output += "🔄 Restarts:       {0,$col2}   🟨 Warnings:{1,$col3}   🟥 Critical: {2,$col4}" -f $restartSummary.Total, $restartSummary.Warning, $restartSummary.Critical
     $output += "⏳ Pending Pods:   {0,$col2}   🟡 Waiting: {1,$col3}   " -f $totalPending, $totalPending
+    $output += "⚠️ Stuck Pods:     {0,$col2}   ❌ Stuck:   {1,$col3}     " -f $totalStuckPods, $totalStuckPods
     $output += "📉 Job Failures:   {0,$col2}   🔴 Failed:  {1,$col3}   " -f $totalFailedJobs, $totalFailedJobs
     $output += "------------------------------------------------------------------------------------------"
-    $output += "📊 Pod Distribution: Avg: {0} | Max: {1} | Min: {2}" -f $avgPods, $maxPods, $minPods
+    $output += ""
+    $output += "📊 Pod Distribution: Avg: {0} | Max: {1} | Min: {2} | Total Nodes: {3}" -f $avgPods, $maxPods, $minPods, $totalNodes
+    $output += ""
     $output += ""
     $output += "💾 Resource Usage"
     $output += "------------------------------------------------------------------------------------------"
-    $output += "🖥  CPU Usage:     {0,$col2}%" -f $cpuUsagePercent
-    $output += "💾 Memory Usage:   {0,$col2}%" -f $memUsagePercent
+    $output += "🖥  CPU Usage:      {0,$col2}%   {1,$col3}" -f $cpuUsagePercent, $cpuStatus
+    $output += "💾 Memory Usage:   {0,$col2}%   {1,$col3}" -f $memUsagePercent, $memStatus
     $output += "------------------------------------------------------------------------------------------"
 
     return $output -join "`n"
@@ -1237,7 +1258,7 @@ function Check-KubernetesVersion {
     $latestVersion = (Invoke-WebRequest -Uri "https://dl.k8s.io/release/stable.txt").Content.Trim()
 
     if ($k8sVersion -lt $latestVersion) {
-        return "⚠️ Cluster is running an outdated version: $k8sVersion (Latest: $latestVersion)"
+        return "⚠️  Cluster is running an outdated version: $k8sVersion (Latest: $latestVersion)"
     }
     else {
         return "✅ Cluster is up to date ($k8sVersion)"
@@ -1599,13 +1620,13 @@ function Show-ClusterSummary {
     # Kubernetes Version Check
     Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility...   ⏳ Fetching..." -ForegroundColor Yellow
     $versionCheck = Check-KubernetesVersion
-    Write-Host "`r🤖 Checking Kubernetes Version Compatibility...   ✅ Done!      " -ForegroundColor Green
+    Write-Host "`r🤖 Checking Kubernetes Version Compatibility...  ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$versionCheck"
 
     # Cluster Metrics
-    Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                   ⏳ Fetching..." -ForegroundColor Yellow
+    Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                    ⏳ Fetching..." -ForegroundColor Yellow
     $summary = Show-HeroMetrics
-    Write-Host "`r🤖 Fetching Cluster Metrics...                   ✅ Done!      " -ForegroundColor Green
+    Write-Host "`r🤖 Fetching Cluster Metrics...                   ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$summary"
 
     Read-Host "`nPress Enter to return to the main menu"
@@ -1629,15 +1650,15 @@ function Invoke-KubeBuddy {
 
         # Main menu options
         $options = @(
-            "1️⃣  Cluster Summary 📊"
-            "2️⃣  Node Details 🖥️"
-            "3️⃣  Namespace Management 📂"
-            "4️⃣  Pod Management 🚀"
-            "5️⃣  Kubernetes Jobs 🏢"
-            "6️⃣  Service & Networking 🌐"
-            "7️⃣  Storage Management 📦"
-            "8️⃣  RBAC & Security 🔐"
-            "❌  Exit (Q) ❌"
+            "[1]  Cluster Summary 📊"
+            "[2]  Node Details 🖥️"
+            "[3]  Namespace Management 📂"
+            "[4]  Pod Management 🚀"
+            "[5]  Kubernetes Jobs 🏢"
+            "[6]  Service & Networking 🌐"
+            "[7]  Storage Management 📦"
+            "[8]  RBAC & Security 🔐"
+            "[Q]  Exit ❌"
         )
 
         foreach ($option in $options) { Write-Host $option }
@@ -1668,9 +1689,9 @@ function Show-NodeMenu {
         Write-Host "----------------------------------"
 
         $nodeOptions = @(
-            "1️⃣  List all nodes and node conditions"
-            "2️⃣  Get node resource usage"
-            "🔙  Back (B) | ❌ Exit (Q)"
+            "[1]  List all nodes and node conditions"
+            "[2]  Get node resource usage"
+            "🔙  Back [B] | ❌ Exit [Q]"
         )
 
         foreach ($option in $nodeOptions) {
@@ -1700,6 +1721,37 @@ function Show-NodeMenu {
     } while ($true)
 }
 
+function show-NamespaceMenu {
+    do {
+        Write-Host "`n🌐 Namespace Menu" -ForegroundColor Cyan
+        Write-Host "------------------------------------"
+
+        $namespaceOptions = @(
+            "[1]  Show empty namespaces"
+            "🔙  Back (B) | ❌ Exit (Q)"
+        )
+
+        foreach ($option in $namespaceOptions) { Write-Host $option }
+
+        $namespaceChoice = Read-Host "`n🤖 Enter your choice"
+        Clear-Host
+
+        switch ($namespaceChoice) {
+            "1" { 
+                write-Host -NoNewline "`r🤖 Checking empty namespaces..." -ForegroundColor Yellow
+                Show-EmptyNamespaces 
+            }
+            "B" { return }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
+        }
+
+        Clear-Host
+
+    } while ($true)
+}
+
+
 # 🚀 Pod Management Menu
 function Show-PodMenu {
     do {
@@ -1708,9 +1760,9 @@ function Show-PodMenu {
 
         # Ask for namespace preference
         Write-Host "🤖 Would you like to check:`n" -ForegroundColor Yellow
-        Write-Host "   1️⃣ All namespaces 🌍"
-        Write-Host "   2️⃣ Choose a specific namespace"
-        Write-Host "   🔙 Back (B)"
+        Write-Host "   [1] All namespaces 🌍"
+        Write-Host "   [2] Choose a specific namespace"
+        Write-Host "   🔙 Back [B]"
 
         $nsChoice = Read-Host "`nEnter choice"
         Clear-Host
@@ -1753,12 +1805,12 @@ function Show-PodMenu {
             Write-Host "📦 Choose a pod operation:`n" -ForegroundColor Cyan
 
             $podOptions = @(
-                "1️⃣  Show pods with high restarts"
-                "2️⃣  Show long-running pods"
-                "3️⃣  Show failed pods"
-                "4️⃣  Show pending pods"
-                "5️⃣  Show CrashLoopBackOff pods"
-                "🔙  Back (B) | ❌ Exit (Q)"
+                "[1]  Show pods with high restarts"
+                "[2]  Show long-running pods"
+                "[3]  Show failed pods"
+                "[4]  Show pending pods"
+                "[5]  Show CrashLoopBackOff pods"
+                "🔙  Back [B] | ❌ Exit [Q]"
             )
 
             foreach ($option in $podOptions) { Write-Host $option }
@@ -1806,9 +1858,8 @@ function Show-ServiceMenu {
         Write-Host "------------------------------------"
 
         $serviceOptions = @(
-            "1️⃣  Show services without endpoints"
-            "2️⃣  Show empty namespaces"
-            "🔙  Back (B) | ❌ Exit (Q)"
+            "[1]  Show services without endpoints"
+            "🔙  Back [B] | ❌ Exit [Q]"
         )
 
         foreach ($option in $serviceOptions) { Write-Host $option }
@@ -1820,10 +1871,6 @@ function Show-ServiceMenu {
             "1" { 
                 Write-Host -NoNewline "`r🤖 Checking services without endpoints..." -ForegroundColor Yellow
                 Show-ServicesWithoutEndpoints 
-            }
-            "2" { 
-                write-Host -NoNewline "`r🤖 Checking empty namespaces..." -ForegroundColor Yellow
-                Show-EmptyNamespaces 
             }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
@@ -1842,8 +1889,8 @@ function Show-StorageMenu {
         Write-Host "------------------------------------"
 
         $storageOptions = @(
-            "1️⃣  Show unused PVCs"
-            "🔙  Back (B) | ❌ Exit (Q)"
+            "[1]  Show unused PVCs"
+            "🔙  Back [B] | ❌ Exit [Q]"
         )
 
         foreach ($option in $storageOptions) { Write-Host $option }
@@ -1873,9 +1920,9 @@ function Show-RBACMenu {
         Write-Host "------------------------------------"
 
         $rbacOptions = @(
-            "1️⃣  Check RBAC misconfigurations"
-            "2️⃣  Show orphaned ConfigMaps & Secrets"
-            "🔙  Back (B) | ❌ Exit (Q)"
+            "[1]  Check RBAC misconfigurations"
+            "[2]  Show orphaned ConfigMaps & Secrets"
+            "🔙  Back [B] | ❌ Exit [Q]"
         )
 
         foreach ($option in $rbacOptions) { Write-Host $option }
@@ -1909,9 +1956,9 @@ function Show-JobsMenu {
         Write-Host "------------------------------------"
 
         $jobOptions = @(
-            "1️⃣  Show stuck Kubernetes jobs"
-            "2️⃣  Show failed Kubernetes jobs"
-            "🔙  Back (B) | ❌ Exit (Q)"
+            "[1]  Show stuck Kubernetes jobs"
+            "[2]  Show failed Kubernetes jobs"
+            "🔙  Back [B] | ❌ Exit [Q]"
         )
 
         foreach ($option in $jobOptions) { Write-Host $option }
