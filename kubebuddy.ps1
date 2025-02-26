@@ -15,19 +15,19 @@ function Get-KubeBuddyThresholds {
             }
             else {
                 if (-not $Silent) {
-                    Write-Host "⚠️ Config found, but missing 'thresholds' section. Using defaults..." -ForegroundColor Yellow
+                    Write-Host "`n⚠️ Config found, but missing 'thresholds' section. Using defaults..." -ForegroundColor Yellow
                 }
             }
         }
         catch {
             if (-not $Silent) {
-                Write-Host "❌ Failed to parse config file. Using defaults..." -ForegroundColor Red
+                Write-Host "`n❌ Failed to parse config file. Using defaults..." -ForegroundColor Red
             }
         }
     }
     else {
         if (-not $Silent) {
-            Write-Host "⚠️ No config found. Using default thresholds..." -ForegroundColor Yellow
+            Write-Host "`n⚠️ No config found. Using default thresholds..." -ForegroundColor Yellow
         }
     }
 
@@ -44,20 +44,37 @@ function Get-KubeBuddyThresholds {
     }
 }
 
-function Show-ClusterInfo {
-    Write-Host "`n[Cluster Information]" -ForegroundColor Cyan
-    $versionInfo = kubectl version -o json | ConvertFrom-Json
-    $k8sVersion = if ($versionInfo.serverVersion.gitVersion) { $versionInfo.serverVersion.gitVersion } else { "Unknown" }
-    $clusterName = (kubectl config current-context)
-    Write-Host "Cluster Name " -NoNewline -ForegroundColor Green
-    Write-Host "is " -NoNewline
-    Write-Host "$clusterName" -ForegroundColor Yellow
-    Write-Host "Kubernetes Version " -NoNewline -ForegroundColor Green
-    Write-Host "is " -NoNewline
-    Write-Host "$k8sVersion" -ForegroundColor Yellow
+function Show-Pagination {
+    param(
+        [int]$currentPage,
+        [int]$totalPages
+    )
 
-    kubectl cluster-info
+    Write-Host "`nPage $($currentPage + 1) of $totalPages"
 
+    $options = @()
+    if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
+    if ($currentPage -gt 0) { $options += "P = Previous" }
+    $options += "C = Continue"
+
+    # Ensure 'P' does not appear on the first page
+    if ($currentPage -eq 0) { $options = $options -notmatch "P = Previous" }
+
+    # Ensure 'N' does not appear on the last page
+    if ($currentPage -eq ($totalPages - 1)) { $options = $options -notmatch "N = Next" }
+
+    # Display available options
+    Write-Host ($options -join ", ") -ForegroundColor Yellow
+
+    do {
+        $paginationInput = Read-Host "Enter your choice"
+    } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
+             ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
+             ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
+
+    if ($paginationInput -match "^[Nn]$") { return $currentPage + 1 }
+    elseif ($paginationInput -match "^[Pp]$") { return $currentPage - 1 }
+    elseif ($paginationInput -match "^[Cc]$") { return -1 }  # Exit pagination
 }
 
 # Summary functions
@@ -222,87 +239,101 @@ function Show-NodeConditions {
         [int]$PageSize = 10  # Number of nodes per page
     )
 
-    Write-Host "`n[Node Conditions]" -ForegroundColor Cyan
+    Write-Host "`n[🌍 Node Conditions]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Node Conditions..." -ForegroundColor Yellow
+
+    # Fetch nodes
     $nodes = kubectl get nodes -o json | ConvertFrom-Json
     $totalNodes = $nodes.items.Count
 
     if ($totalNodes -eq 0) {
-        Write-Host "No nodes found." -ForegroundColor Red
+        Write-Host "`r🤖 ❌ No nodes found." -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ Nodes fetched. ($totalNodes total)" -ForegroundColor Green
+
+    # **Track total Not Ready nodes across the cluster**
+    $totalNotReadyNodes = 0
+    $allNodesData = @()
+
+    foreach ($node in $nodes.items) {
+        $name = $node.metadata.name
+        $conditions = $node.status.conditions
+
+        $readyCondition = $conditions | Where-Object { $_.type -eq "Ready" }
+        $issueConditions = $conditions | Where-Object { $_.type -ne "Ready" -and $_.status -ne "False" }
+
+        if ($readyCondition -and $readyCondition.status -eq "True") {
+            $status = "✅ Healthy"
+            $issues = "None"
+        }
+        else {
+            $status = "❌ Not Ready"
+            $totalNotReadyNodes++
+            $issues = if ($issueConditions) {
+                ($issueConditions | ForEach-Object { "$($_.type): $($_.message)" }) -join " | "
+            }
+            else {
+                "Unknown Issue"
+            }
+        }
+
+        $allNodesData += [PSCustomObject]@{
+            Node   = $name
+            Status = $status
+            Issues = $issues
+        }
+    }
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalNodes / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Node Conditions - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[🌍 Node Conditions - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Display total 'Not Ready' nodes in the speech bubble before pagination starts**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Nodes are assessed for readiness and issues.                      ║" -ForegroundColor Cyan
+        Write-Host "  ║    If a node is 'Not Ready', it may impact workloads.                ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 Common Causes of 'Not Ready':                                     ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Network issues preventing API communication                     ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Insufficient CPU/Memory on the node                             ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Disk pressure or PID pressure detected                          ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Node failing to join due to missing CNI plugins                 ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 🔍 Troubleshooting Tips:                                             ║" -ForegroundColor Cyan
+        Write-Host "  ║    Run: kubectl describe node <NODE_NAME>                            ║" -ForegroundColor Cyan
+        Write-Host "  ║    Check kubelet logs: journalctl -u kubelet -f                      ║" -ForegroundColor Cyan
+        Write-Host "  ║    Verify networking: kubectl get pods -A -o wide                    ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Not Ready Nodes in the Cluster: $totalNotReadyNodes                           ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalNodes)
 
-        $tableData = @()
-
-        for ($i = $startIndex; $i -lt $endIndex; $i++) {
-            $node = $nodes.items[$i]
-            $name = $node.metadata.name
-            $conditions = $node.status.conditions
-
-            $readyCondition = $conditions | Where-Object { $_.type -eq "Ready" }
-            $issueConditions = $conditions | Where-Object { $_.type -ne "Ready" -and $_.status -ne "False" }
-
-            if ($readyCondition -and $readyCondition.status -eq "True") {
-                $status = "✅ Healthy"
-                $issues = "None"
-            }
-            else {
-                $status = "❌ Not Ready"
-                $issues = if ($issueConditions) {
-                    ($issueConditions | ForEach-Object { "$($_.type): $($_.message)" }) -join " | "
-                }
-                else {
-                    "Unknown Issue"
-                }
-            }
-
-            $tableData += [PSCustomObject]@{
-                Node   = $name
-                Status = $status
-                Issues = $issues
-            }
+        $tableData = $allNodesData[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table -AutoSize
         }
 
-        $tableData | Format-Table -AutoSize
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-        
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        $currentPage = $newPage
 
     } while ($true)
-    
-
 }
 
 
@@ -311,7 +342,10 @@ function Show-NodeResourceUsage {
         [int]$PageSize = 10  # Number of nodes per page
     )
 
-    Write-Host "`n[Node Resource Usage]" -ForegroundColor Cyan
+    Write-Host "`n[📊 Node Resource Usage]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Gathering Node Data & Resource Usage..." -ForegroundColor Yellow
+
+    # Get thresholds and node data
     $thresholds = Get-KubeBuddyThresholds
     $allocatableRaw = kubectl get nodes -o json | ConvertFrom-Json
     $nodeUsageRaw = kubectl top nodes --no-headers
@@ -319,105 +353,114 @@ function Show-NodeResourceUsage {
     $totalNodes = $allocatableRaw.items.Count
 
     if ($totalNodes -eq 0) {
-        Write-Host "No nodes found." -ForegroundColor Red
+        Write-Host "`r🤖 ❌ No nodes found in the cluster." -ForegroundColor Red
+        Read-Host "Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)" -ForegroundColor Green
+
+    # **Track total warnings across all nodes**
+    $totalWarnings = 0
+    $allNodesData = @()
+
+    # **Preprocess all nodes to count warnings**
+    foreach ($node in $allocatableRaw.items) {
+        $nodeName = $node.metadata.name
+        $allocatableCPU = [int]($node.status.allocatable.cpu -replace "m", "")
+        $allocatableMem = [math]::Round(([int]($node.status.allocatable.memory -replace "Ki", "")) / 1024)
+
+        $nodeStats = $nodeUsageRaw | Where-Object { $_ -match "^$nodeName\s" }
+        if ($nodeStats) {
+            $values = $nodeStats -split "\s+"
+            $usedCPU = if ($values[1] -match "^\d+m?$") { [int]($values[1] -replace "m", "") } else { 0 }
+            $usedMem = if ($values[3] -match "^\d+Mi?$") { [math]::Round([int]($values[3] -replace "Mi", "")) } else { 0 }
+
+            $cpuUsagePercent = [math]::Round(($usedCPU / $allocatableCPU) * 100, 2)
+            $memUsagePercent = [math]::Round(($usedMem / $allocatableMem) * 100, 2)
+
+            $cpuAlert = if ($cpuUsagePercent -gt $thresholds.cpu_critical) { "🔴 Critical"; $totalWarnings++ }
+            elseif ($cpuUsagePercent -gt $thresholds.cpu_warning) { "🟡 Warning"; $totalWarnings++ }
+            else { "✅ Normal" }
+
+            $memAlert = if ($memUsagePercent -gt $thresholds.mem_critical) { "🔴 Critical"; $totalWarnings++ }
+            elseif ($memUsagePercent -gt $thresholds.mem_warning) { "🟡 Warning"; $totalWarnings++ }
+            else { "✅ Normal" }
+
+            # Add disk usage check
+            $diskUsagePercent = "<unknown>"
+            $diskStatus = "⚠️ Unknown"
+
+            if ($values.Length -ge 5 -and $values[4] -match "^\d+%$") {
+                $diskUsagePercent = [int]($values[4] -replace "%", "")
+
+                $diskStatus = if ($diskUsagePercent -gt 80) { "🔴 Critical"; $totalWarnings++ }
+                elseif ($diskUsagePercent -gt 60) { "🟡 Warning"; $totalWarnings++ }
+                else { "✅ Normal" }
+            }
+
+            # Store node data
+            $allNodesData += [PSCustomObject]@{
+                Node          = $nodeName
+                "CPU %"       = "$cpuUsagePercent%"
+                "CPU Used"    = "$usedCPU mC"
+                "CPU Total"   = "$allocatableCPU mC"
+                "CPU Status"  = $cpuAlert
+                "Mem %"       = "$memUsagePercent%"
+                "Mem Used"    = "$usedMem Mi"
+                "Mem Total"   = "$allocatableMem Mi"
+                "Mem Status"  = $memAlert
+                "Disk %"      = if ($diskUsagePercent -eq "<unknown>") { "⚠️ Unknown" } else { "$diskUsagePercent%" }
+                "Disk Status" = $diskStatus
+            }
+        }
+    }
+
+
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalNodes / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Node Resource Usage - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[📊 Node Resource Usage - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Display total warnings in the speech bubble before pagination starts**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Nodes are assessed for CPU, memory, and disk usage. Alerts        ║" -ForegroundColor Cyan
+        Write-Host "  ║    indicate high resource utilization.                               ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 If CPU or memory usage is high, check workloads consuming         ║" -ForegroundColor Cyan
+        Write-Host "  ║    excessive resources and optimize them.                            ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 If disk usage is critical, consider adding storage capacity       ║" -ForegroundColor Cyan
+        Write-Host "  ║    or cleaning up unused data.                                       ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Resource Warnings Across All Nodes: $totalWarnings                       ║" -ForegroundColor red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalNodes)
 
-        $tableData = @()
-
-        for ($i = $startIndex; $i -lt $endIndex; $i++) {
-            $node = $allocatableRaw.items[$i]
-            $nodeName = $node.metadata.name
-            $allocatableCPU = [int]($node.status.allocatable.cpu -replace "m", "")
-            $allocatableMem = [math]::Round(([int]($node.status.allocatable.memory -replace "Ki", "")) / 1024)
-
-            $nodeStats = $nodeUsageRaw | Where-Object { $_ -match "^$nodeName\s" }
-            if ($nodeStats) {
-                $values = $nodeStats -split "\s+"
-                $usedCPU = if ($values[1] -match "^\d+m?$") { [int]($values[1] -replace "m", "") } else { 0 }
-                $usedMem = if ($values[3] -match "^\d+Mi?$") { [math]::Round([int]($values[3] -replace "Mi", "")) } else { 0 }
-
-                $cpuUsagePercent = [math]::Round(($usedCPU / $allocatableCPU) * 100, 2)
-                $memUsagePercent = [math]::Round(($usedMem / $allocatableMem) * 100, 2)
-
-                $cpuAlert = if ($cpuUsagePercent -gt $thresholds.cpu_critical) { "🔴 Critical" }
-                elseif ($cpuUsagePercent -gt $thresholds.cpu_warning) { "🟡 Warning" }
-                else { "✅ Normal" }
-
-                $memAlert = if ($memUsagePercent -gt $thresholds.mem_critical) { "🔴 Critical" }
-                elseif ($memUsagePercent -gt $thresholds.mem_warning) { "🟡 Warning" }
-                else { "✅ Normal" }
-
-                # Add disk usage check
-                $diskUsagePercent = "<unknown>"
-                $diskStatus = "⚠️ Unknown"
-
-                if ($values.Length -ge 5 -and $values[4] -match "^\d+%$") {
-                    $diskUsagePercent = [int]($values[4] -replace "%", "")
-
-                    $diskStatus = if ($diskUsagePercent -gt 80) { "🔴 Critical" }
-                    elseif ($diskUsagePercent -gt 60) { "🟡 Warning" }
-                    else { "✅ Normal" }
-                }
-
-                $tableData += [PSCustomObject]@{
-                    Node          = $nodeName
-                    "CPU %"       = "$cpuUsagePercent%"
-                    "CPU Used"    = "$usedCPU mC"
-                    "CPU Total"   = "$allocatableCPU mC"
-                    "CPU Status"  = $cpuAlert
-                    "Mem %"       = "$memUsagePercent%"
-                    "Mem Used"    = "$usedMem Mi"
-                    "Mem Total"   = "$allocatableMem Mi"
-                    "Mem Status"  = $memAlert
-                    "Disk %"      = if ($diskUsagePercent -eq "<unknown>") { "⚠️ Unknown" } else { "$diskUsagePercent%" }
-                    "Disk Status" = $diskStatus
-                }
-            }
+        $tableData = $allNodesData[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table -Property Node, "CPU %", "CPU Used", "CPU Total", "CPU Status", "Mem %", "Mem Used", "Mem Total", "Mem Status", "Disk %", "Disk Status" -AutoSize
         }
 
-        $tableData | Format-Table -Property Node, "CPU %", "CPU Used", "CPU Total", "CPU Status", "Mem %", "Mem Used", "Mem Total", "Mem Status", "Disk %", "Disk Status" -AutoSize
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        $currentPage = $newPage
 
     } while ($true)
-
-
 }
+
 
 function Show-PodsWithHighRestarts {
     param(
@@ -425,31 +468,27 @@ function Show-PodsWithHighRestarts {
         [int]$PageSize = 10  # Number of pods per page
     )
 
-    Write-Host "`n[Pods with High Restarts]`n" -ForegroundColor Cyan
+    Write-Host "`n[🔁 Pods with High Restarts]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pod Restart Data..." -ForegroundColor Yellow
+
     $thresholds = Get-KubeBuddyThresholds
 
-    if ($Namespace -ne "") {
-        try {
+    # Fetch pod data
+    try {
+        if ($Namespace -ne "") {
             $restartPods = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json
         }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
-        
-    }
-    else {
-        try {
+        else {
             $restartPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json
         }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
     }
-    
+    catch {
+        Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
 
-    # Filter out pods with normal restarts
+    # Filter pods with high restart counts
     $filteredPods = @()
 
     foreach ($pod in $restartPods.items) {
@@ -474,7 +513,7 @@ function Show-PodsWithHighRestarts {
             $restartStatus = "🟡 Warning"
         }
 
-        # Only include pods with issues
+        # Only include pods that exceed restart thresholds
         if ($restartStatus) {
             $filteredPods += [PSCustomObject]@{
                 Namespace  = $ns
@@ -489,56 +528,59 @@ function Show-PodsWithHighRestarts {
     $totalPods = $filteredPods.Count
 
     if ($totalPods -eq 0) {
-        Write-Host "✅ No pods with excessive restarts." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No pods with excessive restarts detected." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ High-restart pods fetched. ($totalPods detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalPods / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Pods with High Restarts - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[🔁 Pods with High Restarts - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Some pods are experiencing frequent restarts.                     ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 Why this matters:                                                 ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Frequent restarts may indicate a failing application.           ║" -ForegroundColor Cyan
+        Write-Host "  ║    - CrashLoopBackOff issues often result from config errors.        ║" -ForegroundColor Cyan
+        Write-Host "  ║    - High restarts can cause service degradation.                    ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 🔍 Recommended Actions:                                              ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Check logs with 'kubectl logs <pod> -n <namespace>'.            ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Inspect events: 'kubectl describe pod <pod> -n <namespace>'.    ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Verify resource limits and probes (liveness/readiness).         ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total High-Restart Pods: $totalPods                                       ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
 
         $tableData = $filteredPods[$startIndex..($endIndex - 1)]
 
         if ($tableData) {
-            $tableData | Format-Table -AutoSize
+            $tableData | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize
         }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
 
     } while ($true)
-
-
 }
 
 function Show-LongRunningPods {
@@ -547,30 +589,27 @@ function Show-LongRunningPods {
         [int]$PageSize = 10  # Number of pods per page
     )
 
-    Write-Host "`n[Long Running Pods]`n" -ForegroundColor Cyan
+    Write-Host "`n[⏳ Long Running Pods]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
+
     $thresholds = Get-KubeBuddyThresholds
-    if ($Namespace -ne "") {
-        try {
+
+    # Fetch running pods
+    try {
+        if ($Namespace -ne "") {
             $stalePods = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json
         }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
-        
-    }
-    else {
-        try {
+        else {
             $stalePods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json
         }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
     }
-    
+    catch {
+        Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
 
-    # Filter only pods exceeding warning/critical threshold
+    # Filter only long-running pods exceeding warning/critical threshold
     $filteredPods = @()
 
     foreach ($pod in $stalePods.items) {
@@ -606,69 +645,80 @@ function Show-LongRunningPods {
     $totalPods = $filteredPods.Count
 
     if ($totalPods -eq 0) {
-        Write-Host "✅ No long-running pods." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No long-running pods detected." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ Long-running pods fetched. ($totalPods detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalPods / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Long Running Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[⏳ Long Running Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Pods that have been running for extended periods.                 ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 Why this matters:                                                 ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Long-running pods may indicate outdated workloads.              ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Some applications expect restarts to refresh state.             ║" -ForegroundColor Cyan
+        Write-Host "  ║    - High uptime without rolling updates can cause drift issues.     ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 🔍 Recommended Actions:                                              ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Check if these pods should be updated or restarted.             ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Review deployments for stale workloads.                         ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Long-Running Pods: $totalPods                                       ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
 
         $tableData = $filteredPods[$startIndex..($endIndex - 1)]
 
         if ($tableData) {
-            $tableData | Format-Table -AutoSize
+            $tableData | Format-Table Namespace, Pod, Age_Days, Status -AutoSize
         }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
 
     } while ($true)
-
-
 }
+
 
 function Show-DaemonSetIssues {
     param(
         [int]$PageSize = 10  # Number of daemonsets per page
     )
 
-    Write-Host "`n[DaemonSets Not Fully Running]" -ForegroundColor Cyan
-    $daemonsets = kubectl get daemonsets --all-namespaces -o json | ConvertFrom-Json
+    Write-Host "`n[🔄 DaemonSets Not Fully Running]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching DaemonSet Data..." -ForegroundColor Yellow
+
+    try {
+        $daemonsets = kubectl get daemonsets --all-namespaces -o json 2>&1 | ConvertFrom-Json
+    }
+    catch {
+        Write-Host "`r🤖 ❌ Error retrieving DaemonSet data: $_" -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
 
     # Filter only DaemonSets with issues
     $filteredDaemonSets = @()
-
     foreach ($ds in $daemonsets.items) {
         $ns = $ds.metadata.namespace
         $name = $ds.metadata.name
@@ -692,57 +742,59 @@ function Show-DaemonSetIssues {
     $totalDaemonSets = $filteredDaemonSets.Count
 
     if ($totalDaemonSets -eq 0) {
-        Write-Host "✅ All DaemonSets are fully running." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ All DaemonSets are fully running." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ DaemonSets fetched. ($totalDaemonSets DaemonSets with issues detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalDaemonSets / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[DaemonSets Not Fully Running - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[🔄 DaemonSets Not Fully Running - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 DaemonSets run on every node in your cluster.                     ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies DaemonSets that are not fully running.      ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Nodes may lack resources (CPU, Memory).                         ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Scheduling constraints (taints, affinity) could be blocking.    ║" -ForegroundColor Cyan
+        Write-Host "  ║    - DaemonSet pod images may be failing to pull.                    ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 🔍 Investigate further using:                                        ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 'kubectl describe ds <daemonset-name> -n <namespace>'           ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 'kubectl get pods -n <namespace> -o wide'                       ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total DaemonSets with Issues: $totalDaemonSets                                  ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalDaemonSets)
 
         $tableData = $filteredDaemonSets[$startIndex..($endIndex - 1)]
-
         if ($tableData) {
-            $tableData | Format-Table -AutoSize
+            $tableData | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize
         }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
 
     } while ($true)
-
-    # Write-Host "`nContinuing with the rest of the script..." -ForegroundColor Green
 }
+
 
 function Show-FailedPods {
     param(
@@ -750,51 +802,65 @@ function Show-FailedPods {
         [int]$PageSize = 10  # Number of pods per page
     )
 
-    Write-Host "`n[Failed Pods]" -ForegroundColor Cyan
+    Write-Host "`n[🔴 Failed Pods]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Failed Pod Data..." -ForegroundColor Yellow
 
     # Fetch failed pods
-
-    if ($Namespace -ne "") {
-        try {
-            $failedPods = kubectl get pods -n $namespace -o json 2>&1 | ConvertFrom-Json |
+    try {
+        if ($Namespace -ne "") {
+            $failedPods = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json |
             Select-Object -ExpandProperty items |
             Where-Object { $_.status.phase -eq "Failed" }
-            
         }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
-        
-    }
-    else {
-        try {
+        else {
             $failedPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json |
             Select-Object -ExpandProperty items |
             Where-Object { $_.status.phase -eq "Failed" }
         }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
     }
-    
-
-    $totalPods = $failedPods.Count
-
-    if ($totalPods -eq 0) {
-        Write-Host "✅ No failed pods found." -ForegroundColor Green
+    catch {
+        Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    $totalPods = $failedPods.Count
+
+    if ($totalPods -eq 0) {
+        Write-Host "`r🤖 ✅ No failed pods found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Failed Pods fetched. ($totalPods detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalPods / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Failed Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[🔴 Failed Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Pods that failed to start or complete successfully.               ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 A pod can fail due to:                                            ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Image pull issues (wrong image, no registry access).            ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Insufficient CPU/memory resources.                              ║" -ForegroundColor Cyan
+        Write-Host "  ║    - CrashLoopBackOff due to misconfigured applications.             ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 🔍 Debugging Commands:                                               ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 'kubectl describe pod <pod-name> -n <namespace>'                ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 'kubectl logs <pod-name> -n <namespace>'                        ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Failed Pods: $totalPods                                              ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
 
@@ -815,53 +881,37 @@ function Show-FailedPods {
             }
         }
 
-        $tableData | Format-Table -AutoSize
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize
+        }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
         
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        $currentPage = $newPage
 
     } while ($true)
-    
-
 }
+
 
 function Show-EmptyNamespaces {
     param(
         [int]$PageSize = 10  # Number of namespaces per page
     )
 
-    Write-Host "`n[Empty Namespaces]" -ForegroundColor Cyan
+    Write-Host "`n[📂 Empty Namespaces]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
-    # Get all namespaces
+    # Fetch all namespaces
     $namespaces = kubectl get namespaces -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     Select-Object -ExpandProperty metadata |
     Select-Object -ExpandProperty name
 
-    # Get all pods and their namespaces
+    # Fetch all pods and their namespaces
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     Group-Object { $_.metadata.namespace }
@@ -875,62 +925,58 @@ function Show-EmptyNamespaces {
     $totalNamespaces = $emptyNamespaces.Count
 
     if ($totalNamespaces -eq 0) {
-        Write-Host "✅ No empty namespaces found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No empty namespaces found." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ Namespaces fetched. ($totalNamespaces empty namespaces detected)" -ForegroundColor Green
+
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalNamespaces / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Empty Namespaces - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[📂 Empty Namespaces - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Empty namespaces exist but contain no running pods.               ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 These may be unused namespaces that can be cleaned up.            ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 If needed, verify if they contain other resources (Secrets, PVCs).║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 Deleting an empty namespace will remove all associated resources. ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Empty Namespaces: $totalNamespaces                                          ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalNamespaces)
 
         $tableData = @()
-
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $namespace = $emptyNamespaces[$i]
-
-            $tableData += [PSCustomObject]@{
-                "Namespace" = $namespace
-            }
+            $tableData += [PSCustomObject]@{ "Namespace" = $namespace }
         }
 
-        $tableData | Format-Table -AutoSize
+        if ($tableData) {
+            $tableData | Format-Table Namespace -AutoSize
+        }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
         
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        $currentPage = $newPage
 
     } while ($true)
-    
-
 }
 
 function Show-PendingPods {
@@ -939,62 +985,73 @@ function Show-PendingPods {
         [int]$PageSize = 10
     )
 
-    Write-Host "`n[Pending Pods]" -ForegroundColor Cyan
+    Write-Host "`n[⏳ Pending Pods]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
 
-
-    if ($Namespace -ne "") {
-        try {
-            $pendingPods = kubectl get pods -n $namespace -o json 2>&1 | ConvertFrom-Json |
-            Select-Object -ExpandProperty items |
-            Where-Object { $_.status.phase -eq "Pending" }
-            # if (-not $pendingPods -or -not $pendingPods.items) { throw "No pods found or failed to retrieve pods." }
-        }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
-        
-    }
-    else {
-        try {
-            $pendingPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json |
-            Select-Object -ExpandProperty items |
-            Where-Object { $_.status.phase -eq "Pending" }
-            # if (-not $pendingPods -or -not $pendingPods.items) { throw "No pods found or failed to retrieve pods." }
-        }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
+    try {
+        if ($Namespace -ne "") {
+            $pendingPods = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json | Select-Object -ExpandProperty items
+        } 
+        else {
+            $pendingPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
     }
-    
-
-    $totalPods = $pendingPods.Count
-
-    if ($totalPods -eq 0) {
-        Write-Host "✅ No pending pods found." -ForegroundColor Green
+    catch {
+        Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    # Filter Pending pods
+    $pendingPods = $pendingPods | Where-Object { $_.status.phase -eq "Pending" }
+
+    $totalPods = $pendingPods.Count
+
+    if ($totalPods -eq 0) {
+        Write-Host "`r🤖 ✅ No pending pods found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Pods fetched. ($totalPods Pending pods detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalPods / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Pending Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[⏳ Pending Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Pending pods are stuck in a non-running state.                    ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies pods that are unable to start due to:       ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Insufficient cluster resources (CPU, Memory)                    ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Scheduling issues (e.g., node taints, affinity rules)           ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Missing dependencies (PVCs, ConfigMaps, Secrets)                ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 🔍 Investigate further using:                                        ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 'kubectl describe pod <pod-name> -n <namespace>'                ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 'kubectl get events -n <namespace>'                             ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Pending Pods Found: $totalPods                                       ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
 
         $tableData = @()
-
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $pod = $pendingPods[$i]
             $ns = $pod.metadata.namespace
             $podName = $pod.metadata.name
-            $reason = $pod.status.conditions[0].reason
-            $message = $pod.status.conditions[0].message -replace "`n", " "
+            $reason = if ($pod.status.conditions) { $pod.status.conditions[0].reason } else { "Unknown" }
+            $message = if ($pod.status.conditions) { $pod.status.conditions[0].message -replace "`n", " " } else { "No details available" }
 
             $tableData += [PSCustomObject]@{
                 Namespace = $ns
@@ -1004,38 +1061,21 @@ function Show-PendingPods {
             }
         }
 
-        $tableData | Format-Table -AutoSize
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize
+        }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
         
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        $currentPage = $newPage
 
     } while ($true)
-    
-
 }
+
 
 function Show-CrashLoopBackOffPods {
     param(
@@ -1043,52 +1083,70 @@ function Show-CrashLoopBackOffPods {
         [int]$PageSize = 10
     )
 
-    Write-Host "`n[CrashLoopBackOff Pods]" -ForegroundColor Cyan
+    Write-Host "`n[🔴 CrashLoopBackOff Pods]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
 
-    if ($Namespace -ne "") {
-        try {
-            $crashPods = kubectl get pods -n $namespace -o json 2>&1 | ConvertFrom-Json |
-            Select-Object -ExpandProperty items |
-            Where-Object { $_.status.containerStatuses.restartCount -gt 5 -and $_.status.containerStatuses.state.waiting.reason -eq "CrashLoopBackOff" }
+    try {
+        if ($Namespace -ne "") {
+            $crashPods = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json | Select-Object -ExpandProperty items
+        } 
+        else {
+            $crashPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
-        
     }
-    else {
-        try {
-            $crashPods = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json |
-            Select-Object -ExpandProperty items |
-            Where-Object { $_.status.containerStatuses.restartCount -gt 5 -and $_.status.containerStatuses.state.waiting.reason -eq "CrashLoopBackOff" }
-        }
-        catch {
-            Write-Host "⚠️ Error retrieving pod data: $_" -ForegroundColor Red
-            return
-        }
+    catch {
+        Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Filter CrashLoopBackOff pods
+    $crashPods = $crashPods | Where-Object { 
+        $_.status.containerStatuses -and 
+        $_.status.containerStatuses.restartCount -gt 5 -and 
+        $_.status.containerStatuses.state.waiting.reason -eq "CrashLoopBackOff"
     }
 
     $totalPods = $crashPods.Count
 
     if ($totalPods -eq 0) {
-        Write-Host "✅ No CrashLoopBackOff pods found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No CrashLoopBackOff pods found." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ Pods fetched. ($totalPods CrashLoopBackOff pods detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalPods / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[CrashLoopBackOff Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[🔴 CrashLoopBackOff Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 CrashLoopBackOff occurs when a pod continuously crashes.           ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies pods that keep restarting due to failures.  ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Common causes: misconfigurations, missing dependencies,         ║" -ForegroundColor Cyan
+        Write-Host "  ║      or insufficient resources.                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Investigate pod logs: 'kubectl logs <pod-name> -n <namespace>'  ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Describe the pod: 'kubectl describe pod <pod-name>'             ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Review and fix these issues to restore pod stability.             ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total CrashLoopBackOff Pods Found: $totalPods                                       ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
 
         $tableData = @()
-
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $pod = $crashPods[$i]
             $ns = $pod.metadata.namespace
@@ -1103,55 +1161,56 @@ function Show-CrashLoopBackOffPods {
             }
         }
 
-        $tableData | Format-Table -AutoSize
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, Restarts, Status -AutoSize
+        }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
         
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        $currentPage = $newPage
 
     } while ($true)
-    
-
 }
+
 
 function Show-ServicesWithoutEndpoints {
     param(
         [int]$PageSize = 10  # Number of services per page
     )
 
-    Write-Host "`n[Services Without Endpoints]" -ForegroundColor Cyan
+    Write-Host "`n[🔍 Services Without Endpoints]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Service Data..." -ForegroundColor Yellow
 
     # Fetch all services
-    $services = kubectl get services --all-namespaces -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Where-Object { $_.spec.type -ne "ExternalName" }  # Exclude ExternalName services
+    $services = kubectl get services --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
+        Where-Object { $_.spec.type -ne "ExternalName" }  # Exclude ExternalName services
+
+    if (-not $services) {
+        Write-Host "`r🤖 ❌ Failed to fetch service data." -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Services fetched. (Total: $($services.Count))" -ForegroundColor Green
+
+    Write-Host -NoNewline "`n🤖 Fetching Endpoint Data..." -ForegroundColor Yellow
 
     # Fetch endpoints
-    $endpoints = kubectl get endpoints --all-namespaces -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Group-Object { $_.metadata.namespace + "/" + $_.metadata.name }
+    $endpoints = kubectl get endpoints --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
+        Group-Object { $_.metadata.namespace + "/" + $_.metadata.name }
+
+    if (-not $endpoints) {
+        Write-Host "`r🤖 ❌ Failed to fetch endpoint data." -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Endpoints fetched. (Total: $($endpoints.Count))" -ForegroundColor Green
+    Write-Host "`n🤖 Analyzing Services..." -ForegroundColor Yellow
 
     # Convert to a lookup table for fast checking
     $endpointsLookup = @{}
@@ -1167,23 +1226,41 @@ function Show-ServicesWithoutEndpoints {
     $totalServices = $servicesWithoutEndpoints.Count
 
     if ($totalServices -eq 0) {
-        Write-Host "✅ All services have endpoints." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ All services have endpoints." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ Service analysis complete. ($totalServices services without endpoints detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalServices / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Services Without Endpoints - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[🔍 Services Without Endpoints - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Kubernetes services route traffic, but require endpoints to work. ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies services that have no associated endpoints. ║" -ForegroundColor Cyan
+        Write-Host "  ║    - No endpoints could mean no running pods match service selectors.║" -ForegroundColor Cyan
+        Write-Host "  ║    - It may also indicate misconfigurations or orphaned services.    ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Investigate these services to confirm if they are required.        ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Services Without Endpoints: $totalServices                                ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalServices)
 
         $tableData = @()
-
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $svc = $servicesWithoutEndpoints[$i]
             $ns = $svc.metadata.namespace
@@ -1198,66 +1275,90 @@ function Show-ServicesWithoutEndpoints {
             }
         }
 
-        $tableData | Format-Table -AutoSize
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Service, Type, Status -AutoSize
+        }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
         
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        $currentPage = $newPage
 
     } while ($true)
-    
-
 }
+
 
 function Show-UnusedPVCs {
     param(
         [int]$PageSize = 10  # Number of PVCs per page
     )
 
-    Write-Host "`n[Unused Persistent Volume Claims]" -ForegroundColor Cyan
+    Write-Host "`n[💾 Unused Persistent Volume Claims]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching PVC Data..." -ForegroundColor Yellow
+
+    # Fetch all PVCs
     $pvcs = kubectl get pvc --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    if (-not $pvcs) {
+        Write-Host "`r🤖 ❌ Failed to fetch PVC data." -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+    
+    Write-Host "`r🤖 ✅ PVCs fetched. (Total: $($pvcs.Count))" -ForegroundColor Green
+
+    Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
+
+    # Fetch all Pods
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    if (-not $pods) {
+        Write-Host "`r🤖 ❌ Failed to fetch Pod data." -ForegroundColor Red
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+    
+    Write-Host "`r🤖 ✅ Pods fetched. (Total: $($pods.Count))" -ForegroundColor Green
 
     # Get all PVCs that are not attached to any pod
+    Write-Host "`n🤖 Analyzing PVC usage..." -ForegroundColor Yellow
+
     $attachedPVCs = $pods | ForEach-Object { $_.spec.volumes | Where-Object { $_.persistentVolumeClaim } } | Select-Object -ExpandProperty persistentVolumeClaim
     $unusedPVCs = $pvcs | Where-Object { $_.metadata.name -notin $attachedPVCs.name }
 
     $totalPVCs = $unusedPVCs.Count
 
     if ($totalPVCs -eq 0) {
-        Write-Host "✅ No unused PVCs found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No unused PVCs found." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
+    Write-Host "`r🤖 ✅ PVC usage analyzed. ($totalPVCs unused PVCs detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalPVCs / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Unused Persistent Volume Claims - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[💾 Unused Persistent Volume Claims - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Persistent Volume Claims (PVCs) reserve storage in your cluster.  ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies PVCs that are NOT attached to any Pod.      ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Unused PVCs may indicate abandoned or uncleaned storage.        ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Storage resources remain allocated until PVCs are deleted.      ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Review unused PVCs before deletion to avoid accidental data loss.  ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Unused PVCs Found: $totalPVCs                                         ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPVCs)
@@ -1266,42 +1367,20 @@ function Show-UnusedPVCs {
 
         if ($tableData) {
             $tableData | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, 
-                                              @{Label = "PVC"; Expression = { $_.metadata.name } }, 
-                                              @{Label = "Storage"; Expression = { $_.spec.resources.requests.storage } } -AutoSize
+            @{Label = "PVC"; Expression = { $_.metadata.name } }, 
+            @{Label = "Storage"; Expression = { $_.spec.resources.requests.storage } } -AutoSize
         }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "[N] Next" }
-        if ($currentPage -gt 0) { $options += "[P] Previous" }
-        $options += "[C] Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            return  # Exit pagination immediately without asking for confirmation
-        }
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+                
+        $currentPage = $newPage
 
     } while ($true)
-
-    # Only pause **if user didn't select [C]**
-    Read-Host "`n🤖 Press Enter to return to the storage menu"
 }
-
 
 function Check-KubernetesVersion {
     $versionInfo = kubectl version -o json | ConvertFrom-Json
@@ -1324,14 +1403,15 @@ function Show-StuckJobs {
         [int]$PageSize = 10
     )
 
-    Write-Host "`n[Stuck Kubernetes Jobs]" -ForegroundColor Cyan
+    Write-Host "`n[⏳ Stuck Kubernetes Jobs]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
     # Fetch jobs, capturing both stdout and stderr
     $kubectlOutput = kubectl get jobs --all-namespaces -o json 2>&1 | Out-String
 
     # Check for actual errors in kubectl output
     if ($kubectlOutput -match "error|not found|forbidden") {
-        Write-Host "⚠️ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
+        Write-Host "`r🤖 ❌ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
@@ -1341,17 +1421,20 @@ function Show-StuckJobs {
         $jobs = $kubectlOutput | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
     else {
-        Write-Host "⚠️ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
+        Write-Host "`r🤖 ❌ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
     # Ensure $jobs is an array before processing
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "✅ No jobs found in the cluster." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No jobs found in the cluster." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
+
+    Write-Host "`r🤖 ✅ Jobs fetched. (Total: $($jobs.Count))" -ForegroundColor Green
+    Write-Host -NoNewline "`n🤖 Analyzing Stuck Jobs..." -ForegroundColor Yellow
 
     # Filter stuck jobs
     $stuckJobs = $jobs | Where-Object { 
@@ -1366,25 +1449,45 @@ function Show-StuckJobs {
 
     # No stuck jobs found
     if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
-        Write-Host "✅ No stuck jobs found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No stuck jobs found." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
-    # Pagination Setup
+    Write-Host "`r🤖 ✅ Job analysis complete. ($($stuckJobs.Count) stuck jobs detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $totalJobs = $stuckJobs.Count
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalJobs / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Stuck Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[⏳ Stuck Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Kubernetes Jobs should complete within a reasonable time.         ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies jobs that have been running too long        ║" -ForegroundColor Cyan
+        Write-Host "  ║    and have not completed, failed, or succeeded.                     ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 Possible causes:                                                  ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Stuck pods or unresponsive workloads                            ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Misconfigured restart policies                                  ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Insufficient resources (CPU/Memory)                             ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Investigate these jobs to determine the cause and resolve issues.  ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Stuck Jobs Found: $($stuckJobs.Count)                                          ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalJobs)
 
         $tableData = @()
-
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $job = $stuckJobs[$i]
             $ns = $job.metadata.namespace
@@ -1399,36 +1502,21 @@ function Show-StuckJobs {
             }
         }
 
-        $tableData | Format-Table -AutoSize
-
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
-
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Job, Age_Hours, Status -AutoSize
         }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
 
     } while ($true)
 }
+
 
 function Show-FailedJobs {
     param(
@@ -1436,14 +1524,15 @@ function Show-FailedJobs {
         [int]$PageSize = 10
     )
 
-    Write-Host "`n[Failed Kubernetes Jobs]" -ForegroundColor Cyan
+    Write-Host "`n[🔴 Failed Kubernetes Jobs]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
     # Fetch jobs, capturing both stdout and stderr
     $kubectlOutput = kubectl get jobs --all-namespaces -o json 2>&1 | Out-String
 
     # Check for actual errors in kubectl output
     if ($kubectlOutput -match "error|not found|forbidden") {
-        Write-Host "⚠️ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
+        Write-Host "`r🤖 ❌ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
@@ -1453,17 +1542,20 @@ function Show-FailedJobs {
         $jobs = $kubectlOutput | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
     else {
-        Write-Host "⚠️ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
+        Write-Host "`r🤖 ❌ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
     # Ensure $jobs is an array before processing
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "✅ No jobs found in the cluster." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No jobs found in the cluster." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
+
+    Write-Host "`r🤖 ✅ Jobs fetched. (Total: $($jobs.Count))" -ForegroundColor Green
+    Write-Host -NoNewline "`n🤖 Analyzing Failed Jobs..." -ForegroundColor Yellow
 
     # Filter failed jobs
     $failedJobs = $jobs | Where-Object { 
@@ -1475,25 +1567,44 @@ function Show-FailedJobs {
 
     # No failed jobs found
     if (-not $failedJobs -or $failedJobs.Count -eq 0) {
-        Write-Host "✅ No failed jobs found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No failed jobs found." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
-    # Pagination Setup
+    Write-Host "`r🤖 ✅ Job analysis complete. ($($failedJobs.Count) failed jobs detected)" -ForegroundColor Green
+
+    # **Pagination Setup**
     $totalJobs = $failedJobs.Count
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalJobs / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[Failed Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+        Write-Host "`n[🔴 Failed Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Kubernetes Jobs should complete successfully.                     ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies jobs that have encountered failures.        ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Jobs may fail due to insufficient resources, timeouts, or       ║" -ForegroundColor Cyan
+        Write-Host "  ║      misconfigurations.                                              ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Review logs with 'kubectl logs job/<job-name>'                  ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Investigate pod failures with 'kubectl describe job/<job-name>' ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Consider re-running or debugging these jobs for resolution.        ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Failed Jobs Found: $($failedJobs.Count)                                         ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalJobs)
 
         $tableData = @()
-
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $job = $failedJobs[$i]
             $ns = $job.metadata.namespace
@@ -1510,141 +1621,140 @@ function Show-FailedJobs {
             }
         }
 
-        $tableData | Format-Table -AutoSize
-
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
-
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Job, Age_Hours, Failures, Status -AutoSize
         }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
 
     } while ($true)
 }
 
-function Show-OrphanedConfigMapsSecrets {
+function Check-OrphanedConfigMaps {
     param(
         [int]$PageSize = 10
     )
 
-    Write-Host "`n[🔍 Orphaned ConfigMaps & Secrets]" -ForegroundColor Cyan
+    Write-Host "`n[🔍 Orphaned ConfigMaps]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching ConfigMaps..." -ForegroundColor Yellow
 
-    # Fetch ConfigMaps & Secrets (excluding Helm-related and system-managed ones)
-    Write-Host -NoNewline "`n🤖 Fetching ConfigMaps & Secrets..." -ForegroundColor Yellow
-    $excludedSecretPatterns = @("^sh\.helm\.release\.v1\.", "^bootstrap-token-", "^default-token-", "^kube-root-ca.crt$", "^kubernetes.io/service-account-token")
+    # Exclude Helm-managed ConfigMaps
+    $excludedConfigMapPatterns = @("^sh\.helm\.release\.v1\.")
 
     $configMaps = kubectl get configmaps --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
-        Where-Object { $_.metadata.name -notmatch ($excludedSecretPatterns -join "|") }
+    Where-Object { $_.metadata.name -notmatch ($excludedConfigMapPatterns -join "|") }
 
-    $secrets = kubectl get secrets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
-        Where-Object { $_.metadata.name -notmatch ($excludedSecretPatterns -join "|") }
+    Write-Host "`r🤖 ✅ ConfigMaps fetched. ($($configMaps.Count) total)" -ForegroundColor Green
 
-    Write-Host "`r✅ ConfigMaps & Secrets fetched." -ForegroundColor Green
-
-    # Fetch workloads (Pods, Deployments, StatefulSets, DaemonSets, Ingress, and ServiceAccounts)
-    Write-Host -NoNewline "`n🤖 Fetching workloads & service accounts..." -ForegroundColor Yellow
-    $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    $workloads = @(kubectl get deployments,statefulsets,daemonsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items)
-    $ingresses = kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    $serviceAccounts = kubectl get serviceaccounts --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-
-    Write-Host "`r✅ Workloads & ServiceAccounts fetched." -ForegroundColor Green
-
-    # **Detect Used Secrets**
-    Write-Host -NoNewline "`n🤖 Analyzing ConfigMap & Secret usage..." -ForegroundColor Yellow
-    $usedSecrets = @()
+    # Fetch workloads & used ConfigMaps
+    Write-Host -NoNewline "`n🤖 Checking ConfigMap usage..." -ForegroundColor Yellow
     $usedConfigMaps = @()
 
-    # Collect used Secrets & ConfigMaps from Pods & Workloads
-    foreach ($resource in $pods + $workloads) {
-        $usedSecrets += $resource.spec.volumes | Where-Object { $_.secret } | Select-Object -ExpandProperty secret | Select-Object -ExpandProperty secretName
-        $usedConfigMaps += $resource.spec.volumes | Where-Object { $_.configMap } | Select-Object -ExpandProperty configMap | Select-Object -ExpandProperty name
+    # Fetch Kubernetes resources that can reference ConfigMaps
+    $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
 
+    $workloads = @(kubectl get deployments --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items) +
+    @(kubectl get statefulsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items) +
+    @(kubectl get daemonsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items) +
+    @(kubectl get cronjobs --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items) +
+    @(kubectl get jobs --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items) +
+    @(kubectl get replicasets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items)
+
+    $ingresses = kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $services = kubectl get services --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    # Scan Pods, Deployments, StatefulSets, DaemonSets, CronJobs, Jobs, ReplicaSets
+    foreach ($resource in $pods + $workloads) {
+        $usedConfigMaps += $resource.spec.volumes | Where-Object { $_.configMap } | Select-Object -ExpandProperty configMap | Select-Object -ExpandProperty name
         foreach ($container in $resource.spec.containers) {
             if ($container.env) {
-                $usedSecrets += $container.env | Where-Object { $_.valueFrom.secretKeyRef } | Select-Object -ExpandProperty valueFrom | Select-Object -ExpandProperty secretKeyRef | Select-Object -ExpandProperty name
                 $usedConfigMaps += $container.env | Where-Object { $_.valueFrom.configMapKeyRef } | Select-Object -ExpandProperty valueFrom | Select-Object -ExpandProperty configMapKeyRef | Select-Object -ExpandProperty name
             }
             if ($container.envFrom) {
-                $usedSecrets += $container.envFrom | Where-Object { $_.secretRef } | Select-Object -ExpandProperty secretRef | Select-Object -ExpandProperty name
                 $usedConfigMaps += $container.envFrom | Where-Object { $_.configMapRef } | Select-Object -ExpandProperty configMapRef | Select-Object -ExpandProperty name
+            }
+            # **NEW: Check ConfigMap references in container args**
+            if ($container.args) {
+                foreach ($arg in $container.args) {
+                    if ($arg -match "--configmap=\$\(POD_NAMESPACE\)/([\w-]+)") {
+                        $usedConfigMaps += $matches[1]  # Capture the ConfigMap name
+                    }
+                }
             }
         }
     }
 
-    # **Collect used Secrets from Ingress TLS**
-    $usedSecrets += $ingresses | ForEach-Object { $_.spec.tls | Select-Object -ExpandProperty secretName }
+    # Check Ingress Annotations
+    $usedConfigMaps += $ingresses | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
 
-    # **Collect used Secrets from ServiceAccounts**
-    $usedSecrets += $serviceAccounts | ForEach-Object {
-        $_.secrets | Select-Object -ExpandProperty name
-        $_.imagePullSecrets | Select-Object -ExpandProperty name
+    # Check Service Annotations (if they reference ConfigMaps)
+    $usedConfigMaps += $services | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
+
+    # **Scan Custom Resources for ConfigMap References**
+    $crds = kubectl get crds -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    foreach ($crd in $crds) {
+        $crdKind = $crd.spec.names.kind
+        if ($crdKind -match "^[a-z0-9-]+$") { 
+            $customResources = kubectl get $crdKind --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
+            foreach ($cr in $customResources) {
+                if ($cr.metadata.annotations.Values -match "configMap") {
+                    $usedConfigMaps += $cr.metadata.annotations.Values
+                }
+            }
+        }
     }
 
-    # **Collect service account token secrets**
-    $usedSecrets += kubectl get secrets --field-selector=type=kubernetes.io/service-account-token -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
-        Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
-
     # Remove duplicates & nulls
-    $usedSecrets = $usedSecrets | Where-Object { $_ } | Sort-Object -Unique
     $usedConfigMaps = $usedConfigMaps | Where-Object { $_ } | Sort-Object -Unique
+    Write-Host "`r✅ ConfigMap usage checked." -ForegroundColor Green
 
-    # **Find orphaned ConfigMaps & Secrets**
+    # **Find orphaned ConfigMaps**
     $orphanedConfigMaps = $configMaps | Where-Object { $_.metadata.name -notin $usedConfigMaps }
-    $orphanedSecrets = $secrets | Where-Object { $_.metadata.name -notin $usedSecrets }
 
-    if ($orphanedConfigMaps.Count -eq 0 -and $orphanedSecrets.Count -eq 0) {
-        Write-Host "✅ No orphaned ConfigMaps or Secrets found." -ForegroundColor Green
+    # Store orphaned items for pagination
+    $orphanedItems = @()
+    $orphanedConfigMaps | ForEach-Object {
+        $orphanedItems += [PSCustomObject]@{
+            Namespace = $_.metadata.namespace
+            Type      = "📜 ConfigMap"
+            Name      = $_.metadata.name
+        }
+    }
+
+    # If nothing found, return early
+    if ($orphanedItems.Count -eq 0) {
+        Write-Host "🤖 ✅ No orphaned ConfigMaps found." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
-    # **Store orphaned items**
-    $orphanedItems = @()
-    foreach ($cm in $orphanedConfigMaps) {
-        $orphanedItems += [PSCustomObject]@{
-            "Namespace" = $cm.metadata.namespace
-            "Type"      = "📜 ConfigMap"
-            "Name"      = $cm.metadata.name
-        }
-    }
-    foreach ($secret in $orphanedSecrets) {
-        $orphanedItems += [PSCustomObject]@{
-            "Namespace" = $secret.metadata.namespace
-            "Type"      = "🔑 Secret"
-            "Name"      = $secret.metadata.name
-        }
-    }
-
-    # **Pagination Setup**
+    # Pagination Setup
     $totalItems = $orphanedItems.Count
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalItems / $PageSize)
 
     do {
         Clear-Host
-        Write-Host "`n[🔍 Orphaned ConfigMaps & Secrets - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
-        Write-Host "`nThis check identifies unused ConfigMaps and Secrets that might be safe to delete."
-        Write-Host "Secrets are checked in Pods, Deployments, StatefulSets, DaemonSets, Ingress, and ServiceAccounts." -ForegroundColor Yellow
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔═══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 ConfigMaps store configuration data for workloads.                 ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                       ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies ConfigMaps that are not referenced by:       ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Pods, Deployments, StatefulSets, DaemonSets.                     ║" -ForegroundColor Cyan
+        Write-Host "  ║    - CronJobs, Jobs, ReplicaSets, Services, and Custom Resources.     ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                       ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Orphaned ConfigMaps may be outdated and can be reviewed for cleanup.║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                       ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Orphaned ConfigMaps Found: $($orphanedItems.Count)                                 ║" -ForegroundColor Red
+        Write-Host "  ╚═══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1652,37 +1762,143 @@ function Show-OrphanedConfigMapsSecrets {
 
         $tableData = $orphanedItems[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table -AutoSize
+            $tableData | Format-Table Namespace, Type, Name -AutoSize
         }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break
-        }
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
 
     } while ($true)
 }
+
+
+function Check-OrphanedSecrets {
+    param(
+        [int]$PageSize = 10
+    )
+
+    Write-Host "`n[🔑 Orphaned Secrets]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Secrets..." -ForegroundColor Yellow
+
+    # Exclude system-managed secrets
+    $excludedSecretPatterns = @("^sh\.helm\.release\.v1\.", "^bootstrap-token-", "^default-token-", "^kube-root-ca.crt$", "^kubernetes.io/service-account-token")
+
+    $secrets = kubectl get secrets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
+    Where-Object { $_.metadata.name -notmatch ($excludedSecretPatterns -join "|") }
+
+    Write-Host "`r🤖 ✅ Secrets fetched. ($($secrets.Count) total)" -ForegroundColor Green
+
+    # Fetch workloads & used Secrets
+    Write-Host -NoNewline "`n🤖 Checking Secret usage..." -ForegroundColor Yellow
+    $usedSecrets = @()
+
+    $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $workloads = @(kubectl get deployments --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items) +
+    @(kubectl get statefulsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items) +
+    @(kubectl get daemonsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items)
+
+    $ingresses = kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $serviceAccounts = kubectl get serviceaccounts --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    foreach ($resource in $pods + $workloads) {
+        $usedSecrets += $resource.spec.volumes | Where-Object { $_.secret } | Select-Object -ExpandProperty secret | Select-Object -ExpandProperty secretName
+        foreach ($container in $resource.spec.containers) {
+            if ($container.env) {
+                $usedSecrets += $container.env | Where-Object { $_.valueFrom.secretKeyRef } | Select-Object -ExpandProperty valueFrom | Select-Object -ExpandProperty secretKeyRef | Select-Object -ExpandProperty name
+            }
+        }
+    }
+
+    $usedSecrets += $ingresses | ForEach-Object { $_.spec.tls | Select-Object -ExpandProperty secretName }
+    $usedSecrets += $serviceAccounts | ForEach-Object { $_.secrets | Select-Object -ExpandProperty name }
+
+    Write-Host "`r🤖 ✅ Secret usage checked." -ForegroundColor Green
+
+    # **Check Custom Resources for secret usage**
+    Write-Host "`n🤖 Checking Custom Resources for Secret usage..." -ForegroundColor Yellow
+    $customResources = kubectl api-resources --verbs=list --namespaced -o name | Where-Object { $_ }
+    foreach ($cr in $customResources) {
+        # Validate before fetching resources
+        $crInstances = kubectl get $cr --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
+        if ($crInstances) {
+            foreach ($instance in $crInstances) {
+                if ($instance.spec -and $instance.spec.PSObject.Properties.name -contains "secretName") {
+                    $usedSecrets += $instance.spec.secretName
+                }
+            }
+        }
+    }
+
+    $usedSecrets = $usedSecrets | Where-Object { $_ } | Sort-Object -Unique
+    Write-Host "`r🤖 ✅ Secret usage checked. ($($usedSecrets.Count) in use)" -ForegroundColor Green
+
+    # **Find orphaned Secrets**
+    $orphanedSecrets = $secrets | Where-Object { $_.metadata.name -notin $usedSecrets }
+
+    # Store orphaned items for pagination
+    $orphanedItems = @()
+    $orphanedSecrets | ForEach-Object {
+        $orphanedItems += [PSCustomObject]@{
+            Namespace = $_.metadata.namespace
+            Type      = "🔑 Secret"
+            Name      = $_.metadata.name
+        }
+    }
+
+    # If nothing found, return early
+    if ($orphanedItems.Count -eq 0) {
+        Write-Host "🤖 ✅ No orphaned Secrets found." -ForegroundColor Green
+        Read-Host "🤖 Press Enter to return to the menu"
+        return
+    }
+
+    # Pagination Setup
+    $totalItems = $orphanedItems.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalItems / $PageSize)
+
+    do {
+        Clear-Host
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔═════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Secrets store sensitive data such as API keys and credentials.       ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                         ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies Secrets that are NOT used by:                  ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Pods, Deployments, StatefulSets, DaemonSets.                       ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Ingress TLS, ServiceAccounts, and Custom Resources.                ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                         ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Unused Secrets may indicate outdated credentials or misconfigurations.║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                         ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total Orphaned Secrets Found: $($orphanedItems.Count)                                      ║" -ForegroundColor Red
+        Write-Host "  ╚═════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
+
+        # Display current page
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalItems)
+
+        $tableData = $orphanedItems[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Type, Name -AutoSize
+        }
+
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
+
+    } while ($true)
+}
+
 
 function Check-RBACMisconfigurations {
     param(
@@ -1700,9 +1916,9 @@ function Check-RBACMisconfigurations {
 
     # Get existing namespaces to check for deleted ones
     $existingNamespaces = kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
-        Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
+    Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
 
-    Write-Host "`r🤖 ✅ Fetched RoleBindings & ClusterRoleBindings.`n" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings.`n" -ForegroundColor Green
 
     $invalidRBAC = @()
 
@@ -1805,11 +2021,20 @@ function Check-RBACMisconfigurations {
         Write-Host "`n[RBAC Misconfigurations - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # Explanation for clarity
-        Write-Host "`nRBAC (Role-Based Access Control) defines who can do what in your cluster." -ForegroundColor Yellow
-        Write-Host "This check identifies misconfigurations, missing references, and overly permissive roles." -ForegroundColor Yellow
-
-        # Display summary of issues found
-        Write-Host "`n⚠️ Found $totalBindings potential misconfigurations in RoleBindings and ClusterRoleBindings.`n" -ForegroundColor Red
+        # **Speech Bubble with Explanation**
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 RBAC (Role-Based Access Control) defines who can do what in       ║" -ForegroundColor Cyan
+        Write-Host "  ║    your cluster.                                                     ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ 📌 This check identifies:                                            ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 🔍 Misconfigurations in RoleBindings & ClusterRoleBindings.     ║" -ForegroundColor Cyan
+        Write-Host "  ║    - ❌ Missing references to ServiceAccounts & Namespaces.          ║" -ForegroundColor Cyan
+        Write-Host "  ║    - 🔓 Overly permissive roles that may pose security risks.        ║" -ForegroundColor Cyan
+        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
+        Write-Host "  ║ ⚠️ Total RBAC Misconfigurations Detected: $totalBindings                          ║" -ForegroundColor Red
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalBindings)
@@ -1819,31 +2044,13 @@ function Check-RBACMisconfigurations {
             $tableData | Format-Table -AutoSize
         }
 
-        # Pagination controls
-        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+        # Call the pagination function
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
 
-        $options = @()
-        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
-        if ($currentPage -gt 0) { $options += "P = Previous" }
-        $options += "C = Continue"
-
-        Write-Host ($options -join ", ") -ForegroundColor Yellow
-
-        do {
-            $paginationInput = Read-Host "Enter your choice"
-        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
-                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
-                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
-
-        if ($paginationInput -match "^[Nn]$") {
-            $currentPage++
-        }
-        elseif ($paginationInput -match "^[Pp]$") {
-            $currentPage--
-        }
-        elseif ($paginationInput -match "^[Cc]$") {
-            break # Exit pagination and continue script
-        }
+        # Exit pagination if 'C' (Continue) was selected
+        if ($newPage -eq -1) { break }
+        
+        $currentPage = $newPage
 
     } while ($true)
 }
@@ -1894,29 +2101,49 @@ function Show-ClusterSummary {
 
 
 function Invoke-KubeBuddy {
-
     Clear-Host
-    Write-Host "KubeBuddy: Your Kubernetes Assistant 🤖" -ForegroundColor Cyan
-    Write-Host "------------------------------------------" -ForegroundColor DarkGray
+    $banner = @"
+██╗  ██╗██╗   ██╗██████╗ ███████╗██████╗ ██╗   ██╗██████╗ ██████╗ ██╗   ██╗
+██║ ██╔╝██║   ██║██╔══██╗██╔════╝██╔══██╗██║   ██║██╔══██╗██╔══██╗╚██╗ ██╔╝
+█████╔╝ ██║   ██║██████╔╝█████╗  ██████╔╝██║   ██║██║  ██║██║  ██║ ╚████╔╝ 
+██╔═██╗ ██║   ██║██╔══██╗██╔══╝  ██╔══██╗██║   ██║██║  ██║██║  ██║  ╚██╔╝  
+██║  ██╗╚██████╔╝██████╔╝███████╗██████╔╝╚██████╔╝██████╔╝██████╔╝   ██║   
+╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝    ╚═╝   
+"@
+
+    # KubeBuddy ASCII Art
+    Write-Host ""
+    Write-Host $banner -ForegroundColor Cyan
+    Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "🤖 KubeBuddy: Your Kubernetes Assistant" -ForegroundColor Cyan
+    Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
 
     # Thinking animation
-    Write-Host -NoNewline "`r🤖 Starting KubeBuddy..." -ForegroundColor Yellow
+    Write-Host -NoNewline "`r🤖 Initializing KubeBuddy..." -ForegroundColor Yellow
     Start-Sleep -Seconds 2  
-    Write-Host "`r🤖 KubeBuddy is ready!  " -ForegroundColor Green
+    Write-Host "`r🤖 ✅ KubeBuddy is ready to assist you!  " -ForegroundColor Green
 
     do {
-        Write-Host "`nHello! I'm KubeBuddy, your Kubernetes helper. What would you like to do today?`n" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  ╔══════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+        Write-Host "  ║ 🤖 Hello, I'm KubeBuddy! Your friendly Kubernetes assistant.             ║" -ForegroundColor Cyan
+        Write-Host "  ║    - I can help you check node health, workload status, networking,      ║" -ForegroundColor Cyan
+        Write-Host "  ║      storage, RBAC security, and more.                                   ║" -ForegroundColor Cyan
+        Write-Host "  ║    - Select an option from the menu below to begin!                      ║" -ForegroundColor Cyan
+        Write-Host "  ╚══════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+        Write-Host ""
 
         # Main menu options
         $options = @(
             "[1]  Cluster Summary 📊"
             "[2]  Node Details 🖥️"
             "[3]  Namespace Management 📂"
-            "[4]  Pod Management 🚀"
-            "[5]  Kubernetes Jobs 🏢"
-            "[6]  Service & Networking 🌐"
-            "[7]  Storage Management 📦"
-            "[8]  RBAC & Security 🔐"
+            "[4]  Workload Management ⚙️"
+            "[5]  Pod Management 🚀"
+            "[6]  Kubernetes Jobs 🏢"
+            "[7]  Service & Networking 🌐"
+            "[8]  Storage Management 📦"
+            "[9]  RBAC & Security 🔐"
             "[Q]  Exit ❌"
         )
 
@@ -1929,18 +2156,87 @@ function Invoke-KubeBuddy {
         switch ($choice) {
             "1" { Show-ClusterSummary }
             "2" { Show-NodeMenu }
-            "3" { show-NamespaceMenu }
-            "4" { Show-PodMenu }
-            "5" { Show-JobsMenu }
-            "6" { Show-ServiceMenu }
-            "7" { Show-StorageMenu }
-            "8" { Show-RBACMenu }
+            "3" { Show-NamespaceMenu }
+            "4" { Show-WorkloadMenu }
+            "5" { Show-PodMenu }
+            "6" { Show-JobsMenu }
+            "7" { Show-ServiceMenu }
+            "8" { Show-StorageMenu }
+            "9" { Show-RBACMenu }
             "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
     } while ($true)
 }
+
+function Show-WorkloadMenu {
+    do {
+        Clear-Host
+        Write-Host "`n[⚙️ Workload Management]" -ForegroundColor Cyan
+        Write-Host "------------------------------------------" -ForegroundColor DarkGray
+
+        $options = @(
+            "[1] Check DaemonSet Health 🛠️"
+            "[2] Check Deployment Issues 🚀"
+            "[3] Check StatefulSet Issues 🏗️"
+            "[4] Check ReplicaSet Health 📈"
+            "🔙  Back [B] | ❌ Exit [Q]"
+        )
+
+        foreach ($option in $options) { Write-Host $option }
+
+        $choice = Read-Host "`n🤖 Enter your choice"
+        Clear-Host
+
+        switch ($choice) {
+            "1" { Show-DaemonSetIssues }
+
+            "2" {
+                Write-Host ""
+                Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+                Write-Host "  ║ 🤖 Deployment Issues Check is coming soon!                  ║" -ForegroundColor Cyan
+                Write-Host "  ║    - This feature will identify failing or unhealthy       ║" -ForegroundColor Cyan
+                Write-Host "  ║      Deployments, rollout failures, and unavailable pods.  ║" -ForegroundColor Cyan
+                Write-Host "  ║    - Stay tuned! 🚀                                       ║" -ForegroundColor Cyan
+                Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+                Write-Host ""
+                Read-Host "🤖 Press Enter to return to the menu"
+            }
+
+            "3" {
+                Write-Host ""
+                Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+                Write-Host "  ║ 🤖 StatefulSet Health Check is coming soon!                 ║" -ForegroundColor Cyan
+                Write-Host "  ║    - This feature will analyze StatefulSets for failures,  ║" -ForegroundColor Cyan
+                Write-Host "  ║      stuck rollouts, and missing pods.                     ║" -ForegroundColor Cyan
+                Write-Host "  ║    - Stay tuned for updates! 🏗️                           ║" -ForegroundColor Cyan
+                Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+                Write-Host ""
+                Read-Host "🤖 Press Enter to return to the menu"
+            }
+
+            "4" {
+                Write-Host ""
+                Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+                Write-Host "  ║ 🤖 ReplicaSet Health Check is coming soon!                  ║" -ForegroundColor Cyan
+                Write-Host "  ║    - This feature will monitor ReplicaSets for pod         ║" -ForegroundColor Cyan
+                Write-Host "  ║      mismatches, scaling issues, and failures.              ║" -ForegroundColor Cyan
+                Write-Host "  ║    - Coming soon! 📈                                       ║" -ForegroundColor Cyan
+                Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+                Write-Host ""
+                Read-Host "🤖 Press Enter to return to the menu"
+            }
+
+            "B" { return }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
+        }
+
+    } while ($true)
+}
+
+
 
 function Show-NodeMenu {
     do {
@@ -1963,11 +2259,9 @@ function Show-NodeMenu {
 
         switch ($nodeChoice) {
             "1" { 
-                Write-Host -NoNewline "`r🤖 Checking node status for issues..." -ForegroundColor Yellow
                 Show-NodeConditions
             }
             "2" { 
-                Write-Host -NoNewline "`r🤖 Retrieving node resource usage..." -ForegroundColor Yellow
                 Show-NodeResourceUsage
             }
             "B" { return }  # Back to main menu
@@ -1997,7 +2291,6 @@ function show-NamespaceMenu {
 
         switch ($namespaceChoice) {
             "1" { 
-                write-Host -NoNewline "`r🤖 Checking empty namespaces..." -ForegroundColor Yellow
                 Show-EmptyNamespaces 
             }
             "B" { return }
@@ -2079,23 +2372,18 @@ function Show-PodMenu {
 
             switch ($podChoice) {
                 "1" { 
-                    Write-Host -NoNewline "`r🤖 Checking pods with high restarts...`n" -ForegroundColor Yellow
                     Show-PodsWithHighRestarts -Namespace $Namespace
                 }
                 "2" { 
-                    Write-Host -NoNewline "`r🤖 Checking long-running pods...`n" -ForegroundColor Yellow
                     Show-LongRunningPods -Namespace $Namespace
                 }
                 "3" { 
-                    write-Host -NoNewline "`r🤖 Checking failed pods...`n" -ForegroundColor Yellow
                     Show-FailedPods -Namespace $Namespace
                 }
                 "4" { 
-                    Write-Host -NoNewline "`r🤖 Checking pending pods...`n" -ForegroundColor Yellow
                     Show-PendingPods -Namespace $Namespace
                 }
                 "5" {
-                    write-Host -NoNewline "`r🤖 Checking CrashLoopBackOff pods...`n" -ForegroundColor Yellow
                     Show-CrashLoopBackOffPods -Namespace $Namespace
                 }
                 "B" { return }
@@ -2128,7 +2416,6 @@ function Show-ServiceMenu {
 
         switch ($serviceChoice) {
             "1" { 
-                Write-Host -NoNewline "`r🤖 Checking services without endpoints..." -ForegroundColor Yellow
                 Show-ServicesWithoutEndpoints 
             }
             "B" { return }
@@ -2159,7 +2446,6 @@ function Show-StorageMenu {
 
         switch ($storageChoice) {
             "1" { 
-                write-Host -NoNewline "`r🤖 Checking unused PVCs..." -ForegroundColor Yellow
                 Show-UnusedPVCs 
             }
             "B" { return }
@@ -2180,7 +2466,8 @@ function Show-RBACMenu {
 
         $rbacOptions = @(
             "[1]  Check RBAC misconfigurations"
-            "[2]  Show orphaned ConfigMaps & Secrets"
+            "[2]  Show orphaned ConfigMaps"
+            "[3]  Show orphaned Secrets"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -2191,12 +2478,13 @@ function Show-RBACMenu {
 
         switch ($rbacChoice) {
             "1" { 
-                write-host -NoNewline "`r🤖 Checking RBAC misconfigurations..." -ForegroundColor Yellow
                 Check-RBACMisconfigurations 
             }
             "2" { 
-                Write-Host -NoNewline "`r🤖 Checking orphaned ConfigMaps & Secrets..." -ForegroundColor Yellow
-                Show-OrphanedConfigMapsSecrets 
+                Check-OrphanedConfigMaps
+            }
+            "3" { 
+                Check-OrphanedSecrets 
             }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
@@ -2227,11 +2515,9 @@ function Show-JobsMenu {
 
         switch ($jobChoice) {
             "1" { 
-                write-Host -NoNewline "`r🤖 Checking stuck Kubernetes jobs..." -ForegroundColor Yellow
                 Show-StuckJobs 
             }
             "2" { 
-                write-Host -NoNewline "`r🤖 Checking stuck Kubernetes jobs..." -ForegroundColor Yellow
                 Show-FailedJobs 
             }
             "B" { return }
