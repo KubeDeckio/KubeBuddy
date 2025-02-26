@@ -25,19 +25,16 @@ function Generate-FullReport {
 
     # Cluster summary
     Write-ToReport "`n📌 Cluster Summary:"
-    Show-ClusterSummary | ForEach-Object { Write-ToReport $_ }
+    Show-ClusterSummary
 
     # Deployments
     Write-ToReport "`n📌 Deployments List:"
-    Get-Deployments | ForEach-Object { Write-ToReport $_ }
 
     # Nodes
     Write-ToReport "`n📌 Nodes Information:"
-    Get-Nodes | ForEach-Object { Write-ToReport $_ }
 
     # Services
     Write-ToReport "`n📌 Services List:"
-    Get-Services | ForEach-Object { Write-ToReport $_ }
 
     $Global:Report = $false
     Write-Host "✅ Report generated: $ReportFile"
@@ -2106,33 +2103,21 @@ function Show-ClusterSummary {
     Clear-Host
     Write-Host "`n[Cluster Summary]" -ForegroundColor Cyan
 
-    # Cluster Information (Integrated)
+    # Retrieve Kubernetes Version
     Write-Host -NoNewline "`n🤖 Retrieving Cluster Information...             ⏳ Fetching..." -ForegroundColor Yellow
-    
-    # Fetch Kubernetes Version & Cluster Name
     $versionInfo = kubectl version -o json | ConvertFrom-Json
     $k8sVersion = if ($versionInfo.serverVersion.gitVersion) { $versionInfo.serverVersion.gitVersion } else { "Unknown" }
     $clusterName = (kubectl config current-context)
-
-    Write-ToReport "Cluster Name is $clusterName"
-    Write-ToReport "Kubernetes Version is $k8sVersion"
-
-    # Overwrite "Fetching..." with "Done!" before displaying details
     Write-Host "`r🤖 Retrieving Cluster Information...             ✅ Done!      " -ForegroundColor Green
 
     # Print Cluster Information
-    
     Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
     Write-Host "is " -NoNewline
     Write-Host "$clusterName" -ForegroundColor Yellow
     Write-Host "Kubernetes Version " -NoNewline -ForegroundColor Green
     Write-Host "is " -NoNewline
     Write-Host "$k8sVersion" -ForegroundColor Yellow
-
-    # Print Remaining Cluster Info
-    #kubectl cluster-info
-
-    kubectl cluster-info | ForEach-Object { Write-ToReport $_ }
+    kubectl cluster-info
 
     # Kubernetes Version Check
     Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility...   ⏳ Fetching..." -ForegroundColor Yellow
@@ -2140,19 +2125,24 @@ function Show-ClusterSummary {
     Write-Host "`r🤖 Checking Kubernetes Version Compatibility...  ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$versionCheck"
 
-    Write-ToReport `n$versionCheck
-
     # Cluster Metrics
     Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                    ⏳ Fetching..." -ForegroundColor Yellow
     $summary = Show-HeroMetrics
     Write-Host "`r🤖 Fetching Cluster Metrics...                   ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$summary"
 
-    Write-ToReport $summary
+    # Log to report
+    Write-ToReport "Cluster Name: $clusterName"
+    Write-ToReport "Kubernetes Version: $k8sVersion"
+    $info = kubectl cluster-info | Out-String
+            Write-ToReport $info
+    Write-ToReport "Compatibility Check: $versionCheck"
+    Write-ToReport "`nMetrics: $summary"
 
+    # Wait for user input and exit function
     Read-Host "`nPress Enter to return to the main menu"
-    Clear-Host
 }
+
 
 
 function Invoke-KubeBuddy {
