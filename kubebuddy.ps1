@@ -13,25 +13,36 @@ function Write-ToReport {
 function Generate-FullReport {
     Write-Host "🤖 Generating full report..."
     $Global:Report = $true
-    Clear-Content -Path $ReportFile -ErrorAction SilentlyContinue
-    Write-ToReport "Kubebuddy Report - Generated on $(Get-Date)"
+
+    # Clear existing report content if the file exists
+    if (Test-Path $ReportFile) {
+        Clear-Content -Path $ReportFile -ErrorAction SilentlyContinue
+    }
+
+    # Write report header
+    Write-ToReport "Kubebuddy Report - Generated on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     Write-ToReport "========================================"
-    
-    Write-ToReport "\nCluster Summary:"
-    Show-ClusterSummary
-    
-    Write-ToReport "\nDeployments List:"
-    
-    
-    Write-ToReport "\nNodes Information:"
-    
-    
-    Write-ToReport "\nServices List:"
-    
-    
+
+    # Cluster summary
+    Write-ToReport "`n📌 Cluster Summary:"
+    Show-ClusterSummary | ForEach-Object { Write-ToReport $_ }
+
+    # Deployments
+    Write-ToReport "`n📌 Deployments List:"
+    Get-Deployments | ForEach-Object { Write-ToReport $_ }
+
+    # Nodes
+    Write-ToReport "`n📌 Nodes Information:"
+    Get-Nodes | ForEach-Object { Write-ToReport $_ }
+
+    # Services
+    Write-ToReport "`n📌 Services List:"
+    Get-Services | ForEach-Object { Write-ToReport $_ }
+
     $Global:Report = $false
-    Write-Host "Report generated: $ReportFile"
+    Write-Host "✅ Report generated: $ReportFile"
 }
+
 
 function Get-KubeBuddyThresholds {
     param(
