@@ -1232,6 +1232,10 @@ function Show-ServicesWithoutEndpoints {
 }
 
 function Show-UnusedPVCs {
+    param(
+        [int]$PageSize = 10  # Number of PVCs per page
+    )
+
     Write-Host "`n[Unused Persistent Volume Claims]" -ForegroundColor Cyan
     $pvcs = kubectl get pvc --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
@@ -1240,13 +1244,62 @@ function Show-UnusedPVCs {
     $attachedPVCs = $pods | ForEach-Object { $_.spec.volumes | Where-Object { $_.persistentVolumeClaim } } | Select-Object -ExpandProperty persistentVolumeClaim
     $unusedPVCs = $pvcs | Where-Object { $_.metadata.name -notin $attachedPVCs.name }
 
-    if ($unusedPVCs.Count -eq 0) {
+    $totalPVCs = $unusedPVCs.Count
+
+    if ($totalPVCs -eq 0) {
         Write-Host "✅ No unused PVCs found." -ForegroundColor Green
         Read-Host "🤖 Press Enter to return to the menu"
         return
     }
 
-    $unusedPVCs | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, @{Label = "PVC"; Expression = { $_.metadata.name } }, @{Label = "Storage"; Expression = { $_.spec.resources.requests.storage } } -AutoSize
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalPVCs / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[Unused Persistent Volume Claims - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalPVCs)
+
+        $tableData = $unusedPVCs[$startIndex..($endIndex - 1)]
+
+        if ($tableData) {
+            $tableData | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, 
+                                              @{Label = "PVC"; Expression = { $_.metadata.name } }, 
+                                              @{Label = "Storage"; Expression = { $_.spec.resources.requests.storage } } -AutoSize
+        }
+
+        # Pagination controls
+        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+
+        $options = @()
+        if ($currentPage -lt ($totalPages - 1)) { $options += "[N] Next" }
+        if ($currentPage -gt 0) { $options += "[P] Previous" }
+        $options += "[C] Continue"
+
+        Write-Host ($options -join ", ") -ForegroundColor Yellow
+
+        do {
+            $paginationInput = Read-Host "Enter your choice"
+        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
+                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
+                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
+
+        if ($paginationInput -match "^[Nn]$") {
+            $currentPage++
+        }
+        elseif ($paginationInput -match "^[Pp]$") {
+            $currentPage--
+        }
+        elseif ($paginationInput -match "^[Cc]$") {
+            return  # Exit pagination immediately without asking for confirmation
+        }
+
+    } while ($true)
+
+    # Only pause **if user didn't select [C]**
+    Read-Host "`n🤖 Press Enter to return to the storage menu"
 }
 
 
@@ -1554,27 +1607,105 @@ function Show-OrphanedConfigMapsSecrets {
     $orphanedSecrets | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, @{Label = "Secret"; Expression = { $_.metadata.name } } -AutoSize
 }
 
-
 function Check-RBACMisconfigurations {
+    param(
+        [int]$PageSize = 10
+    )
+
     Write-Host "`n[RBAC Misconfigurations]" -ForegroundColor Cyan
 
+    # Fetch RoleBindings and ClusterRoleBindings
+    Write-Host -NoNewline "`n🤖 Fetching RoleBindings & ClusterRoleBindings..." -ForegroundColor Yellow
     $roleBindings = kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     $clusterRoleBindings = kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $roles = kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $clusterRoles = kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    # Get existing namespaces to check for deleted ones
+    $existingNamespaces = kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
+        Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
+
+    Write-Host "`r🤖 ✅ Fetched RoleBindings & ClusterRoleBindings.`n" -ForegroundColor Green
 
     $invalidRBAC = @()
 
-    foreach ($rb in $roleBindings + $clusterRoleBindings) {
+    Write-Host "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
+
+    foreach ($rb in $roleBindings) {
+        $rbNamespace = $rb.metadata.namespace
+        $namespaceExists = $rbNamespace -in $existingNamespaces
+
+        # Check if the Role exists
+        $roleExists = $roles | Where-Object { $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $rbNamespace }
+        if (-not $roleExists) {
+            $invalidRBAC += [PSCustomObject]@{
+                "Namespace"   = if ($namespaceExists) { $rbNamespace } else { "🛑 Namespace Missing" }
+                "Type"        = "🔹 Namespace Role"
+                "RoleBinding" = $rb.metadata.name
+                "Subject"     = "N/A"
+                "Issue"       = "❌ Missing Role/ClusterRole: $($rb.roleRef.name)"
+            }
+        }
+
         foreach ($subject in $rb.subjects) {
             if ($subject.kind -eq "User" -or $subject.kind -eq "Group") {
-                continue  # Cannot verify users/groups easily
+                continue  # Skip user/group bindings (cannot validate users/groups)
             }
             elseif ($subject.kind -eq "ServiceAccount") {
-                $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
-                if (-not $exists) {
+                # If namespace is missing, we mark it here instead
+                if (-not $namespaceExists) {
                     $invalidRBAC += [PSCustomObject]@{
-                        Namespace   = $rb.metadata.namespace
-                        RoleBinding = $rb.metadata.name
-                        Subject     = "$($subject.kind)/$($subject.name)"
+                        "Namespace"   = "🛑 Namespace Missing"
+                        "Type"        = "🔹 Namespace Role"
+                        "RoleBinding" = $rb.metadata.name
+                        "Subject"     = "$($subject.kind)/$($subject.name)"
+                        "Issue"       = "🛑 Namespace does not exist"
+                    }
+                }
+                else {
+                    # Namespace exists, check if ServiceAccount exists
+                    $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
+                    if (-not $exists) {
+                        $invalidRBAC += [PSCustomObject]@{
+                            "Namespace"   = $rbNamespace
+                            "Type"        = "🔹 Namespace Role"
+                            "RoleBinding" = $rb.metadata.name
+                            "Subject"     = "$($subject.kind)/$($subject.name)"
+                            "Issue"       = "❌ ServiceAccount does not exist"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    foreach ($crb in $clusterRoleBindings) {
+        foreach ($subject in $crb.subjects) {
+            if ($subject.kind -eq "User" -or $subject.kind -eq "Group") {
+                continue  # Skip user/group bindings
+            }
+            elseif ($subject.kind -eq "ServiceAccount") {
+                # If namespace is missing, flag it correctly
+                if ($subject.namespace -notin $existingNamespaces) {
+                    $invalidRBAC += [PSCustomObject]@{
+                        "Namespace"   = "🛑 Namespace Missing"
+                        "Type"        = "🔸 Cluster Role"
+                        "RoleBinding" = $crb.metadata.name
+                        "Subject"     = "$($subject.kind)/$($subject.name)"
+                        "Issue"       = "🛑 Namespace does not exist"
+                    }
+                }
+                else {
+                    # Namespace exists, check if ServiceAccount exists
+                    $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
+                    if (-not $exists) {
+                        $invalidRBAC += [PSCustomObject]@{
+                            "Namespace"   = "🌍 Cluster-Wide"
+                            "Type"        = "🔸 Cluster Role"
+                            "RoleBinding" = $crb.metadata.name
+                            "Subject"     = "$($subject.kind)/$($subject.name)"
+                            "Issue"       = "❌ ServiceAccount does not exist"
+                        }
                     }
                 }
             }
@@ -1587,8 +1718,59 @@ function Check-RBACMisconfigurations {
         return
     }
 
-    $invalidRBAC | Format-Table -AutoSize
+    # Pagination Setup
+    $totalBindings = $invalidRBAC.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalBindings / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[RBAC Misconfigurations - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        # Explanation for clarity
+        Write-Host "`nRBAC (Role-Based Access Control) defines who can do what in your cluster." -ForegroundColor Yellow
+        Write-Host "This check identifies misconfigurations, missing references, and overly permissive roles." -ForegroundColor Yellow
+
+        # Display summary of issues found
+        Write-Host "`n⚠️ Found $totalBindings potential misconfigurations in RoleBindings and ClusterRoleBindings.`n" -ForegroundColor Red
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalBindings)
+
+        $tableData = $invalidRBAC[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table -AutoSize
+        }
+
+        # Pagination controls
+        Write-Host "`nPage $($currentPage + 1) of $totalPages"
+
+        $options = @()
+        if ($currentPage -lt ($totalPages - 1)) { $options += "N = Next" }
+        if ($currentPage -gt 0) { $options += "P = Previous" }
+        $options += "C = Continue"
+
+        Write-Host ($options -join ", ") -ForegroundColor Yellow
+
+        do {
+            $paginationInput = Read-Host "Enter your choice"
+        } while ($paginationInput -notmatch "^[NnPpCc]$" -or 
+                 ($paginationInput -match "^[Nn]$" -and $currentPage -eq ($totalPages - 1)) -or 
+                 ($paginationInput -match "^[Pp]$" -and $currentPage -eq 0))
+
+        if ($paginationInput -match "^[Nn]$") {
+            $currentPage++
+        }
+        elseif ($paginationInput -match "^[Pp]$") {
+            $currentPage--
+        }
+        elseif ($paginationInput -match "^[Cc]$") {
+            break # Exit pagination and continue script
+        }
+
+    } while ($true)
 }
+
 
 function Show-ClusterSummary {
     Clear-Host
