@@ -1,90 +1,100 @@
-function Write-SpeechBubble {
+function Get-TerminalWidth {
+    try {
+        return $Host.UI.RawUI.WindowSize.Width
+    } catch {
+        return 80  # Default width if detection fails
+    }
+}
+
+function Wrap-Text {
     param (
-        [string[]]$msg,           
-        [string]$color = "Cyan",  
-        [string]$icon = "🤖",     
-        [string]$warningEmoji = "⚠️",  
-        [string]$lastColor = "Red",
-        [int]$delay = 50  # Typing effect speed (milliseconds per word)
+        [string]$text,
+        [int]$maxWidth
     )
 
-    # Ensure the last line includes the warning emoji
-    $msg[-1] = "$warningEmoji  " + $msg[-1]
+    $words = $text -split ' '
+    $lines = @()
+    $currentLine = ""
 
-    # Calculate the max line width dynamically
-    $maxLength = ($msg | Measure-Object -Property Length -Maximum).Maximum
+    foreach ($word in $words) {
+        if (($currentLine.Length + $word.Length) -lt $maxWidth) {
+            $currentLine += "$word "
+        } else {
+            $lines += $currentLine.TrimEnd()
+            $currentLine = "$word "
+        }
+    }
+
+    if ($currentLine.Length -gt 0) {
+        $lines += $currentLine.TrimEnd()
+    }
+
+    return ,$lines  # Forces return type to an array
+}
+
+function Write-SpeechBubble {
+    param (
+        [string[]]$msg,
+        [string]$color = "Cyan",
+        [string]$icon = "[BOT]",
+        [string]$warningText = "[WARNING]",
+        [string]$lastColor = "Red",
+        [int]$delay = 50
+    )
+
+    # Get terminal width and set max bubble width (keep some margin)
+    $terminalWidth = Get-TerminalWidth
+    $maxTextWidth = $terminalWidth - 10  # Keep a 10-char margin
+
+    # Wrap each line to fit within terminal width
+    $wrappedMsg = @()
+    foreach ($line in $msg[0..($msg.Length - 2)]) {  # Process all except last line
+        $wrappedMsg += Wrap-Text -text $line -maxWidth $maxTextWidth
+    }
+
+    # Process the last line separately to ensure `[WARNING]` is only added once
+    $lastWrappedLines = @(Wrap-Text -text $msg[-1] -maxWidth $maxTextWidth)  # Ensures array format
+
+    # Add `[WARNING]` only to the first wrapped part of the last line
+    if ($lastWrappedLines.Count -gt 0) {
+        $lastWrappedLines[0] = "$warningText $lastWrappedLines[0]"
+    }
+
+    $wrappedMsg += $lastWrappedLines
+
+    # Calculate max line width dynamically
+    $maxLength = ($wrappedMsg | Measure-Object -Property Length -Maximum).Maximum
     $boxWidth = $maxLength + 4  
 
-    # Display the robot first
+    # Print the bot icon
     Write-Host "  $icon" -ForegroundColor $color
     Write-Host "     🭽" -ForegroundColor $color
     Write-Host "      🭿" -ForegroundColor $color
 
     Start-Sleep -Milliseconds 500  # Short delay before speaking starts
 
-    # Build rounded speech bubble top (connecting to the speech tail)
-    $topBorder = "        ╭" + ("─" * $boxWidth) + "╮"
-    Write-Host "$topBorder" -ForegroundColor $color
+    # Top border
+    Write-Host ("     ╭" + ("─" * $boxWidth) + "╮") -ForegroundColor $color
 
-    # Print each message line inside the bubble with word-by-word effect
-    for ($i = 0; $i -lt $msg.Length; $i++) {
-        $lineText = $msg[$i]
-        $rightBorder = " │"
-        $lineColor = $color 
-
-        # Adjust ❌ line alignment
-        if ($lineText -match "❌") {
-            $rightBorder = "│"
-        }
-
-        # Move last line forward and keep its `│` cyan
-        if ($i -eq $msg.Length - 1) {
-            $lineText = " " + $lineText  
-            $rightBorder = "  │"
-            $lineColor = $lastColor
-        }
-
-        # Pad the line to fit the box width correctly
-        $paddedLine = $lineText.PadRight($maxLength + 1)
-
-        # Print left border in cyan
-        Write-Host "        │ " -NoNewline -ForegroundColor $color
-
-        # Print the text **word-by-word** with delay
-        $words = $paddedLine -split " "  # Split into words
-
-        foreach ($word in $words) {
-            if ($word -match "^\s*$") {
-                # Skip empty words and spaces
-                Write-Host " " -NoNewline
-                continue
-            }
-            
-            Write-Host "$word " -NoNewline -ForegroundColor $lineColor
-        
-            if ($delay -gt 0) { Start-Sleep -Milliseconds $delay }  # Only delay on actual words
-        }
-
-        # Print right border in cyan
-        Write-Host "$rightBorder" -ForegroundColor $color
+    # Print each message line inside the bubble
+    foreach ($line in $wrappedMsg) {
+        $paddedLine = $line.PadRight($maxLength)
+        Write-Host "     │ " -NoNewline -ForegroundColor $color
+        Write-Host "$paddedLine   │" -ForegroundColor $color
     }
 
-    # Build rounded speech bubble bottom
-    $bottomBorder = "        ╰" + ("─" * $boxWidth) + "╯"
-    Write-Host "$bottomBorder" -ForegroundColor $color
+    # Bottom border
+    Write-Host ("     ╰" + ("─" * $boxWidth) + "╯") -ForegroundColor $color
     Write-Host ""
 }
 
 # Example Usage:
 $msg = @(
-    "RBAC (Role-Based Access Control) defines who can do what in your cluster.",
+    "SYSTEM STATUS REPORT:",
     "",
-    "📌 This check identifies:",
-    "   - 🔍 Misconfigurations in RoleBindings & ClusterRoleBindings.",
-    "   - ❌ Missing references to ServiceAccounts & Namespaces.",
-    "   - 🔓 Overly permissive roles that may pose security risks.",
+    "This is an extremely long single line designed to test how the speech bubble handles word wrapping within a constrained width. If everything works correctly, this sentence should automatically wrap within the defined text box without breaking alignment, misplacing words, or shifting the right-side border. The goal is to ensure that the box expands properly and the text remains readable without being cut off or causing formatting issues in different terminal environments, including Windows Terminal.",
     "",
-    "Total RBAC Misconfigurations Detected: 15"
+    "If the formatting looks incorrect, word-wrapping might need adjustments!"
 )
 
 Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
