@@ -1,61 +1,77 @@
 function Write-SpeechBubble {
     param (
-        [string[]]$msg,          # Message array to display
-        [string]$color = "Cyan", # Default color of the text
-        [string]$icon = "🤖",    # Speaking icon at the bottom
-        [string]$warningEmoji = "⚠️", # Warning emoji for the last line
-        [string]$lastColor = "Red" # Color for the last line text
+        [string[]]$msg,           
+        [string]$color = "Cyan",  
+        [string]$icon = "🤖",     
+        [string]$warningEmoji = "⚠️",  
+        [string]$lastColor = "Red",
+        [int]$delay = 50  # Typing effect speed (milliseconds per word)
     )
 
-    # Ensure the last line includes the warning emoji inside the function
-    $msg[-1] = "$warningEmoji " + $msg[-1]
+    # Ensure the last line includes the warning emoji
+    $msg[-1] = "$warningEmoji  " + $msg[-1]
 
     # Calculate the max line width dynamically
     $maxLength = ($msg | Measure-Object -Property Length -Maximum).Maximum
-    $boxWidth = $maxLength + 3  # Add padding for alignment
+    $boxWidth = $maxLength + 4  
 
-    # Build speech bubble top border manually
-    $topBorder = "  ╭" + ("─" * $boxWidth) + "╮"
-    Write-Host "`n$topBorder" -ForegroundColor $color
+    # Display the robot first
+    Write-Host "  $icon" -ForegroundColor $color
+    Write-Host "     🭽" -ForegroundColor $color
+    Write-Host "      🭿" -ForegroundColor $color
 
-    # Print each message line inside the bubble with exact spacing
+    Start-Sleep -Milliseconds 500  # Short delay before speaking starts
+
+    # Build rounded speech bubble top (connecting to the speech tail)
+    $topBorder = "        ╭" + ("─" * $boxWidth) + "╮"
+    Write-Host "$topBorder" -ForegroundColor $color
+
+    # Print each message line inside the bubble with word-by-word effect
     for ($i = 0; $i -lt $msg.Length; $i++) {
         $lineText = $msg[$i]
-        $rightBorder = " │"  # Default right border
-        $lineColor = $color  # Default text color
+        $rightBorder = " │"
+        $lineColor = $color 
 
-        # Move ❌ line back by one space AND shift `│` back one space
+        # Adjust ❌ line alignment
         if ($lineText -match "❌") {
-            $rightBorder = "│"  # Shift right border back one space
+            $rightBorder = "│"
         }
 
-        # Move last line forward one space and keep its `│` cyan
+        # Move last line forward and keep its `│` cyan
         if ($i -eq $msg.Length - 1) {
-            $lineText = " " + $lineText  # Shift text forward
-            $rightBorder = "  │"  # Shift right border right by one space
-            $lineColor = $lastColor  # Make text red
+            $lineText = " " + $lineText  
+            $rightBorder = "  │"
+            $lineColor = $lastColor
         }
 
         # Pad the line to fit the box width correctly
         $paddedLine = $lineText.PadRight($maxLength + 1)
 
-        # Print the left border in cyan
-        Write-Host "  │ " -NoNewline -ForegroundColor $color
+        # Print left border in cyan
+        Write-Host "        │ " -NoNewline -ForegroundColor $color
 
-        # Print the text (red for last line)
-        Write-Host "$paddedLine" -NoNewline -ForegroundColor $lineColor
+        # Print the text **word-by-word** with delay
+        $words = $paddedLine -split " "  # Split into words
 
-        # Print the right border in cyan
+        foreach ($word in $words) {
+            if ($word -match "^\s*$") {
+                # Skip empty words and spaces
+                Write-Host " " -NoNewline
+                continue
+            }
+            
+            Write-Host "$word " -NoNewline -ForegroundColor $lineColor
+        
+            if ($delay -gt 0) { Start-Sleep -Milliseconds $delay }  # Only delay on actual words
+        }
+
+        # Print right border in cyan
         Write-Host "$rightBorder" -ForegroundColor $color
     }
 
-    # Build speech bubble bottom border manually
-    $bottomBorder = "  ╰" + ("─" * $boxWidth) + "╯"
+    # Build rounded speech bubble bottom
+    $bottomBorder = "        ╰" + ("─" * $boxWidth) + "╯"
     Write-Host "$bottomBorder" -ForegroundColor $color
-
-    # Speech tail pointing to the robot
-    Write-Host "     \\" -ForegroundColor $color
-    Write-Host "      \_ $icon" -ForegroundColor $color
     Write-Host ""
 }
 
@@ -71,4 +87,4 @@ $msg = @(
     "Total RBAC Misconfigurations Detected: 15"
 )
 
-Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red"
+Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
