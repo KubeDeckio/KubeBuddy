@@ -1,6 +1,14 @@
 # Define report file location (global scope)
 $ReportFile = "$pwd/kubebuddy-report.txt"
 
+$localScripts = Get-ChildItem -Path "$pwd/Write-Box.ps1"
+
+# Execute each .ps1 script found in the local Private directory
+foreach ($script in $localScripts) {
+    Write-Verbose "Executing script: $($script.FullName)"
+    . $script.FullName  # Call the script
+}
+
 function Write-ToReport {
     param(
         [string]$Message
@@ -339,25 +347,26 @@ function Show-NodeConditions {
         Write-Host "`n[🌍 Node Conditions - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Display total 'Not Ready' nodes in the speech bubble before pagination starts**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Nodes are assessed for readiness and issues.                      ║" -ForegroundColor Cyan
-        Write-Host "  ║    If a node is 'Not Ready', it may impact workloads.                ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 Common Causes of 'Not Ready':                                     ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Network issues preventing API communication                     ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Insufficient CPU/Memory on the node                             ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Disk pressure or PID pressure detected                          ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Node failing to join due to missing CNI plugins                 ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 🔍 Troubleshooting Tips:                                             ║" -ForegroundColor Cyan
-        Write-Host "  ║    Run: kubectl describe node <NODE_NAME>                            ║" -ForegroundColor Cyan
-        Write-Host "  ║    Check kubelet logs: journalctl -u kubelet -f                      ║" -ForegroundColor Cyan
-        Write-Host "  ║    Verify networking: kubectl get pods -A -o wide                    ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Not Ready Nodes in the Cluster: $totalNotReadyNodes                           ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Nodes are assessed for readiness and issues.",
+            "",
+            "   If a node is 'Not Ready', it may impact workloads.",
+            "",
+            "📌 Common Causes of 'Not Ready':",
+            "   - Network issues preventing API communication",
+            "   - Insufficient CPU/Memory on the node",
+            "   - Disk pressure or PID pressure detected",
+            "   - Node failing to join due to missing CNI plugins",
+            "",
+            "🔍 Troubleshooting Tips:",
+            "   - Run: kubectl describe node <NODE_NAME>",
+            "   - Check kubelet logs: journalctl -u kubelet -f",
+            "   - Verify networking: kubectl get pods -A -o wide",
+            "",
+            "⚠️ Total Not Ready Nodes in the Cluster: $totalNotReadyNodes"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -470,19 +479,16 @@ function Show-NodeResourceUsage {
         Write-Host "`n[📊 Node Resource Usage - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Display total warnings in the speech bubble before pagination starts**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Nodes are assessed for CPU, memory, and disk usage. Alerts        ║" -ForegroundColor Cyan
-        Write-Host "  ║    indicate high resource utilization.                               ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 If CPU or memory usage is high, check workloads consuming         ║" -ForegroundColor Cyan
-        Write-Host "  ║    excessive resources and optimize them.                            ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 If disk usage is critical, consider adding storage capacity       ║" -ForegroundColor Cyan
-        Write-Host "  ║    or cleaning up unused data.                                       ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Resource Warnings Across All Nodes: $totalWarnings                       ║" -ForegroundColor red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Nodes are assessed for CPU, memory, and disk usage. Alerts indicate high resource utilization.",
+            "",
+            "📌 If CPU or memory usage is high, check workloads consuming excessive resources and optimize them.",
+            "📌 If disk usage is critical, consider adding storage capacity or cleaning up unused data.",
+            "",
+            "⚠️ Total Resource Warnings Across All Nodes: $totalWarnings"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -587,23 +593,23 @@ function Show-PodsWithHighRestarts {
         Write-Host "`n[🔁 Pods with High Restarts - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Some pods are experiencing frequent restarts.                     ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 Why this matters:                                                 ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Frequent restarts may indicate a failing application.           ║" -ForegroundColor Cyan
-        Write-Host "  ║    - CrashLoopBackOff issues often result from config errors.        ║" -ForegroundColor Cyan
-        Write-Host "  ║    - High restarts can cause service degradation.                    ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 🔍 Recommended Actions:                                              ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Check logs with 'kubectl logs <pod> -n <namespace>'.            ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Inspect events: 'kubectl describe pod <pod> -n <namespace>'.    ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Verify resource limits and probes (liveness/readiness).         ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total High-Restart Pods: $totalPods                                       ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Some pods are experiencing frequent restarts.",
+            "",
+            "📌 Why this matters:",
+            "   - Frequent restarts may indicate a failing application.",
+            "   - CrashLoopBackOff issues often result from config errors.",
+            "   - High restarts can cause service degradation.",
+            "",
+            "🔍 Recommended Actions:",
+            "   - Check logs with 'kubectl logs <pod> -n <namespace>'.",
+            "   - Inspect events: 'kubectl describe pod <pod> -n <namespace>'.",
+            "   - Verify resource limits and probes (liveness/readiness).",
+            "",
+            "⚠️ Total High-Restart Pods: $totalPods"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -704,22 +710,23 @@ function Show-LongRunningPods {
         Write-Host "`n[⏳ Long Running Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Pods that have been running for extended periods.                 ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 Why this matters:                                                 ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Long-running pods may indicate outdated workloads.              ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Some applications expect restarts to refresh state.             ║" -ForegroundColor Cyan
-        Write-Host "  ║    - High uptime without rolling updates can cause drift issues.     ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 🔍 Recommended Actions:                                              ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Check if these pods should be updated or restarted.             ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Review deployments for stale workloads.                         ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Long-Running Pods: $totalPods                                       ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Pods that have been running for extended periods.",
+            "",
+            "📌 Why this matters:",
+            "   - Long-running pods may indicate outdated workloads.",
+            "   - Some applications expect restarts to refresh state.",
+            "   - High uptime without rolling updates can cause drift issues.",
+            "",
+            "🔍 Recommended Actions:",
+            "   - Check if these pods should be updated or restarted.",
+            "   - Review deployments for stale workloads.",
+            "",
+            "⚠️ Total Long-Running Pods: $totalPods"
+        )
+        
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -801,22 +808,22 @@ function Show-DaemonSetIssues {
         Write-Host "`n[🔄 DaemonSets Not Fully Running - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 DaemonSets run on every node in your cluster.                     ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies DaemonSets that are not fully running.      ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Nodes may lack resources (CPU, Memory).                         ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Scheduling constraints (taints, affinity) could be blocking.    ║" -ForegroundColor Cyan
-        Write-Host "  ║    - DaemonSet pod images may be failing to pull.                    ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 🔍 Investigate further using:                                        ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 'kubectl describe ds <daemonset-name> -n <namespace>'           ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 'kubectl get pods -n <namespace> -o wide'                       ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total DaemonSets with Issues: $totalDaemonSets                                  ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 DaemonSets run on every node in your cluster.",
+            "",
+            "📌 This check identifies DaemonSets that are not fully running.",
+            "   - Nodes may lack resources (CPU, Memory).",
+            "   - Scheduling constraints (taints, affinity) could be blocking.",
+            "   - DaemonSet pod images may be failing to pull.",
+            "",
+            "🔍 Investigate further using:",
+            "   - 'kubectl describe ds <daemonset-name> -n <namespace>'",
+            "   - 'kubectl get pods -n <namespace> -o wide'",
+            "",
+            "⚠️ Total DaemonSets with Issues: $totalDaemonSets"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -886,22 +893,22 @@ function Show-FailedPods {
         Write-Host "`n[🔴 Failed Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Pods that failed to start or complete successfully.               ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 A pod can fail due to:                                            ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Image pull issues (wrong image, no registry access).            ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Insufficient CPU/memory resources.                              ║" -ForegroundColor Cyan
-        Write-Host "  ║    - CrashLoopBackOff due to misconfigured applications.             ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 🔍 Debugging Commands:                                               ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 'kubectl describe pod <pod-name> -n <namespace>'                ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 'kubectl logs <pod-name> -n <namespace>'                        ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Failed Pods: $totalPods                                              ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Pods that failed to start or complete successfully.",
+            "",
+            "📌 A pod can fail due to:",
+            "   - Image pull issues (wrong image, no registry access).",
+            "   - Insufficient CPU/memory resources.",
+            "   - CrashLoopBackOff due to misconfigured applications.",
+            "",
+            "🔍 Debugging Commands:",
+            "   - 'kubectl describe pod <pod-name> -n <namespace>'",
+            "   - 'kubectl logs <pod-name> -n <namespace>'",
+            "",
+            "⚠️ Total Failed Pods: $totalPods"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -985,17 +992,17 @@ function Show-EmptyNamespaces {
         Write-Host "`n[📂 Empty Namespaces - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Empty namespaces exist but contain no running pods.               ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 These may be unused namespaces that can be cleaned up.            ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 If needed, verify if they contain other resources (Secrets, PVCs).║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 Deleting an empty namespace will remove all associated resources. ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Empty Namespaces: $totalNamespaces                                          ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Empty namespaces exist but contain no running pods.",
+            "",
+            "📌 These may be unused namespaces that can be cleaned up.",
+            "📌 If needed, verify if they contain other resources (Secrets, PVCs).",
+            "📌 Deleting an empty namespace will remove all associated resources.",
+            "",
+            "⚠️ Total Empty Namespaces: $totalNamespaces"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1067,22 +1074,22 @@ function Show-PendingPods {
         Write-Host "`n[⏳ Pending Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Pending pods are stuck in a non-running state.                    ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies pods that are unable to start due to:       ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Insufficient cluster resources (CPU, Memory)                    ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Scheduling issues (e.g., node taints, affinity rules)           ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Missing dependencies (PVCs, ConfigMaps, Secrets)                ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 🔍 Investigate further using:                                        ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 'kubectl describe pod <pod-name> -n <namespace>'                ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 'kubectl get events -n <namespace>'                             ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Pending Pods Found: $totalPods                                       ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Pending pods are stuck in a non-running state.",
+            "",
+            "📌 This check identifies pods that are unable to start due to:",
+            "   - Insufficient cluster resources (CPU, Memory)",
+            "   - Scheduling issues (e.g., node taints, affinity rules)",
+            "   - Missing dependencies (PVCs, ConfigMaps, Secrets)",
+            "",
+            "🔍 Investigate further using:",
+            "   - 'kubectl describe pod <pod-name> -n <namespace>'",
+            "   - 'kubectl get events -n <namespace>'",
+            "",
+            "⚠️ Total Pending Pods Found: $totalPods"
+        )
+
+        write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1169,21 +1176,20 @@ function Show-CrashLoopBackOffPods {
         Write-Host "`n[🔴 CrashLoopBackOff Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 CrashLoopBackOff occurs when a pod continuously crashes.           ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies pods that keep restarting due to failures.  ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Common causes: misconfigurations, missing dependencies,         ║" -ForegroundColor Cyan
-        Write-Host "  ║      or insufficient resources.                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Investigate pod logs: 'kubectl logs <pod-name> -n <namespace>'  ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Describe the pod: 'kubectl describe pod <pod-name>'             ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Review and fix these issues to restore pod stability.             ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total CrashLoopBackOff Pods Found: $totalPods                                       ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 CrashLoopBackOff occurs when a pod continuously crashes.",
+            "",
+            "📌 This check identifies pods that keep restarting due to failures.",
+            "   - Common causes: misconfigurations, missing dependencies, or insufficient resources.",
+            "   - Investigate pod logs: 'kubectl logs <pod-name> -n <namespace>'",
+            "   - Describe the pod: 'kubectl describe pod <pod-name>'",
+            "",
+            "⚠️ Review and fix these issues to restore pod stability.",
+            "",
+            "⚠️ Total CrashLoopBackOff Pods Found: $totalPods"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1285,19 +1291,19 @@ function Show-ServicesWithoutEndpoints {
         Write-Host "`n[🔍 Services Without Endpoints - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Kubernetes services route traffic, but require endpoints to work. ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies services that have no associated endpoints. ║" -ForegroundColor Cyan
-        Write-Host "  ║    - No endpoints could mean no running pods match service selectors.║" -ForegroundColor Cyan
-        Write-Host "  ║    - It may also indicate misconfigurations or orphaned services.    ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Investigate these services to confirm if they are required.        ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Services Without Endpoints: $totalServices                                ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Kubernetes services route traffic, but require endpoints to work.",
+            "",
+            "📌 This check identifies services that have no associated endpoints.",
+            "   - No endpoints could mean no running pods match service selectors.",
+            "   - It may also indicate misconfigurations or orphaned services.",
+            "",
+            "⚠️ Investigate these services to confirm if they are required.",
+            "",
+            "⚠️ Total Services Without Endpoints: $totalServices"
+        )
+
+        write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1389,19 +1395,19 @@ function Show-UnusedPVCs {
         Write-Host "`n[💾 Unused Persistent Volume Claims - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Persistent Volume Claims (PVCs) reserve storage in your cluster.  ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies PVCs that are NOT attached to any Pod.      ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Unused PVCs may indicate abandoned or uncleaned storage.        ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Storage resources remain allocated until PVCs are deleted.      ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Review unused PVCs before deletion to avoid accidental data loss.  ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Unused PVCs Found: $totalPVCs                                         ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Persistent Volume Claims (PVCs) reserve storage in your cluster.",
+            "",
+            "📌 This check identifies PVCs that are NOT attached to any Pod.",
+            "   - Unused PVCs may indicate abandoned or uncleaned storage.",
+            "   - Storage resources remain allocated until PVCs are deleted.",
+            "",
+            "⚠️ Review unused PVCs before deletion to avoid accidental data loss.",
+            "",
+            "⚠️ Total Unused PVCs Found: $totalPVCs"
+        )
+
+        write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPVCs)
@@ -1509,22 +1515,21 @@ function Show-StuckJobs {
         Write-Host "`n[⏳ Stuck Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Kubernetes Jobs should complete within a reasonable time.         ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies jobs that have been running too long        ║" -ForegroundColor Cyan
-        Write-Host "  ║    and have not completed, failed, or succeeded.                     ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 Possible causes:                                                  ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Stuck pods or unresponsive workloads                            ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Misconfigured restart policies                                  ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Insufficient resources (CPU/Memory)                             ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Investigate these jobs to determine the cause and resolve issues.  ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Stuck Jobs Found: $($stuckJobs.Count)                                          ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Kubernetes Jobs should complete within a reasonable time.",
+            "",
+            "📌 This check identifies jobs that have been running too long and have not completed, failed, or succeeded.",
+            "📌 Possible causes:",
+            "   - Stuck pods or unresponsive workloads",
+            "   - Misconfigured restart policies",
+            "   - Insufficient resources (CPU/Memory)",
+            "",
+            "⚠️ Investigate these jobs to determine the cause and resolve issues.",
+            "",
+            "⚠️ Total Stuck Jobs Found: $($stuckJobs.Count)"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1627,21 +1632,20 @@ function Show-FailedJobs {
         Write-Host "`n[🔴 Failed Kubernetes Jobs - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Kubernetes Jobs should complete successfully.                     ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies jobs that have encountered failures.        ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Jobs may fail due to insufficient resources, timeouts, or       ║" -ForegroundColor Cyan
-        Write-Host "  ║      misconfigurations.                                              ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Review logs with 'kubectl logs job/<job-name>'                  ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Investigate pod failures with 'kubectl describe job/<job-name>' ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Consider re-running or debugging these jobs for resolution.        ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Failed Jobs Found: $($failedJobs.Count)                                         ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Kubernetes Jobs should complete successfully.",
+            "",
+            "📌 This check identifies jobs that have encountered failures.",
+            "   - Jobs may fail due to insufficient resources, timeouts, or misconfigurations.",
+            "   - Review logs with 'kubectl logs job/<job-name>'",
+            "   - Investigate pod failures with 'kubectl describe job/<job-name>'",
+            "",
+            "⚠️ Consider re-running or debugging these jobs for resolution.",
+            "",
+            "⚠️ Total Failed Jobs Found: $($failedJobs.Count)"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1785,19 +1789,19 @@ function Check-OrphanedConfigMaps {
     do {
         Clear-Host
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔═══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 ConfigMaps store configuration data for workloads.                 ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                       ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies ConfigMaps that are not referenced by:       ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Pods, Deployments, StatefulSets, DaemonSets.                     ║" -ForegroundColor Cyan
-        Write-Host "  ║    - CronJobs, Jobs, ReplicaSets, Services, and Custom Resources.     ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                       ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Orphaned ConfigMaps may be outdated and can be reviewed for cleanup.║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                       ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Orphaned ConfigMaps Found: $($orphanedItems.Count)                                 ║" -ForegroundColor Red
-        Write-Host "  ╚═══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 ConfigMaps store configuration data for workloads.",
+            "",
+            "📌 This check identifies ConfigMaps that are not referenced by:",
+            "   - Pods, Deployments, StatefulSets, DaemonSets.",
+            "   - CronJobs, Jobs, ReplicaSets, Services, and Custom Resources.",
+            "",
+            "⚠️ Orphaned ConfigMaps may be outdated and can be reviewed for cleanup.",
+            "",
+            "⚠️ Total Orphaned ConfigMaps Found: $($orphanedItems.Count)"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1908,19 +1912,19 @@ function Check-OrphanedSecrets {
     do {
         Clear-Host
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔═════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Secrets store sensitive data such as API keys and credentials.       ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                         ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies Secrets that are NOT used by:                  ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Pods, Deployments, StatefulSets, DaemonSets.                       ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Ingress TLS, ServiceAccounts, and Custom Resources.                ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                         ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Unused Secrets may indicate outdated credentials or misconfigurations.║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                         ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total Orphaned Secrets Found: $($orphanedItems.Count)                                      ║" -ForegroundColor Red
-        Write-Host "  ╚═════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 Secrets store sensitive data such as API keys and credentials.",
+            "",
+            "📌 This check identifies Secrets that are NOT used by:",
+            "   - Pods, Deployments, StatefulSets, DaemonSets.",
+            "   - Ingress TLS, ServiceAccounts, and Custom Resources.",
+            "",
+            "⚠️ Unused Secrets may indicate outdated credentials or misconfigurations.",
+            "",
+            "⚠️ Total Orphaned Secrets Found: $($orphanedItems.Count)"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -2065,19 +2069,18 @@ function Check-RBACMisconfigurations {
 
         # Explanation for clarity
         # **Speech Bubble with Explanation**
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 RBAC (Role-Based Access Control) defines who can do what in       ║" -ForegroundColor Cyan
-        Write-Host "  ║    your cluster.                                                     ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ 📌 This check identifies:                                            ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 🔍 Misconfigurations in RoleBindings & ClusterRoleBindings.     ║" -ForegroundColor Cyan
-        Write-Host "  ║    - ❌ Missing references to ServiceAccounts & Namespaces.          ║" -ForegroundColor Cyan
-        Write-Host "  ║    - 🔓 Overly permissive roles that may pose security risks.        ║" -ForegroundColor Cyan
-        Write-Host "  ║                                                                      ║" -ForegroundColor Cyan
-        Write-Host "  ║ ⚠️ Total RBAC Misconfigurations Detected: $totalBindings                          ║" -ForegroundColor Red
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
+        $msg = @(
+            "🤖 RBAC (Role-Based Access Control) defines who can do what in your cluster.",
+            "",
+            "📌 This check identifies:",
+            "   - 🔍 Misconfigurations in RoleBindings & ClusterRoleBindings.",
+            "   - ❌ Missing references to ServiceAccounts & Namespaces.",
+            "   - 🔓 Overly permissive roles that may pose security risks.",
+            "",
+            "⚠️ Total RBAC Misconfigurations Detected: $totalBindings"
+        )
+
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalBindings)
@@ -2120,7 +2123,7 @@ function Show-ClusterSummary {
     kubectl cluster-info
 
     # Kubernetes Version Check
-    Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility...   ⏳ Fetching..." -ForegroundColor Yellow
+    Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility...  ⏳ Fetching..." -ForegroundColor Yellow
     $versionCheck = Check-KubernetesVersion
     Write-Host "`r🤖 Checking Kubernetes Version Compatibility...  ✅ Done!       " -ForegroundColor Green
     Write-Host "`n$versionCheck"
@@ -2143,7 +2146,7 @@ function Show-ClusterSummary {
     Read-Host "`nPress Enter to return to the main menu"
 }
 
-
+$version = "v0.0.1"
 
 function Invoke-KubeBuddy {
     Clear-Host
@@ -2158,63 +2161,79 @@ function Invoke-KubeBuddy {
 
     # KubeBuddy ASCII Art
     Write-Host ""
-    Write-Host $banner -ForegroundColor Cyan
+    Write-Host -NoNewline $banner -ForegroundColor Cyan
+    write-host "$version" -ForegroundColor Magenta
     Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "🤖 KubeBuddy: Your Kubernetes Assistant" -ForegroundColor Cyan
+    Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
     Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
 
     # Thinking animation
     Write-Host -NoNewline "`r🤖 Initializing KubeBuddy..." -ForegroundColor Yellow
     Start-Sleep -Seconds 2  
-    Write-Host "`r🤖 ✅ KubeBuddy is ready to assist you!  " -ForegroundColor Green
+    Write-Host "`r✅ KubeBuddy is ready to assist you!  " -ForegroundColor Green
 
-    do {
-        Write-Host ""
-        Write-Host "  ╔══════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-        Write-Host "  ║ 🤖 Hello, I'm KubeBuddy! Your friendly Kubernetes assistant.             ║" -ForegroundColor Cyan
-        Write-Host "  ║    - I can help you check node health, workload status, networking,      ║" -ForegroundColor Cyan
-        Write-Host "  ║      storage, RBAC security, and more.                                   ║" -ForegroundColor Cyan
-        Write-Host "  ║    - Select an option from the menu below to begin!                      ║" -ForegroundColor Cyan
-        Write-Host "  ╚══════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-        Write-Host ""
 
-        # Main menu options
-        $options = @(
-            "[1]  Cluster Summary 📊"
-            "[2]  Node Details 🖥️"
-            "[3]  Namespace Management 📂"
-            "[4]  Workload Management ⚙️"
-            "[5]  Pod Management 🚀"
-            "[6]  Kubernetes Jobs 🏢"
-            "[7]  Service & Networking 🌐"
-            "[8]  Storage Management 📦"
-            "[9]  RBAC & Security 🔐"
-            "[10] Generate Report"
-            "[Q]  Exit ❌"
+        $msg = @(
+            "🤖 Hello, I'm KubeBuddy! Your friendly Kubernetes assistant.",
+            "",
+            "   - I can help you check node health, workload status, networking, storage, RBAC security, and more.",
+            "  - Select an option from the menu below to begin!"
         )
 
-        foreach ($option in $options) { Write-Host $option }
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Green" -delay 50
 
-        # Get user choice
-        $choice = Read-Host "`n🤖 Enter your choice"
-        Clear-Host
+        $firstRun = $true  # Flag to track first execution
+        show-mainMenu
+}
 
-        switch ($choice) {
-            "1" { Show-ClusterSummary }
-            "2" { Show-NodeMenu }
-            "3" { Show-NamespaceMenu }
-            "4" { Show-WorkloadMenu }
-            "5" { Show-PodMenu }
-            "6" { Show-JobsMenu }
-            "7" { Show-ServiceMenu }
-            "8" { Show-StorageMenu }
-            "9" { Show-RBACMenu }
-            "10" { Generate-FullReport }
-            "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
-            default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
+function show-mainMenu {
+    do {
+        if ($firstRun) {
+            $firstRun = $false
         }
+        else {
+            Clear-Host
+        }
+        Write-Host "`n[🏠  Main Menu]" -ForegroundColor Cyan
+        Write-Host "------------------------------------------" -ForegroundColor DarkGray
 
-    } while ($true)
+            # Main menu options
+            $options = @(
+                "[1]  Cluster Summary 📊"
+                "[2]  Node Details 🖥️"
+                "[3]  Namespace Management 📂"
+                "[4]  Workload Management ⚙️"
+                "[5]  Pod Management 🚀"
+                "[6]  Kubernetes Jobs 🏢"
+                "[7]  Service & Networking 🌐"
+                "[8]  Storage Management 📦"
+                "[9]  RBAC & Security 🔐"
+                "[10] Generate Report"
+                "[Q]  Exit ❌"
+            )
+    
+            foreach ($option in $options) { Write-Host $option }
+    
+            # Get user choice
+            $choice = Read-Host "`n🤖 Enter your choice"
+            Clear-Host
+    
+            switch ($choice) {
+                "1" { Show-ClusterSummary }
+                "2" { Show-NodeMenu }
+                "3" { Show-NamespaceMenu }
+                "4" { Show-WorkloadMenu }
+                "5" { Show-PodMenu }
+                "6" { Show-JobsMenu }
+                "7" { Show-ServiceMenu }
+                "8" { Show-StorageMenu }
+                "9" { Show-RBACMenu }
+                "10" { Generate-FullReport }
+                "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
+                default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
+            }
+    
+        } while ($true)
 }
 
 function Show-WorkloadMenu {
@@ -2240,38 +2259,40 @@ function Show-WorkloadMenu {
             "1" { Show-DaemonSetIssues }
 
             "2" {
-                Write-Host ""
-                Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-                Write-Host "  ║ 🤖 Deployment Issues Check is coming soon!                  ║" -ForegroundColor Cyan
-                Write-Host "  ║    - This feature will identify failing or unhealthy       ║" -ForegroundColor Cyan
-                Write-Host "  ║      Deployments, rollout failures, and unavailable pods.  ║" -ForegroundColor Cyan
-                Write-Host "  ║    - Stay tuned! 🚀                                       ║" -ForegroundColor Cyan
-                Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-                Write-Host ""
+                $msg = @(
+                    "🤖 Deployment Issues Check is coming soon!",
+                    "",
+                    "   - This feature will identify failing or unhealthy Deployments, rollout failures, and unavailable pods.",
+                    "   - Stay tuned! 🚀"
+                )
+
+                Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Cyan" -delay 50
+                
                 Read-Host "🤖 Press Enter to return to the menu"
             }
 
             "3" {
-                Write-Host ""
-                Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-                Write-Host "  ║ 🤖 StatefulSet Health Check is coming soon!                 ║" -ForegroundColor Cyan
-                Write-Host "  ║    - This feature will analyze StatefulSets for failures,  ║" -ForegroundColor Cyan
-                Write-Host "  ║      stuck rollouts, and missing pods.                     ║" -ForegroundColor Cyan
-                Write-Host "  ║    - Stay tuned for updates! 🏗️                           ║" -ForegroundColor Cyan
-                Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-                Write-Host ""
+                $msg = @(
+                    "🤖 StatefulSet Health Check is coming soon!",
+                    "",
+                    "   - This feature will analyze StatefulSets for failures, stuck rollouts, and missing pods.",
+                    "   - Stay tuned for updates! 🏗️"
+                )
+
+                Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Cyan" -delay 50
+
                 Read-Host "🤖 Press Enter to return to the menu"
             }
 
             "4" {
-                Write-Host ""
-                Write-Host "  ╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-                Write-Host "  ║ 🤖 ReplicaSet Health Check is coming soon!                  ║" -ForegroundColor Cyan
-                Write-Host "  ║    - This feature will monitor ReplicaSets for pod         ║" -ForegroundColor Cyan
-                Write-Host "  ║      mismatches, scaling issues, and failures.              ║" -ForegroundColor Cyan
-                Write-Host "  ║    - Coming soon! 📈                                       ║" -ForegroundColor Cyan
-                Write-Host "  ╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-                Write-Host ""
+                $msg = @(
+                    "🤖 ReplicaSet Health Check is coming soon!",
+                    "",
+                    "   - This feature will monitor ReplicaSets for pod mismatches, scaling issues, and failures.",
+                    "   - Coming soon! 📈"
+                )
+                Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Cyan" -delay 50
+
                 Read-Host "🤖 Press Enter to return to the menu"
             }
 
@@ -2374,14 +2395,14 @@ function Show-PodMenu {
                 $selectedNamespace = Read-Host "`n🤖 Enter the namespace (or type 'L' to list available ones)"
                 Clear-Host
                 if ($selectedNamespace -match "^[Ll]$") {
-                    Write-Host -NoNewline "`r🤖 Fetching available namespaces..." -ForegroundColor Yellow
+                    Write-Host -NoNewline "`r🤖 Fetching available namespaces...       ⏳ Fetching..." -ForegroundColor Yellow
                     Start-Sleep -Seconds 1  # Optional small delay for UX
                     
                     # Capture namespaces first
                     $namespaces = kubectl get namespaces --no-headers | ForEach-Object { $_.Split()[0] }
                     
                     # Clear previous line and print the list properly
-                    Write-Host "`r🤖 Namespaces fetched successfully." -ForegroundColor Green
+                    Write-Host "`r🤖 Fetching available namespaces...       ✅ Done!" -ForegroundColor Green
                     Write-Host "`n🤖 Available Namespaces:`n" -ForegroundColor Cyan
                     $namespaces | ForEach-Object { Write-Host $_ }
                     
