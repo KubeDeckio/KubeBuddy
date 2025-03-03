@@ -1,5 +1,6 @@
 # Define report file location (global scope)
 $ReportFile = "$pwd/kubebuddy-report.txt"
+$Global:MakeReport = $false  # Global flag to control report mode
 
 $localScripts = Get-ChildItem -Path "$pwd/Write-Box.ps1"
 
@@ -14,38 +15,118 @@ function Write-ToReport {
         [string]$Message
     )
     # if ($Global:Report) {
-        Add-Content -Path $ReportFile -Value $Message
+    Add-Content -Path $ReportFile -Value $Message
     # }
 }
 
-function Generate-FullReport {
-    Write-Host "🤖 Generating full report..."
-    $Global:Report = $true
-
-    # Clear existing report content if the file exists
+function Generate-Report {
+    $Global:MakeReport = $true
+    Write-Host "Generating report... Please wait."
+    
+    # Clear existing report if any
     if (Test-Path $ReportFile) {
-        Clear-Content -Path $ReportFile -ErrorAction SilentlyContinue
+        Remove-Item $ReportFile -Force
     }
+    
+    Write-ToReport "--- Kubernetes Cluster Report ---"
+    Write-ToReport "Timestamp: $(Get-Date)"
+    Write-ToReport "---------------------------------"
 
-    # Write report header
-    Write-ToReport "🤖 Kubebuddy Report - Generated on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-    Write-ToReport "========================================"
-
-    # Cluster summary
-    Write-ToReport "`n📌 Cluster Summary:"
+    $cursorPos = ""
+    # Run each check in report mode
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Cluster Summary...                 ⏳ Fetching..." -ForegroundColor Yellow
+    Write-ToReport "`n[🌐 Cluster Summary]`n"
     Show-ClusterSummary
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Cluster Summary...                 ✅ Done!      " -ForegroundColor Green
 
-    # Deployments
-    Write-ToReport "`n📌 Deployments List:"
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Node Information...                ⏳ Fetching..." -ForegroundColor Yellow
+    Show-NodeConditions
+    Show-NodeResourceUsage
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Node Information...                ✅ Done!      " -ForegroundColor Green
+    
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Namespace Information...           ⏳ Fetching..." -ForegroundColor Yellow
+    Show-EmptyNamespaces
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Namespace Information...           ✅ Done!      " -ForegroundColor Green
 
-    # Nodes
-    Write-ToReport "`n📌 Nodes Information:"
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Workload Information...            ⏳ Fetching..." -ForegroundColor Yellow
+    Show-DaemonSetIssues
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Workload Information...            ✅ Done!      " -ForegroundColor Green
 
-    # Services
-    Write-ToReport "`n📌 Services List:"
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Pod Information...                 ⏳ Fetching..." -ForegroundColor Yellow
+    Show-PodsWithHighRestarts
+    Show-LongRunningPods
+    Show-FailedPods
+    Show-PendingPods
+    Show-CrashLoopBackOffPods
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Pod Information...                 ✅ Done!      " -ForegroundColor Green
 
-    $Global:Report = $false
-    Write-Host "✅ Report generated: $ReportFile"
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Job Information...                 ⏳ Fetching..." -ForegroundColor Yellow
+    Show-StuckJobs
+    Show-FailedJobs
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Job Information...                 ✅ Done!      " -ForegroundColor Green
+
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Service Information...             ⏳ Fetching..." -ForegroundColor Yellow
+    Show-ServicesWithoutEndpoints
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Service Information...              ✅ Done!      " -ForegroundColor Green
+
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Storage Information...              ⏳ Fetching..." -ForegroundColor Yellow
+    Show-UnusedPVCs
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Storage Information...              ✅ Done!      " -ForegroundColor Green
+
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Retrieving Security Information...             ⏳ Fetching..." -ForegroundColor Yellow
+    Check-RBACMisconfigurations
+    Check-OrphanedConfigMaps
+    Check-OrphanedSecrets
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 Retrieving Security Information...             ✅ Done!      " -ForegroundColor Green
+
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    $Global:MakeReport = $false
+    Write-Host "✅ Report generated: $ReportFile" -ForegroundColor Green
+
+    Read-Host "Press Enter to return to the menu"
 }
 
 
@@ -282,14 +363,13 @@ function Show-HeroMetrics {
     return $output -join "`n"
 }
 
-
-
 # Overview functions
 function Show-NodeConditions {
     param(
         [int]$PageSize = 10  # Number of nodes per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🌍 Node Conditions]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Node Conditions..." -ForegroundColor Yellow
 
@@ -299,7 +379,7 @@ function Show-NodeConditions {
 
     if ($totalNodes -eq 0) {
         Write-Host "`r🤖 ❌ No nodes found." -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -337,6 +417,26 @@ function Show-NodeConditions {
             Issues = $issues
         }
     }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🌍 Node Conditions]"
+        Write-ToReport "`n⚠️ Total Not Ready Nodes in the Cluster: $totalNotReadyNodes"
+        Write-ToReport "-----------------------------------------------------------"
+        
+        # Sort nodes: Critical first, then Warning, then Normal
+        $sortedNodes = $allNodesData | Sort-Object {
+            if ($_.Status -eq "❌ Not Ready") { 1 }
+            elseif ($_.Status -eq "⚠️ Unknown") { 2 }
+            else { 3 }
+        }
+    
+        # Format as a table and write to report
+        $tableString = $sortedNodes | Format-Table -Property Node, Status, Issues -AutoSize | Out-String
+        Write-ToReport $tableString
+    
+        return
+    }
+    
 
     # **Pagination Setup**
     $currentPage = 0
@@ -388,14 +488,14 @@ function Show-NodeConditions {
     } while ($true)
 }
 
-
 function Show-NodeResourceUsage {
     param(
         [int]$PageSize = 10  # Number of nodes per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[📊 Node Resource Usage]" -ForegroundColor Cyan
-    Write-Host -NoNewline "`n🤖 Gathering Node Data & Resource Usage..." -ForegroundColor Yellow
+    if (-not $Global:MakeReport) { Write-Host -NoNewline "`n🤖 Gathering Node Data & Resource Usage..." -ForegroundColor Yellow }
 
     # Get thresholds and node data
     $thresholds = Get-KubeBuddyThresholds
@@ -406,7 +506,7 @@ function Show-NodeResourceUsage {
 
     if ($totalNodes -eq 0) {
         Write-Host "`r🤖 ❌ No nodes found in the cluster." -ForegroundColor Red
-        Read-Host "Press Enter to return to the menu"
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -468,7 +568,25 @@ function Show-NodeResourceUsage {
         }
     }
 
-
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[📊 Node Resource Usage]"
+        Write-ToReport "`n⚠️ Total Resource Warnings Across All Nodes: $totalWarnings"
+        Write-ToReport "--------------------------------------------------------------------------"
+        
+        # Sort nodes: Critical first, then Warning, then Unknown, then Normal
+        $sortedNodes = $allNodesData | Sort-Object {
+            if ($_.‘CPU Status’ -eq "🔴 Critical" -or $_.‘Mem Status’ -eq "🔴 Critical" -or $_.‘Disk Status’ -eq "⚠️ Unknown") { 1 }
+            elseif ($_.‘CPU Status’ -eq "🟡 Warning" -or $_.‘Mem Status’ -eq "🟡 Warning" -or $_.‘Disk Status’ -eq "🟡 Warning") { 2 }
+            else { 3 }
+        }
+    
+        # Format as a table and write to report
+        $tableString = $sortedNodes | Format-Table -Property Node, "CPU Status", "CPU %", "CPU Used", "CPU Total", "Mem Status", "Mem %", "Mem Used", "Mem Total", "Disk %", "Disk Status" -AutoSize | Out-String
+        Write-ToReport $tableString
+    
+        return
+    }
+    
 
     # **Pagination Setup**
     $currentPage = 0
@@ -509,16 +627,15 @@ function Show-NodeResourceUsage {
 
     } while ($true)
 }
-
-
 function Show-PodsWithHighRestarts {
     param(
         [string]$Namespace = "",
         [int]$PageSize = 10  # Number of pods per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔁 Pods with High Restarts]" -ForegroundColor Cyan
-    Write-Host -NoNewline "`n🤖 Fetching Pod Restart Data..." -ForegroundColor Yellow
+    if (-not $Global:MakeReport) { Write-Host -NoNewline "`n🤖 Fetching Pod Restart Data..." -ForegroundColor Yellow }
 
     $thresholds = Get-KubeBuddyThresholds
 
@@ -533,7 +650,11 @@ function Show-PodsWithHighRestarts {
     }
     catch {
         Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔁 Pods with High Restarts]`n"
+            Write-ToReport "❌ Error retrieving pod data: $_"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -578,11 +699,28 @@ function Show-PodsWithHighRestarts {
 
     if ($totalPods -eq 0) {
         Write-Host "`r🤖 ✅ No pods with excessive restarts detected." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔁 Pods with High Restarts]`n"
+            Write-ToReport "✅ No pods with excessive restarts detected."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ High-restart pods fetched. ($totalPods detected)" -ForegroundColor Green
+
+    # **Write to report if in report mode**
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔁 Pods with High Restarts]`n"
+        Write-ToReport "⚠️ Total High-Restart Pods: $totalPods"
+        Write-ToReport "----------------------------------------------"
+
+        # Format table for report
+        $tableString = $filteredPods | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -638,8 +776,9 @@ function Show-LongRunningPods {
         [int]$PageSize = 10  # Number of pods per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[⏳ Long Running Pods]" -ForegroundColor Cyan
-    Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
+    if (-not $Global:MakeReport) { Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow }
 
     $thresholds = Get-KubeBuddyThresholds
 
@@ -654,7 +793,11 @@ function Show-LongRunningPods {
     }
     catch {
         Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Long Running Pods]`n"
+            Write-ToReport "❌ Error retrieving pod data: $_"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -695,11 +838,28 @@ function Show-LongRunningPods {
 
     if ($totalPods -eq 0) {
         Write-Host "`r🤖 ✅ No long-running pods detected." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Long Running Pods]`n"
+            Write-ToReport "✅ No long-running pods detected."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Long-running pods fetched. ($totalPods detected)" -ForegroundColor Green
+
+    # **Write to report if in report mode**
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[⏳ Long Running Pods]`n"
+        Write-ToReport "⚠️ Total Long-Running Pods: $totalPods"
+        Write-ToReport "----------------------------------------------"
+
+        # Format table for report
+        $tableString = $filteredPods | Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -724,7 +884,6 @@ function Show-LongRunningPods {
             "",
             "⚠️ Total Long-Running Pods: $totalPods"
         )
-        
 
         Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
@@ -755,6 +914,7 @@ function Show-DaemonSetIssues {
         [int]$PageSize = 10  # Number of daemonsets per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔄 DaemonSets Not Fully Running]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching DaemonSet Data..." -ForegroundColor Yellow
 
@@ -763,7 +923,11 @@ function Show-DaemonSetIssues {
     }
     catch {
         Write-Host "`r🤖 ❌ Error retrieving DaemonSet data: $_" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n"
+            Write-ToReport "❌ Error retrieving DaemonSet data: $_"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -793,11 +957,28 @@ function Show-DaemonSetIssues {
 
     if ($totalDaemonSets -eq 0) {
         Write-Host "`r🤖 ✅ All DaemonSets are fully running." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n"
+            Write-ToReport "✅ All DaemonSets are fully running."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ DaemonSets fetched. ($totalDaemonSets DaemonSets with issues detected)" -ForegroundColor Green
+
+    # **Write to report if in report mode**
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n"
+        Write-ToReport "⚠️ Total DaemonSets with Issues: $totalDaemonSets"
+        Write-ToReport "----------------------------------------------------"
+
+        # Format as a table in the report
+        $tableString = $filteredDaemonSets | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -852,6 +1033,7 @@ function Show-FailedPods {
         [int]$PageSize = 10  # Number of pods per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔴 Failed Pods]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Failed Pod Data..." -ForegroundColor Yellow
 
@@ -870,7 +1052,11 @@ function Show-FailedPods {
     }
     catch {
         Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 Failed Pods]`n"
+            Write-ToReport "❌ Error retrieving pod data: $_"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -878,11 +1064,44 @@ function Show-FailedPods {
 
     if ($totalPods -eq 0) {
         Write-Host "`r🤖 ✅ No failed pods found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 Failed Pods]`n"
+            Write-ToReport "✅ No failed pods found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Failed Pods fetched. ($totalPods detected)" -ForegroundColor Green
+
+    # **Write to report if in report mode**
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔴 Failed Pods]`n"
+        Write-ToReport "⚠️ Total Failed Pods: $totalPods"
+        Write-ToReport "----------------------------------------------------"
+
+        # Prepare table data
+        $tableData = @()
+        foreach ($pod in $failedPods) {
+            $ns = $pod.metadata.namespace
+            $podName = $pod.metadata.name
+            $reason = $pod.status.reason
+            $message = $pod.status.message -replace "`n", " "  # Remove newlines for cleaner output
+
+            $tableData += [PSCustomObject]@{
+                Namespace = $ns
+                Pod       = $podName
+                Reason    = $reason
+                Message   = $message
+            }
+        }
+
+        # Format and write to report
+        $tableString = $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -915,7 +1134,6 @@ function Show-FailedPods {
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
 
         $tableData = @()
-
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $pod = $failedPods[$i]
             $ns = $pod.metadata.namespace
@@ -952,6 +1170,7 @@ function Show-EmptyNamespaces {
         [int]$PageSize = 10  # Number of namespaces per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[📂 Empty Namespaces]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
@@ -976,12 +1195,25 @@ function Show-EmptyNamespaces {
 
     if ($totalNamespaces -eq 0) {
         Write-Host "`r🤖 ✅ No empty namespaces found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[📂 Empty Namespaces]`n"
+            Write-ToReport "✅ No empty namespaces found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Namespaces fetched. ($totalNamespaces empty namespaces detected)" -ForegroundColor Green
 
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[📂 Empty Namespaces]`n"
+        Write-ToReport "⚠️ Total Empty Namespaces: $totalNamespaces"
+        Write-ToReport "---------------------------------"
+        foreach ($namespace in $emptyNamespaces) {
+            Write-ToReport "$namespace"
+        }
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -1035,6 +1267,7 @@ function Show-PendingPods {
         [int]$PageSize = 10
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[⏳ Pending Pods]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
 
@@ -1048,7 +1281,11 @@ function Show-PendingPods {
     }
     catch {
         Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Pending Pods]`n"
+            Write-ToReport "❌ Error retrieving pod data: $_"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1059,11 +1296,44 @@ function Show-PendingPods {
 
     if ($totalPods -eq 0) {
         Write-Host "`r🤖 ✅ No pending pods found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Pending Pods]`n"
+            Write-ToReport "✅ No pending pods found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Pods fetched. ($totalPods Pending pods detected)" -ForegroundColor Green
+
+    # **Write to report if in report mode**
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[⏳ Pending Pods]`n"
+        Write-ToReport "⚠️ Total Pending Pods Found: $totalPods"
+        Write-ToReport "----------------------------------------------------"
+
+        # Prepare table data
+        $tableData = @()
+        foreach ($pod in $pendingPods) {
+            $ns = $pod.metadata.namespace
+            $podName = $pod.metadata.name
+            $reason = if ($pod.status.conditions) { $pod.status.conditions[0].reason } else { "Unknown" }
+            $message = if ($pod.status.conditions) { $pod.status.conditions[0].message -replace "`n", " " } else { "No details available" }
+
+            $tableData += [PSCustomObject]@{
+                Namespace = $ns
+                Pod       = $podName
+                Reason    = $reason
+                Message   = $message
+            }
+        }
+
+        # Format and write to report
+        $tableString = $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -1089,7 +1359,7 @@ function Show-PendingPods {
             "⚠️ Total Pending Pods Found: $totalPods"
         )
 
-        write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -1133,6 +1403,7 @@ function Show-CrashLoopBackOffPods {
         [int]$PageSize = 10
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔴 CrashLoopBackOff Pods]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
 
@@ -1146,7 +1417,11 @@ function Show-CrashLoopBackOffPods {
     }
     catch {
         Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n"
+            Write-ToReport "❌ Error retrieving pod data: $_"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1161,11 +1436,43 @@ function Show-CrashLoopBackOffPods {
 
     if ($totalPods -eq 0) {
         Write-Host "`r🤖 ✅ No CrashLoopBackOff pods found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n"
+            Write-ToReport "✅ No CrashLoopBackOff pods found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Pods fetched. ($totalPods CrashLoopBackOff pods detected)" -ForegroundColor Green
+
+    # **Write to report if in report mode**
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n"
+        Write-ToReport "⚠️ Total CrashLoopBackOff Pods Found: $totalPods"
+        Write-ToReport "----------------------------------------------------"
+
+        # Prepare table data
+        $tableData = @()
+        foreach ($pod in $crashPods) {
+            $ns = $pod.metadata.namespace
+            $podName = $pod.metadata.name
+            $restarts = $pod.status.containerStatuses.restartCount
+
+            $tableData += [PSCustomObject]@{
+                Namespace = $ns
+                Pod       = $podName
+                Restarts  = $restarts
+                Status    = "🔴 CrashLoopBackOff"
+            }
+        }
+
+        # Format and write to report
+        $tableString = $tableData | Format-Table Namespace, Pod, Restarts, Status -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -1231,30 +1538,38 @@ function Show-ServicesWithoutEndpoints {
         [int]$PageSize = 10  # Number of services per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔍 Services Without Endpoints]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Service Data..." -ForegroundColor Yellow
 
     # Fetch all services
     $services = kubectl get services --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
-        Where-Object { $_.spec.type -ne "ExternalName" }  # Exclude ExternalName services
+    Where-Object { $_.spec.type -ne "ExternalName" }  # Exclude ExternalName services
 
     if (-not $services) {
         Write-Host "`r🤖 ❌ Failed to fetch service data." -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔍 Services Without Endpoints]`n"
+            Write-ToReport "❌ Failed to fetch service data."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Services fetched. (Total: $($services.Count))" -ForegroundColor Green
-
     Write-Host -NoNewline "`n🤖 Fetching Endpoint Data..." -ForegroundColor Yellow
 
     # Fetch endpoints
     $endpoints = kubectl get endpoints --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
-        Group-Object { $_.metadata.namespace + "/" + $_.metadata.name }
+    Group-Object { $_.metadata.namespace + "/" + $_.metadata.name }
 
     if (-not $endpoints) {
         Write-Host "`r🤖 ❌ Failed to fetch endpoint data." -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔍 Services Without Endpoints]`n"
+            Write-ToReport "❌ Failed to fetch endpoint data."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1276,11 +1591,32 @@ function Show-ServicesWithoutEndpoints {
 
     if ($totalServices -eq 0) {
         Write-Host "`r🤖 ✅ All services have endpoints." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔍 Services Without Endpoints]`n"
+            Write-ToReport "✅ All services have endpoints."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Service analysis complete. ($totalServices services without endpoints detected)" -ForegroundColor Green
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔍 Services Without Endpoints]`n"
+        Write-ToReport "⚠️ Total Services Without Endpoints: $totalServices" 
+        $tableData = @()
+        foreach ($svc in $servicesWithoutEndpoints) {
+            $tableData += [PSCustomObject]@{
+                Namespace = $svc.metadata.namespace
+                Service   = $svc.metadata.name
+                Type      = $svc.spec.type
+                Status    = "⚠️ No Endpoints"
+            }
+        }
+        $tableString = $tableData | Format-Table Namespace, Service, Type, Status -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -1339,32 +1675,70 @@ function Show-ServicesWithoutEndpoints {
     } while ($true)
 }
 
-
 function Show-UnusedPVCs {
     param(
         [int]$PageSize = 10  # Number of PVCs per page
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[💾 Unused Persistent Volume Claims]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching PVC Data..." -ForegroundColor Yellow
 
-    # Fetch all PVCs
-    $pvcs = kubectl get pvc --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    if (-not $pvcs) {
-        Write-Host "`r🤖 ❌ Failed to fetch PVC data." -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+    # Capture raw kubectl output before JSON conversion
+    $pvcsRaw = kubectl get pvc --all-namespaces -o json 2>&1 | Out-String
+
+    # Handle "No resources found" case BEFORE JSON parsing
+    if ($pvcsRaw -match "No resources found") {
+        Write-Host "`r🤖 ✅ No PVCs found in the cluster." -ForegroundColor Green
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n"
+            Write-ToReport "✅ No PVCs found in the cluster."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
-    
-    Write-Host "`r🤖 ✅ PVCs fetched. (Total: $($pvcs.Count))" -ForegroundColor Green
 
+    # Convert JSON safely
+    try {
+        $pvcsJson = $pvcsRaw | ConvertFrom-Json
+        $pvcs = if ($pvcsJson.PSObject.Properties['items']) { $pvcsJson.items } else { @() }
+    }
+    catch {
+        Write-Host "`r🤖 ❌ Failed to parse JSON from kubectl output." -ForegroundColor Red
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n"
+            Write-ToReport "❌ Failed to parse JSON from kubectl output."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
+        return
+    }
+
+    # Ensure $pvcs is always an array
+    if ($pvcs -isnot [System.Array]) { $pvcs = @($pvcs) }
+
+    # Check if PVCs exist
+    if ($pvcs.Count -eq 0) {
+        Write-Host "`r🤖 ✅ No unused PVCs found." -ForegroundColor Green
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n"
+            Write-ToReport "✅ No unused PVCs found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
+        return
+    }
+
+    Write-Host "`r🤖 ✅ PVCs fetched. (Total: $($pvcs.Count))" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
 
     # Fetch all Pods
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     if (-not $pods) {
         Write-Host "`r🤖 ❌ Failed to fetch Pod data." -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n"
+            Write-ToReport "❌ Failed to fetch Pod data."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
     
@@ -1380,11 +1754,36 @@ function Show-UnusedPVCs {
 
     if ($totalPVCs -eq 0) {
         Write-Host "`r🤖 ✅ No unused PVCs found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n"
+            Write-ToReport "✅ No unused PVCs found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ PVC usage analyzed. ($totalPVCs unused PVCs detected)" -ForegroundColor Green
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n"
+        Write-ToReport "⚠️ Total Unused PVCs Found: $totalPVCs"
+        Write-ToReport "-------------------------------------------------"
+
+        # Format and write to report as a table
+        $tableData = @()
+        foreach ($pvc in $unusedPVCs) {
+            $tableData += [PSCustomObject]@{
+                Namespace = $pvc.metadata.namespace
+                PVC       = $pvc.metadata.name
+                Storage   = $pvc.spec.resources.requests.storage
+            }
+        }
+
+        $tableString = $tableData | Format-Table Namespace, PVC, Storage -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $currentPage = 0
@@ -1407,17 +1806,24 @@ function Show-UnusedPVCs {
             "⚠️ Total Unused PVCs Found: $totalPVCs"
         )
 
-        write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPVCs)
 
-        $tableData = $unusedPVCs[$startIndex..($endIndex - 1)]
+        $tableData = @()
+        for ($i = $startIndex; $i -lt $endIndex; $i++) {
+            $pvc = $unusedPVCs[$i]
+            $tableData += [PSCustomObject]@{
+                Namespace = $pvc.metadata.namespace
+                PVC       = $pvc.metadata.name
+                Storage   = $pvc.spec.resources.requests.storage
+            }
+        }
 
         if ($tableData) {
-            $tableData | Format-Table -Property @{Label = "Namespace"; Expression = { $_.metadata.namespace } }, 
-            @{Label = "PVC"; Expression = { $_.metadata.name } }, 
-            @{Label = "Storage"; Expression = { $_.spec.resources.requests.storage } } -AutoSize
+            $tableData | Format-Table Namespace, PVC, Storage -AutoSize
         }
 
         # Call the pagination function
@@ -1445,13 +1851,13 @@ function Check-KubernetesVersion {
         return "✅ Cluster is up to date ($k8sVersion)"
     }
 }
-
 function Show-StuckJobs {
     param(
         [int]$StuckThresholdHours = 2,
         [int]$PageSize = 10
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[⏳ Stuck Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
@@ -1461,7 +1867,11 @@ function Show-StuckJobs {
     # Check for actual errors in kubectl output
     if ($kubectlOutput -match "error|not found|forbidden") {
         Write-Host "`r🤖 ❌ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Stuck Kubernetes Jobs]`n"
+            Write-ToReport "❌ Error retrieving job data: $kubectlOutput"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1471,14 +1881,22 @@ function Show-StuckJobs {
     }
     else {
         Write-Host "`r🤖 ❌ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Stuck Kubernetes Jobs]`n"
+            Write-ToReport "❌ Unexpected response from kubectl. No valid JSON received."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     # Ensure $jobs is an array before processing
     if (-not $jobs -or $jobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No jobs found in the cluster." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Stuck Kubernetes Jobs]`n"
+            Write-ToReport "✅ No jobs found in the cluster."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1496,14 +1914,43 @@ function Show-StuckJobs {
         ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $StuckThresholdHours)
     }
 
-    # No stuck jobs found
     if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No stuck jobs found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[⏳ Stuck Kubernetes Jobs]`n"
+            Write-ToReport "✅ No stuck jobs found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Job analysis complete. ($($stuckJobs.Count) stuck jobs detected)" -ForegroundColor Green
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[⏳ Stuck Kubernetes Jobs]`n"
+        Write-ToReport "⚠️ Total Stuck Jobs Found: $($stuckJobs.Count)"
+        Write-ToReport "---------------------------------------------"
+
+        # Format and write to report as a table
+        $tableData = @()
+        foreach ($job in $stuckJobs) {
+            $ns = $job.metadata.namespace
+            $jobName = $job.metadata.name
+            $ageHours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
+
+            $tableData += [PSCustomObject]@{
+                Namespace = $ns
+                Job       = $jobName
+                Age_Hours = $ageHours
+                Status    = "🟡 Stuck"
+            }
+        }
+
+        $tableString = $tableData | Format-Table Namespace, Job, Age_Hours, Status -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $totalJobs = $stuckJobs.Count
@@ -1538,14 +1985,10 @@ function Show-StuckJobs {
         $tableData = @()
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $job = $stuckJobs[$i]
-            $ns = $job.metadata.namespace
-            $jobName = $job.metadata.name
-            $ageHours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
-
             $tableData += [PSCustomObject]@{
-                Namespace = $ns
-                Job       = $jobName
-                Age_Hours = $ageHours
+                Namespace = $job.metadata.namespace
+                Job       = $job.metadata.name
+                Age_Hours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
                 Status    = "🟡 Stuck"
             }
         }
@@ -1572,6 +2015,7 @@ function Show-FailedJobs {
         [int]$PageSize = 10
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔴 Failed Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
@@ -1581,7 +2025,11 @@ function Show-FailedJobs {
     # Check for actual errors in kubectl output
     if ($kubectlOutput -match "error|not found|forbidden") {
         Write-Host "`r🤖 ❌ Error retrieving job data: $kubectlOutput" -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 Failed Kubernetes Jobs]`n"
+            Write-ToReport "❌ Error retrieving job data: $kubectlOutput"
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1591,14 +2039,22 @@ function Show-FailedJobs {
     }
     else {
         Write-Host "`r🤖 ❌ Unexpected response from kubectl. No valid JSON received." -ForegroundColor Red
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 Failed Kubernetes Jobs]`n"
+            Write-ToReport "❌ Unexpected response from kubectl. No valid JSON received."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     # Ensure $jobs is an array before processing
     if (-not $jobs -or $jobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No jobs found in the cluster." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 Failed Kubernetes Jobs]`n"
+            Write-ToReport "✅ No jobs found in the cluster."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1613,14 +2069,45 @@ function Show-FailedJobs {
         ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $StuckThresholdHours)
     }
 
-    # No failed jobs found
     if (-not $failedJobs -or $failedJobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No failed jobs found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔴 Failed Kubernetes Jobs]`n"
+            Write-ToReport "✅ No failed jobs found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     Write-Host "`r🤖 ✅ Job analysis complete. ($($failedJobs.Count) failed jobs detected)" -ForegroundColor Green
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔴 Failed Kubernetes Jobs]`n"
+        Write-ToReport "⚠️ Total Failed Jobs Found: $($failedJobs.Count)"
+        Write-ToReport "---------------------------------------------"
+
+        # Format and write to report as a table
+        $tableData = @()
+        foreach ($job in $failedJobs) {
+            $ns = $job.metadata.namespace
+            $jobName = $job.metadata.name
+            $ageHours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
+            $failCount = if ($job.status.PSObject.Properties['failed']) { $job.status.failed } else { "Unknown" }
+
+            $tableData += [PSCustomObject]@{
+                Namespace = $ns
+                Job       = $jobName
+                Age_Hours = $ageHours
+                Failures  = $failCount
+                Status    = "🔴 Failed"
+            }
+        }
+
+        $tableString = $tableData | Format-Table Namespace, Job, Age_Hours, Failures, Status -AutoSize | Out-String
+        Write-ToReport $tableString
+
+        return
+    }
 
     # **Pagination Setup**
     $totalJobs = $failedJobs.Count
@@ -1654,16 +2141,11 @@ function Show-FailedJobs {
         $tableData = @()
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $job = $failedJobs[$i]
-            $ns = $job.metadata.namespace
-            $jobName = $job.metadata.name
-            $ageHours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
-            $failCount = if ($job.status.PSObject.Properties['failed']) { $job.status.failed } else { "Unknown" }
-
             $tableData += [PSCustomObject]@{
-                Namespace = $ns
-                Job       = $jobName
-                Age_Hours = $ageHours
-                Failures  = $failCount
+                Namespace = $job.metadata.namespace
+                Job       = $job.metadata.name
+                Age_Hours = ((New-TimeSpan -Start $job.status.startTime -End (Get-Date)).TotalHours) -as [int]
+                Failures  = if ($job.status.PSObject.Properties['failed']) { $job.status.failed } else { "Unknown" }
                 Status    = "🔴 Failed"
             }
         }
@@ -1688,6 +2170,7 @@ function Check-OrphanedConfigMaps {
         [int]$PageSize = 10
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔍 Orphaned ConfigMaps]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching ConfigMaps..." -ForegroundColor Yellow
 
@@ -1726,24 +2209,14 @@ function Check-OrphanedConfigMaps {
             if ($container.envFrom) {
                 $usedConfigMaps += $container.envFrom | Where-Object { $_.configMapRef } | Select-Object -ExpandProperty configMapRef | Select-Object -ExpandProperty name
             }
-            # **NEW: Check ConfigMap references in container args**
-            if ($container.args) {
-                foreach ($arg in $container.args) {
-                    if ($arg -match "--configmap=\$\(POD_NAMESPACE\)/([\w-]+)") {
-                        $usedConfigMaps += $matches[1]  # Capture the ConfigMap name
-                    }
-                }
-            }
         }
     }
 
-    # Check Ingress Annotations
+    # Check Ingress & Service Annotations
     $usedConfigMaps += $ingresses | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
-
-    # Check Service Annotations (if they reference ConfigMaps)
     $usedConfigMaps += $services | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
 
-    # **Scan Custom Resources for ConfigMap References**
+    # **Check Custom Resources for ConfigMap references**
     $crds = kubectl get crds -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     foreach ($crd in $crds) {
         $crdKind = $crd.spec.names.kind
@@ -1774,10 +2247,24 @@ function Check-OrphanedConfigMaps {
         }
     }
 
-    # If nothing found, return early
     if ($orphanedItems.Count -eq 0) {
         Write-Host "🤖 ✅ No orphaned ConfigMaps found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[📜 Orphaned ConfigMaps]`n"
+            Write-ToReport "✅ No orphaned ConfigMaps found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
+        return
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[📜 Orphaned ConfigMaps]`n"
+        Write-ToReport "⚠️ Total Orphaned ConfigMaps Found: $($orphanedItems.Count)"
+
+        # Format as a structured table for report
+        $tableString = $orphanedItems | Format-Table Namespace, Type, Name -AutoSize | Out-String
+        Write-ToReport $tableString
+
         return
     }
 
@@ -1788,6 +2275,8 @@ function Check-OrphanedConfigMaps {
 
     do {
         Clear-Host
+        Write-Host "`n[📜 Orphaned ConfigMaps - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
         # **Speech Bubble with Explanation**
         $msg = @(
             "🤖 ConfigMaps store configuration data for workloads.",
@@ -1823,12 +2312,12 @@ function Check-OrphanedConfigMaps {
     } while ($true)
 }
 
-
 function Check-OrphanedSecrets {
     param(
         [int]$PageSize = 10
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🔑 Orphaned Secrets]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Secrets..." -ForegroundColor Yellow
 
@@ -1897,10 +2386,24 @@ function Check-OrphanedSecrets {
         }
     }
 
-    # If nothing found, return early
     if ($orphanedItems.Count -eq 0) {
         Write-Host "🤖 ✅ No orphaned Secrets found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🔑 Orphaned Secrets]`n"
+            Write-ToReport "✅ No orphaned Secrets found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
+        return
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔑 Orphaned Secrets]`n"
+        Write-ToReport "⚠️ Total Orphaned Secrets Found: $($orphanedItems.Count)"
+
+        # Format as a structured table for report
+        $tableString = $orphanedItems | Format-Table Namespace, Type, Name -AutoSize | Out-String
+        Write-ToReport $tableString
+
         return
     }
 
@@ -1911,6 +2414,8 @@ function Check-OrphanedSecrets {
 
     do {
         Clear-Host
+        Write-Host "`n[🔑 Orphaned Secrets - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
         # **Speech Bubble with Explanation**
         $msg = @(
             "🤖 Secrets store sensitive data such as API keys and credentials.",
@@ -1946,12 +2451,12 @@ function Check-OrphanedSecrets {
     } while ($true)
 }
 
-
 function Check-RBACMisconfigurations {
     param(
         [int]$PageSize = 10
     )
 
+    if (-not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[RBAC Misconfigurations]" -ForegroundColor Cyan
 
     # Fetch RoleBindings and ClusterRoleBindings
@@ -1961,9 +2466,9 @@ function Check-RBACMisconfigurations {
     $roles = kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     $clusterRoles = kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
 
-    # Get existing namespaces to check for deleted ones
+    # Get existing namespaces
     $existingNamespaces = kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
-    Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
+        Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
 
     Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings.`n" -ForegroundColor Green
 
@@ -1979,40 +2484,33 @@ function Check-RBACMisconfigurations {
         $roleExists = $roles | Where-Object { $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $rbNamespace }
         if (-not $roleExists) {
             $invalidRBAC += [PSCustomObject]@{
-                "Namespace"   = if ($namespaceExists) { $rbNamespace } else { "🛑 Namespace Missing" }
-                "Type"        = "🔹 Namespace Role"
-                "RoleBinding" = $rb.metadata.name
-                "Subject"     = "N/A"
-                "Issue"       = "❌ Missing Role/ClusterRole: $($rb.roleRef.name)"
+                Namespace   = if ($namespaceExists) { $rbNamespace } else { "🛑 Namespace Missing" }
+                Type        = "🔹 Namespace Role"
+                RoleBinding = $rb.metadata.name
+                Subject     = "N/A"
+                Issue       = "❌ Missing Role/ClusterRole: $($rb.roleRef.name)"
             }
         }
 
         foreach ($subject in $rb.subjects) {
-            if ($subject.kind -eq "User" -or $subject.kind -eq "Group") {
-                continue  # Skip user/group bindings (cannot validate users/groups)
+            if ($subject.kind -eq "ServiceAccount" -and -not $namespaceExists) {
+                $invalidRBAC += [PSCustomObject]@{
+                    Namespace   = "🛑 Namespace Missing"
+                    Type        = "🔹 Namespace Role"
+                    RoleBinding = $rb.metadata.name
+                    Subject     = "$($subject.kind)/$($subject.name)"
+                    Issue       = "🛑 Namespace does not exist"
+                }
             }
             elseif ($subject.kind -eq "ServiceAccount") {
-                # If namespace is missing, we mark it here instead
-                if (-not $namespaceExists) {
+                $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
+                if (-not $exists) {
                     $invalidRBAC += [PSCustomObject]@{
-                        "Namespace"   = "🛑 Namespace Missing"
-                        "Type"        = "🔹 Namespace Role"
-                        "RoleBinding" = $rb.metadata.name
-                        "Subject"     = "$($subject.kind)/$($subject.name)"
-                        "Issue"       = "🛑 Namespace does not exist"
-                    }
-                }
-                else {
-                    # Namespace exists, check if ServiceAccount exists
-                    $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
-                    if (-not $exists) {
-                        $invalidRBAC += [PSCustomObject]@{
-                            "Namespace"   = $rbNamespace
-                            "Type"        = "🔹 Namespace Role"
-                            "RoleBinding" = $rb.metadata.name
-                            "Subject"     = "$($subject.kind)/$($subject.name)"
-                            "Issue"       = "❌ ServiceAccount does not exist"
-                        }
+                        Namespace   = $rbNamespace
+                        Type        = "🔹 Namespace Role"
+                        RoleBinding = $rb.metadata.name
+                        Subject     = "$($subject.kind)/$($subject.name)"
+                        Issue       = "❌ ServiceAccount does not exist"
                     }
                 }
             }
@@ -2021,31 +2519,24 @@ function Check-RBACMisconfigurations {
 
     foreach ($crb in $clusterRoleBindings) {
         foreach ($subject in $crb.subjects) {
-            if ($subject.kind -eq "User" -or $subject.kind -eq "Group") {
-                continue  # Skip user/group bindings
+            if ($subject.kind -eq "ServiceAccount" -and $subject.namespace -notin $existingNamespaces) {
+                $invalidRBAC += [PSCustomObject]@{
+                    Namespace   = "🛑 Namespace Missing"
+                    Type        = "🔸 Cluster Role"
+                    RoleBinding = $crb.metadata.name
+                    Subject     = "$($subject.kind)/$($subject.name)"
+                    Issue       = "🛑 Namespace does not exist"
+                }
             }
             elseif ($subject.kind -eq "ServiceAccount") {
-                # If namespace is missing, flag it correctly
-                if ($subject.namespace -notin $existingNamespaces) {
+                $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
+                if (-not $exists) {
                     $invalidRBAC += [PSCustomObject]@{
-                        "Namespace"   = "🛑 Namespace Missing"
-                        "Type"        = "🔸 Cluster Role"
-                        "RoleBinding" = $crb.metadata.name
-                        "Subject"     = "$($subject.kind)/$($subject.name)"
-                        "Issue"       = "🛑 Namespace does not exist"
-                    }
-                }
-                else {
-                    # Namespace exists, check if ServiceAccount exists
-                    $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
-                    if (-not $exists) {
-                        $invalidRBAC += [PSCustomObject]@{
-                            "Namespace"   = "🌍 Cluster-Wide"
-                            "Type"        = "🔸 Cluster Role"
-                            "RoleBinding" = $crb.metadata.name
-                            "Subject"     = "$($subject.kind)/$($subject.name)"
-                            "Issue"       = "❌ ServiceAccount does not exist"
-                        }
+                        Namespace   = "🌍 Cluster-Wide"
+                        Type        = "🔸 Cluster Role"
+                        RoleBinding = $crb.metadata.name
+                        Subject     = "$($subject.kind)/$($subject.name)"
+                        Issue       = "❌ ServiceAccount does not exist"
                     }
                 }
             }
@@ -2054,7 +2545,22 @@ function Check-RBACMisconfigurations {
 
     if ($invalidRBAC.Count -eq 0) {
         Write-Host "✅ No RBAC misconfigurations found." -ForegroundColor Green
-        Read-Host "🤖 Press Enter to return to the menu"
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[RBAC Misconfigurations]`n"
+            Write-ToReport "✅ No RBAC misconfigurations found."
+        }
+        if (-not $Global:MakeReport) { Read-Host "🤖 Press Enter to return to the menu" }
+        return
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[RBAC Misconfigurations]`n"
+        Write-ToReport "⚠️ Total RBAC Misconfigurations Detected: $($invalidRBAC.Count)"
+
+        # Format as a structured table for report
+        $tableString = $invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize | Out-String
+        Write-ToReport $tableString
+
         return
     }
 
@@ -2067,7 +2573,6 @@ function Check-RBACMisconfigurations {
         Clear-Host
         Write-Host "`n[RBAC Misconfigurations - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
-        # Explanation for clarity
         # **Speech Bubble with Explanation**
         $msg = @(
             "🤖 RBAC (Role-Based Access Control) defines who can do what in your cluster.",
@@ -2082,12 +2587,13 @@ function Check-RBACMisconfigurations {
 
         Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
 
+        # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalBindings)
 
         $tableData = $invalidRBAC[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table -AutoSize
+            $tableData | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize
         }
 
         # Call the pagination function
@@ -2101,10 +2607,9 @@ function Check-RBACMisconfigurations {
     } while ($true)
 }
 
-
 function Show-ClusterSummary {
-    Clear-Host
-    Write-Host "`n[Cluster Summary]" -ForegroundColor Cyan
+    if (-not $Global:MakeReport) { Clear-Host }
+    Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
 
     # Retrieve Kubernetes Version
     Write-Host -NoNewline "`n🤖 Retrieving Cluster Information...             ⏳ Fetching..." -ForegroundColor Yellow
@@ -2113,37 +2618,41 @@ function Show-ClusterSummary {
     $clusterName = (kubectl config current-context)
     Write-Host "`r🤖 Retrieving Cluster Information...             ✅ Done!      " -ForegroundColor Green
 
-    # Print Cluster Information
-    Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
-    Write-Host "is " -NoNewline
-    Write-Host "$clusterName" -ForegroundColor Yellow
-    Write-Host "Kubernetes Version " -NoNewline -ForegroundColor Green
-    Write-Host "is " -NoNewline
-    Write-Host "$k8sVersion" -ForegroundColor Yellow
-    kubectl cluster-info
+    if (-not $Global:MakeReport) {
+        Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
+        Write-Host "is " -NoNewline
+        Write-Host "$clusterName" -ForegroundColor Yellow
+        Write-Host "Kubernetes Version " -NoNewline -ForegroundColor Green
+        Write-Host "is " -NoNewline
+        Write-Host "$k8sVersion" -ForegroundColor Yellow
+        kubectl cluster-info
+    }
 
     # Kubernetes Version Check
     Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility...  ⏳ Fetching..." -ForegroundColor Yellow
     $versionCheck = Check-KubernetesVersion
     Write-Host "`r🤖 Checking Kubernetes Version Compatibility...  ✅ Done!       " -ForegroundColor Green
-    Write-Host "`n$versionCheck"
+    if (-not $Global:MakeReport) { Write-Host "`n$versionCheck" }
 
     # Cluster Metrics
-    Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                    ⏳ Fetching..." -ForegroundColor Yellow
+    Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics...                   ⏳ Fetching..." -ForegroundColor Yellow
     $summary = Show-HeroMetrics
     Write-Host "`r🤖 Fetching Cluster Metrics...                   ✅ Done!       " -ForegroundColor Green
-    Write-Host "`n$summary"
+    if (-not $Global:MakeReport) { Write-Host "`n$summary" }
 
-    # Log to report
+    # Log to report if in report mode
     Write-ToReport "Cluster Name: $clusterName"
     Write-ToReport "Kubernetes Version: $k8sVersion"
-    $info = kubectl cluster-info | Out-String
-            Write-ToReport $info
+    if ($Global:MakeReport) {
+        $info = kubectl cluster-info | Out-String
+        Write-ToReport $info
+    }
     Write-ToReport "Compatibility Check: $versionCheck"
     Write-ToReport "`nMetrics: $summary"
 
-    # Wait for user input and exit function
-    Read-Host "`nPress Enter to return to the main menu"
+    if (-not $Global:MakeReport) {
+        Read-Host "`nPress Enter to return to the main menu"
+    }
 }
 
 $version = "v0.0.1"
@@ -2173,17 +2682,17 @@ function Invoke-KubeBuddy {
     Write-Host "`r✅ KubeBuddy is ready to assist you!  " -ForegroundColor Green
 
 
-        $msg = @(
-            "🤖 Hello, I'm KubeBuddy! Your friendly Kubernetes assistant.",
-            "",
-            "   - I can help you check node health, workload status, networking, storage, RBAC security, and more.",
-            "  - Select an option from the menu below to begin!"
-        )
+    $msg = @(
+        "🤖 Hello, I'm KubeBuddy! Your friendly Kubernetes assistant.",
+        "",
+        "   - I can help you check node health, workload status, networking, storage, RBAC security, and more.",
+        "  - Select an option from the menu below to begin!"
+    )
 
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Green" -delay 50
+    Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Green" -delay 50
 
-        $firstRun = $true  # Flag to track first execution
-        show-mainMenu
+    $firstRun = $true  # Flag to track first execution
+    show-mainMenu
 }
 
 function show-mainMenu {
@@ -2197,43 +2706,43 @@ function show-mainMenu {
         Write-Host "`n[🏠  Main Menu]" -ForegroundColor Cyan
         Write-Host "------------------------------------------" -ForegroundColor DarkGray
 
-            # Main menu options
-            $options = @(
-                "[1]  Cluster Summary 📊"
-                "[2]  Node Details 🖥️"
-                "[3]  Namespace Management 📂"
-                "[4]  Workload Management ⚙️"
-                "[5]  Pod Management 🚀"
-                "[6]  Kubernetes Jobs 🏢"
-                "[7]  Service & Networking 🌐"
-                "[8]  Storage Management 📦"
-                "[9]  RBAC & Security 🔐"
-                "[10] Generate Report"
-                "[Q]  Exit ❌"
-            )
+        # Main menu options
+        $options = @(
+            "[1]  Cluster Summary 📊"
+            "[2]  Node Details 🖥️"
+            "[3]  Namespace Management 📂"
+            "[4]  Workload Management ⚙️"
+            "[5]  Pod Management 🚀"
+            "[6]  Kubernetes Jobs 🏢"
+            "[7]  Service & Networking 🌐"
+            "[8]  Storage Management 📦"
+            "[9]  RBAC & Security 🔐"
+            "[10] Generate Report"
+            "[Q]  Exit ❌"
+        )
     
-            foreach ($option in $options) { Write-Host $option }
+        foreach ($option in $options) { Write-Host $option }
     
-            # Get user choice
-            $choice = Read-Host "`n🤖 Enter your choice"
-            Clear-Host
+        # Get user choice
+        $choice = Read-Host "`n🤖 Enter your choice"
+        Clear-Host
     
-            switch ($choice) {
-                "1" { Show-ClusterSummary }
-                "2" { Show-NodeMenu }
-                "3" { Show-NamespaceMenu }
-                "4" { Show-WorkloadMenu }
-                "5" { Show-PodMenu }
-                "6" { Show-JobsMenu }
-                "7" { Show-ServiceMenu }
-                "8" { Show-StorageMenu }
-                "9" { Show-RBACMenu }
-                "10" { Generate-FullReport }
-                "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
-                default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
-            }
+        switch ($choice) {
+            "1" { Show-ClusterSummary }
+            "2" { Show-NodeMenu }
+            "3" { Show-NamespaceMenu }
+            "4" { Show-WorkloadMenu }
+            "5" { Show-PodMenu }
+            "6" { Show-JobsMenu }
+            "7" { Show-ServiceMenu }
+            "8" { Show-StorageMenu }
+            "9" { Show-RBACMenu }
+            "10" { Generate-Report }
+            "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
+            default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
+        }
     
-        } while ($true)
+    } while ($true)
 }
 
 function Show-WorkloadMenu {
