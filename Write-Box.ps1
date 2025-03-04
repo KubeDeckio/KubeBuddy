@@ -46,13 +46,13 @@ function Write-SpeechBubble {
 
     # Display the bot icon
     Write-Host "  $icon" -ForegroundColor $color
-    Write-Host "      ◤" -ForegroundColor $color
-    Write-Host "       ◢" -ForegroundColor $color
+    Write-Host "    ◤" -ForegroundColor $color
+    Write-Host "     ◢" -ForegroundColor $color
 
     Start-Sleep -Milliseconds 500  # Short delay before speaking starts
 
     # Build rounded speech bubble top (connecting to the speech tail)
-    $topBorder = "        ╭" + ("─" * $boxWidth) + "╮"
+    $topBorder = "       ╭" + ("─" * $boxWidth) + "╮"
     Write-Host "$topBorder" -ForegroundColor $color
 
     # Print each message line inside the bubble with word-by-word effect
@@ -72,7 +72,7 @@ function Write-SpeechBubble {
         $paddedLine = $lineText.PadRight($maxLength + 1)
 
         # Print left border in cyan
-        Write-Host "        │ " -NoNewline -ForegroundColor $color
+        Write-Host "       │ " -NoNewline -ForegroundColor $color
 
         # Print the text **word-by-word** with delay
         $words = $paddedLine -split " "  # Split into words
@@ -94,7 +94,7 @@ function Write-SpeechBubble {
     }
 
     # Build rounded speech bubble bottom
-    $bottomBorder = "        ╰" + ("─" * $boxWidth) + "╯"
+    $bottomBorder = "       ╰" + ("─" * $boxWidth) + "╯"
     Write-Host "$bottomBorder" -ForegroundColor $color
     Write-Host ""
 }
