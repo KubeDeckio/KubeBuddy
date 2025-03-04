@@ -571,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     # Save the updated HTML report
     $htmlTemplate | Set-Content $outputPath
-    Write-Host "✅ Report generated successfully: $outputPath"
+    Write-Host "`n🤖 ✅ Report generated successfully: $outputPath" -ForegroundColor Green
 }
 
 # Example usage:
