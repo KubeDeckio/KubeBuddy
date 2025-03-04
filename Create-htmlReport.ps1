@@ -8,10 +8,40 @@ function Generate-K8sHTMLReport {
     if (Test-Path $kubebuddyScript) {
         . $kubebuddyScript
         Write-Host "✅ Loaded kubebuddy.ps1 successfully."
-    } else {
+    }
+    else {
         Write-Host "⚠️ Warning: kubebuddy.ps1 not found. Ensure it's in the correct directory." -ForegroundColor Yellow
         return
     }
+
+    function ConvertToCollapsible {
+        param(
+            [string]$Id, # unique HTML ID
+            [string]$defaultText, # default <summary> label (e.g., "Show Table")
+            [string]$content     # the HTML to show/hide
+        )
+    
+        @"
+<details id='$Id' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>$defaultText</summary>
+  $content
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('$Id');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to $defaultText
+    sum.textContent = detElem.open ? 'Hide Table' : '$defaultText';
+  });
+});
+</script>
+"@
+    }
+    
 
     # Ensure output file is cleared before writing
     if (Test-Path $outputPath) {
@@ -21,6 +51,18 @@ function Generate-K8sHTMLReport {
     # Capture console output while still displaying it
     Write-Host "🔄 Running Show-ClusterSummary..."
     $clusterSummaryRaw = Show-ClusterSummary *>&1  # Captures output while displaying it
+
+    Write-Host "🔄 Running Show-NodeConditions..."
+    # Capture all nodes at once so we get a complete ASCII table:
+    $nodeConditionsHtml = Show-NodeConditions -Html -PageSize 999
+    $collapsibleNodeSection = ConvertToCollapsible -Id "nodeConditions" -defaultText "Show Table" -content $nodeConditionsHtml
+
+    $nodeResources = Show-NodeResourceUsage -PageSize 999 -Html
+    $collapsibleNodeResources = ConvertToCollapsible -Id "nodeResources" -defaultText "Show Table" -content $nodeResources
+
+    $emptyNsHtml = Show-EmptyNamespaces -PageSize 999 -Html
+    $collapsibleEmptyNsHtmls = ConvertToCollapsible -Id "emptyNamespace" -defaultText "Show Table" -content $emptyNsHtml
+
 
     # Convert output array to a single string
     $clusterSummaryText = $clusterSummaryRaw -join "`n"
@@ -39,7 +81,7 @@ function Generate-K8sHTMLReport {
 
     # Extract Cluster Name and Kubernetes Version properly
     $clusterName = "Unknown"
-    $k8sVersion  = "Unknown"
+    $k8sVersion = "Unknown"
 
     # Read line by line for better extraction
     for ($i = 0; $i -lt $clusterSummaryRaw.Count; $i++) {
@@ -65,18 +107,18 @@ function Generate-K8sHTMLReport {
     }
 
     # Extract numerical data with improved regex
-    $totalNodes    = Extract-Metric "🚀 Nodes"         $clusterSummaryText
-    $healthyNodes  = Extract-Metric "🟩 Healthy"       $clusterSummaryText
-    $issueNodes    = Extract-Metric "🟥 Issues"        $clusterSummaryText
-    $totalPods     = Extract-Metric "📦 Pods"          $clusterSummaryText
-    $runningPods   = Extract-Metric "🟩 Running"       $clusterSummaryText
-    $failedPods    = Extract-Metric "🟥 Failed"        $clusterSummaryText
+    $totalNodes = Extract-Metric "🚀 Nodes"         $clusterSummaryText
+    $healthyNodes = Extract-Metric "🟩 Healthy"       $clusterSummaryText
+    $issueNodes = Extract-Metric "🟥 Issues"        $clusterSummaryText
+    $totalPods = Extract-Metric "📦 Pods"          $clusterSummaryText
+    $runningPods = Extract-Metric "🟩 Running"       $clusterSummaryText
+    $failedPods = Extract-Metric "🟥 Failed"        $clusterSummaryText
     $totalRestarts = Extract-Metric "🔄 Restarts"      $clusterSummaryText
-    $warnings      = Extract-Metric "🟨 Warnings"      $clusterSummaryText
-    $critical      = Extract-Metric "🟥 Critical"      $clusterSummaryText
-    $pendingPods   = Extract-Metric "⏳ Pending Pods"   $clusterSummaryText
-    $stuckPods     = Extract-Metric "⚠️ Stuck Pods"    $clusterSummaryText
-    $jobFailures   = Extract-Metric "📉 Job Failures"  $clusterSummaryText
+    $warnings = Extract-Metric "🟨 Warnings"      $clusterSummaryText
+    $critical = Extract-Metric "🟥 Critical"      $clusterSummaryText
+    $pendingPods = Extract-Metric "⏳ Pending Pods"   $clusterSummaryText
+    $stuckPods = Extract-Metric "⚠️ Stuck Pods"    $clusterSummaryText
+    $jobFailures = Extract-Metric "📉 Job Failures"  $clusterSummaryText
 
     # Extract Pod Distribution
     $podAvg = if ($clusterSummaryText -match "📊 Pod Distribution: Avg: ([\d.]+)") { $matches[1] } else { "0" }
@@ -251,6 +293,20 @@ function Generate-K8sHTMLReport {
             <td>$memStatus</td>
         </tr>
     </table>
+</div>
+<!-- Node Conditions Container -->
+<div class="container">
+<h1>Node Conditions & Resources</h1>
+  <h2>Node Conditions</h2>
+  $collapsibleNodeSection
+  <h2>Node Resources</h2>
+  $collapsibleNodeResources
+</div>
+<!-- Namespace Container -->
+<div class="container">
+<h1>Namespaces</h1>
+  <h2>Empty Namespaces</h2>
+  $collapsibleEmptyNsHtmls
 </div>
 </body>
 </html>
