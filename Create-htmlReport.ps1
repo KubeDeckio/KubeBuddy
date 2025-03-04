@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
     Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Retrieving Cluster Information...             ⏳ Fetching..." -ForegroundColor Yellow
     $clusterSummaryRaw = Show-ClusterSummary -Html *>&1  # Captures output while displaying it
-    rite-Host "`r🤖 Retrieving Cluster Information...             ✅ Done!      " -ForegroundColor Green
+    write-Host "`r🤖 Retrieving Cluster Information...             ✅ Done!      " -ForegroundColor Green
 
     # Capture all nodes at once so we get a complete ASCII table:
     $nodeConditionsHtml = Show-NodeConditions -Html -PageSize 999

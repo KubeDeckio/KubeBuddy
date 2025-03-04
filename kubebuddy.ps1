@@ -2991,7 +2991,7 @@ function Show-ClusterSummary {
         [switch]$Html
     )
 
-    if (-not $Global:MakeReport ) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html ) { Clear-Host }
     Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
 
     # Retrieve Kubernetes Version
