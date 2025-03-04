@@ -372,7 +372,7 @@ function Show-NodeConditions {
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
     Write-Host "`n[🌍 Node Conditions]" -ForegroundColor Cyan
-    Write-Host -NoNewline "`n🤖 Fetching Node Conditions..." -ForegroundColor Yellow
+    Write-Host -NoNewline "`n🤖 Fetching Node Conditions...                   ⏳ Fetching..." -ForegroundColor Yellow
 
     # Fetch nodes
     $nodes = kubectl get nodes -o json | ConvertFrom-Json
@@ -384,7 +384,7 @@ function Show-NodeConditions {
         return
     }
 
-    Write-Host "`r🤖 ✅ Nodes fetched. ($totalNodes total)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)        ✅ Done!      " -ForegroundColor Green
 
     # **Track total Not Ready nodes across the cluster**
     $totalNotReadyNodes = 0
@@ -516,7 +516,7 @@ function Show-NodeResourceUsage {
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
     Write-Host "`n[📊 Node Resource Usage]" -ForegroundColor Cyan
     if (-not $Global:MakeReport -and -not $Html) {
-        Write-Host -NoNewline "`n🤖 Gathering Node Data & Resource Usage..." -ForegroundColor Yellow
+        Write-Host -NoNewline "`n🤖 Fetching Node Data & Resource Usage...        ⏳ Fetching..." -ForegroundColor Yellow
     }
 
     # Get thresholds and node data
@@ -533,8 +533,7 @@ function Show-NodeResourceUsage {
         }
         return
     }
-
-    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)        ✅ Done!      " -ForegroundColor Green
 
     # Track total warnings across all nodes
     $totalWarnings = 0
