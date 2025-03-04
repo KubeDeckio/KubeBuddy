@@ -461,6 +461,8 @@ if ($Html) {
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalNodes / $PageSize)
 
+    
+
     do {
         Clear-Host
         Write-Host "`n[🌍 Node Conditions - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
@@ -485,8 +487,12 @@ if ($Html) {
             "⚠️ Total Not Ready Nodes in the Cluster: $totalNotReadyNodes"
         )
 
+    # Show speech bubble only on the first page
+    if ($currentPage -eq 0) {
         Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
-
+    }else {
+        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 0
+    }
         # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalNodes)

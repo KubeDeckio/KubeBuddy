@@ -46,8 +46,8 @@ function Write-SpeechBubble {
 
     # Display the bot icon
     Write-Host "  $icon" -ForegroundColor $color
-    Write-Host "     🭽" -ForegroundColor $color
-    Write-Host "      🭿" -ForegroundColor $color
+    Write-Host "      ◤" -ForegroundColor $color
+    Write-Host "       ◢" -ForegroundColor $color
 
     Start-Sleep -Milliseconds 500  # Short delay before speaking starts
 
