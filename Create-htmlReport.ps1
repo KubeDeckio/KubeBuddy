@@ -49,10 +49,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     # Capture console output while still displaying it
-    Write-Host "🔄 Running Show-ClusterSummary..."
-    $clusterSummaryRaw = Show-ClusterSummary *>&1  # Captures output while displaying it
+    Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Retrieving Cluster Information...             ⏳ Fetching..." -ForegroundColor Yellow
+    $clusterSummaryRaw = Show-ClusterSummary -Html *>&1  # Captures output while displaying it
+    rite-Host "`r🤖 Retrieving Cluster Information...             ✅ Done!      " -ForegroundColor Green
 
-    Write-Host "🔄 Running Show-NodeConditions..."
     # Capture all nodes at once so we get a complete ASCII table:
     $nodeConditionsHtml = Show-NodeConditions -Html -PageSize 999
     $collapsibleNodeSection = ConvertToCollapsible -Id "nodeConditions" -defaultText "Show Table" -content $nodeConditionsHtml
@@ -63,13 +64,51 @@ document.addEventListener('DOMContentLoaded', function() {
     $emptyNsHtml = Show-EmptyNamespaces -PageSize 999 -Html
     $collapsibleEmptyNsHtmls = ConvertToCollapsible -Id "emptyNamespace" -defaultText "Show Table" -content $emptyNsHtml
 
+    $dsIssuesHtml = Show-DaemonSetIssues -PageSize 999 -Html
+    $collapsibleDsIssuesHtml = ConvertToCollapsible -Id "daemonSetIssues" -defaultText "Show Table" -content $dsIssuesHtml
+
+    $podsRestartHtml = Show-PodsWithHighRestarts -Html -PageSize 999
+    $collapsiblePodsRestartHtml = ConvertToCollapsible -Id "podsRestart" -defaultText "Show Table" -content $podsRestartHtml
+
+    $podLongRunningHtml = Show-LongRunningPods -Html -PageSize 999
+    $collapsiblePodLongRunningHtml = ConvertToCollapsible -Id "podLongRunning" -defaultText "Show Table" -content $podLongRunningHtml
+
+    $podFailHtml = Show-FailedPods -Html -PageSize 999
+    $collapsiblePodFailHtml = ConvertToCollapsible -Id "podFail" -defaultText "Show Table" -content $podFailHtml
+
+    $podpendHtml = Show-PendingPods -Html -PageSize 999
+    $collapsiblePodPendingHtml = ConvertToCollapsible -Id "podPending" -defaultText "Show Table" -content $podpendHtml
+
+    $crashloopHtml = Show-CrashLoopBackOffPods -Html -PageSize 999
+    $collapsibleCrashloopHtml = ConvertToCollapsible -Id "crashloop" -defaultText "Show Table" -content $crashloopHtml
+
+    $stuckJobHtml = Show-StuckJobs -Html -PageSize 999
+    $collapsibleStuckJobHtml = ConvertToCollapsible -Id "stuckJobs" -defaultText "Show Table" -content $stuckJobHtml
+
+    $jobFailHtml = Show-FailedJobs -Html -PageSize 999
+    $collapsibleJobFailHtml = ConvertToCollapsible -Id "jobFail" -defaultText "Show Table" -content $jobFailHtml
+
+    $servicesWithoutEndpointsHtml = Show-ServicesWithoutEndpoints -Html -PageSize 999
+    $collapsibleServicesWithoutEndpointsHtml = ConvertToCollapsible -Id "servicesWithoutEndpoints" -defaultText "Show Table" -content $servicesWithoutEndpointsHtml
+
+    $unmountedpvHtml = Show-UnusedPVCs  -Html -PageSize 999
+    $collapsibleUnmountedpvHtml = ConvertToCollapsible -Id "unmountedPV" -defaultText "Show Table" -content $unmountedpvHtml
+
+    $rbacmisconfigHtml = Check-RBACMisconfigurations -Html -PageSize 999
+    $collapsibleRbacmisconfigHtml = ConvertToCollapsible -Id "rbacMisconfig" -defaultText "Show Table" -content $rbacmisconfigHtml
+
+    $orphanedConfigMapsHtml = Check-OrphanedConfigMaps -Html -PageSize 999
+    $collapsibleOrphanedConfigMapsHtml = ConvertToCollapsible -Id "orphanedConfigMaps" -defaultText "Show Table" -content $orphanedConfigMapsHtml
+
+    $orphanedSecretsHtml = Check-OrphanedSecrets -Html -PageSize 999
+    $collapsibleOrphanedSecretsHtml = ConvertToCollapsible -Id "orphanedSecrets" -defaultText "Show Table" -content $orphanedSecretsHtml
 
     # Convert output array to a single string
     $clusterSummaryText = $clusterSummaryRaw -join "`n"
 
     # Debugging: Print the exact raw captured output
-    Write-Host "🔍 Full Cluster Summary Output:"
-    Write-Host $clusterSummaryText
+    # Write-Host "🔍 Full Cluster Summary Output:"
+    # Write-Host $clusterSummaryText
 
     # Function to extract numerical values correctly
     function Extract-Metric($label, $data) {
@@ -133,18 +172,18 @@ document.addEventListener('DOMContentLoaded', function() {
     $memUsage = if ($clusterSummaryText -match "💾 Memory Usage:\s*([\d.]+)%") { $matches[1] } else { "0" }
     $memStatus = if ($clusterSummaryText -match "💾 Memory Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
 
-    # Debugging: Print extracted values
-    Write-Host "📊 Extracted Values:"
-    Write-Host "Cluster Name: $clusterName"
-    Write-Host "Kubernetes Version: $k8sVersion"
-    Write-Host "Compatibility: $compatibilityCheck"
-    Write-Host "Nodes: $totalNodes, Healthy: $healthyNodes, Issues: $issueNodes"
-    Write-Host "Pods: $totalPods, Running: $runningPods, Failed: $failedPods"
-    Write-Host "Restarts: $totalRestarts, Warnings: $warnings, Critical: $critical"
-    Write-Host "Pending Pods: $pendingPods, Stuck Pods: $stuckPods, Job Failures: $jobFailures"
-    Write-Host "Pod Distribution -> Avg: $podAvg, Max: $podMax, Min: $podMin, Total Nodes: $podTotalNodes"
-    Write-Host "CPU Usage: $cpuUsage%, Status: $cpuStatus"
-    Write-Host "Memory Usage: $memUsage%, Status: $memStatus"
+    # # Debugging: Print extracted values
+    # Write-Host "📊 Extracted Values:"
+    # Write-Host "Cluster Name: $clusterName"
+    # Write-Host "Kubernetes Version: $k8sVersion"
+    # Write-Host "Compatibility: $compatibilityCheck"
+    # Write-Host "Nodes: $totalNodes, Healthy: $healthyNodes, Issues: $issueNodes"
+    # Write-Host "Pods: $totalPods, Running: $runningPods, Failed: $failedPods"
+    # Write-Host "Restarts: $totalRestarts, Warnings: $warnings, Critical: $critical"
+    # Write-Host "Pending Pods: $pendingPods, Stuck Pods: $stuckPods, Job Failures: $jobFailures"
+    # Write-Host "Pod Distribution -> Avg: $podAvg, Max: $podMax, Min: $podMin, Total Nodes: $podTotalNodes"
+    # Write-Host "CPU Usage: $cpuUsage%, Status: $cpuStatus"
+    # Write-Host "Memory Usage: $memUsage%, Status: $memStatus"
 
     # Prepare the dynamic date
     $today = (Get-Date -Format "MMMM dd, yyyy")
@@ -158,6 +197,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kubernetes Cluster Report</title>
 <style>
+    html {
+      scroll-behavior: smooth; /* optional smooth scrolling */
+    }
     body { 
         font-family: Arial, sans-serif; 
         margin: 0; 
@@ -206,9 +248,159 @@ document.addEventListener('DOMContentLoaded', function() {
         background-color: #1e88e5; 
         color: white; 
     }
+        /* “Back to Top” button style */
+    #backToTop {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #0071FF;
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      display: none; /* hide by default */
+      transition: opacity 0.3s ease;
+    }
+    #backToTop:hover {
+      background-color: #005ad1;
+    }
+          /* Floating TOC Menu */
+    #toc {
+      position: fixed;
+      top: 50%;                /* centers vertically in the viewport */
+      left: 0;                 /* pinned to the left side */
+      transform: translateY(-50%); /* offset by 50% to center exactly */
+      background-color: #fff;
+      border: 1px solid #cfd8dc;
+      border-right: none;          /* remove right border (since pinned left) */
+      border-radius: 0 8px 8px 0;  /* rounding on right side only */
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.15); /* slight shadow to the right */
+      padding: 10px 15px;
+      width: 180px;
+      z-index: 9999;           /* floats on top of other elements */
+    }
+    #toc h3 {
+      margin-top: 0;
+      font-size: 16px;
+      text-align: center;
+    }
+    #toc ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    #toc ul li a {
+      display: block;
+      color: #37474f;
+      text-decoration: none;
+      margin: 5px 0;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    }
+    #toc ul li a:hover {
+      color: #0071FF;
+    }
+    /* Adjust for narrower screens */
+    @media(max-width: 800px) {
+      #toc {
+        display: none; /* hide the floating menu on smaller devices, or make it absolute or a hamburger menu */
+      }
+    }
+    details ul {
+      margin-left: 1.5em;
+    }
 </style>
 </head>
 <body>
+<nav id="toc">
+  <h3>Sections</h3>
+<ul>
+  <li><a href="#summary">Cluster Summary</a></li>
+
+  <!-- Collapsible "Nodes" section -->
+  <li>
+    <details>
+      <summary>Nodes</summary>
+      <ul>
+        <li><a href="#nodecon">Node Conditions</a></li>
+        <li><a href="#noderesource">Node Resources</a></li>
+      </ul>
+    </details>
+  </li>
+
+  <li><a href="#namespaces">Namespaces</a></li>
+
+  <!-- Collapsible "Workloads" section -->
+    <li>
+    <details>
+      <summary>Workloads</summary>
+      <ul>
+        <li><a href="#workloads">Workloads</a></li>
+              </ul>
+    </details>
+  </li>
+
+  <!-- Collapsible "Pods" section -->
+  <li>
+    <details>
+      <summary>Pods</summary>
+      <ul>
+        <li><a href="#podrestarts">Pods with High Restarts</a></li>
+        <li><a href="#podlong">Long Running Pods</a></li>
+        <li><a href="#podfail">Failed Pods</a></li>
+        <li><a href="#podpend">Pending Pods</a></li>
+        <li><a href="#crashloop">Pods in crashloop</a></li>
+      </ul>
+    </details>
+  </li>
+
+  <!-- Collapsible "Jobs" section -->
+    <li>
+    <details>
+      <summary>Jobs</summary>
+      <ul>
+        <li><a href="#stuckjobs">Stuck Jobs</a></li>
+        <li><a href="#failedjobs">Job Failures</a></li>
+              </ul>
+    </details>
+  </li>
+
+  <!-- Collapsible "Networking" section -->
+    <li>
+    <details>
+      <summary>Networking</summary>
+      <ul>
+        <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
+              </ul>
+    </details>
+  </li>
+
+    <!-- Collapsible "Storage" section -->
+        <li>
+        <details>
+        <summary>Storage</summary>
+        <ul>
+            <li><a href="#unmountedpv">Unmounted Persistent Volumes</a></li>
+                </ul>
+        </details>
+
+    <!-- Collapsible "Security" section -->
+        <li>
+        <details>
+        <summary>Security</summary>
+        <ul>
+            <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
+            <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
+            <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
+                </ul>
+        </details>
+</ul>
+
+</nav>
+<div id="top"></div>
 <div class="header">
   <div style="display: flex; flex-direction: column;">
     <span>Kubernetes Cluster Report: $clusterName</span>
@@ -232,13 +424,14 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
+
 <div class="container">
-    <h1>Cluster Summary</h1>
+    <h1 id="summary">Cluster Summary</h1>
     <p><strong>Cluster Name:</strong> $clusterName</p>
     <p><strong>Kubernetes Version:</strong> $k8sVersion</p>
     <div class="compatibility">⚠️ <strong>$compatibilityCheck</strong></div>
 
-    <h2>📊 Cluster Metrics Summary</h2>
+    <h2>Cluster Metrics Summary</h2>
     <table>
         <tr>
             <td>🚀 Nodes: $totalNodes</td>
@@ -272,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </tr>
     </table>
 
-    <h2>📊 Pod Distribution</h2>
+    <h2>Pod Distribution</h2>
     <table>
         <tr>
             <td>Avg: <strong>$podAvg</strong></td>
@@ -282,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </tr>
     </table>
 
-    <h2>💾 Resource Usage</h2>
+    <h2>Resource Usage</h2>
     <table>
         <tr>
             <td>🖥  CPU Usage: <strong>$cpuUsage%</strong></td>
@@ -297,17 +490,81 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Node Conditions Container -->
 <div class="container">
 <h1>Node Conditions & Resources</h1>
-  <h2>Node Conditions</h2>
+  <h2 id="nodecon">Node Conditions</h2>
   $collapsibleNodeSection
-  <h2>Node Resources</h2>
+  <h2 id="noderesource">Node Resources</h2>
   $collapsibleNodeResources
 </div>
 <!-- Namespace Container -->
 <div class="container">
-<h1>Namespaces</h1>
+<h1 id="namespaces">Namespaces</h1>
   <h2>Empty Namespaces</h2>
   $collapsibleEmptyNsHtmls
 </div>
+<!-- Workload Container -->
+<div class="container">
+<h1 id="workloads">Workloads</h1>
+  <h2>DaemonSets Not Fully Running</h2>
+  $collapsibleDsIssuesHtml
+</div>
+<!-- Pods Container -->
+<div class="container">
+<h1 id="pods">Pods</h1>
+  <h2 id="podrestarts">Pods with High Restarts</h2>
+  $collapsiblePodsRestartHtml
+  <h2 id="podlong">Long Running Pods</h2>
+  $collapsiblePodLongRunningHtml
+  <h2 id="podfail">Failed Pods</h2>
+  $collapsiblePodFailHtml
+  <h2 id="podpending">Pending Pods</h2>
+  $collapsiblePodPendingHtml
+  <h2 id="crashloop">CrashLoopBackOff Pods</h2>
+  $collapsibleCrashloopHtml
+</div>
+<!-- Job Container -->
+<div class="container">
+<h1 id="jobs">Jobs</h1>
+  <h2 id="stuckjobs">Stuck Jobs</h2>
+  $collapsibleStuckJobHtml
+  <h2 id="failedjobs">Job Failures</h2>
+  $collapsibleJobFailHtml
+  </div>
+<!-- Networking Container -->
+<div class="container">
+<h1 id="jobs">Networking</h1>
+  <h2 id="servicenoendpoints">Services without Endpoints</h2>
+  $collapsibleServicesWithoutEndpointsHtml
+</div>
+<!-- Storage Container -->
+<div class="container">
+<h1 id="storage">Storage</h1>
+  <h2 id="unmountedpv">Unmounted Persistent Volumes</h2>
+  $collapsibleUnmountedpvHtml
+  </div>
+<!-- Security Container -->
+<div class="container">
+<h1 id="security">Security</h1>
+  <h2 id="rbacmisconfig">RBAC Misconfigurations</h2>
+  $collapsibleRbacmisconfigHtml
+  <h2 id="orphanedconfigmaps">Orphaned ConfigMaps</h2>
+  $collapsibleOrphanedConfigMapsHtml
+  <h2 id="orphanedsecrets">Orphaned Secrets</h2>
+  $collapsibleOrphanedSecretsHtml
+  </div>
+<!-- Back to Top Button -->
+<a href="#top" id="backToTop">Back to Top</a>
+<script>
+    // Show/hide "Back to Top" button based on scroll
+    window.addEventListener('scroll', function() {
+      const button = document.getElementById('backToTop');
+      // If scrolled down more than 200px, show the button, else hide it
+      if (window.scrollY > 200) {
+        button.style.display = 'block';
+      } else {
+        button.style.display = 'none';
+      }
+    });
+  </script>
 </body>
 </html>
 "@
