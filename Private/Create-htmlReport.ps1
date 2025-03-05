@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  # Extract Compatibility Check
+
   # Extract Compatibility Check and Set Status Class
   $compatibilityCheck = "Unknown"
   $compatibilityClass = "unknown"
@@ -216,11 +216,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   # Define classes based on config-defined thresholds
   $errorClass = if ($eventErrors -ge $thresholds.event_errors_critical) { "critical" } `
-    elseif ($errors -ge $thresholds.errors_warning) { "warning" } `
+    elseif ($eventErrors -ge $thresholds.event_errors_warning) { "warning" } `
     else { "normal" }
 
+
   $warningClass = if ($eventWarnings -ge $thresholds.event_warnings_critical) { "critical" } `
-    elseif ($warnings -ge $thresholds.warnings_warning) { "warning" } `
+    elseif ($eventWarnings -ge $thresholds.event_warnings_warning) { "warning" } `
     else { "normal" }
 
   $cpuClass = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } `
@@ -264,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 24px;
     }
     .container { 
-        max-width: 1000px; 
+        max-width: 1350px; 
         margin: 20px auto; 
         background: white; 
         padding: 20px; 
@@ -325,6 +326,47 @@ document.addEventListener('DOMContentLoaded', function() {
     #backToTop:hover {
       background-color: #005ad1;
     }
+
+    #printContainer {
+        text-align: right;
+        margin-bottom: 15px;
+    }
+    #printContainer button {
+        background-color: #0071FF;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        border-radius: 5px;
+    }
+    #printContainer button:hover {
+        background-color: #005ad1;
+    }
+    #savePdfBtn {
+        background-color: #0071FF;
+        color: white;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    #savePdfBtn:hover {
+        background-color: #005ad1;
+    }
+    @media print {
+        #savePdfBtn { display: none; } /* Hide button in PDF */
+    }
+    
+    /* Hide button when printing */
+    @media print {
+        #printContainer { display: none; }
+        details { display: block; } /* Expand all details on print */
+    }
+
 
     /* Floating TOC (Initially Collapsed) */
     #toc {
@@ -478,7 +520,6 @@ document.addEventListener('DOMContentLoaded', function() {
     text-align: center;
     padding: 15px 20px;
     font-size: 14px;
-    width: 100%;
     position: relative; /* This allows the footer to stay below content */
     }
     .footer a {
@@ -601,6 +642,12 @@ document.addEventListener('DOMContentLoaded', function() {
         🌐 kubedeck.io
       </a>
     </p>
+
+    <!-- Save as PDF Button 
+    <div id="printContainer">
+      <button id="savePdfBtn">📄 Save as PDF</button>
+    </div> -->
+  </div>
   </div>
 </div>
 
@@ -826,6 +873,41 @@ document.addEventListener('DOMContentLoaded', function() {
             lastScrollY = window.scrollY;
         });
     });
+    document.getElementById("savePdfBtn").addEventListener("click", function() {
+        // Expand all collapsible sections
+        document.querySelectorAll("details").forEach(detail => {
+            detail.open = true;
+        });
+    
+        // Save original scroll styles
+        const tableContainers = document.querySelectorAll(".table-container");
+        const originalStyles = [];
+    
+        tableContainers.forEach((container, index) => {
+            originalStyles[index] = {
+                overflow: container.style.overflow,
+                height: container.style.height
+            };
+    
+            // Remove scrollbars and expand tables
+            container.style.overflow = "visible";
+            container.style.height = "auto";
+        });
+    
+        // Delay print to allow rendering
+        setTimeout(() => {
+            window.print();
+        }, 500);
+    
+        // Restore scrollbars after printing
+        window.onafterprint = function() {
+            tableContainers.forEach((container, index) => {
+                container.style.overflow = originalStyles[index].overflow;
+                container.style.height = originalStyles[index].height;
+            });
+        };
+    });
+
   </script>
 </body>
 </html>

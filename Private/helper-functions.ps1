@@ -171,8 +171,9 @@ function Get-KubeBuddyThresholds {
         stuck_job_hours   = 2
         failed_job_hours  = 2
         event_errors_warning    = 10
+        event_errors_critical   = 20
         event_warnings_warning  = 50
-
+        event_warnings_critical = 100
     }
 }
 

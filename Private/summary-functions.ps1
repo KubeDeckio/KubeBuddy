@@ -28,7 +28,7 @@ function Show-ClusterSummary {
     $clusterName = (kubectl config current-context)
     Write-Host "`r🤖 Cluster Information fetched." -ForegroundColor Green
 
-    if (-not $Global:MakeReport ) {
+    if (-not $Global:MakeReport) {
         Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
         Write-Host "is " -NoNewline
         Write-Host "$clusterName" -ForegroundColor Yellow
@@ -62,6 +62,7 @@ function Show-ClusterSummary {
     Write-Host "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount" -ForegroundColor Yellow
 
     # Log to report if in report mode
+    if ($Global:MakeReport) {
     Write-ToReport "Cluster Name: $clusterName"
     Write-ToReport "Kubernetes Version: $k8sVersion"
     if ($Global:MakeReport) {
@@ -71,6 +72,7 @@ function Show-ClusterSummary {
     Write-ToReport "Compatibility Check: $versionCheck"
     Write-ToReport "`nMetrics: $summary"
     Write-ToReport "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount"
+    }
 
     if (-not $Global:MakeReport -and -not $Html) {
         Read-Host "`nPress Enter to return to the main menu"
