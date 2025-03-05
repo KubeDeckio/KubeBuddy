@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
   # Function to extract numerical values correctly
   function Extract-Metric($label, $data) {
     if ($data -match "$label\s*:\s*([\d]+)") {
-      return $matches[1]
+      return [int]$matches[1]
     }
     return "0"
   }
@@ -141,18 +141,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   # Extract Compatibility Check
-# Extract Compatibility Check and Set Status Class
-$compatibilityCheck = "Unknown"
-$compatibilityClass = "unknown"
+  # Extract Compatibility Check and Set Status Class
+  $compatibilityCheck = "Unknown"
+  $compatibilityClass = "unknown"
 
-if ($clusterSummaryText -match "⚠️\s+(Cluster is running an outdated version:[^\n]+)") {
+  if ($clusterSummaryText -match "⚠️\s+(Cluster is running an outdated version:[^\n]+)") {
     $compatibilityCheck = $matches[1].Trim()
     $compatibilityClass = "warning"
-}
-elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") {
+  }
+  elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") {
     $compatibilityCheck = "✅ Cluster is up to date ($matches[1])"
     $compatibilityClass = "healthy"
-}
+  }
 
   # Extract numerical data with improved regex
   $totalNodes = Extract-Metric "🚀 Nodes"         $clusterSummaryText
@@ -179,11 +179,20 @@ elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") {
   $podTotalNodes = if ($clusterSummaryText -match "Total Nodes: ([\d]+)") { $matches[1] } else { "0" }
 
   # Extract CPU and Memory Usage
-  $cpuUsage = if ($clusterSummaryText -match "🖥  CPU Usage:\s*([\d.]+)%") { $matches[1] } else { "0" }
+  $cpuUsage = if ($clusterSummaryText -match "🖥  CPU Usage:\s*([\d.]+)%") { 
+    [double]$matches[1] 
+  }
+  else { 
+    0 
+  }
   $cpuStatus = if ($clusterSummaryText -match "🖥  CPU Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
 
-  $memUsage = if ($clusterSummaryText -match "💾 Memory Usage:\s*([\d.]+)%") { $matches[1] } else { "0" }
-  $memStatus = if ($clusterSummaryText -match "💾 Memory Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
+  $memUsage = if ($clusterSummaryText -match "💾 Memory Usage:\s*([\d.]+)%") { 
+    [double]$matches[1] 
+  }
+  else { 
+    0 
+  }  $memStatus = if ($clusterSummaryText -match "💾 Memory Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
 
   # # Debugging: Print extracted values
   # Write-Host "📊 Extracted Values:"
@@ -206,11 +215,11 @@ elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") {
   $thresholds = Get-KubeBuddyThresholds -Silent
 
   # Define classes based on config-defined thresholds
-  $errorClass = if ($errors -ge $thresholds.errors_critical) { "critical" } `
+  $errorClass = if ($eventErrors -ge $thresholds.event_errors_critical) { "critical" } `
     elseif ($errors -ge $thresholds.errors_warning) { "warning" } `
     else { "normal" }
 
-  $warningClass = if ($warnings -ge $thresholds.warnings_critical) { "critical" } `
+  $warningClass = if ($eventWarnings -ge $thresholds.event_warnings_critical) { "critical" } `
     elseif ($warnings -ge $thresholds.warnings_warning) { "warning" } `
     else { "normal" }
 
@@ -218,8 +227,8 @@ elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") {
     elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } `
     else { "normal" }
 
-  $memClass = if ($memUsage -ge $thresholds.mem_critical) { "critical" } `
-    elseif ($memUsage -ge $thresholds.mem_warning) { "warning" } `
+  $memClass = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } `
+    elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } `
     else { "normal" }
 
 
@@ -232,11 +241,13 @@ elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kubernetes Cluster Report</title>
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+
     html {
       scroll-behavior: smooth; /* optional smooth scrolling */
     }
     body { 
-        font-family: Arial, sans-serif; 
+        font-family: 'Roboto', sans-serif;
         margin: 0; 
         padding: 0; 
         background: #eceff1; 
@@ -265,7 +276,8 @@ elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") {
         border-radius: 5px;
         font-weight: bold;
         text-align: center;
-        color: #ffffff; /* Dark gray for text */
+        color: #ffffff;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
     }
     
     /* Colors based on cluster status */

@@ -170,8 +170,8 @@ function Get-KubeBuddyThresholds {
         pod_age_critical  = 40
         stuck_job_hours   = 2
         failed_job_hours  = 2
-        errors_warning    = 10
-        warnings_warning  = 50
+        event_errors_warning    = 10
+        event_warnings_warning  = 50
 
     }
 }
