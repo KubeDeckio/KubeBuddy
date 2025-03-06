@@ -1,84 +1,110 @@
-# KubeBuddy
 
-KubeBuddy is a lightweight tool designed to assist developers and operations teams with their daily Kubernetes tasks. It simplifies essential Kubernetes management operations, combining multiple common functions into one easy-to-use, PowerShell-based tool. By providing high-level overviews, resource monitoring, and log retrieval, KubeBuddy aims to reduce the complexity of managing clusters, making it ideal for small to medium-sized environments or teams seeking operational efficiency without the need for heavy tools.
+<p align="center">
+  <img src="./images/KubeBuddy.png" />
+</p>
 
-## Why KubeBuddy?
+<h1 align="center" style="font-size: 100px;">
+  <b>KubeBuddy</b>
+</h1>
 
-Managing Kubernetes can be overwhelming due to its complexity and the steep learning curve of native tools like kubectl. KubeBuddy addresses this by simplifying essential tasks like resource management, pod monitoring, and log retrieval, helping teams improve their visibility and operational efficiency.
+</br>
 
-## Key Features:
-
-1. Cluster Information: Quickly retrieve summaries of cluster health, nodes, and namespaces, giving an at-a-glance understanding of the environment.
-
-
-2. Pod Monitoring: Monitor pod health by tracking restarts and other issues, helping to detect problems early.
-
-
-3. Namespace Cleanup: Automatically detect and clean up unused namespaces to keep the cluster organized and resource-efficient.
-
-
-4. Log Retrieval: Easily fetch logs from pods for debugging purposes, saving time when troubleshooting.
-
-
-5. Resource Monitoring: Track CPU and memory usage across nodes and pods, helping teams to keep an eye on resource consumption.
+![Publish Module to PowerShell Gallery](https://github.com/YourOrg/KubeBuddy/actions/workflows/publish-psgal.yml/badge.svg)
+![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/KubeBuddy.svg)
+![Downloads](https://img.shields.io/powershellgallery/dt/KubeBuddy.svg)
+![License](https://img.shields.io/github/license/YourOrg/KubeBuddy.svg)
 
 ---
 
-Task List to Build KubeBuddy
+**KubeBuddy** is a PowerShell-based Kubernetes assistant that helps you monitor cluster health, workloads, networking, security, and more. It generates **HTML** and **text-based reports** to help you quickly assess your Kubernetes environment.
 
-1. Planning and Setup:
+## Documentation
 
-Requirements Gathering: Define each feature and decide on the exact operations KubeBuddy should perform.
+For complete installation, usage, and advanced configuration instructions, visit the **[KubeBuddy Documentation](https://docs.kubebuddy.io)**.
 
-Project Repository: Set up a repository on GitHub (or another platform) to store the project files and track progress.
+---
 
-Development Environment: Install PowerShell Core, Kubernetes CLI, and other required dependencies for development.
+## Features
 
+- **Cluster Health Monitoring:** Checks node status, resource usage, and pod conditions.
+- **Workload Analysis:** Identifies failing pods, restart loops, and stuck jobs.
+- **Event Reporting:** Summarizes Kubernetes events to highlight errors and warnings.
+- **RBAC & Security Checks:** Identifies excessive permissions and misconfigurations.
+- **Storage & Networking Insights:** Analyzes persistent volumes, services, and network policies.
+- **Customizable Thresholds:** Configure warning/critical levels in `kubebuddy-config.yaml`.
+- **HTML & Text Reports:** Generates clean reports for analysis and sharing.
+- **PowerShell Support:** Install via PowerShell Gallery and run on Windows, macOS, or Linux.
 
-2. Feature Development:
+---
 
-Cluster Overview: Build a feature to collect cluster-wide information (nodes, namespaces, pods, etc.).
+## Installation
 
-Pod Health Monitoring: Implement logic to check pod restart counts and status, to track any abnormalities.
+### **PowerShell Gallery**
 
-Namespace Cleanup: Automate the detection and removal of unused namespaces.
+To install **KubeBuddy** using PowerShell:
 
-Log Retrieval: Create an easy way to fetch pod logs for debugging with minimal parameters.
+```powershell
+Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
+```
 
-Resource Monitoring: Implement a function to check CPU and memory usage for both nodes and pods.
+### **Platform Support**
+- **PowerShell Module:** Works on **Windows**, **macOS**, and **Linux**.
 
+For additional installation methods, refer to the **[KubeBuddy Documentation](https://docs.kubebuddy.io).**
 
-3. Testing:
+---
 
-Unit Tests: Write tests for each feature to ensure individual components work as expected.
+## Usage
 
-Cluster Testing: Run end-to-end tests in a Kubernetes cluster (e.g., Minikube or cloud Kubernetes) to validate the tool's integration and behavior.
+### **PowerShell Command**
+Run **KubeBuddy** in PowerShell:
+```powershell
+Invoke-KubeBuddy
+```
 
-Cross-Platform Compatibility: Test KubeBuddy across platforms (Windows, macOS, Linux) to ensure smooth functioning on all systems using PowerShell Core.
+### **Generate Reports**
+- HTML Report:
+  ```powershell
+  Invoke-KubeBuddy -HtmlReport
+  ```
+- Text Report:
+  ```powershell
+  Invoke-KubeBuddy -txtReport
+  ```
 
+---
 
-4. Documentation:
+## Configuration
 
-Main README: Write a detailed README explaining the tool’s purpose, how to install and use it, and examples for each feature.
+**KubeBuddy** uses a YAML configuration file (`kubebuddy-config.yaml`) to define thresholds:
 
-In-Tool Help: Include help functionality in the tool so users can get command usage information directly from the CLI.
+```yaml
+thresholds:
+  cpu_warning: 50
+  cpu_critical: 75
+  mem_warning: 50
+  mem_critical: 75
+  restarts_warning: 3
+  restarts_critical: 5
+  pod_age_warning: 15
+  pod_age_critical: 40
+```
 
-FAQs and Troubleshooting: Prepare common questions and answers, as well as troubleshooting steps for potential issues users might face.
+This file should be placed at:
+```
+~/.kube/kubebuddy-config.yaml
+```
 
+If missing, **KubeBuddy** falls back to default settings.
 
-5. Packaging and Deployment:
+---
 
-PowerShell Module: Package all scripts into a PowerShell module for easy installation and updates.
+## Changelog
 
-Publish to PowerShell Gallery: Release the module to the PowerShell Gallery for public consumption, allowing users to install it easily via Install-Module.
+All notable changes to this project are documented in the **[CHANGELOG](./CHANGELOG.md).**
 
-CI/CD Pipeline: Set up continuous integration (CI) to automate tests, and continuous deployment (CD) to package and release new versions.
+---
 
+## License
 
-6. Marketing & Community Building:
-
-Launch Campaign: Create a launch plan with blog posts, social media updates, and community engagement to spread the word about KubeBuddy.
-
-Gather Feedback: Encourage early users to provide feedback for improving the tool and identifying new features.
-
-Community Involvement: Open up the repository for contributions, allowing other developers to add new features or enhancements.
+This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for more details.
