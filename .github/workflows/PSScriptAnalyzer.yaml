@@ -1,0 +1,65 @@
+name: Run PSScriptAnalyzer on PowerShell Scripts
+
+on:
+  pull_request_target:
+    types: [opened]
+    branches:
+    - 'main'
+
+jobs:
+  analyze:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run PSScriptAnalyzer and format output in Markdown
+        run: |
+          # Run ScriptAnalyzer and capture the output
+          $results = Invoke-ScriptAnalyzer -Path ./ -Recurse -Severity 'Error', 'Warning' -ExcludeRule PSAvoidUsingWriteHost
+
+          # Separate the warnings and errors
+          $warnings = $results | Where-Object { $_.Severity -eq 'Warning' }
+          $errors = $results | Where-Object { $_.Severity -eq 'Error' }
+
+          # Debug: Output the count of warnings and errors
+          Write-Host "Found $($warnings.Count) warnings"
+          Write-Host "Found $($errors.Count) errors"
+
+          # Create Markdown formatted tables
+          function ConvertTo-MarkdownTable {
+              param ($items)
+              $header = "| RuleName | Severity | ScriptName | Line | Message |"
+              $separator = "| --- | --- | --- | --- | --- |"
+              $rows = foreach ($item in $items) {
+                  "| $($item.RuleName) | $($item.Severity) | $($item.ScriptName) | $($item.Line) | $($item.Message) |"
+              }
+              # Join rows into a single string
+              return "$header`n$separator`n$($rows -join "`n")"
+          }
+
+          # Append warnings to the GitHub Actions summary (if any)
+          if ($warnings.Count -gt 0) {
+              $warningTable = ConvertTo-MarkdownTable -items $warnings
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Warnings`n"
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$warningTable`n"
+          } else {
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Warnings Found`n"
+          }
+
+          # Append errors to the GitHub Actions summary (if any)
+          if ($errors.Count -gt 0) {
+              $errorTable = ConvertTo-MarkdownTable -items $errors
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Errors`n"
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$errorTable`n"
+          } else {
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Errors Found`n"
+          }
+
+          # Fail the job if there are any errors
+          if ($errors.Count -gt 0) {
+              Write-Error "PSScriptAnalyzer found errors."
+          }
+
+        shell: pwsh

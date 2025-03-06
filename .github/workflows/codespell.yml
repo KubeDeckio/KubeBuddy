@@ -1,0 +1,19 @@
+# GitHub Action to automate the identification of common misspellings in text files.
+# https://github.com/codespell-project/actions-codespell
+# https://github.com/codespell-project/codespell
+name: codespell
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  codespell:
+    name: Check for spelling errors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: codespell-project/actions-codespell@master
+        with:
+          check_filenames: true
+          skip: ./.git,*.yml,*.yaml,./.github/workflows/codespell.yml,.git,*.png,*.jpg,*.svg,*.sum,*.ics
+          ignore_words_list: AKS,aks,nd,aci,rouge

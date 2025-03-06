@@ -65,14 +65,14 @@ function Show-KubeEvents {
         Write-ToReport "`n[📢 Kubernetes Warnings]"
         Write-ToReport "`n⚠️ Warnings: $warningCount"
         Write-ToReport "-----------------------------------------------------------"
-
+    
         # Sort warnings by timestamp
         $sortedData = $eventData | Sort-Object Timestamp -Descending
-
+        
         # Format as a table and write to report
-        $tableString = $sortedEvents | Format-Table -Property Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize | Out-String
-        Write-ToReport $tableString
-
+        $tableString = $sortedData | Format-Table -Property Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize | Out-String -Width 500
+        $tableString -split "`n" | ForEach-Object { Write-ToReport $_ }
+    
         return
     }
    

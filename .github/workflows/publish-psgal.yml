@@ -1,0 +1,106 @@
+name: Publish Module to PowerShell Gallery
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+              # Extract and update module version from Git tag
+      - name: Set Module Version from Git Tag
+        id: set_version
+        run: |
+          # Extract version from the Git tag, keeping the 'v' prefix
+          $tagVersion = '${{ github.ref_name }}'
+          Write-Host "Setting module version to $tagVersion"
+      
+          # Load and update the ModuleVersion in the .psd1 file
+          (Get-Content ./KubeBuddy.psd1) -replace "ModuleVersion = '.*'", "ModuleVersion = '$($tagVersion -replace '^v', '')'" |
+              Set-Content ./KubeBuddy.psd1
+      
+          # Load and update the version in kubebuddy.ps1
+          (Get-Content ./Public/kubebuddy.ps1) -replace '\$version = "v.*?"', "`$version = `"$tagVersion`"" |
+              Set-Content ./Public/kubebuddy.ps1
+      
+          # Output for use in later steps
+          echo "::set-output name=version::$tagVersion"
+        shell: pwsh
+
+      # Validate PowerShell Code
+      - name: Run PSScriptAnalyzer and format output in Markdown
+        run: |
+          # Run ScriptAnalyzer and capture the output
+          $results = Invoke-ScriptAnalyzer -Path ./ -Recurse -Severity 'Error', 'Warning' -ExcludeRule PSAvoidUsingWriteHost
+
+          # Separate the warnings and errors
+          $warnings = $results | Where-Object { $_.Severity -eq 'Warning' }
+          $errors = $results | Where-Object { $_.Severity -eq 'Error' }
+
+          # Debug: Output the count of warnings and errors
+          Write-Host "Found $($warnings.Count) warnings"
+          Write-Host "Found $($errors.Count) errors"
+
+          # Create Markdown formatted tables
+          function ConvertTo-MarkdownTable {
+              param ($items)
+              $header = "| RuleName | Severity | ScriptName | Line | Message |"
+              $separator = "| --- | --- | --- | --- | --- |"
+              $rows = foreach ($item in $items) {
+                  "| $($item.RuleName) | $($item.Severity) | $($item.ScriptName) | $($item.Line) | $($item.Message) |"
+              }
+              # Join rows into a single string
+              return "$header`n$separator`n$($rows -join "`n")"
+          }
+
+          # Append warnings to the GitHub Actions summary (if any)
+          if ($warnings.Count -gt 0) {
+              $warningTable = ConvertTo-MarkdownTable -items $warnings
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Warnings`n"
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$warningTable`n"
+          } else {
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Warnings Found`n"
+          }
+
+          # Append errors to the GitHub Actions summary (if any)
+          if ($errors.Count -gt 0) {
+              $errorTable = ConvertTo-MarkdownTable -items $errors
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Errors`n"
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$errorTable`n"
+          } else {
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Errors Found`n"
+          }
+
+          # Fail the job if there are any errors
+          if ($errors.Count -gt 0) {
+              Write-Error "PSScriptAnalyzer found errors."
+          }
+
+        shell: pwsh
+
+
+      # Validate the module (ensure it loads correctly)
+      - name: Validate PowerShell Module
+        run: |
+          $manifest = Test-ModuleManifest -Path ./KubeBuddy.psd1
+          Write-Host "Validated Module Version: $($manifest.Version)"
+
+      # Publish to PowerShell Gallery
+      - name: Publish to PowerShell Gallery
+        run: |
+          Install-Module -Name PowerShellGet -Force -AllowClobber
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Publish-Module -Path ./ -NuGetApiKey $env:PSGALLERY_API_KEY -Repository PSGallery
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}

@@ -208,14 +208,14 @@ function Show-PodMenu {
                 $selectedNamespace = Read-Host "`n🤖 Enter the namespace (or type 'L' to list available ones)"
                 Clear-Host
                 if ($selectedNamespace -match "^[Ll]$") {
-                    Write-Host -NoNewline "`r🤖 Fetching available namespaces...       ⏳ Fetching..." -ForegroundColor Yellow
+                    Write-Host -NoNewline "`r🤖 Fetching available namespaces..." -ForegroundColor Yellow
                     Start-Sleep -Seconds 1  # Optional small delay for UX
                     
                     # Capture namespaces first
                     $namespaces = kubectl get namespaces --no-headers | ForEach-Object { $_.Split()[0] }
                     
                     # Clear previous line and print the list properly
-                    Write-Host "`r🤖 Fetching available namespaces...       ✅ Done!" -ForegroundColor Green
+                    Write-Host "`r🤖 Available namespaces fetched.   " -ForegroundColor Green
                     Write-Host "`n🤖 Available Namespaces:`n" -ForegroundColor Cyan
                     $namespaces | ForEach-Object { Write-Host $_ }
                     
