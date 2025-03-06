@@ -204,7 +204,11 @@ function Check-OrphanedSecrets {
     }
 
     # Ingress TLS
-    $usedSecrets += $ingresses | ForEach-Object { $_.spec.tls | Select-Object -ExpandProperty secretName }
+    $usedSecrets += $ingresses | ForEach-Object {
+        if ($_.spec.tls) {
+            $_.spec.tls | Where-Object { $_.secretName } | Select-Object -ExpandProperty secretName
+        }
+    }    
     # ServiceAccounts
     $usedSecrets += $serviceAccounts | ForEach-Object { $_.secrets | Select-Object -ExpandProperty name }
 
