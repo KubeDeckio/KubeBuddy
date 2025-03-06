@@ -161,7 +161,9 @@ function Show-StuckJobs {
             "",
             "⚠️ Total Stuck Jobs Found: $($stuckJobs.Count)"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalJobs)
@@ -345,7 +347,9 @@ function Show-FailedJobs {
             "",
             "⚠️ Total Failed Jobs Found: $($failedJobs.Count)"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         $startIndex = $currentPage * $totalJobs / $PageSize
         $startIndex = $currentPage * $PageSize

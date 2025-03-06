@@ -123,11 +123,9 @@ function Show-NodeConditions {
 
         # Show speech bubble only on the first page
         if ($currentPage -eq 0) {
-            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
         }
-        else {
-            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 0
-        }
+
         # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalNodes)
@@ -312,7 +310,10 @@ function Show-NodeResourceUsage {
             "",
             "⚠️ Total Resource Warnings Across All Nodes: $totalWarnings"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         # Pagination
         $startIndex = $currentPage * $PageSize

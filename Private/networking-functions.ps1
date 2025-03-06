@@ -132,7 +132,9 @@ function Show-ServicesWithoutEndpoints {
             "⚠️ Total Services Without Endpoints: $totalServices"
         )
 
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalServices)

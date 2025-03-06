@@ -150,7 +150,9 @@ function Show-PodsWithHighRestarts {
             "",
             "⚠️ Total High-Restart Pods: $totalPods"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -308,7 +310,9 @@ function Show-LongRunningPods {
             "",
             "⚠️ Total Long-Running Pods: $totalPods"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -457,7 +461,9 @@ function Show-FailedPods {
             "",
             "⚠️ Total Failed Pods: $totalPods"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         # Pagination chunk
         $startIndex = $currentPage * $PageSize
@@ -633,7 +639,9 @@ function Show-PendingPods {
             "",
             "⚠️ Total Pending Pods Found: $totalPods"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         # Display current page
         $startIndex = $currentPage * $PageSize
@@ -801,7 +809,10 @@ function Show-CrashLoopBackOffPods {
             "",
             "⚠️ Total CrashLoopBackOff Pods Found: $totalPods"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         # Display current page
         $startIndex = $currentPage * $PageSize

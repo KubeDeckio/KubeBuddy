@@ -359,6 +359,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     @media print {
         #savePdfBtn { display: none; } /* Hide button in PDF */
+        table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+    
+        th, td {
+            white-space: normal !important;
+            overflow: visible !important;
+            word-wrap: break-word;
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+    
+        .table-container {
+            overflow: visible !important;
+            height: auto !important;
+        }
     }
     
     /* Hide button when printing */
@@ -643,10 +661,10 @@ document.addEventListener('DOMContentLoaded', function() {
       </a>
     </p>
 
-    <!-- Save as PDF Button 
+    <!-- Save as PDF Button -->
     <div id="printContainer">
       <button id="savePdfBtn">📄 Save as PDF</button>
-    </div> -->
+    </div>
   </div>
   </div>
 </div>
@@ -874,13 +892,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     document.getElementById("savePdfBtn").addEventListener("click", function() {
-        // Expand all collapsible sections
-        document.querySelectorAll("details").forEach(detail => {
-            detail.open = true;
+        // Store original open state of all collapsible sections
+        const detailsElements = document.querySelectorAll("details");
+        const detailsStates = new Map();
+        
+        detailsElements.forEach(detail => {
+            detailsStates.set(detail, detail.open);
+            detail.open = true; // Expand all sections
         });
     
-        // Save original scroll styles
+        // Save original table styles
         const tableContainers = document.querySelectorAll(".table-container");
+        const tables = document.querySelectorAll("table");
+    
         const originalStyles = [];
     
         tableContainers.forEach((container, index) => {
@@ -894,16 +918,31 @@ document.addEventListener('DOMContentLoaded', function() {
             container.style.height = "auto";
         });
     
+        // Force table rows to expand fully
+        tables.forEach(table => {
+            table.style.width = "100%";
+            table.style.tableLayout = "fixed";
+        });
+    
         // Delay print to allow rendering
         setTimeout(() => {
             window.print();
         }, 500);
     
-        // Restore scrollbars after printing
+        // Restore original styles after printing
         window.onafterprint = function() {
+            detailsElements.forEach(detail => {
+                detail.open = detailsStates.get(detail); // Restore original state
+            });
+    
             tableContainers.forEach((container, index) => {
                 container.style.overflow = originalStyles[index].overflow;
                 container.style.height = originalStyles[index].height;
+            });
+    
+            // Reset table styles
+            tables.forEach(table => {
+                table.style.tableLayout = "";
             });
         };
     });

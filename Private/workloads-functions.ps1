@@ -113,7 +113,9 @@ function Show-DaemonSetIssues {
             "",
             "⚠️ Total DaemonSets with Issues: $totalDaemonSets"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         # Display current page
         $startIndex = $currentPage * $PageSize

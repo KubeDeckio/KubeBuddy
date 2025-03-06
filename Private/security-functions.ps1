@@ -140,7 +140,9 @@ function Check-OrphanedConfigMaps {
             "",
             "⚠️ Total Orphaned ConfigMaps Found: $($orphanedItems.Count)"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalItems)
@@ -289,7 +291,9 @@ function Check-OrphanedSecrets {
             "",
             "⚠️ Total Orphaned Secrets Found: $($orphanedItems.Count)"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalItems)
@@ -457,7 +461,9 @@ function Check-RBACMisconfigurations {
             "",
             "⚠️ Total RBAC Misconfigurations Detected: $totalBindings"
         )
-        Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+        }
 
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalBindings)
