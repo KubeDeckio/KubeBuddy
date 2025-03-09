@@ -843,3 +843,153 @@ function Show-CrashLoopBackOffPods {
 
     } while ($true)
 }
+
+function Show-LeftoverDebugPods {
+    param(
+        [string]$Namespace = "",
+        [int]$PageSize = 10,
+        [switch]$Html
+    )
+
+    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    Write-Host "`n[🐞 Leftover Debug Pods]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
+
+    try {
+        if ($Namespace -ne "") {
+            $podItems = kubectl get pods -n $Namespace -o json 2>&1 | ConvertFrom-Json | Select-Object -ExpandProperty items
+        } else {
+            $podItems = kubectl get pods --all-namespaces -o json 2>&1 | ConvertFrom-Json | Select-Object -ExpandProperty items
+        }
+    } catch {
+        Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
+        if ($Global:MakeReport -and -not $Html) {
+            Write-ToReport "`n[🐞 Leftover Debug Pods]`n"
+            Write-ToReport "❌ Error retrieving pod data: $_"
+        }
+        if (-not $Global:MakeReport -and -not $Html) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
+        return
+    }
+
+    # Find debug pods (kubectl debug creates pods containing 'debugger')
+    $debugPods = $podItems | Where-Object {
+        $_.metadata.name -match "debugger"
+    }
+
+    $totalPods = $debugPods.Count
+
+    if ($totalPods -eq 0) {
+        Write-Host "`r🤖 ✅ No leftover debug pods detected." -ForegroundColor Green
+        if ($Global:MakeReport -and -not $Html) {
+            Write-ToReport "`n[🐞 Leftover Debug Pods]`n"
+            Write-ToReport "✅ No leftover debug pods detected."
+        }
+        if (-not $Global:MakeReport -and -not $Html) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
+        if ($Html) {
+            return "<p><strong>✅ No leftover debug pods detected.</strong></p>"
+        }
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Pods fetched. ($totalPods leftover debug pods detected)" -ForegroundColor Green
+
+    # HTML output
+    if ($Html) {
+        $tableData = foreach ($pod in $debugPods) {
+            [PSCustomObject]@{
+                Namespace  = $pod.metadata.namespace
+                Pod        = $pod.metadata.name
+                Node       = $pod.spec.nodeName
+                Status     = $pod.status.phase
+                AgeMinutes = [math]::Round(((Get-Date) - [DateTime]$pod.metadata.creationTimestamp).TotalMinutes, 1)
+            }
+        }
+
+        $htmlTable = $tableData |
+            ConvertTo-Html -Fragment -Property Namespace, Pod, Node, Status, AgeMinutes |
+            Out-String
+
+        $htmlTable = "<p><strong>⚠️ Total Leftover Debug Pods Found:</strong> $totalPods</p>" + $htmlTable
+        return $htmlTable
+    }
+
+    # Report output
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🐞 Leftover Debug Pods]`n"
+        Write-ToReport "⚠️ Total Leftover Debug Pods Found: $totalPods"
+        Write-ToReport "----------------------------------------------------"
+
+        $tableData = foreach ($pod in $debugPods) {
+            [PSCustomObject]@{
+                Namespace  = $pod.metadata.namespace
+                Pod        = $pod.metadata.name
+                Node       = $pod.spec.nodeName
+                Status     = $pod.status.phase
+                AgeMinutes = [math]::Round(((Get-Date) - [DateTime]$pod.metadata.creationTimestamp).TotalMinutes, 1)
+            }
+        }
+
+        $tableString = $tableData |
+            Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize |
+            Out-String
+
+        Write-ToReport $tableString
+        return
+    }
+
+    # Console Pagination
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalPods / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🐞 Leftover Debug Pods - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $msg = @(
+            "🤖 Leftover debug pods indicate incomplete cleanup after 'kubectl debug' sessions.",
+            "",
+            "📌 Why this matters:",
+            "   - They may consume cluster resources unnecessarily.",
+            "   - Potential security risk due to open debug access.",
+            "",
+            "🔍 Recommended Actions:",
+            "   - Delete pods manually: kubectl delete pod <pod-name> -n <namespace>",
+            "   - Review debugging procedures to prevent leftover pods.",
+            "",
+            "⚠️ Total Leftover Debug Pods Found: $totalPods"
+        )
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        # Pagination logic
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
+
+        $tableData = @()
+        for ($i = $startIndex; $i -lt $endIndex; $i++) {
+            $pod = $debugPods[$i]
+            $tableData += [PSCustomObject]@{
+                Namespace  = $pod.metadata.namespace
+                Pod        = $pod.metadata.name
+                Node       = $pod.spec.nodeName
+                Status     = $pod.status.phase
+                AgeMinutes = [math]::Round(((Get-Date) - [DateTime]$pod.metadata.creationTimestamp).TotalMinutes, 1)
+            }
+        }
+
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+
+    } while ($true)
+}

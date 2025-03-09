@@ -243,6 +243,7 @@ function Show-PodMenu {
                 "[3]  Show failed pods"
                 "[4]  Show pending pods"
                 "[5]  Show CrashLoopBackOff pods"
+                "[6]  Show running debug pods."
                 "🔙  Back [B] | ❌ Exit [Q]"
             )
 
@@ -266,6 +267,9 @@ function Show-PodMenu {
                 }
                 "5" {
                     Show-CrashLoopBackOffPods -Namespace $Namespace
+                }
+                "6" {
+                    Show-LeftoverDebugPods -Namespace $Namespace
                 }
                 "B" { return }
                 "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }

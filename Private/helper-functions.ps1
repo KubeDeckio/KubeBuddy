@@ -69,6 +69,7 @@ function Generate-K8sTextReport {
     Show-FailedPods
     Show-PendingPods
     Show-CrashLoopBackOffPods
+    Show-LeftoverDebugPods
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Pod Information fetched.   " -ForegroundColor Green

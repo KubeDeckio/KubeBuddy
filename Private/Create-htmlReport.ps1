@@ -87,6 +87,9 @@ document.addEventListener('DOMContentLoaded', function() {
   $crashloopHtml = Show-CrashLoopBackOffPods -Html -PageSize 999
   $collapsibleCrashloopHtml = ConvertToCollapsible -Id "crashloop" -defaultText "Show Table" -content $crashloopHtml
 
+  $leftoverdebugHtml = Show-LeftoverDebugPods -Html -PageSize 999
+  $collapsibleLeftoverdebugHtml = ConvertToCollapsible -Id "leftoverDebug" -defaultText "Show Table" -content $leftoverdebugHtml
+
   $stuckJobHtml = Show-StuckJobs -Html -PageSize 999
   $collapsibleStuckJobHtml = ConvertToCollapsible -Id "stuckJobs" -defaultText "Show Table" -content $stuckJobHtml
 
@@ -595,7 +598,8 @@ document.addEventListener('DOMContentLoaded', function() {
         <li><a href="#podlong">Long Running Pods</a></li>
         <li><a href="#podfail">Failed Pods</a></li>
         <li><a href="#podpend">Pending Pods</a></li>
-        <li><a href="#crashloop">Pods in crashloop</a></li>
+        <li><a href="#crashloop">Pods in Crashloop</a></li>
+        <li><a href="#debugpods">Running Debug Pods</a></li>
       </ul>
     </details>
   </li>
@@ -788,6 +792,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <h2 id="crashloop">CrashLoopBackOff Pods</h2>
   <div class="table-container">
   $collapsibleCrashloopHtml
+  </div>
+    <h2 id="debugpods">Running Debug Pods</h2>
+  <div class="table-container">
+  $collapsibleLeftoverdebugHtml
   </div>
 </div>
 <!-- Job Container -->
