@@ -8,7 +8,7 @@ foreach ($script in $localScripts) {
     . $script.FullName  # Call the script
 }
 
-$moduleVersion = "v0.0.3"
+$moduleVersion = "v0.0.4"
 
 function Invoke-KubeBuddy {
     param (
