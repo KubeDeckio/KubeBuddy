@@ -8,7 +8,7 @@ foreach ($script in $localScripts) {
     . $script.FullName  # Call the script
 }
 
-$version = "v0.0.3"
+$moduleVersion = "v0.0.3"
 
 function Invoke-KubeBuddy {
     param (
@@ -30,7 +30,7 @@ Clear-Host
 
 if ($HtmlReport) {
     Write-Host "📄 Generating HTML report: $htmlReportFile" -ForegroundColor Cyan
-    Generate-K8sHTMLReport -version $version -outputPath $htmlReportFile
+    Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile
     Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
     return
 }
@@ -54,7 +54,7 @@ if ($txtReport) {
     # KubeBuddy ASCII Art
     Write-Host ""
     Write-Host -NoNewline $banner -ForegroundColor Cyan
-    write-host "$version" -ForegroundColor Magenta
+    write-host "$moduleVersion" -ForegroundColor Magenta
     Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
     Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
