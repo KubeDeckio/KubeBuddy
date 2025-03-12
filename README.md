@@ -9,10 +9,10 @@
 
 </br>
 
-![Publish Module to PowerShell Gallery](https://github.com/YourOrg/KubeBuddy/actions/workflows/publish-psgal.yml/badge.svg)
+![Publish Module to PowerShell Gallery](https://github.com/KubeDecio/KubeBuddy/actions/workflows/publish-psgal.yml/badge.svg)
 ![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/KubeBuddy.svg)
 ![Downloads](https://img.shields.io/powershellgallery/dt/KubeBuddy.svg)
-![License](https://img.shields.io/github/license/YourOrg/KubeBuddy.svg)
+![License](https://img.shields.io/github/license/KubeDeckIo/KubeBuddy.svg)
 
 ---
 
