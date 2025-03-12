@@ -9,6 +9,9 @@ on:
       - published
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: windows-latest
@@ -27,12 +30,12 @@ jobs:
           Write-Host "Setting module version to $tagVersion"
       
           # Load and update the ModuleVersion in the .psd1 file
-          (Get-Content ./KubeBuddy.psd1) -replace "ModuleVersion = '.*'", "ModuleVersion = '$($tagVersion -replace '^v', '')'" |
-              Set-Content ./KubeBuddy.psd1
+          (Get-Content ./KubeBuddy.psd1 -Raw) -replace "ModuleVersion = '.*'", "ModuleVersion = '$($tagVersion -replace '^v', '')'" |
+              Set-Content ./KubeBuddy.psd1 -Encoding UTF8
       
           # Load and update the version in kubebuddy.ps1
-          (Get-Content ./Public/kubebuddy.ps1) -replace '\$version = "v.*?"', "`$version = `"$tagVersion`"" |
-              Set-Content ./Public/kubebuddy.ps1
+          (Get-Content ./Public/kubebuddy.ps1 -Raw) -replace '\$version = "v.*?"', "`$version = `"$tagVersion`"" |
+              Set-Content ./Public/kubebuddy.ps1 -Encoding UTF8
       
           # Output for use in later steps
           echo "::set-output name=version::$tagVersion"
