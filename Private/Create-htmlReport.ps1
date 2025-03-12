@@ -652,7 +652,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="header">
   <div style="display: flex; flex-direction: column;">
     <span>Kubernetes Cluster Report: $clusterName</span>
-    <span style="font-size: 18px;">Powered by <strong>KubeBuddy</strong></span>
+    <span style="font-size: 12px;">
+      Powered by 
+      <img src="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/images/reportheader%20(2).png" 
+           alt="KubeBuddy Logo" 
+           style="height: 70px; vertical-align: middle;">
+    </span>
   </div>
 
   <!-- Right side: date & "Created by" under a line -->
