@@ -4,6 +4,7 @@ param (
     [string]$SubscriptionId,
     [string]$ResourceGroup,
     [string]$ClusterName,
+    [switch]$FailedOnly,
     [string]$OutputFormat = "CLI"
 )
 
@@ -104,84 +105,104 @@ function Run-Checks {
     }
     return $categories
 }
-
 function Display-Results {
-    param ([hashtable]$categories)
+    param (
+        [hashtable]$categories,
+        [switch]$FailedOnly
+    )
     Write-Host "AKS Best Practices Checklist Results:" -ForegroundColor Yellow
 
     $passCount = 0
     $failCount = 0
 
     foreach ($category in $categories.Keys) {
-        Write-Host "`n=== $category ===" -ForegroundColor Cyan
-        $categories[$category] | Format-Table ID, Check, Severity, Status, Recommendation, URL -AutoSize
-
-        $passCount += ($categories[$category] | Where-Object { $_.Status -eq "✅ PASS" }).Count
-        $failCount += ($categories[$category] | Where-Object { $_.Status -eq "❌ FAIL" }).Count
+        # Filter the checks if -FailedOnly was specified
+        $checks = $categories[$category]
+        if ($FailedOnly) {
+            $checks = $checks | Where-Object { $_.Status -eq "❌ FAIL" }
+        }
+        if ($checks.Count -gt 0) {
+            Write-Host "`n=== $category ===" -ForegroundColor Cyan
+            $checks | Format-Table ID, Check, Severity, Status, Recommendation, URL -AutoSize
+        }
+        # Always count all checks (or only failed if desired)
+        if ($FailedOnly) {
+            $failCount += ($categories[$category] | Where-Object { $_.Status -eq "❌ FAIL" }).Count
+        }
+        else {
+            $passCount += ($categories[$category] | Where-Object { $_.Status -eq "✅ PASS" }).Count
+            $failCount += ($categories[$category] | Where-Object { $_.Status -eq "❌ FAIL" }).Count
+        }
     }
 
-# Calculate pass/fail totals and overall rating (same logic as before)
-$passCount = ($categories.Values | ForEach-Object { $_ } | Where-Object { $_.Status -eq "✅ PASS" }).Count
-$failCount = ($categories.Values | ForEach-Object { $_ } | Where-Object { $_.Status -eq "❌ FAIL" }).Count
-$total = $passCount + $failCount
-
-if ($total -eq 0) {
-    $rating = "N/A"
-    $score = 0
-}
-else {
-    $score = ($passCount / $total) * 100
-    if ($passCount -eq $total) {
-        $rating = "A++"
-    }
-    elseif ($score -ge 90) {
-        $rating = "A"
-    }
-    elseif ($score -ge 80) {
-        $rating = "B"
-    }
-    elseif ($score -ge 70) {
-        $rating = "C"
-    }
-    elseif ($score -ge 60) {
-        $rating = "D"
+    # Recalculate totals based on the switch
+    if ($FailedOnly) {
+        $total = $failCount
+        $score = 0
+        $rating = "F"
+        $ratingColor = "Red"
     }
     else {
-        $rating = "F"
+        $total = $passCount + $failCount
+        if ($total -eq 0) {
+            $rating = "N/A"
+            $score = 0
+        }
+        else {
+            $score = ($passCount / $total) * 100
+            if ($passCount -eq $total) {
+                $rating = "A++"
+            }
+            elseif ($score -ge 90) {
+                $rating = "A"
+            }
+            elseif ($score -ge 80) {
+                $rating = "B"
+            }
+            elseif ($score -ge 70) {
+                $rating = "C"
+            }
+            elseif ($score -ge 60) {
+                $rating = "D"
+            }
+            else {
+                $rating = "F"
+            }
+        }
+    
+        switch ($rating) {
+            "A++" { $ratingColor = "Green" }
+            "A"  { $ratingColor = "Green" }
+            "B"  { $ratingColor = "Yellow" }
+            "C"  { $ratingColor = "Yellow" }
+            "D"  { $ratingColor = "DarkYellow" }
+            "F"  { $ratingColor = "Red" }
+            default { $ratingColor = "Gray" }
+        }
     }
+
+    # Build the simple summary output
+    Write-Host "`nSummary & Rating:" -ForegroundColor Green
+
+    $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
+    $separator = "============================================================"
+    $row = if ($FailedOnly) {
+                # For failed-only view, we show pass as 0
+                "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f ("✅ 0"), ("❌ " + $failCount), $failCount, ([math]::Round(0,2)), $rating
+           }
+           else {
+                "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f ("✅ " + $passCount), ("❌ " + $failCount), $total, ([math]::Round($score,2)), $rating
+           }
+
+    Write-Host $header -ForegroundColor Cyan
+    Write-Host $separator -ForegroundColor Cyan
+    Write-Host $row -ForegroundColor $ratingColor
 }
 
-# Choose a color based on the rating
-switch ($rating) {
-    "A++" { $ratingColor = "Green" }
-    "A"  { $ratingColor = "Green" }
-    "B"  { $ratingColor = "Yellow" }
-    "C"  { $ratingColor = "Yellow" }
-    "D"  { $ratingColor = "DarkYellow" }
-    "F"  { $ratingColor = "Red" }
-    default { $ratingColor = "Gray" }
-}
-
-# Build the simple summary output
-Write-Host "`nSummary & Rating:" -ForegroundColor Green
-
-# Header line
-$header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
-$separator = "============================================================"
-
-# Data row
-$row = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f ("✅ " + $passCount), ("❌ " + $failCount), $total, ([math]::Round($score,2)), $rating
-
-Write-Host $header -ForegroundColor Cyan
-Write-Host $separator -ForegroundColor Cyan
-Write-Host $row -ForegroundColor $ratingColor
-
-
-}
 
 # Main Execution
 #Authenticate
 $clusterInfo = Get-AKSClusterInfo
 $kubeResources = Get-KubeResources
-$checkResults = Run-Checks -clusterInfo $clusterInfo
+$checkResults = Run-Checks -clusterInfo $clusterInfo -FailedOnly $FailedOnly
 Display-Results -categories $checkResults

@@ -3,48 +3,54 @@ $bestPracticesChecks = @(
         ID             = "BP025";
         Category       = "Best Practices";
         Name           = "Allowed Container Images Policy Enforcement";
-        Value          = if ($allowedPolicy = ($kubeResources.ConstraintTemplates.items |
-                               Where-Object { $_.metadata.name -eq "k8sazurev2containerallowedimages" })) {
-                               if ($allowedPolicy.status -and $allowedPolicy.status.byPod) {
-                                   $ops = $allowedPolicy.status.byPod | ForEach-Object { $_.operations } | Select-Object -Unique;
-                                   -not ($ops -contains "audit")
-                               }
-                               else {
-                                   $false
-                               }
-                           }
-                           else {
-                               $false
-                           };
+        Value          = if ($allowedPolicies = ($kubeResources.ConstraintTemplates.items | Where-Object { $_.metadata.name -eq "k8sazurev2containerallowedimages" })) {
+                                $enforcingCount = 0;
+                                foreach ($policy in $allowedPolicies) {
+                                    if ($policy.status -and $policy.status.byPod) {
+                                        foreach ($entry in $policy.status.byPod) {
+                                            if (($entry.operations -contains "mutation-webhook") -or ($entry.operations -contains "webhook")) {
+                                                $enforcingCount++;
+                                            }
+                                        }
+                                    }
+                                }
+                                $enforcingCount -gt 0;
+                            }
+                            else {
+                                $false;
+                            };
         Expected       = $true;
         FailMessage    = "The 'Only Allowed Images' policy is either missing or not enforcing deny mode.";
         Severity       = "High";
         Recommendation = "Deploy and enforce the 'Only Allowed Images' policy with 'deny' mode to restrict unapproved images.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/azure-policy"
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/azure-policy";
     },    
     @{
         ID             = "BP026";
         Category       = "Best Practices";
         Name           = "No Privileged Containers Policy Enforcement";
-        Value          = if ($noPrivPolicy = ($kubeResources.ConstraintTemplates.items |
-                               Where-Object { $_.metadata.name -eq "k8sazurev2noprivilege " })) {
-                               if ($noPrivPolicy.status -and $noPrivPolicy.status.byPod) {
-                                   $ops = $noPrivPolicy.status.byPod | ForEach-Object { $_.operations } | Select-Object -Unique;
-                                   -not ($ops -contains "audit")
-                               }
-                               else {
-                                   $false
-                               }
-                           }
-                           else {
-                               $false
-                           };
+        Value          = if ($noPrivPolicies = ($kubeResources.ConstraintTemplates.items | Where-Object { $_.metadata.name -eq "k8sazurev2noprivilege" })) {
+                              $enforcingCount = 0
+                              foreach ($policy in $noPrivPolicies) {
+                                  if ($policy.status -and $policy.status.byPod) {
+                                      foreach ($entry in $policy.status.byPod) {
+                                          if (($entry.operations -contains "mutation-webhook") -or ($entry.operations -contains "webhook")) {
+                                              $enforcingCount++
+                                          }
+                                      }
+                                  }
+                              }
+                              $enforcingCount -gt 0
+                          }
+                          else {
+                              $false
+                          };
         Expected       = $true;
         FailMessage    = "The 'No Privileged Containers' policy is either missing or not enforcing deny mode.";
         Severity       = "High";
-        Recommendation = "Deploy and enforce the 'No Privileged Containers' policy with 'deny' mode to block insecure container configurations.";
+        Recommendation = "Deploy and enforce the 'No Privileged Containers' policy with 'deny' mode (i.e. using mutation-webhook/webhook) to block privileged containers.";
         URL            = "https://learn.microsoft.com/en-us/azure/aks/azure-policy"
-    },  
+    },    
     @{
         ID          = "BP027";
         Category    = "Best Practices";
