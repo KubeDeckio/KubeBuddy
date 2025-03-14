@@ -81,16 +81,20 @@ function Run-Checks {
                 $categories[$check.Category] += [PSCustomObject]@{
                     ID             = $check.ID;
                     Check          = $check.Name;
+                    Severity       = $check.Severity;
                     Status         = "✅ PASS";
-                    Recommendation = "$($check.Name) is enabled."
+                    Recommendation = "$($check.Name) is enabled.";
+                    URL            = $check.URL
                 }
             }
             else {
                 $categories[$check.Category] += [PSCustomObject]@{
                     ID             = $check.ID;
                     Check          = $check.Name;
+                    Severity       = $check.Severity;
                     Status         = "❌ FAIL";
                     Recommendation = $check.FailMessage
+                    URL            = $check.URL
                 }
             }
         }
@@ -110,7 +114,7 @@ function Display-Results {
 
     foreach ($category in $categories.Keys) {
         Write-Host "`n=== $category ===" -ForegroundColor Cyan
-        $categories[$category] | Format-Table ID, Check, Status, Recommendation -AutoSize
+        $categories[$category] | Format-Table ID, Check, Severity, Status, Recommendation, URL -AutoSize
 
         $passCount += ($categories[$category] | Where-Object { $_.Status -eq "✅ PASS" }).Count
         $failCount += ($categories[$category] | Where-Object { $_.Status -eq "❌ FAIL" }).Count
