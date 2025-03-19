@@ -23,15 +23,16 @@ The following table provides a quick reference for KubeBuddy commands:
 
 | Action | Command Example |
 |---------------------------|----------------|
-| Run a cluster health check | `Invoke-KubeBuddy` |
+| Run KubeBuddy | `Invoke-KubeBuddy` |
 | Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
 | Generate a text report | `Invoke-KubeBuddy -txtReport` |
+| Run a KubeBuddy with an AKS Best Practices Check | `Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
 | Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 | Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 
-## 1. Running a Cluster Health Check
+## 1. Running KubeBuddy
 
-To check the health of your Kubernetes cluster:
+To run KubeBuddy on your Kubernetes cluster:
 
 ```powershell
 Invoke-KubeBuddy
@@ -39,7 +40,17 @@ Invoke-KubeBuddy
 
 This command provides a detailed menu-driven interface that allows you to navigate through various monitoring options. It analyzes node status, resource usage, workloads, and RBAC security settings. The interactive menu lets you explore different categories, such as pod health, event summaries, and networking insights, making it easier to assess and troubleshoot your Kubernetes cluster.
 
-## 2. Generating Reports
+## 2. Running KubeBuddy with an AKS Practices Check
+
+To run KubeBuddy on your cluster and be able to run the AKS Best Practices Check:
+
+```powershell
+Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
+```
+
+Making sure you supply your subscription ID the Resource Group name where the AKS cluster lives, and also the cluster Name. With out these details you will not be able to run the AKS best Practices Check.
+
+## 3. Generating Reports
 
 To generate an HTML report:
 
@@ -61,7 +72,7 @@ Invoke-KubeBuddy -txtReport
 
 <a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
-## 3. Running an AKS Health Check alongside the HTML report
+## 4. Running an AKS Health Check alongside the HTML report
 
 To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure you are logged into Azure and using the correct subscription:
 
@@ -75,7 +86,7 @@ Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup
 <a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
 
-## 4. Running an AKS Health Check alongside the txt report
+## 5. Running an AKS Health Check alongside the txt report
 
 To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure you are logged into Azure and using the correct subscription:
 
@@ -91,7 +102,7 @@ Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup 
 
 ---
 
-## 5. Configuring Thresholds
+## 6. Configuring Thresholds
 
 KubeBuddy supports customizable thresholds via the `kubebuddy-config.yaml` file. You can place this file in `~/.kube/kubebuddy-config.yaml` or specify a custom path. A sample configuration looks like this:
 
@@ -117,7 +128,7 @@ Adjust these values to suit your environment’s needs. If `kubebuddy-config.yam
 
 ---
 
-## 6. Additional Parameters
+## 7. Additional Parameters
 
 Below are optional parameters you can use with `Invoke-KubeBuddy`:
 

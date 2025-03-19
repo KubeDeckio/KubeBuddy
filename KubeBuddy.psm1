@@ -18,6 +18,4 @@ foreach ($script in $publicScripts) {
 # Export public functions
 Export-ModuleMember -Function @( 
     'Invoke-KubeBuddy'
-    'Invoke-AKSBestPractices'
-    'Get-AKSClusterInfo'
 )
