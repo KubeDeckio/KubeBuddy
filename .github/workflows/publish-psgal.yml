@@ -45,10 +45,9 @@ jobs:
             Set-Content ./KubeBuddy.psd1
 
           # Corrected update for kubebuddy.ps1 line: $moduleVersion = "v0.0.4"
-          (Get-Content ./Public/kubebuddy.ps1) `
-          -replace '^\s*\$moduleVersion\s*=\s*".*"', '$moduleVersion = "v' + $tagVersion + '"' |
+          (Get-Content ./Public/kubebuddy.ps1) | 
+          ForEach-Object { $_ -replace '^\s*\$moduleVersion\s*=\s*".*"', '$moduleVersion = "v' + $tagVersion + '"' } |
           Set-Content ./Public/kubebuddy.ps1
-
 
           Write-Host "Updated KubeBuddy.psd1 contents:"
           Get-Content ./KubeBuddy.psd1
