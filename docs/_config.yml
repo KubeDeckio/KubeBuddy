@@ -44,6 +44,9 @@ nav_external_links:
   - title: KubeDeck
     url: https://kubedeck.io
     opens_in_new_tab: true
+  - title: KubeTidy
+    url: https://kubetidy.io
+    opens_in_new_tab: true
   - title: KubeSnapIt
     url: https://kubesnapit.io
     opens_in_new_tab: true
