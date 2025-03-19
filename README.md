@@ -61,6 +61,10 @@ Run **KubeBuddy** in PowerShell:
 ```powershell
 Invoke-KubeBuddy
 ```
+Run **KubeBuddy** in PowerShell with the option to do an AKS Health Check:
+```powershell
+Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
+```
 
 ### **Generate Reports**
 - **HTML Report:**
