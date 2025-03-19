@@ -46,9 +46,10 @@ To generate an HTML report:
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
-![Screenshot of KubeBuddy HTML Report](../../assets/images/report-examples/html-report-sample.png)
+![Screenshot of KubeBuddy HTML Report](../../../assets/images/report-examples/html-report-sample.png)
 
-[View Sample HTML Report](../../assets/examples/html-report-sample.html)
+<a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+
 
 
 For a text-based report:
@@ -56,9 +57,9 @@ For a text-based report:
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
-![Screenshot of KubeBuddy Text Report](../../assets/images/report-examples/text-report-sample.png)
+![Screenshot of KubeBuddy Text Report](../../../assets/images/report-examples/text-report-sample.png)
 
-[View Sample Text Report](../../assets/examples/text-report-sample.txt)
+<a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
 ## 3. Running an AKS Health Check alongside the HTML report
 
@@ -69,9 +70,10 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy HTML + AKS Report](../../assets/images/report-examples/html-aks-report-sample.png)
+![Screenshot of KubeBuddy HTML + AKS Report](../../../assets/images/report-examples/html-aks-report-sample.png)
 
-[View Sample HTML Report](../../assets/examples/html-report-sample.html)
+<a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+
 
 ## 4. Running an AKS Health Check alongside the txt report
 
@@ -82,9 +84,10 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy txt Report](../../assets/images/report-examples/txt-aks-report-sample.png)
+![Screenshot of KubeBuddy Text Report](../../../assets/images/report-examples/text-aks-report-sample.png)
 
-[View Sample txt Report](../../assets/examples/txt-report-sample.txt)
+<a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
+
 
 ---
 

@@ -20,16 +20,16 @@ Welcome to the **KubeBuddy** documentation! This is your complete guide to insta
 ## 📌 Getting Started
 Jump into the key sections below:
 
-### 🔹 [Installation Guide](docs/installation)
+### 🔹 [Installation Guide](./installation)
 Learn how to install KubeBuddy and configure it for your environment.
 
-### 🔹 [Usage Guide](docs/usage)
+### 🔹 [Usage Guide](./usage)
 Step-by-step instructions to monitor and analyze your Kubernetes clusters.
 
-### 🔹 [Logging & Output](docs/logging-output)
+### 🔹 [Logging & Output](./logging-output)
 Understand detailed logging, error messages, and debugging techniques.
 
-### 🔹 [Contributing](docs/contributing)
+### 🔹 [Contributing](./contributing)
 Want to contribute? Check out the developer and contributor guidelines.
 
 Stay updated as we continue to enhance KubeBuddy with new features and improvements!
