@@ -25,8 +25,8 @@ jobs:
       - name: Set Module Version from Git Tag
         id: set_version
         run: |
-          # Extract version from the Git tag, trimming the 'v' prefix
-          $tagVersion = '${{ github.ref_name }}' -replace '^v', ''
+          # For a push tag event, GITHUB_REF_NAME is your tag name, e.g. "v1.2.3"
+          $tagVersion = $Env:GITHUB_REF_NAME -replace '^v', ''
           Write-Host "Setting module version to $tagVersion"
       
           # Load and update the ModuleVersion in the .psd1 file
@@ -34,13 +34,9 @@ jobs:
               Set-Content ./KubeBuddy.psd1
       
           # Load and update the version in kubebuddy.ps1
-          (Get-Content ./Public/kubebuddy.ps1) -replace "moduleVersion = '.*'", "moduleVersion = `"v$tagVersion`"" |
+          (Get-Content ./Public/kubebuddy.ps1) -replace "moduleVersion = '.*'", "moduleVersion = \"v$tagVersion\"" |
               Set-Content ./Public/kubebuddy.ps1
-      
-          # Output for use in later steps
-          echo "::set-output name=version::$tagVersion"
         shell: pwsh
-
       # Validate PowerShell Code
       - name: Run PSScriptAnalyzer and format output in Markdown
         run: |
