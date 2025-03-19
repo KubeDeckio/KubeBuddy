@@ -20,20 +20,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Debug Tag
+        run: |
+          Write-Host "GITHUB_REF_NAME: $Env:GITHUB_REF_NAME"
+          Write-Host "GITHUB_REF: $Env:GITHUB_REF"
+        shell: pwsh
+
       - name: Set Module Version from Git Tag
         id: set_version
         run: |
-          # GITHUB_REF_NAME might be "v1.2.3". Remove the "v" prefix.
-          $tagVersion = $Env:GITHUB_REF_NAME -replace '^v', ''
-          Write-Host "Setting module version to $tagVersion"
-          
-          # Update ModuleVersion in the .psd1 file
-          (Get-Content ./KubeBuddy.psd1) -replace 'ModuleVersion = ''.*''', ("ModuleVersion = '{0}'" -f $tagVersion) |
-              Set-Content ./KubeBuddy.psd1
+          # If GITHUB_REF_NAME is empty, parse GITHUB_REF (e.g. "refs/tags/v1.2.3").
+          if (-not $Env:GITHUB_REF_NAME) {
+            $tagVersion = $Env:GITHUB_REF -replace '^refs/tags/v',''
+          }
+          else {
+            $tagVersion = $Env:GITHUB_REF_NAME -replace '^v',''
+          }
 
-          # Update version in kubebuddy.ps1
-          (Get-Content ./Public/kubebuddy.ps1) -replace 'moduleVersion = ''.*''', ("moduleVersion = 'v{0}'" -f $tagVersion) |
-              Set-Content ./Public/kubebuddy.ps1
+          Write-Host "Setting module version to $tagVersion"
+
+          (Get-Content ./KubeBuddy.psd1) `
+            -replace 'ModuleVersion = ''.*''', ("ModuleVersion = '{0}'" -f $tagVersion) |
+            Set-Content ./KubeBuddy.psd1
+
+          (Get-Content ./Public/kubebuddy.ps1) `
+            -replace 'moduleVersion = ''.*''', ("moduleVersion = 'v{0}'" -f $tagVersion) |
+            Set-Content ./Public/kubebuddy.ps1
         shell: pwsh
 
       - name: Run PSScriptAnalyzer and format output in Markdown
@@ -47,33 +59,33 @@ jobs:
           Write-Host "Found $($errors.Count) errors"
 
           function ConvertTo-MarkdownTable {
-              param ($items)
-              $header = "| RuleName | Severity | ScriptName | Line | Message |"
-              $separator = "| --- | --- | --- | --- | --- |"
-              $rows = foreach ($item in $items) {
-                  "| $($item.RuleName) | $($item.Severity) | $($item.ScriptName) | $($item.Line) | $($item.Message) |"
-              }
-              "$header`n$separator`n$($rows -join "`n")"
+            param ($items)
+            $header = "| RuleName | Severity | ScriptName | Line | Message |"
+            $separator = "| --- | --- | --- | --- | --- |"
+            $rows = foreach ($item in $items) {
+              "| $($item.RuleName) | $($item.Severity) | $($item.ScriptName) | $($item.Line) | $($item.Message) |"
+            }
+            "$header`n$separator`n$($rows -join "`n")"
           }
 
           if ($warnings.Count -gt 0) {
-              $warningTable = ConvertTo-MarkdownTable -items $warnings
-              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Warnings`n"
-              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$warningTable`n"
+            $warningTable = ConvertTo-MarkdownTable -items $warnings
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Warnings`n"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$warningTable`n"
           } else {
-              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Warnings Found`n"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Warnings Found`n"
           }
 
           if ($errors.Count -gt 0) {
-              $errorTable = ConvertTo-MarkdownTable -items $errors
-              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Errors`n"
-              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$errorTable`n"
+            $errorTable = ConvertTo-MarkdownTable -items $errors
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### PSScriptAnalyzer Errors`n"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "$errorTable`n"
           } else {
-              Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Errors Found`n"
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### No Errors Found`n"
           }
 
           if ($errors.Count -gt 0) {
-              Write-Error "PSScriptAnalyzer found errors."
+            Write-Error "PSScriptAnalyzer found errors."
           }
         shell: pwsh
 
