@@ -39,14 +39,15 @@ jobs:
 
           Write-Host "Setting module version to $tagVersion"
 
-          # PSD1
+          # Update the PSD1 line:  ModuleVersion = '0.0.4'
           (Get-Content ./KubeBuddy.psd1) `
-            -replace "^\s*ModuleVersion\s*=\s*'.*'", "ModuleVersion = '$tagVersion'" |
+            -replace '^\s*ModuleVersion\s*=\s*''.*''', "ModuleVersion = '$tagVersion'" |
             Set-Content ./KubeBuddy.psd1
-              
-          # PS1
+
+          # Update the PS1 line:  $moduleVersion = "v0.0.4"
+          # Use single quotes for the replacement, concatenating your new version in double quotes:
           (Get-Content ./Public/kubebuddy.ps1) `
-            -replace "^\s*\$moduleVersion\s*=\s*\".*\"", "`$moduleVersion = \"v$tagVersion\"" |
+            -replace '^\s*\$moduleVersion\s*=\s*".*"', '$moduleVersion = "v' + $tagVersion + '"' |
             Set-Content ./Public/kubebuddy.ps1
 
           Write-Host "Updated KubeBuddy.psd1 contents:"
