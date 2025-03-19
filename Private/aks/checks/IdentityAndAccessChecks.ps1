@@ -16,9 +16,9 @@ $identityChecks = @(
         Name       = "Managed Identity";
         Value      = { $clusterInfo.identity.type };
         Expected   = "UserAssigned";
-        FailMessage = "Service Principal is being used instead of Managed Identity, which is less secure and requires credential rotation.";
+        FailMessage = "Identity type is not user-assigned. This creates unnecessary credential management and security risks.";
         Severity    = "High";
-        Recommendation = "Use a Managed Identity for authentication to avoid service principal credential management issues.";
+        Recommendation = "Use a user-assigned Managed Identity to simplify credential management and reduce security risks.";
         URL         = "https://learn.microsoft.com/en-us/azure/aks/use-managed-identity";
     },
     @{
