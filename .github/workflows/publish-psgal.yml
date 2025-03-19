@@ -29,7 +29,7 @@ jobs:
       - name: Set Module Version from Git Tag
         id: set_version
         run: |
-          # If GITHUB_REF_NAME is empty, parse GITHUB_REF (e.g. "refs/tags/v1.2.3").
+          # Fallback if GITHUB_REF_NAME is empty (release event).
           if (-not $Env:GITHUB_REF_NAME) {
             $tagVersion = $Env:GITHUB_REF -replace '^refs/tags/v',''
           }
@@ -39,13 +39,19 @@ jobs:
 
           Write-Host "Setting module version to $tagVersion"
 
+          # Update .psd1
           (Get-Content ./KubeBuddy.psd1) `
             -replace 'ModuleVersion = ''.*''', ("ModuleVersion = '{0}'" -f $tagVersion) |
             Set-Content ./KubeBuddy.psd1
 
+          # Update .ps1
           (Get-Content ./Public/kubebuddy.ps1) `
             -replace 'moduleVersion = ''.*''', ("moduleVersion = 'v{0}'" -f $tagVersion) |
             Set-Content ./Public/kubebuddy.ps1
+
+          # Show updated psd1
+          Write-Host "Updated KubeBuddy.psd1 contents:"
+          Get-Content ./KubeBuddy.psd1
         shell: pwsh
 
       - name: Run PSScriptAnalyzer and format output in Markdown
