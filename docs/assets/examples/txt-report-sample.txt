@@ -1,0 +1,361 @@
+--- Kubernetes Cluster Report ---
+Timestamp: 03/19/2025 12:54:18
+---------------------------------
+
+[🌐 Cluster Summary]
+
+Cluster Name: aks-0402-dev-uks
+Kubernetes Version: v1.30.9
+Kubernetes control plane is running at https://aks-0402-dev-uks-okv6e22w.hcp.uksouth.azmk8s.io:443
+CoreDNS is running at https://aks-0402-dev-uks-okv6e22w.hcp.uksouth.azmk8s.io:443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+Metrics-server is running at https://aks-0402-dev-uks-okv6e22w.hcp.uksouth.azmk8s.io:443/api/v1/namespaces/kube-system/services/https:metrics-server:/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+
+Compatibility Check: ⚠️  Cluster is running an outdated version: v1.30.9 (Latest: v1.32.3)
+
+Metrics: 
+📊 Cluster Metrics Summary
+------------------------------------------------------------------------------------------
+🚀 Nodes:                   5   🟩 Healthy:              5   🟥 Issues:                  0
+📦 Pods:                   80   🟩 Running:             77   🟥 Failed:                  0
+🔄 Restarts:                2   🟨 Warnings:             0   🟥 Critical:                0
+⏳ Pending Pods:            0   🟡 Waiting:              0   
+⚠️ Stuck Pods:              0   ❌ Stuck:                0     
+📉 Job Failures:            0   🔴 Failed:               0   
+------------------------------------------------------------------------------------------
+
+📊 Pod Distribution: Avg: 16 | Max: 24 | Min: 6 | Total Nodes: 5
+
+
+💾 Resource Usage
+------------------------------------------------------------------------------------------
+🖥  CPU Usage:           10.76%        🟩 Normal
+💾 Memory Usage:          4.1%        🟩 Normal
+------------------------------------------------------------------------------------------
+
+❌ Errors: 0   ⚠️ Warnings: 0
+
+[🌍 Node Conditions]
+
+⚠️ Total Not Ready Nodes in the Cluster: 0
+-----------------------------------------------------------
+
+Node                                 Status    Issues
+----                                 ------    ------
+aks-systempool-19995743-vmss00000c   ✅ Healthy None
+aks-systempool-19995743-vmss00000d   ✅ Healthy None
+aks-systempool-19995743-vmss00000e   ✅ Healthy None
+aks-workloadpool-10479701-vmss000004 ✅ Healthy None
+akswinnp000001                       ✅ Healthy None
+
+
+
+[📊 Node Resource Usage]
+
+⚠️ Total Resource Warnings Across All Nodes: 2
+--------------------------------------------------------------------------
+
+Node                                 CPU Status CPU % CPU Used CPU Total Mem Status Mem %  Mem Used Mem Total Disk % Disk Status
+----                                 ---------- ----- -------- --------- ---------- -----  -------- --------- ------ -----------
+aks-systempool-19995743-vmss00000c   ✅ Normal   8%    152 mC   1900 mC   🟡 Warning 53.02% 3464 Mi  6533 Mi   53%    ✅ Normal
+aks-systempool-19995743-vmss00000d   ✅ Normal   7.26% 138 mC   1900 mC   🟡 Warning 53.71% 3509 Mi  6533 Mi   53%    ✅ Normal
+aks-systempool-19995743-vmss00000e   ✅ Normal   7.05% 134 mC   1900 mC   ✅ Normal   46.72% 3052 Mi  6533 Mi   46%    ✅ Normal
+aks-workloadpool-10479701-vmss000004 ✅ Normal   2.75% 106 mC   3860 mC   ✅ Normal   12.11% 1766 Mi  14584 Mi  12%    ✅ Normal
+akswinnp000001                       ✅ Normal   0.42% 8 mC     1900 mC   ✅ Normal   29.74% 1634 Mi  5494 Mi   29%    ✅ Normal
+
+
+
+[📂 Empty Namespaces]
+
+⚠️ Total Empty Namespaces: 3
+---------------------------------
+default
+kube-node-lease
+kube-public
+
+[🔄 DaemonSets Not Fully Running]
+
+✅ All DaemonSets are fully running.
+
+[🔁 Pods with High Restarts]
+
+✅ No pods with excessive restarts detected.
+
+[⏳ Long Running Pods]
+
+✅ No long-running pods detected.
+
+[🔴 Failed Pods]
+
+✅ No failed pods found.
+
+[⏳ Pending Pods]
+
+✅ No pending pods found.
+
+[🔴 CrashLoopBackOff Pods]
+
+✅ No CrashLoopBackOff pods found.
+
+[🐞 Leftover Debug Pods]
+
+✅ No leftover debug pods detected.
+
+[⏳ Stuck Kubernetes Jobs]
+
+✅ No jobs found in the cluster.
+
+[🔴 Failed Kubernetes Jobs]
+
+✅ No jobs found in the cluster.
+
+[🔍 Services Without Endpoints]
+
+⚠️ Total Services Without Endpoints: 1
+
+Namespace   Service               Type      Status
+---------   -------               ----      ------
+kube-system network-observability ClusterIP ⚠️ No Endpoints
+
+
+
+[💾 Unused Persistent Volume Claims]
+
+✅ No unused PVCs found.
+
+[RBAC Misconfigurations]
+
+⚠️ Total RBAC Misconfigurations Detected: 9
+
+Namespace       Type              RoleBinding                                    Subject                                 Issue
+---------       ----              -----------                                    -------                                 -----
+kube-system     🔹 Namespace Role system::leader-locking-kube-controller-manager ServiceAccount/kube-controller-manager  ❌ ServiceAccount does not exist
+kube-system     🔹 Namespace Role system::leader-locking-kube-scheduler          ServiceAccount/kube-scheduler           ❌ ServiceAccount does not exist
+kube-system     🔹 Namespace Role system:controller:cloud-provider               ServiceAccount/cloud-provider           ❌ ServiceAccount does not exist
+🌍 Cluster-Wide 🔸 Cluster Role   secretproviderrotation-rolebinding             ServiceAccount/secrets-store-csi-driver ❌ ServiceAccount does not exist
+🌍 Cluster-Wide 🔸 Cluster Role   system:azure-cloud-provider                    ServiceAccount/azure-cloud-provider     ❌ ServiceAccount does not exist
+🌍 Cluster-Wide 🔸 Cluster Role   system:azure-cloud-provider-secret-getter      ServiceAccount/azure-cloud-provider     ❌ ServiceAccount does not exist
+🌍 Cluster-Wide 🔸 Cluster Role   system:controller:route-controller             ServiceAccount/route-controller         ❌ ServiceAccount does not exist
+🌍 Cluster-Wide 🔸 Cluster Role   system:controller:service-controller           ServiceAccount/service-controller       ❌ ServiceAccount does not exist
+🌍 Cluster-Wide 🔸 Cluster Role   system:kube-dns                                ServiceAccount/kube-dns                 ❌ ServiceAccount does not exist
+
+
+
+[📜 Orphaned ConfigMaps]
+
+⚠️ Total Orphaned ConfigMaps Found: 12
+
+Namespace         Type         Name
+---------         ----         ----
+default           📜 ConfigMap kube-root-ca.crt
+gatekeeper-system 📜 ConfigMap kube-root-ca.crt
+kube-node-lease   📜 ConfigMap kube-root-ca.crt
+kube-public       📜 ConfigMap kube-root-ca.crt
+kube-system       📜 ConfigMap azure-ip-masq-agent-config-reconciled
+kube-system       📜 ConfigMap cluster-autoscaler-status
+kube-system       📜 ConfigMap container-azm-ms-aks-k8scluster
+kube-system       📜 ConfigMap coredns-autoscaler
+kube-system       📜 ConfigMap extension-apiserver-authentication
+kube-system       📜 ConfigMap kube-apiserver-legacy-service-account-token-tracking
+kube-system       📜 ConfigMap kube-root-ca.crt
+kube-system       📜 ConfigMap overlay-upgrade-data
+
+
+
+[🔑 Orphaned Secrets]
+
+⚠️ Total Orphaned Secrets Found: 3
+
+Namespace   Type      Name
+---------   ----      ----
+kube-system 🔑 Secret aad-msi-auth-token
+kube-system 🔑 Secret azure-policy-webhook-cert
+kube-system 🔑 Secret omsagent-aad-msi-token
+
+
+
+[📢 Kubernetes Warnings]
+
+⚠️ Warnings: 0
+-----------------------------------------------------------
+
+
+[✅ AKS Best Practices Check]
+
+[Best Practices] Allowed Container Images Policy Enforcement - Status: ❌ FAIL
+   🔹 Severity: High
+   🔹 Recommendation: The 'Only Allowed Images' policy is either missing or not enforcing deny mode, increasing the risk of running untrusted images.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/azure-policy
+
+[Best Practices] No Privileged Containers Policy Enforcement - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: No Privileged Containers Policy Enforcement is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/azure-policy
+
+[Best Practices] Multiple Node Pools - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Multiple Node Pools is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-multiple-node-pools
+
+[Best Practices] Azure Linux as Host OS - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Azure Linux as Host OS is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-azure-linux
+
+[Best Practices] Ephemeral OS Disks Enabled - Status: ❌ FAIL
+   🔹 Severity: Medium
+   🔹 Recommendation: One or more agent pools are not using ephemeral OS disks, leading to slower disk performance and increased costs.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/ephemeral-os-disks
+
+[Best Practices] Non-Ephemeral Disks with Adequate Size - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Non-Ephemeral Disks with Adequate Size is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/availability-zone-support
+
+[Best Practices] System Node Pool Taint - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: System Node Pool Taint is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-system-node-pools
+
+[Best Practices] Auto Upgrade Channel Configured - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Auto Upgrade Channel Configured is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/auto-upgrade
+
+[Best Practices] Node OS Upgrade Channel Configured - Status: ❌ FAIL
+   🔹 Severity: Medium
+   🔹 Recommendation: Node OS upgrade channel is not configured, which may leave your node OS outdated and vulnerable.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/auto-upgrade
+
+[Best Practices] Customized MC_ Resource Group Name - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Customized MC_ Resource Group Name is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/concepts-clusters-resource-group
+
+[Disaster Recovery] Agent Pools with Availability Zones - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Agent Pools with Availability Zones is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/availability-zones
+
+[Disaster Recovery] Control Plane SLA - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Control Plane SLA is enabled.
+   🔹 More Info: https://azure.microsoft.com/en-us/pricing/details/kubernetes-service/
+
+[Identity & Access] RBAC Enabled - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: RBAC Enabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/rbac
+
+[Identity & Access] Managed Identity - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Managed Identity is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-managed-identity
+
+[Identity & Access] Workload Identity Enabled - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Workload Identity Enabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview
+
+[Identity & Access] Managed Identity Used - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Managed Identity Used is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-managed-identity
+
+[Identity & Access] AAD RBAC Authorization Integrated - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: AAD RBAC Authorization Integrated is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/aad-integration
+
+[Identity & Access] AAD Managed Authentication Enabled - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: AAD Managed Authentication Enabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/aad-integration
+
+[Identity & Access] Local Accounts Disabled - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Local Accounts Disabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/disable-local-accounts
+
+[Monitoring & Logging] Azure Monitor - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Azure Monitor is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-overview
+
+[Monitoring & Logging] Managed Prometheus Enabled - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Managed Prometheus Enabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/azure-monitor/containers/prometheus-metrics
+
+[Networking] Authorized IP Ranges - Status: ❌ FAIL
+   🔹 Severity: High
+   🔹 Recommendation: No authorized IP ranges configured. This allows unrestricted access to the API server.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes
+
+[Networking] Network Policy Check - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Network Policy Check is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/best-practices-network#implement-network-policies
+
+[Networking] Web App Routing Enabled - Status: ❌ FAIL
+   🔹 Severity: Low
+   🔹 Recommendation: Web App Routing is not enabled, which may limit external access management.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/web-app-routing
+
+[Networking] Azure CNI Networking Recommended - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Azure CNI Networking Recommended is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/concepts-network#networking-options
+
+[Resource Management] Cluster Autoscaler - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Cluster Autoscaler is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/cluster-autoscaler
+
+[Resource Management] AKS Built-in Cost Tooling Enabled - Status: ❌ FAIL
+   🔹 Severity: Medium
+   🔹 Recommendation: AKS built-in cost tooling (Open Costs) is not enabled, making cost allocation and optimization harder.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/cost-management
+
+[Security] Private Cluster - Status: ❌ FAIL
+   🔹 Severity: High
+   🔹 Recommendation: Cluster API server is publicly accessible, increasing security risks.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/private-clusters
+
+[Security] Azure Policy Add-on - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Azure Policy Add-on is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/policy-reference
+
+[Security] Defender for Containers - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Defender for Containers is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-containers-introduction
+
+[Security] OIDC Issuer Enabled - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: OIDC Issuer Enabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/oidc-issuer
+
+[Security] Azure Key Vault Integration - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Azure Key Vault Integration is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver
+
+[Security] Image Cleaner Enabled - Status: ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Image Cleaner Enabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/image-cleaner
+
+[Security] Kubernetes Dashboard Disabled - Status: ✅ PASS
+   🔹 Severity: High
+   🔹 Recommendation: Kubernetes Dashboard Disabled is enabled.
+   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/kubernetes-dashboard
+
+
+Summary & Rating:           
+Passed       Failed       Total        Score (%)    Rating  
+============================================================
+✅ 27         ❌ 7          34           79.41        
+C

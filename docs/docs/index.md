@@ -6,14 +6,16 @@ layout: default
 
 # 📖 KubeBuddy Documentation
 
-Welcome to the **KubeBuddy** documentation! This is your complete guide to installing, using, and contributing to KubeBuddy. Whether you're just getting started or an advanced user, you'll find everything you need here to manage and streamline your Kubernetes configurations efficiently.
+Welcome to the **KubeBuddy** documentation! This is your complete guide to installing, using, and contributing to KubeBuddy. Whether you're just getting started or an advanced user, you'll find everything you need here to monitor and analyze your Kubernetes clusters efficiently.
 
 ## ✨ Why Use KubeBuddy?
 
 🚀 **Built with PowerShell** – Cross-platform support for Windows, Linux, and macOS.  
-🛠️ **Automated Kubeconfig Management** – Clean up, merge, and optimize `kubeconfig` files effortlessly.  
-📌 **Backup & Restore** – Automatically creates backups before making changes.  
-📊 **Verbose Logging & Dry Run Mode** – Gain full transparency and safely preview changes before applying them.
+📊 **Cluster Health Monitoring** – Check node status, resource usage, and pod conditions.  
+🔍 **Security & RBAC Insights** – Identify misconfigurations and excessive permissions.  
+📜 **Detailed Reporting** – Generate HTML and text-based reports for analysis.  
+☁️ **Azure AKS Health Check** – Monitor AKS clusters with PowerShell commands.  
+🛠️ **Customizable Configuration** – Set thresholds in `kubebuddy-config.yaml`.
 
 ## 📌 Getting Started
 Jump into the key sections below:
@@ -22,7 +24,7 @@ Jump into the key sections below:
 Learn how to install KubeBuddy and configure it for your environment.
 
 ### 🔹 [Usage Guide](docs/usage)
-Step-by-step instructions to manage and optimize your Kubernetes configurations.
+Step-by-step instructions to monitor and analyze your Kubernetes clusters.
 
 ### 🔹 [Logging & Output](docs/logging-output)
 Understand detailed logging, error messages, and debugging techniques.

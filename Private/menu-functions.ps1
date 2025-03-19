@@ -22,6 +22,7 @@ function show-mainMenu {
             "[8]  Storage Management 📦"
             "[9]  RBAC & Security 🔐"
             "[10] Cluster Warning Events ⚠️"
+            "[11] Infrastructure Best Practices ✅"
             "[Q]  Exit ❌"
         )
     
@@ -42,6 +43,7 @@ function show-mainMenu {
             "8" { Show-StorageMenu }
             "9" { Show-RBACMenu }
             "10" { Show-KubeEvents }
+            "11" { Show-InfraBestPracticesMenu }
             "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
@@ -406,6 +408,39 @@ function Show-JobsMenu {
                 Show-FailedJobs 
             }
             "B" { return }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
+        }
+
+        Clear-Host
+
+    } while ($true)
+}
+
+
+function Show-InfraBestPracticesMenu {
+    do {
+        Write-Host "`n✅ Infrastructure Best Practices Menu" -ForegroundColor Cyan
+        Write-Host "----------------------------------"
+
+        $infraOptions = @(
+            "[1]  Run AKS Best Practices Check"
+            "🔙  Back [B] | ❌ Exit [Q]"
+        )
+
+        foreach ($option in $infraOptions) {
+            Write-Host $option
+        }
+
+        # Get user choice
+        $infraChoice = Read-Host "`n🤖 Enter a number"
+        Clear-Host
+
+        switch ($infraChoice) {
+            "1" { 
+                Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+            }
+            "B" { return }  # Back to main menu
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }

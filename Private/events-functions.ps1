@@ -13,7 +13,7 @@ function Show-KubeEvents {
     $totalEvents = $events.items.Count
 
     if ($totalEvents -eq 0) {
-        Write-Host "`r🤖 ❌ No warnings found." -ForegroundColor Red
+        Write-Host "`r🤖 ❌ No warnings found.          " -ForegroundColor Red
         if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }

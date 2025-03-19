@@ -7,77 +7,61 @@ layout: default
 
 # Logging and Output
 
-KubeBuddy provides detailed output and logging for each operation. You can use the `-Verbose` flag to see detailed information about cluster reachability, user and context removal, and more.
+KubeBuddy provides concise console output and optional reports for deeper analysis. You can capture these outputs or generate reports to share with your team or review later.
 
-## Available Logging Options
+## 1. Real-Time Console Output
 
-| Logging Type   | Command Example | Description |
-|---------------|----------------|-------------|
-| Verbose Logs | `Invoke-KubeBuddy -Verbose` | Shows detailed action logs, such as cluster checks and cleanup actions. |
-| Capture Logs | `Invoke-KubeBuddy -Verbose *>&1 | Tee-Object -FilePath "$HOME/KubeBuddy.log"` | Saves logs for later review. |
+When you run `Invoke-KubeBuddy`, progress and key findings appear directly in your console. You’ll see checks for:
 
-## 1. Using Verbose Logging
+- **Cluster health**
+- **Security or RBAC warnings**
+- **Any issues with pods or workloads** (if applicable)
 
-Use the `-Verbose` flag for detailed logging during the cleanup process:
-
-```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -Verbose
-```
-
-### Verbose Output Example
-
-```
-VERBOSE: Checking reachability for cluster: aks-prod-cluster at https://example-cluster-url
-VERBOSE: Cluster aks-prod-cluster is reachable via HTTPS.
-VERBOSE: Removing unreachable cluster: aks-old-cluster
-VERBOSE: Removed associated user: aks-old-user
-VERBOSE: Backup of kubeconfig created: C:\Users\username\.kube\config.backup
-```
-
-## 2. Capturing Logs to a File
-
-For longer operations or troubleshooting, you can capture logs to a file for later analysis:
+To save console output to a file:
 
 ```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -Verbose *>&1 | Tee-Object -FilePath "$HOME/KubeBuddy.log"
+Invoke-KubeBuddy | Out-File "KubeBuddyOutput.log"
 ```
 
-This will save all logs, including errors and warnings, to `KubeBuddy.log`.
+## 2. Generating Reports
 
-## 3. Summary Output
+KubeBuddy can generate **HTML** or **text-based** reports. These typically include node health, workload issues, and any security alerts found during checks.
 
-After running KubeBuddy, a summary is displayed showing how many clusters were checked, removed, or retained:
+- **HTML Report:**
+
+  ```powershell
+  Invoke-KubeBuddy -HtmlReport
+  ```
+  
+  This creates an HTML file (e.g., `kube_report.html`) you can open in a browser.
+
+- **Text Report:**
+
+  ```powershell
+  Invoke-KubeBuddy -txtReport
+  ```
+  
+  This creates a plain text file (e.g., `kube_report.txt`) which is handy for quick reference.
+
+## 3. Completion Message
+
+After checks finish, KubeBuddy prints a final message indicating the process has completed and, if applicable, confirms the report path. For example:
 
 ```
-╔════════════════════════════════════════════════╗
-║               KubeBuddy Summary                 ║
-╠════════════════════════════════════════════════╣
-║  Clusters Checked:    26                       ║
-║  Clusters Removed:     2                       ║
-║  Clusters Kept:       24                       ║
-╚════════════════════════════════════════════════╝
+KubeBuddy has finished analyzing your cluster.
+HTML report generated at /path/to/kube_report.html
 ```
 
-## 4. Logging for Merging Kubeconfig Files
+This message provides a concise overview of what happened and where to find more details.
 
-When merging multiple kubeconfig files, verbose logging provides insight into the process:
+## 4. Common Error Messages
 
-```
-VERBOSE: Merging kubeconfig files: config1.yaml, config2.yaml
-VERBOSE: Writing merged config to: C:\Users\username\.kube\config
-```
+If an error occurs, KubeBuddy provides detailed messages to help you troubleshoot. Below are a few examples:
 
-This helps track which files are being processed and whether any conflicts occur.
+| Error Message                                                       | Meaning                                                                   | Solution                                                                                                        |
+|--------------------------------------------------------------------|---------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| `ERROR: No clusters detected. Ensure you are connected to a cluster.` | KubeBuddy could not find an active Kubernetes context.                    | Use `kubectl config current-context` to confirm a valid cluster connection.                                      |
+| `ERROR: Authentication required for Azure operations.`             | You are not logged into Azure for AKS checks.                             | Run `az login` and use `az account set --subscription <subscription-id>` to select the correct subscription.     |
+| `ERROR: Kubectl not found in system PATH.`                         | `kubectl` is either not installed or not in your PATH environment.        | Install `kubectl` by following [the official documentation](https://kubernetes.io/docs/tasks/tools/).           |
 
-## 5. Common Error Messages
-
-If an error occurs, KubeBuddy provides detailed error messages. Below are some common ones and their solutions:
-
-| Error Message | Meaning | Solution |
-|--------------|---------|----------|
-| `ERROR: No clusters are reachable. Use '-Force' to proceed.` | No clusters responded to the reachability check. | Add `-Force` to continue with cleanup. |
-| `ERROR: KubeConfig file not found at specified path.` | The kubeconfig path provided is incorrect. | Verify the path and ensure the file exists. |
-| `ERROR: Failed to load powershell-yaml module.` | The required module is missing. | Run `Install-Module -Name powershell-yaml -Force -Scope CurrentUser`. |
-
-For more information, refer to the [KubeBuddy Usage](../usage) page.
-
+For more details on usage and specific command options, visit the [KubeBuddy Usage](../usage) page.

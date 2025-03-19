@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Cluster Report</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+
+    html {
+      scroll-behavior: smooth; /* optional smooth scrolling */
+    }
+    body { 
+        font-family: 'Roboto', sans-serif;
+        margin: 0; 
+        padding: 0; 
+        background: #eceff1; 
+        color: #37474f; 
+    }
+    .header { 
+        background-color: #0071FF; 
+        color: white; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: flex-start; 
+        padding: 20px;
+        font-weight: bold;
+        font-size: 24px;
+    }
+    .container { 
+        max-width: 1350px; 
+        margin: 20px auto; 
+        background: white; 
+        padding: 20px; 
+        border-radius: 8px; 
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); 
+    }
+    .compatibility {
+        padding: 12px;
+        border-radius: 5px;
+        font-weight: bold;
+        text-align: center;
+        color: #ffffff;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Colors based on cluster status */
+    .warning { background: #ffeb3b; } /* Yellow */
+    .healthy { background: #4CAF50; } /* Green */
+    .unknown { background: #9E9E9E; } /* Gray */
+    .table-container {
+    overflow-x: auto; /* Enables horizontal scrolling */
+    width: 100%;
+    max-width: 100%;
+    }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin: 20px 0; 
+        font-size: 14px; 
+        text-align: left; 
+    }
+    table, th, td { 
+        white-space: nowrap; /* Prevents text from wrapping */
+        border: 1px solid #cfd8dc; 
+        padding: 12px; 
+        text-align: left;
+    }
+    th { 
+        background-color: #0071FF; 
+        color: white; 
+    }
+        /* “Back to Top” button style */
+    #backToTop {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #0071FF;
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      display: none; /* hide by default */
+      transition: opacity 0.3s ease;
+    }
+    #backToTop:hover {
+      background-color: #005ad1;
+    }
+
+    #printContainer {
+        text-align: right;
+        margin-bottom: 15px;
+    }
+    #printContainer button {
+        background-color: #0071FF;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        border-radius: 5px;
+    }
+    #printContainer button:hover {
+        background-color: #005ad1;
+    }
+    #savePdfBtn {
+        background-color: #0071FF;
+        color: white;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-top: 10px;
+    }
+    #savePdfBtn:hover {
+        background-color: #005ad1;
+    }
+    @media print {
+        #savePdfBtn { display: none; } /* Hide button in PDF */
+        table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+    
+        th, td {
+            white-space: normal !important;
+            overflow: visible !important;
+            word-wrap: break-word;
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+    
+        .table-container {
+            overflow: visible !important;
+            height: auto !important;
+        }
+    }
+    
+    /* Hide button when printing */
+    @media print {
+        #printContainer { display: none; }
+        details { display: block; } /* Expand all details on print */
+    }
+
+
+    /* Floating TOC (Initially Collapsed) */
+    #toc {
+        position: fixed;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        background-color: #0071FF; /* Fully blue when collapsed */
+        border: none;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
+        width: 40px; /* Small when collapsed */
+        height: 100px; /* Ensures the blue part covers the visible section */
+        transition: all 0.3s ease-in-out;
+        overflow: hidden;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Menu Button (Always Visible in Collapsed State) */
+    #toc-toggle {
+        color: white;
+        padding: 15px 5px;
+        writing-mode: vertical-rl;
+        text-align: center;
+        font-weight: bold;
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%; /* Takes full width when collapsed */
+    }
+
+    /* Expanded TOC */
+    #toc.open {
+        background-color: white;
+        width: 200px; /* Expanded width */
+        height: auto;
+        padding: 10px;
+    }
+    
+    /* Hide the blue when expanded */
+    #toc.open #toc-toggle {
+        display: none;
+    }
+    
+    /* TOC Content (Initially Hidden) */
+    #toc-content {
+        display: none;
+        padding: 10px;
+    }
+    
+    /* Show TOC Content When Open */
+    #toc.open #toc-content {
+        display: block;
+    }
+    
+    /* Close Button */
+    #toc-close {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: none;
+        border: none;
+        color: #37474f;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    /* TOC Links Styling */
+    #toc ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    
+    #toc ul li {
+        margin: 8px 0;
+    }
+    
+    #toc ul li a {
+        display: block;
+        color: #37474f;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 5px 0;
+        transition: color 0.2s ease-in-out;
+    }
+    
+    #toc ul li a:hover {
+        color: #0071FF;
+    }
+    
+    /* Nested Lists (Indentation) */
+    #toc ul li details ul {
+        padding-left: 15px;
+    }
+    
+    /* Auto-close menu on small screens */
+    @media(max-width: 800px) {
+        #toc {
+            display: none;
+        }
+    }
+
+    details ul {
+      margin-left: 1.5em;
+    }
+    .hero-metrics {
+        display: flex;
+        justify-content: space-around;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .metric-card {
+        text-align: center;
+        padding: 20px;
+        border-radius: 8px;
+        color: white;
+        font-size: 20px;
+        font-weight: bold;
+        min-width: 150px;
+        flex: 1;
+        margin: 10px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Dynamic Colors */
+    .normal { background-color: #388e3c; } /* Green (Healthy) */
+    .warning { background-color: #ffa000; } /* Orange (Warning) */
+    .critical { background-color: #B71C1C; } /* Red (Critical) */
+    .default { background-color: #0071FF; }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 600px) {
+        .hero-metrics {
+            flex-direction: column;
+            align-items: center;
+        }
+        .metric-card {
+            width: 80%;
+        }
+    }
+
+    .footer {
+    background-color: #263238;
+    color: white;
+    text-align: center;
+    padding: 15px 20px;
+    font-size: 14px;
+    position: relative; /* This allows the footer to stay below content */
+    }
+    .footer a {
+        color: #80cbc4;
+        text-decoration: none;
+    }
+    .footer a:hover {
+        text-decoration: underline;
+    }
+</style>
+</head>
+<body>
+<div id="toc">
+    <div id="toc-toggle">MENU</div> <!-- Collapsed button -->
+    <div id="toc-content">
+        <button id="toc-close">✖</button> <!-- Close Button -->
+  <h3>Sections</h3>
+<ul>
+  <li><a href="#summary">Cluster Summary</a></li>
+
+  <!-- Collapsible "Nodes" section -->
+  <li>
+    <details>
+      <summary>Nodes</summary>
+      <ul>
+        <li><a href="#nodecon">Node Conditions</a></li>
+        <li><a href="#noderesource">Node Resources</a></li>
+      </ul>
+    </details>
+  </li>
+
+  <li><a href="#namespaces">Namespaces</a></li>
+
+  <!-- Collapsible "Workloads" section -->
+    <li>
+    <details>
+      <summary>Workloads</summary>
+      <ul>
+        <li><a href="#daemonsets">DaemonSets</a></li>
+              </ul>
+    </details>
+  </li>
+
+  <!-- Collapsible "Pods" section -->
+  <li>
+    <details>
+      <summary>Pods</summary>
+      <ul>
+        <li><a href="#podrestarts">Pods with High Restarts</a></li>
+        <li><a href="#podlong">Long Running Pods</a></li>
+        <li><a href="#podfail">Failed Pods</a></li>
+        <li><a href="#podpend">Pending Pods</a></li>
+        <li><a href="#crashloop">Pods in Crashloop</a></li>
+        <li><a href="#debugpods">Running Debug Pods</a></li>
+      </ul>
+    </details>
+  </li>
+
+  <!-- Collapsible "Jobs" section -->
+    <li>
+    <details>
+      <summary>Jobs</summary>
+      <ul>
+        <li><a href="#stuckjobs">Stuck Jobs</a></li>
+        <li><a href="#failedjobs">Job Failures</a></li>
+              </ul>
+    </details>
+  </li>
+
+  <!-- Collapsible "Networking" section -->
+    <li>
+    <details>
+      <summary>Networking</summary>
+      <ul>
+        <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
+              </ul>
+    </details>
+  </li>
+
+    <!-- Collapsible "Storage" section -->
+        <li>
+        <details>
+        <summary>Storage</summary>
+        <ul>
+            <li><a href="#unmountedpv">Unmounted Persistent Volumes</a></li>
+                </ul>
+        </details>
+
+    <!-- Collapsible "Security" section -->
+        <li>
+        <details>
+        <summary>Security</summary>
+        <ul>
+            <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
+            <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
+            <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
+                </ul>
+        </details>
+    <li><a href="#clusterwarnings">Kubernetes Events</a></li>
+    <li><a href="#aks">AKS Best Practices</a></li>
+</ul>
+</div>
+</div>
+<div id="top"></div>
+<div class="header">
+  <div style="display: flex; flex-direction: column;">
+    <span>Kubernetes Cluster Report: aks-0402-dev-uks</span>
+    <span style="font-size: 12px;">
+      Powered by 
+      <img src="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/images/reportheader%20(2).png" 
+           alt="KubeBuddy Logo" 
+           style="height: 70px; vertical-align: middle;">
+    </span>
+  </div>
+
+  <!-- Right side: date & "Created by" under a line -->
+  <div style="text-align: right;">
+    <p style="margin: 0; font-size: 14px;">
+      Generated on: <strong>March 19, 2025 11:35:57 UTC</strong>
+    </p>
+
+    <hr style="border: 0; border-top: 1px solid #fff; margin: 6px 0;" />
+
+    <p style="margin: 0; font-size: 14px;">
+      Created by:
+      <a href="https://kubedeck.io" target="_blank" style="color: #fff; text-decoration: none;">
+        🌐 kubedeck.io
+      </a>
+    </p>
+
+    <!-- Save as PDF Button -->
+    <div id="printContainer">
+      <button id="savePdfBtn">📄 Save as PDF</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+
+<div class="container">
+    <h1 id="summary">Cluster Summary</h1>
+    <p><strong>Cluster Name:</strong> aks-0402-dev-uks</p>
+    <p><strong>Kubernetes Version:</strong> v1.30.9</p>
+    <div class="compatibility warning"><strong>Cluster is running an outdated version: v1.30.9 (Latest: v1.32.3)</strong></div>
+
+    <h2>Cluster Metrics Summary</h2>
+    <table>
+        <tr>
+            <td>🚀 Nodes: 5</td>
+            <td>🟩 Healthy: 5</td>
+            <td>🟥 Issues: 0</td>
+        </tr>
+        <tr>
+            <td>📦 Pods: 80</td>
+            <td>🟩 Running: 77</td>
+            <td>🟥 Failed: 0</td>
+        </tr>
+        <tr>
+            <td>🔄 Restarts: 2</td>
+            <td>🟨 Warnings: 0</td>
+            <td>🟥 Critical: 0</td>
+        </tr>
+        <tr>
+            <td>⏳ Pending Pods: 0</td>
+            <td>🟡 Waiting: 0</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>⚠️ Stuck Pods: 0</td>
+            <td>❌ Stuck: 0</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>📉 Job Failures: 0</td>
+            <td>🔴 Failed: 0</td>
+            <td></td>
+        </tr>
+    </table>
+
+    <h2>Pod Distribution</h2>
+    <table>
+        <tr>
+            <td>Avg: <strong>16</strong></td>
+            <td>Max: <strong>24</strong></td>
+            <td>Min: <strong>6</strong></td>
+            <td>Total Nodes: <strong>5</strong></td>
+        </tr>
+    </table>
+
+        <h2>Resource Usage</h2>
+    <div class="hero-metrics">
+        <div class="metric-card normal">🖥 CPU: <strong>10.7%</strong> <br><span>🟩 Normal</span></div>
+        <div class="metric-card normal">💾 Memory: <strong>4.06%</strong> <br><span>🟩 Normal</span></div>
+    </div>
+        <!-- Hero Metrics Section -->
+    <h2>Cluster Events</h2>
+    <div class="hero-metrics">
+        <div class="metric-card normal">❌ Errors: <strong>0</strong></div>
+        <div class="metric-card normal">⚠️ Warnings: <strong>0</strong></div>
+    </div>
+    </div>
+</div>
+<!-- Node Conditions Container -->
+<div class="container">
+<h1>Node Conditions & Resources</h1>
+  <h2 id="nodecon">Node Conditions</h2>
+  <div class="table-container">
+  <details id='nodeConditions' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>⚠️ Total Not Ready Nodes:</strong> 0</p><table>
+<colgroup><col/><col/><col/></colgroup>
+<tr><th>Node</th><th>Status</th><th>Issues</th></tr>
+<tr><td>aks-systempool-19995743-vmss00000c</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000d</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000e</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss000004</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>akswinnp000001</td><td>✅ Healthy</td><td>None</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('nodeConditions');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="noderesource">Node Resources</h2>
+  <div class="table-container">
+  <details id='nodeResources' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>⚠️ Total Resource Warnings Across All Nodes:</strong> 2</p><h2>Node Resource Usage</h2>
+<table>
+<colgroup><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>Node</th><th>CPU Status</th><th>CPU %</th><th>CPU Used</th><th>CPU Total</th><th>Mem Status</th><th>Mem %</th><th>Mem Used</th><th>Mem Total</th><th>Disk %</th><th>Disk Status</th></tr>
+<tr><td>aks-systempool-19995743-vmss00000c</td><td>✅ Normal</td><td>7.47%</td><td>142 mC</td><td>1900 mC</td><td>&#128993; Warning</td><td>52.78%</td><td>3448 Mi</td><td>6533 Mi</td><td>52%</td><td>✅ Normal</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000d</td><td>✅ Normal</td><td>7.05%</td><td>134 mC</td><td>1900 mC</td><td>&#128993; Warning</td><td>52.95%</td><td>3459 Mi</td><td>6533 Mi</td><td>52%</td><td>✅ Normal</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000e</td><td>✅ Normal</td><td>7.26%</td><td>138 mC</td><td>1900 mC</td><td>✅ Normal</td><td>46.21%</td><td>3019 Mi</td><td>6533 Mi</td><td>46%</td><td>✅ Normal</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss000004</td><td>✅ Normal</td><td>2.93%</td><td>113 mC</td><td>3860 mC</td><td>✅ Normal</td><td>12.05%</td><td>1758 Mi</td><td>14584 Mi</td><td>12%</td><td>✅ Normal</td></tr>
+<tr><td>akswinnp000001</td><td>✅ Normal</td><td>0.42%</td><td>8 mC</td><td>1900 mC</td><td>✅ Normal</td><td>29.61%</td><td>1627 Mi</td><td>5494 Mi</td><td>29%</td><td>✅ Normal</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('nodeResources');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+</div>
+<!-- Namespace Container -->
+<div class="container">
+<h1 id="namespaces">Namespaces</h1>
+  <h2>Empty Namespaces</h2>
+  <div class="table-container">
+  <details id='emptyNamespace' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>⚠️ Total Empty Namespaces:</strong> 3</p><table>
+<colgroup><col/></colgroup>
+<tr><th>Namespace</th></tr>
+<tr><td>default</td></tr>
+<tr><td>kube-node-lease</td></tr>
+<tr><td>kube-public</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('emptyNamespace');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+</div>
+<!-- Workload Container -->
+<div class="container">
+<h1 id="workloads">Workloads</h1>
+  <h2 id=daemonsets>DaemonSets Not Fully Running</h2>
+  <div class="table-container">
+  <details id='daemonSetIssues' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ All DaemonSets are fully running.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('daemonSetIssues');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+</div>
+<!-- Pods Container -->
+<div class="container">
+<h1 id="pods">Pods</h1>
+  <h2 id="podrestarts">Pods with High Restarts</h2>
+  <div class="table-container">
+  <details id='podsRestart' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No pods with excessive restarts detected.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('podsRestart');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="podlong">Long Running Pods</h2>
+  <div class="table-container">
+  <details id='podLongRunning' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No long-running pods detected.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('podLongRunning');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="podfail">Failed Pods</h2>
+  <div class="table-container">
+  <details id='podFail' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No failed pods found.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('podFail');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="podpending">Pending Pods</h2>
+  <div class="table-container">
+  <details id='podPending' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No pending pods found.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('podPending');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="crashloop">CrashLoopBackOff Pods</h2>
+  <div class="table-container">
+  <details id='crashloop' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No CrashLoopBackOff pods found.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('crashloop');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+    <h2 id="debugpods">Running Debug Pods</h2>
+  <div class="table-container">
+  <details id='leftoverDebug' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No leftover debug pods detected.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('leftoverDebug');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+</div>
+<!-- Job Container -->
+<div class="container">
+<h1 id="jobs">Jobs</h1>
+  <h2 id="stuckjobs">Stuck Jobs</h2>
+  <div class="table-container">
+  <details id='stuckJobs' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No jobs found in the cluster.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('stuckJobs');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="failedjobs">Job Failures</h2>
+  <div class="table-container">
+  <details id='jobFail' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No failed jobs found.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('jobFail');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  </div>
+<!-- Networking Container -->
+<div class="container">
+<h1 id="jobs">Networking</h1>
+  <h2 id="servicenoendpoints">Services without Endpoints</h2>
+  <div class="table-container">
+  <details id='servicesWithoutEndpoints' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>⚠️ Total Services Without Endpoints:</strong> 1</p><h2>Services Without Endpoints</h2>
+<table>
+<colgroup><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Service</th><th>Type</th><th>Status</th></tr>
+<tr><td>kube-system</td><td>network-observability</td><td>ClusterIP</td><td>⚠️ No Endpoints</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('servicesWithoutEndpoints');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+</div>
+<!-- Storage Container -->
+<div class="container">
+<h1 id="storage">Storage</h1>
+  <h2 id="unmountedpv">Unmounted Persistent Volumes</h2>
+  <div class="table-container">
+  <details id='unmountedPV' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>✅ No unused PVCs found.</strong></p>
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('unmountedPV');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  </div>
+<!-- Security Container -->
+<div class="container">
+<h1 id="security">Security</h1>
+  <h2 id="rbacmisconfig">RBAC Misconfigurations</h2>
+  <div class="table-container">
+  <details id='rbacMisconfig' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>⚠️ Total RBAC Misconfigurations Detected:</strong> 9</p><h2>RBAC Misconfigurations</h2>
+<table>
+<colgroup><col/><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Type</th><th>RoleBinding</th><th>Subject</th><th>Issue</th></tr>
+<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system::leader-locking-kube-controller-manager</td><td>ServiceAccount/kube-controller-manager</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system::leader-locking-kube-scheduler</td><td>ServiceAccount/kube-scheduler</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system:controller:cloud-provider</td><td>ServiceAccount/cloud-provider</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>secretproviderrotation-rolebinding</td><td>ServiceAccount/secrets-store-csi-driver</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:azure-cloud-provider</td><td>ServiceAccount/azure-cloud-provider</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:azure-cloud-provider-secret-getter</td><td>ServiceAccount/azure-cloud-provider</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:controller:route-controller</td><td>ServiceAccount/route-controller</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:controller:service-controller</td><td>ServiceAccount/service-controller</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:kube-dns</td><td>ServiceAccount/kube-dns</td><td>❌ ServiceAccount does not exist</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('rbacMisconfig');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="orphanedconfigmaps">Orphaned ConfigMaps</h2>
+  <div class="table-container">
+  <details id='orphanedConfigMaps' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> 12</p><h2>Orphaned ConfigMaps</h2>
+<table>
+<colgroup><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Type</th><th>Name</th></tr>
+<tr><td>default</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
+<tr><td>gatekeeper-system</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
+<tr><td>kube-node-lease</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
+<tr><td>kube-public</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>azure-ip-masq-agent-config-reconciled</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>cluster-autoscaler-status</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>container-azm-ms-aks-k8scluster</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>coredns-autoscaler</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>extension-apiserver-authentication</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>kube-apiserver-legacy-service-account-token-tracking</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>overlay-upgrade-data</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('orphanedConfigMaps');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  <h2 id="orphanedsecrets">Orphaned Secrets</h2>
+  <div class="table-container">
+  <details id='orphanedSecrets' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  <p><strong>⚠️ Total Orphaned Secrets Found:</strong> 3</p><h2>Orphaned Secrets</h2>
+<table>
+<colgroup><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Type</th><th>Name</th></tr>
+<tr><td>kube-system</td><td>&#128273; Secret</td><td>aad-msi-auth-token</td></tr>
+<tr><td>kube-system</td><td>&#128273; Secret</td><td>azure-policy-webhook-cert</td></tr>
+<tr><td>kube-system</td><td>&#128273; Secret</td><td>omsagent-aad-msi-token</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('orphanedSecrets');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  </div>
+  <!-- Kube Event Container -->
+  <div class="container">
+  <h1 id="kubeevents">Kubernetes Warning Events</h1>
+  <h2 id="clusterwarnings">Recent Cluster Warnings</h2>
+  <div class="table-container">
+  <details id='eventSummary' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
+  
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('eventSummary');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Table
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
+  });
+});
+</script>
+  </div>
+  </div>
+    <!-- AKS summary Container -->
+  <div class="container">
+  <h1 id="aks">AKS Best Practices Details</h1>
+  <h2>AKS Best Practices Summary</h2>
+<div class="hero-metrics">
+  <div class="metric-card normal">✅ Passed: <strong>27</strong></div>
+  <div class="metric-card critical">❌ Failed: <strong>7</strong></div>
+  <div class="metric-card default">📊 Total Checks: <strong>34</strong></div>
+  <div class="metric-card warning">🎯 Score: <strong>79.41%</strong></div>
+  <div class="metric-card warning">⭐ Rating: <strong>C</strong></div>
+</div>
+  <h2 id="aksFindings">AKS Best Practices Results</h2>
+  <div class="table-container">
+  <details id='aksSummary' style='margin:10px 0;'>
+  <summary style='font-size:16px; cursor:pointer;'>Show Best Practices Report</summary>
+  <table>
+<colgroup><col/><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Recommendation</th><th>URL</th></tr>
+<tr><td>BP009</td><td>Node OS Upgrade Channel Configured</td><td>Medium</td><td>Best Practices</td><td>❌ FAIL</td><td>Node OS upgrade channel is not configured, which may leave your node OS outdated and vulnerable.</td><td>https://learn.microsoft.com/en-us/azure/aks/auto-upgrade</td></tr>
+<tr><td>BP005</td><td>Ephemeral OS Disks Enabled</td><td>Medium</td><td>Best Practices</td><td>❌ FAIL</td><td>One or more agent pools are not using ephemeral OS disks, leading to slower disk performance and increased costs.</td><td>https://learn.microsoft.com/en-us/azure/aks/ephemeral-os-disks</td></tr>
+<tr><td>BP001</td><td>Allowed Container Images Policy Enforcement</td><td>High</td><td>Best Practices</td><td>❌ FAIL</td><td>The &#39;Only Allowed Images&#39; policy is either missing or not enforcing deny mode, increasing the risk of running untrusted images.</td><td>https://learn.microsoft.com/en-us/azure/aks/azure-policy</td></tr>
+<tr><td>NET001</td><td>Authorized IP Ranges</td><td>High</td><td>Networking</td><td>❌ FAIL</td><td>No authorized IP ranges configured. This allows unrestricted access to the API server.</td><td>https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes</td></tr>
+<tr><td>NET003</td><td>Web App Routing Enabled</td><td>Low</td><td>Networking</td><td>❌ FAIL</td><td>Web App Routing is not enabled, which may limit external access management.</td><td>https://learn.microsoft.com/en-us/azure/aks/web-app-routing</td></tr>
+<tr><td>RES002</td><td>AKS Built-in Cost Tooling Enabled</td><td>Medium</td><td>Resource Management</td><td>❌ FAIL</td><td>AKS built-in cost tooling (Open Costs) is not enabled, making cost allocation and optimization harder.</td><td>https://learn.microsoft.com/en-us/azure/aks/cost-management</td></tr>
+<tr><td>SEC001</td><td>Private Cluster</td><td>High</td><td>Security</td><td>❌ FAIL</td><td>Cluster API server is publicly accessible, increasing security risks.</td><td>https://learn.microsoft.com/en-us/azure/aks/private-clusters</td></tr>
+<tr><td>BP010</td><td>Customized MC_ Resource Group Name</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Customized MC_ Resource Group Name is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/concepts-clusters-resource-group</td></tr>
+<tr><td>BP008</td><td>Auto Upgrade Channel Configured</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Auto Upgrade Channel Configured is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/auto-upgrade</td></tr>
+<tr><td>BP007</td><td>System Node Pool Taint</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>System Node Pool Taint is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-system-node-pools</td></tr>
+<tr><td>BP006</td><td>Non-Ephemeral Disks with Adequate Size</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Non-Ephemeral Disks with Adequate Size is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/availability-zone-support</td></tr>
+<tr><td>BP004</td><td>Azure Linux as Host OS</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>Azure Linux as Host OS is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-azure-linux</td></tr>
+<tr><td>BP003</td><td>Multiple Node Pools</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Multiple Node Pools is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-multiple-node-pools</td></tr>
+<tr><td>BP002</td><td>No Privileged Containers Policy Enforcement</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>No Privileged Containers Policy Enforcement is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/azure-policy</td></tr>
+<tr><td>DR001</td><td>Agent Pools with Availability Zones</td><td>High</td><td>Disaster Recovery</td><td>✅ PASS</td><td>Agent Pools with Availability Zones is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/availability-zones</td></tr>
+<tr><td>DR002</td><td>Control Plane SLA</td><td>Medium</td><td>Disaster Recovery</td><td>✅ PASS</td><td>Control Plane SLA is enabled.</td><td>https://azure.microsoft.com/en-us/pricing/details/kubernetes-service/</td></tr>
+<tr><td>IAM001</td><td>RBAC Enabled</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>RBAC Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/rbac</td></tr>
+<tr><td>IAM002</td><td>Managed Identity</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Managed Identity is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-managed-identity</td></tr>
+<tr><td>IAM003</td><td>Workload Identity Enabled</td><td>Medium</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Workload Identity Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview</td></tr>
+<tr><td>IAM004</td><td>Managed Identity Used</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Managed Identity Used is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-managed-identity</td></tr>
+<tr><td>IAM005</td><td>AAD RBAC Authorization Integrated</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>AAD RBAC Authorization Integrated is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/aad-integration</td></tr>
+<tr><td>IAM006</td><td>AAD Managed Authentication Enabled</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>AAD Managed Authentication Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/aad-integration</td></tr>
+<tr><td>IAM007</td><td>Local Accounts Disabled</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Local Accounts Disabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/disable-local-accounts</td></tr>
+<tr><td>MON002</td><td>Managed Prometheus Enabled</td><td>High</td><td>Monitoring &amp; Logging</td><td>✅ PASS</td><td>Managed Prometheus Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/azure-monitor/containers/prometheus-metrics</td></tr>
+<tr><td>MON001</td><td>Azure Monitor</td><td>High</td><td>Monitoring &amp; Logging</td><td>✅ PASS</td><td>Azure Monitor is enabled.</td><td>https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-overview</td></tr>
+<tr><td>NET004</td><td>Azure CNI Networking Recommended</td><td>Medium</td><td>Networking</td><td>✅ PASS</td><td>Azure CNI Networking Recommended is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/concepts-network#networking-options</td></tr>
+<tr><td>NET002</td><td>Network Policy Check</td><td>Medium</td><td>Networking</td><td>✅ PASS</td><td>Network Policy Check is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/best-practices-network#implement-network-policies</td></tr>
+<tr><td>RES001</td><td>Cluster Autoscaler</td><td>Medium</td><td>Resource Management</td><td>✅ PASS</td><td>Cluster Autoscaler is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/cluster-autoscaler</td></tr>
+<tr><td>SEC005</td><td>Azure Key Vault Integration</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Azure Key Vault Integration is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver</td></tr>
+<tr><td>SEC007</td><td>Kubernetes Dashboard Disabled</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Kubernetes Dashboard Disabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/kubernetes-dashboard</td></tr>
+<tr><td>SEC003</td><td>Defender for Containers</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Defender for Containers is enabled.</td><td>https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-containers-introduction</td></tr>
+<tr><td>SEC006</td><td>Image Cleaner Enabled</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>Image Cleaner Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/image-cleaner</td></tr>
+<tr><td>SEC002</td><td>Azure Policy Add-on</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>Azure Policy Add-on is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/policy-reference</td></tr>
+<tr><td>SEC004</td><td>OIDC Issuer Enabled</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>OIDC Issuer Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/oidc-issuer</td></tr>
+</table>
+
+</details>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const detElem = document.getElementById('aksSummary');
+  if (!detElem) return;
+
+  const sum = detElem.querySelector('summary');
+  detElem.addEventListener('toggle', () => {
+    // If open, change label to "Hide Table", else revert to Show Best Practices Report
+    sum.textContent = detElem.open ? 'Hide Table' : 'Show Best Practices Report';
+  });
+});
+</script>
+  </div>
+  </div>
+    <footer class="footer">
+        <p><strong>Report generated by Kubebuddy v0.0.4</strong> on March 19, 2025 11:35:57 UTC</p>
+        <p>&copy; 2025 Kubebuddy | <a href="https://kubedeck.io" target="_blank">KubeDeck.io</a></p>
+        <p><em>This report is a snapshot of the cluster state at the time of generation. It may not reflect real-time changes. Always verify configurations before making critical decisions.</em></p>
+    </footer>
+<!-- Back to Top Button -->
+<a href="#top" id="backToTop">Back to Top</a>
+<script>
+    // Show/hide "Back to Top" button based on scroll
+    window.addEventListener('scroll', function() {
+      const button = document.getElementById('backToTop');
+      // If scrolled down more than 200px, show the button, else hide it
+      if (window.scrollY > 200) {
+        button.style.display = 'block';
+      } else {
+        button.style.display = 'none';
+      }
+    });
+    document.addEventListener("DOMContentLoaded", function() {
+        const toc = document.getElementById("toc");
+        const tocToggle = document.getElementById("toc-toggle");
+        const tocContent = document.getElementById("toc-content");
+        const tocClose = document.getElementById("toc-close");
+    
+        // Start in collapsed state
+        toc.classList.remove("open");
+        tocContent.style.display = "none";
+    
+        tocToggle.addEventListener("click", function() {
+            toc.classList.add("open");
+            tocContent.style.display = "block"; // Show content
+            toc.style.width = "200px"; // Expand
+            toc.style.height = "auto";
+        });
+    
+        tocClose.addEventListener("click", function() {
+            toc.classList.remove("open");
+            tocContent.style.display = "none"; // Hide content
+            toc.style.width = "40px"; // Shrink
+            toc.style.height = "100px"; // Keep blue part covering it
+        });
+    
+        // Auto-close TOC on scroll
+        let lastScrollY = window.scrollY;
+        window.addEventListener("scroll", function() {
+            if (Math.abs(window.scrollY - lastScrollY) > 50) { // If scrolled more than 50px
+                toc.classList.remove("open");
+                tocContent.style.display = "none";
+                toc.style.width = "40px";
+                toc.style.height = "100px";
+            }
+            lastScrollY = window.scrollY;
+        });
+    });
+    document.getElementById("savePdfBtn").addEventListener("click", function() {
+        // Store original open state of all collapsible sections
+        const detailsElements = document.querySelectorAll("details");
+        const detailsStates = new Map();
+        
+        detailsElements.forEach(detail => {
+            detailsStates.set(detail, detail.open);
+            detail.open = true; // Expand all sections
+        });
+    
+        // Save original table styles
+        const tableContainers = document.querySelectorAll(".table-container");
+        const tables = document.querySelectorAll("table");
+    
+        const originalStyles = [];
+    
+        tableContainers.forEach((container, index) => {
+            originalStyles[index] = {
+                overflow: container.style.overflow,
+                height: container.style.height
+            };
+    
+            // Remove scrollbars and expand tables
+            container.style.overflow = "visible";
+            container.style.height = "auto";
+        });
+    
+        // Force table rows to expand fully
+        tables.forEach(table => {
+            table.style.width = "100%";
+            table.style.tableLayout = "fixed";
+        });
+    
+        // Delay print to allow rendering
+        setTimeout(() => {
+            window.print();
+        }, 500);
+    
+        // Restore original styles after printing
+        window.onafterprint = function() {
+            detailsElements.forEach(detail => {
+                detail.open = detailsStates.get(detail); // Restore original state
+            });
+    
+            tableContainers.forEach((container, index) => {
+                container.style.overflow = originalStyles[index].overflow;
+                container.style.height = originalStyles[index].height;
+            });
+    
+            // Reset table styles
+            tables.forEach(table => {
+                table.style.tableLayout = "";
+            });
+        };
+    });
+
+  </script>
+</body>
+</html>
