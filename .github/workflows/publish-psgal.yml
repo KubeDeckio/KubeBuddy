@@ -39,19 +39,20 @@ jobs:
 
           Write-Host "Setting module version to $tagVersion"
 
-          # Update .psd1
+          # This regex accounts for spacing around '='.
           (Get-Content ./KubeBuddy.psd1) `
-            -replace 'ModuleVersion = ''.*''', ("ModuleVersion = '{0}'" -f $tagVersion) |
+            -replace "ModuleVersion\\s*=\\s*'.*'", "ModuleVersion = '$tagVersion'" |
             Set-Content ./KubeBuddy.psd1
 
-          # Update .ps1
           (Get-Content ./Public/kubebuddy.ps1) `
-            -replace 'moduleVersion = ''.*''', ("moduleVersion = 'v{0}'" -f $tagVersion) |
+            -replace "moduleVersion\\s*=\\s*'.*'", ("moduleVersion = 'v{0}'" -f $tagVersion) |
             Set-Content ./Public/kubebuddy.ps1
 
-          # Show updated psd1
           Write-Host "Updated KubeBuddy.psd1 contents:"
           Get-Content ./KubeBuddy.psd1
+          
+          Write-Host "Updated kubebuddy.ps1 contents:"
+          Get-Content ./Public/kubebuddy.ps1
         shell: pwsh
 
       - name: Run PSScriptAnalyzer and format output in Markdown
