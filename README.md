@@ -1,4 +1,3 @@
-
 <p align="center">
   <img src="./images/KubeBuddy.png" />
 </p>
@@ -34,6 +33,7 @@ For complete installation, usage, and advanced configuration instructions, visit
 - **Customizable Thresholds:** Configure warning/critical levels in `kubebuddy-config.yaml`.
 - **HTML & Text Reports:** Generates clean reports for analysis and sharing.
 - **PowerShell Support:** Install via PowerShell Gallery and run on Windows, macOS, or Linux.
+- **AKS Best Practices Check:** Checks Azure Kubernetes Service (AKS) clusters for Best Practices. (Currently 34 fully automated tests!)
 
 ---
 
@@ -63,13 +63,21 @@ Invoke-KubeBuddy
 ```
 
 ### **Generate Reports**
-- HTML Report:
+- **HTML Report:**
   ```powershell
   Invoke-KubeBuddy -HtmlReport
   ```
-- Text Report:
+- **Text Report:**
   ```powershell
   Invoke-KubeBuddy -txtReport
+  ```
+- **Add AKS Best Practices section to HTML report:**
+  ```powershell
+  Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
+  ```
+  - **Add AKS Best Practices section to Text report:**
+  ```powershell
+  Invoke-KubeBuddy -txtReport -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
   ```
 
 ---
@@ -88,6 +96,12 @@ thresholds:
   restarts_critical: 5
   pod_age_warning: 15
   pod_age_critical: 40
+  stuck_job_hours   = 2
+  failed_job_hours  = 2
+  event_errors_warning    = 10
+  event_errors_critical   = 20
+  event_warnings_warning  = 50
+  event_warnings_critical = 100
 ```
 
 This file should be placed at:
@@ -108,3 +122,4 @@ All notable changes to this project are documented in the **[CHANGELOG](./CHANGE
 ## License
 
 This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for more details.
+
