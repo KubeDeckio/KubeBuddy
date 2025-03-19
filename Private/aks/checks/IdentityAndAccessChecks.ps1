@@ -1,71 +1,79 @@
 $identityChecks = @(
     @{
-        ID         = "BP002";
+        ID         = "IAM001";
         Category   = "Identity & Access";
         Name       = "RBAC Enabled";
-        Value      = $clusterInfo.enableRbac;
+        Value      = { $clusterInfo.enableRbac };
         Expected   = $true;
-        FailMessage = "Enable RBAC for security."
+        FailMessage = "Role-Based Access Control (RBAC) is not enabled, increasing security risks.";
+        Severity    = "High";
+        Recommendation = "Enable RBAC to control access to your cluster resources based on user roles.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/rbac";
     },
     @{
-        ID         = "BP003";
+        ID         = "IAM002";
         Category   = "Identity & Access";
         Name       = "Managed Identity";
-        Value      = $clusterInfo.identity.type;
+        Value      = { $clusterInfo.identity.type };
         Expected   = "UserAssigned";
-        FailMessage = "Use Managed Identity instead of Service Principal."
+        FailMessage = "Service Principal is being used instead of Managed Identity, which is less secure and requires credential rotation.";
+        Severity    = "High";
+        Recommendation = "Use a Managed Identity for authentication to avoid service principal credential management issues.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/use-managed-identity";
     },
     @{
-        ID         = "BP04";
+        ID         = "IAM003";
         Category   = "Identity & Access";
         Name       = "Workload Identity Enabled";
-        Value      = $clusterInfo.securityProfile.workloadIdentity.enabled;
+        Value      = { $clusterInfo.securityProfile.workloadIdentity.enabled };
         Expected   = { $_ -eq $true };
-        FailMessage = "Workload Identity must be enabled in AKS."
+        FailMessage = "Workload Identity is not enabled, reducing security for Kubernetes workloads.";
+        Severity    = "Medium";
+        Recommendation = "Enable Workload Identity to securely bind Kubernetes workloads to Azure identities.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview";
     },
     @{
-        ID             = "BP035";
-        Category       = "Identity & Access";
-        Name           = "Managed Identity Used";
-        Value          = $clusterInfo.identity.type;
-        Expected       = "UserAssigned";
-        FailMessage    = "Use managed identities instead of Service Principals. Each AKS cluster needs either one, but managed identities are recommended.";
-        Severity       = "High";
-        Recommendation = "Configure your AKS cluster to use a Managed Identity.";
-        URL            = "https://docs.microsoft.com/en-us/azure/aks/use-managed-identity"
+        ID         = "IAM004";
+        Category   = "Identity & Access";
+        Name       = "Managed Identity Used";
+        Value      = { $clusterInfo.identity.type };
+        Expected   = "UserAssigned";
+        FailMessage = "Service Principal is being used instead of a Managed Identity, which is less secure.";
+        Severity    = "High";
+        Recommendation = "Use a Managed Identity instead of a Service Principal to improve security and simplify authentication.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/use-managed-identity";
     },
     @{
-        ID             = "BP042";
-        Category       = "Identity & Access";
-        Name           = "AAD RBAC Authorization Integrated";
-        Value          = $clusterInfo.aadProfile.enableAzureRBAC;
-        Expected       = $true;
-        FailMessage    = "Cluster access is not integrated with AAD RBAC. Limit access via Kubernetes RBAC using Azure AD identities.";
-        Severity       = "High";
-        Recommendation = "Enable AAD RBAC to control cluster access for users and workloads.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/aad-integration"
+        ID         = "IAM005";
+        Category   = "Identity & Access";
+        Name       = "AAD RBAC Authorization Integrated";
+        Value      = { $clusterInfo.aadProfile.enableAzureRBAC };
+        Expected   = $true;
+        FailMessage = "Azure Active Directory (AAD) RBAC is not enabled, leading to weak access control.";
+        Severity    = "High";
+        Recommendation = "Enable AAD RBAC to enforce access policies based on Azure AD identities.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/aad-integration";
     },
     @{
-        ID             = "BP043";
-        Category       = "Identity & Access";
-        Name           = "AAD Managed Authentication Enabled";
-        Value          = $clusterInfo.aadProfile.managed;
-        Expected       = $true;
-        FailMessage    = "AKS is not configured for managed Azure AD authentication. Local accounts may be enabled.";
-        Severity       = "High";
-        Recommendation = "Enable managed Azure AD integration to authenticate users via Azure AD and disable local accounts.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/aad-integration"
+        ID         = "IAM006";
+        Category   = "Identity & Access";
+        Name       = "AAD Managed Authentication Enabled";
+        Value      = { $clusterInfo.aadProfile.managed };
+        Expected   = $true;
+        FailMessage = "AKS is not using managed Azure AD authentication, increasing security risks.";
+        Severity    = "High";
+        Recommendation = "Enable managed Azure AD authentication and disable local accounts to enhance security.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/aad-integration";
     },
     @{
-        ID             = "BP044";
-        Category       = "Identity & Access";
-        Name           = "Local Accounts Disabled";
-        Value          = $clusterInfo.disableLocalAccounts;
-        Expected       = $true;
-        FailMessage    = "AKS local accounts are enabled. Disabling local accounts reduces security risks.";
-        Severity       = "High";
-        Recommendation = "Disable local accounts using the --disable-local-accounts flag when creating or updating your AKS cluster.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/disable-local-accounts"
-    }    
-    
+        ID         = "IAM007";
+        Category   = "Identity & Access";
+        Name       = "Local Accounts Disabled";
+        Value      = { $clusterInfo.disableLocalAccounts };
+        Expected   = $true;
+        FailMessage = "AKS local accounts are enabled, increasing the risk of unauthorized access.";
+        Severity    = "High";
+        Recommendation = "Disable local accounts to enforce authentication via Azure Active Directory.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/disable-local-accounts";
+    }
 )

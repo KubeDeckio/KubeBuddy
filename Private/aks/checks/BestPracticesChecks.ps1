@@ -1,140 +1,112 @@
 $bestPracticesChecks = @(
     @{
-        ID             = "BP025";
+        ID             = "BP001";
         Category       = "Best Practices";
         Name           = "Allowed Container Images Policy Enforcement";
-        Value          = if ($allowedPolicies = ($kubeResources.ConstraintTemplates.items | Where-Object { $_.metadata.name -eq "k8sazurev2containerallowedimages" })) {
-                                $enforcingCount = 0;
-                                foreach ($policy in $allowedPolicies) {
-                                    if ($policy.status -and $policy.status.byPod) {
-                                        foreach ($entry in $policy.status.byPod) {
-                                            if (($entry.operations -contains "mutation-webhook") -or ($entry.operations -contains "webhook")) {
-                                                $enforcingCount++;
-                                            }
-                                        }
-                                    }
-                                }
-                                $enforcingCount -gt 0;
-                            }
-                            else {
-                                $false;
-                            };
+        Value          = { ($ClusterInfo.kubeData.Constraints.items | Where-Object { $_.kind -eq "K8sAzureV2ContainerAllowedImages"}).spec.enforcementAction -contains "deny" };
         Expected       = $true;
-        FailMessage    = "The 'Only Allowed Images' policy is either missing or not enforcing deny mode.";
+        FailMessage    = "The 'Only Allowed Images' policy is either missing or not enforcing deny mode, increasing the risk of running untrusted images.";
         Severity       = "High";
-        Recommendation = "Deploy and enforce the 'Only Allowed Images' policy with 'deny' mode to restrict unapproved images.";
+        Recommendation = "Deploy and enforce the 'Only Allowed Images' policy with deny mode to restrict unapproved images.";
         URL            = "https://learn.microsoft.com/en-us/azure/aks/azure-policy";
     },    
     @{
-        ID             = "BP026";
+        ID             = "BP002";
         Category       = "Best Practices";
         Name           = "No Privileged Containers Policy Enforcement";
-        Value          = if ($noPrivPolicies = ($kubeResources.ConstraintTemplates.items | Where-Object { $_.metadata.name -eq "k8sazurev2noprivilege" })) {
-                              $enforcingCount = 0
-                              foreach ($policy in $noPrivPolicies) {
-                                  if ($policy.status -and $policy.status.byPod) {
-                                      foreach ($entry in $policy.status.byPod) {
-                                          if (($entry.operations -contains "mutation-webhook") -or ($entry.operations -contains "webhook")) {
-                                              $enforcingCount++
-                                          }
-                                      }
-                                  }
-                              }
-                              $enforcingCount -gt 0
-                          }
-                          else {
-                              $false
-                          };
+        Value          = { ($ClusterInfo.kubeData.Constraints.items | Where-Object { $_.kind -eq "K8sAzureV2NoPrivilege"}).spec.enforcementAction -contains "deny" };
         Expected       = $true;
-        FailMessage    = "The 'No Privileged Containers' policy is either missing or not enforcing deny mode.";
+        FailMessage    = "The 'No Privileged Containers' policy is either missing or not enforcing deny mode, allowing potentially insecure workloads.";
         Severity       = "High";
-        Recommendation = "Deploy and enforce the 'No Privileged Containers' policy with 'deny' mode (i.e. using mutation-webhook/webhook) to block privileged containers.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/azure-policy"
-    },    
-    @{
-        ID          = "BP027";
-        Category    = "Best Practices";
-        Name        = "Multiple node pools";
-        Value       = ($clusterInfo.agentPoolProfiles.Count -gt 1);
-        Expected    = $true;
-        FailMessage = "Use multiple node pools for better resource management."
+        Recommendation = "Deploy and enforce the 'No Privileged Containers' policy in deny mode to block privileged containers and enhance security.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/azure-policy";
     },
     @{
-        ID             = "BP036";
+        ID          = "BP003";
+        Category    = "Best Practices";
+        Name        = "Multiple Node Pools";
+        Value       = { $clusterInfo.agentPoolProfiles.Count -gt 1 };
+        Expected    = $true;
+        FailMessage = "Only a single node pool is in use, reducing flexibility and workload separation.";
+        Severity    = "Medium";
+        Recommendation = "Use multiple node pools to optimize workload performance, security, and resource utilization.";
+        URL         = "https://learn.microsoft.com/en-us/azure/aks/use-multiple-node-pools";
+    },
+    @{
+        ID             = "BP004";
         Category       = "Best Practices";
         Name           = "Azure Linux as Host OS";
-        Value          = ($clusterInfo.agentPoolProfiles | Where-Object { $_.osType -eq "Linux" -and $_.osSKU -ne "AzureLinux" }).Count;
+        Value          = { ($clusterInfo.agentPoolProfiles | Where-Object { $_.osType -eq "Linux" -and $_.osSKU -ne "AzureLinux" }).Count };
         Expected       = 0;
-        FailMessage    = "One or more Linux node pools are not using Azure Linux as the host OS.";
+        FailMessage    = "One or more Linux node pools are not using Azure Linux as the host OS, which may impact compatibility and support.";
         Severity       = "High";
-        Recommendation = "Update all Linux node pools to use Azure Linux.";
-        URL            = "https://learn.microsoft.com/en-us/AZURE/aks/use-azure-linux"
+        Recommendation = "Migrate Linux node pools to Azure Linux to ensure better performance and compatibility.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/use-azure-linux";
     },    
     @{
-        ID             = "BP038";
+        ID             = "BP005";
         Category       = "Best Practices";
         Name           = "Ephemeral OS Disks Enabled";
-        Value          = ($clusterInfo.agentPoolProfiles | Where-Object { $_.osDiskType -ne "Ephemeral" }).Count;
+        Value          = { ($clusterInfo.agentPoolProfiles | Where-Object { $_.osDiskType -ne "Ephemeral" }).Count };
         Expected       = 0;
-        FailMessage    = "One or more agent pools do not use ephemeral OS disks. Ephemeral OS disks lower latency and speed up cluster operations.";
+        FailMessage    = "One or more agent pools are not using ephemeral OS disks, leading to slower disk performance and increased costs.";
         Severity       = "Medium";
-        Recommendation = "Configure all agent pools to use ephemeral OS disks for better performance.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/ephemeral-os-disks"
+        Recommendation = "Configure all agent pools to use ephemeral OS disks for faster disk performance and lower costs.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/ephemeral-os-disks";
     },
     @{
-        ID             = "BP039";
+        ID             = "BP006";
         Category       = "Best Practices";
         Name           = "Non-Ephemeral Disks with Adequate Size";
-        Value          = ($clusterInfo.agentPoolProfiles | Where-Object { $_.osDiskType -ne "Ephemeral" -and $_.osDiskSizeGb -lt 128 }).Count;
+        Value          = { ($clusterInfo.agentPoolProfiles | Where-Object { $_.osDiskType -ne "Ephemeral" -and $_.osDiskSizeGb -lt 128 }).Count };
         Expected       = 0;
-        FailMessage    = "For non-ephemeral disks, use high IOPS and larger OS disks when running many pods. One or more node pools have OS disks below the recommended size.";
+        FailMessage    = "One or more node pools have OS disks smaller than 128GB, which may impact performance under high workloads.";
         Severity       = "Medium";
-        Recommendation = "Increase the OS disk size (e.g. 128GB or more) for non-ephemeral disks to handle high workloads and log volumes.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/availability-zone-support"
+        Recommendation = "Increase OS disk size to 128GB or more for non-ephemeral disks to optimize workload performance.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/availability-zone-support";
     },
     @{
-        ID             = "BP040";
+        ID             = "BP007";
         Category       = "Best Practices";
         Name           = "System Node Pool Taint";
-        Value          = ($clusterInfo.agentPoolProfiles | Where-Object { $_.mode -eq "System" }).nodeTaints -contains "CriticalAddonsOnly=true:NoSchedule";
+        Value          = { ($clusterInfo.agentPoolProfiles | Where-Object { $_.mode -eq "System" }).nodeTaints -contains "CriticalAddonsOnly=true:NoSchedule" };
         Expected       = $true;
-        FailMessage    = "The system node pool must have the taint 'CriticalAddonsOnly=true:NoSchedule'.";
+        FailMessage    = "The system node pool does not have the required taint 'CriticalAddonsOnly=true:NoSchedule', potentially affecting system pod placement.";
         Severity       = "High";
-        Recommendation = "Apply the 'CriticalAddonsOnly=true:NoSchedule' taint to the system node pool to restrict scheduling to critical pods only.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/use-system-node-pools"
+        Recommendation = "Apply the 'CriticalAddonsOnly=true:NoSchedule' taint to the system node pool to ensure only critical system pods run on it.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/use-system-node-pools";
     },
     @{
-        ID             = "BP034A";
+        ID             = "BP008";
         Category       = "Best Practices";
         Name           = "Auto Upgrade Channel Configured";
-        Value          = ($clusterInfo.autoUpgradeProfile.upgradeChannel -ne "none");
+        Value          = { $clusterInfo.autoUpgradeProfile.upgradeChannel -ne "none" };
         Expected       = $true;
-        FailMessage    = "Auto upgrade channel is not properly configured. It should not be 'none'.";
+        FailMessage    = "Auto upgrade channel is not configured, meaning the cluster will not automatically receive security patches and updates.";
         Severity       = "Medium";
-        Recommendation = "Set the auto upgrade channel to a valid option (e.g. 'patch' or 'stable').";
+        Recommendation = "Set the auto upgrade channel to an appropriate option (e.g., 'patch' or 'stable') to keep your AKS cluster updated.";
         URL            = "https://learn.microsoft.com/en-us/azure/aks/auto-upgrade";
     },    
     @{
-        ID             = "BP034B";
+        ID             = "BP009";
         Category       = "Best Practices";
         Name           = "Node OS Upgrade Channel Configured";
-        Value          = ($clusterInfo.autoUpgradeProfile.nodeOSUpgradeChannel -ne "None");
+        Value          = { ($clusterInfo.autoUpgradeProfile.nodeOSUpgradeChannel -ne "None") };
         Expected       = $true;
-        FailMessage    = "Node OS upgrade channel is not properly configured. It should not be 'None'.";
+        FailMessage    = "Node OS upgrade channel is not configured, which may leave your node OS outdated and vulnerable.";
         Severity       = "Medium";
-        Recommendation = "Set the node OS upgrade channel to a valid option.";
+        Recommendation = "Configure the node OS upgrade channel to ensure timely updates and security patches.";
         URL            = "https://learn.microsoft.com/en-us/azure/aks/auto-upgrade";
     },
     @{
-        ID             = "BP051";
+        ID             = "BP010";
         Category       = "Best Practices";
         Name           = "Customized MC_ Resource Group Name";
-        Value          = -not ($clusterInfo.nodeResourceGroup -like "MC_*");
+        Value          =  { -not ($clusterInfo.nodeResourceGroup -like "MC_*") };
         Expected       = $true;
-        FailMessage    = "The node resource group name is using the default 'MC_' prefix. Customize it for easier management.";
+        FailMessage    = "The node resource group is using the default 'MC_' prefix, which makes management less intuitive.";
         Severity       = "Medium";
-        Recommendation = "Customize the node resource group name by specifying a custom name during AKS creation.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/concepts-clusters-resource-group"
+        Recommendation = "Specify a custom node resource group name during AKS cluster creation for better organization and clarity.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/concepts-clusters-resource-group";
     }
-    
 )

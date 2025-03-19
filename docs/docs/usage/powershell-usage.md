@@ -7,123 +7,121 @@ layout: default
 
 # PowerShell Usage
 
-If you're using **KubeBuddy** via PowerShell, this guide will help you clean up, manage, and optimize your `kubeconfig` files. Below are detailed instructions and examples for various commands.
+If you're using **KubeBuddy** via PowerShell, this guide will help you monitor and analyze your Kubernetes clusters. Below are detailed instructions and examples for various commands.
+
+## 🔧 Prerequisites
+
+Before running KubeBuddy, ensure you:
+- Are **connected to a Kubernetes cluster/context**.
+- Have **kubectl** installed and configured.
+- Have **Azure CLI (az cli)** installed if using AKS features.
+- Are **logged into Azure** and using the correct subscription for AKS monitoring.
 
 ## Available Commands
 
 The following table provides a quick reference for KubeBuddy commands:
 
-| Action                    | Command Example |
+| Action | Command Example |
 |---------------------------|----------------|
-| Remove unreachable clusters | `Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ExclusionList "cluster1,cluster2"` |
-| Merge kubeconfig files | `Invoke-KubeBuddy -MergeConfigs "config1.yaml","config2.yaml" -DestinationConfig "$HOME\.kube\config"` |
-| List clusters | `Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ListClusters` |
-| List contexts | `Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ListContexts` |
-| Export specific contexts | `Invoke-KubeBuddy -ExportContexts "context1,context2" -DestinationConfig "$HOME\.kube\filtered-config"` |
-| Run in dry-run mode | `Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -DryRun` |
-| Enable verbose logging | `Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -Verbose` |
+| Run a cluster health check | `Invoke-KubeBuddy` |
+| Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
+| Generate a text report | `Invoke-KubeBuddy -txtReport` |
+| Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
+| Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 
-## 1. Backup and Restore
+## 1. Running a Cluster Health Check
 
-KubeBuddy automatically creates a backup before modifying your kubeconfig file unless `-DryRun` is enabled. If you need to restore the original kubeconfig, locate the backup file:
+To check the health of your Kubernetes cluster:
 
 ```powershell
-$HOME\.kube\config.backup
+Invoke-KubeBuddy
 ```
 
-You can also create a manual backup before running KubeBuddy:
+This command provides a detailed menu-driven interface that allows you to navigate through various monitoring options. It analyzes node status, resource usage, workloads, and RBAC security settings. The interactive menu lets you explore different categories, such as pod health, event summaries, and networking insights, making it easier to assess and troubleshoot your Kubernetes cluster.
+
+## 2. Generating Reports
+
+To generate an HTML report:
 
 ```powershell
-Copy-Item -Path "$HOME\.kube\config" -Destination "$HOME\.kube\config.backup"
+Invoke-KubeBuddy -HtmlReport
 ```
+![Screenshot of KubeBuddy HTML Report](assets/images/report-examples/html-report-sample.png)
 
-## 2. Cleaning Up Unreachable Clusters
+[View Sample HTML Report](assets/examples/html-report-sample.html)
 
-If your `kubeconfig` contains outdated or unreachable clusters, KubeBuddy can remove them automatically. The following command will clean up all unreachable clusters while keeping those listed in `-ExclusionList`:
+
+For a text-based report:
 
 ```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ExclusionList "cluster1,cluster2"
+Invoke-KubeBuddy -txtReport
 ```
+![Screenshot of KubeBuddy Text Report](assets/images/report-examples/text-report-sample.png)
 
-By default, KubeBuddy will create a backup of your `kubeconfig` before making changes. If you only want to preview the changes, use the `-DryRun` option.
+[View Sample Text Report](assets/examples/text-report-sample.txt)
 
-## 3. Handling Current Context
+## 3. Running an AKS Health Check alongside the HTML report
 
-If the cluster associated with your `current-context` is removed during cleanup, KubeBuddy will unset it. If this happens, set a new context manually:
+To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure you are logged into Azure and using the correct subscription:
 
 ```powershell
-kubectl config use-context <new-context>
+az login
+az account set --subscription <subscription-id>
+Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
+![Screenshot of KubeBuddy HTML + AKS Report](assets/images/report-examples/html-aks-report-sample.png)
 
-To check your current context before running KubeBuddy:
+[View Sample HTML Report](assets/examples/html-report-sample.html)
+
+## 4. Running an AKS Health Check alongside the txt report
+
+To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure you are logged into Azure and using the correct subscription:
 
 ```powershell
-kubectl config current-context
+az login
+az account set --subscription <subscription-id>
+Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+```
+![Screenshot of KubeBuddy txt Report](assets/images/report-examples/txt-aks-report-sample.png)
+
+[View Sample txt Report](assets/examples/txt-report-sample.txt)
+
+---
+
+## 5. Configuring Thresholds
+
+KubeBuddy supports customizable thresholds via the `kubebuddy-config.yaml` file. You can place this file in `~/.kube/kubebuddy-config.yaml` or specify a custom path. A sample configuration looks like this:
+
+```yaml
+thresholds:
+  cpu_warning: 50
+  cpu_critical: 75
+  mem_warning: 50
+  mem_critical: 75
+  restarts_warning: 3
+  restarts_critical: 5
+  pod_age_warning: 15
+  pod_age_critical: 40
 ```
 
-## 4. Merging Multiple Kubeconfig Files
+Adjust these values to suit your environment’s needs. If `kubebuddy-config.yaml` is missing, KubeBuddy uses default threshold values.
 
-If you manage multiple Kubernetes environments, you may need to merge several kubeconfig files into one. Use the following command to combine them:
+---
 
-```powershell
-Invoke-KubeBuddy -MergeConfigs "config1.yaml","config2.yaml" -DestinationConfig "$HOME\.kube\config"
-```
+## 6. Additional Parameters
 
-To preview the merge process without making changes:
+Below are optional parameters you can use with `Invoke-KubeBuddy`:
 
-```powershell
-Invoke-KubeBuddy -MergeConfigs "config1.yaml","config2.yaml" -DestinationConfig "$HOME\.kube\config" -DryRun
-```
+| Parameter                 | Type      | Default                              | Description                                                                                  |
+|---------------------------|----------|--------------------------------------|----------------------------------------------------------------------------------------------|
+| `-OutputPath`            | String   | `$HOME\kubebuddy-report`             | Folder where report files are saved. If not present, KubeBuddy creates it automatically.      |
+| `-Aks`                   | Switch   | (N/A)                                | Runs AKS best practices checks. Requires `-SubscriptionId`, `-ResourceGroup`, `-ClusterName`. |
+| `-SubscriptionId`        | String   | (None)                               | Azure subscription ID (used with `-Aks`).                                                    |
+| `-ResourceGroup`         | String   | (None)                               | Azure resource group (used with `-Aks`).                                                     |
+| `-ClusterName`           | String   | (None)                               | AKS cluster name (used with `-Aks`).                                                         |
+| `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `$OutputPath\kubebuddy-report.html`.                             |
+| `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `$OutputPath\kubebuddy-report.txt`.                              |
 
-## 5. Exporting Specific Contexts
 
-You might need to extract specific contexts from a large kubeconfig file to create a smaller, focused configuration. The following command exports only the specified contexts:
-
-```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ExportContexts "context1,context2" -DestinationConfig "$HOME\.kube\filtered-config"
-```
-
-This is useful when sharing configuration files without exposing unnecessary clusters.
-
-## 6. Using Dry Run Mode
-
-Use the `-DryRun` option to simulate the cleanup process without making changes. This helps you understand what will be removed before running the actual cleanup:
-
-```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ExclusionList "cluster1" -DryRun
-```
-
-Dry Run Mode also applies to merging kubeconfig files. Run the following command to preview a merge:
-
-```powershell
-Invoke-KubeBuddy -MergeConfigs "config1.yaml","config2.yaml" -DestinationConfig "$HOME\.kube\config" -DryRun
-```
-
-## 7. Listing Clusters
-
-To display all clusters in your kubeconfig without modifying it:
-
-```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ListClusters
-```
-
-## 8. Listing Contexts
-
-To see all available contexts in your kubeconfig:
-
-```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -ListContexts
-```
-
-## 9. Enabling Verbose Logging
-
-For detailed logging, use the `-Verbose` flag:
-
-```powershell
-Invoke-KubeBuddy -KubeConfigPath "$HOME\.kube\config" -Verbose
-```
-
-This provides additional details on each step, such as cluster reachability checks and file modifications.
-
-For more information on logging and output, refer to the [Logging and Output](../logging-output) page.
+✅ **Next Steps:** Explore more commands in the [PowerShell Usage Guide](powershell-usage).
 

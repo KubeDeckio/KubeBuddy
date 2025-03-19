@@ -122,6 +122,16 @@ function Generate-K8sTextReport {
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Kube Events fetched.   " -ForegroundColor Green
 
+    if ($aks) {
+    $Host.UI.RawUI.CursorPosition = $cursorEndPos
+    Write-Host ""
+    $cursorPos = $Host.UI.RawUI.CursorPosition
+    Write-Host -NoNewline "🤖 Fetching AKS Information." -ForegroundColor Yellow
+    Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+    $cursorEndPos = $Host.UI.RawUI.CursorPosition
+    $Host.UI.RawUI.CursorPosition = $cursorPos
+    Write-Host "🤖 AKS Information fetched.   " -ForegroundColor Green
+    }
 
     $Host.UI.RawUI.CursorPosition = $cursorEndPos
     $Global:MakeReport = $false

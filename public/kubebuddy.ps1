@@ -14,35 +14,27 @@ function Invoke-KubeBuddy {
     param (
         [switch]$HtmlReport,
         [switch]$txtReport,
+        [switch]$Aks,
+        [string]$SubscriptionId,
+        [string]$ResourceGroup,
+        [string]$ClusterName,
         [string]$outputpath = "$HOME\kubebuddy-report"
     )
-# Ensure the output directory exists
-if (!(Test-Path -Path $outputpath)) {
-    Write-Host "📂 Creating directory: $outputpath" -ForegroundColor Yellow
-    New-Item -ItemType Directory -Path $outputpath -Force | Out-Null
-}
 
-# Define report file paths
-$htmlReportFile = "$outputpath\kubebuddy-report.html"
-$txtReportFile = "$outputpath\kubebuddy-report.txt"
+    # Ensure the output directory exists
+    if (!(Test-Path -Path $outputpath)) {
+        Write-Host "📂 Creating directory: $outputpath" -ForegroundColor Yellow
+        New-Item -ItemType Directory -Path $outputpath -Force | Out-Null
+    }
 
-Clear-Host
+    # Define report file paths
+    $htmlReportFile = "$outputpath\kubebuddy-report.html"
+    $txtReportFile = "$outputpath\kubebuddy-report.txt"
 
-if ($HtmlReport) {
-    Write-Host "📄 Generating HTML report: $htmlReportFile" -ForegroundColor Cyan
-    Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile
-    Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
-    return
-}
+    Clear-Host
 
-if ($txtReport) {
-    Write-Host "📄 Generating Text report: $txtReportFile" -ForegroundColor Cyan
-    Generate-K8sTextReport -ReportFile $txtReportFile
-    Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
-    return
-}
-
-    $banner = @"
+# **KubeBuddy ASCII Art**
+$banner = @"
 ██╗  ██╗██╗   ██╗██████╗ ███████╗██████╗ ██╗   ██╗██████╗ ██████╗ ██╗   ██╗
 ██║ ██╔╝██║   ██║██╔══██╗██╔════╝██╔══██╗██║   ██║██╔══██╗██╔══██╗╚██╗ ██╔╝
 █████╔╝ ██║   ██║██████╔╝█████╗  ██████╔╝██║   ██║██║  ██║██║  ██║ ╚████╔╝ 
@@ -51,29 +43,69 @@ if ($txtReport) {
 ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝    ╚═╝   
 "@
 
-    # KubeBuddy ASCII Art
-    Write-Host ""
-    Write-Host -NoNewline $banner -ForegroundColor Cyan
-    write-host "$moduleVersion" -ForegroundColor Magenta
-    Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
-    Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host -NoNewline $banner -ForegroundColor Cyan
+Write-Host "$moduleVersion" -ForegroundColor Magenta
+Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
+Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
+Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
+
+    # **HTML Report with Optional AKS Check**
+    if ($HtmlReport) {
+        Write-Host "📄 Generating HTML report: $htmlReportFile" -ForegroundColor Cyan
+        
+        if ($Aks) {
+            # Ensure required parameters for AKS are provided
+            if (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName) {
+                Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
+                return
+            }
+            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+        }
+        else {
+            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile
+        }
+
+        Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
+        return
+    }
+
+    # **TXT Report Generation**
+    if ($txtReport) {
+        Write-Host "📄 Generating Text report: $txtReportFile" -ForegroundColor Cyan
+        Generate-K8sTextReport -ReportFile $txtReportFile
+        Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
+        return
+    }
+
+    # Get the current Kubernetes context
+$context = kubectl config view --minify -o jsonpath="{.current-context}"
+
+
 
     # Thinking animation
     Write-Host -NoNewline "`r🤖 Initializing KubeBuddy..." -ForegroundColor Yellow
     Start-Sleep -Seconds 2  
     Write-Host "`r✅ KubeBuddy is ready to assist you!  " -ForegroundColor Green
 
-
     $msg = @(
-        "🤖 Hello, I'm KubeBuddy! Your friendly Kubernetes assistant.",
+        "🤖 Hello, I'm KubeBuddy—your Kubernetes assistant!",
         "",
-        "   - I can help you check node health, workload status, networking, storage, RBAC security, and more.",
-        "  - Select an option from the menu below to begin!"
+        "   - I can check node health, workload status, networking, storage, RBAC security, and more.",
+        "   - You're currently connected to the '$context' context. All actions will run on this cluster.",
+        "",
+        "                        ** WARNING: PLEASE VERIFY YOUR CONTEXT! **",
+        "",
+        "   - If this is NOT the correct CONTEXT, please EXIT and connect to the correct one.",
+        "   - Actions performed here may impact the wrong Kubernetes cluster!",
+        "",
+        "  - Choose an option from the menu below to get started."
     )
+    
+    
 
     Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Green" -delay 50
 
-    $firstRun = $true  # Flag to track first execution
+    $firstRun = $true  
     show-mainMenu
 }

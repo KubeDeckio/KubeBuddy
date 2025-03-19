@@ -4,28 +4,28 @@ nav_order: 1
 layout: home
 ---
 
-# 🌀 KubeBuddy – Clean, Merge, Simplify!
+# 🌀 KubeBuddy – Kubernetes Monitoring & Reporting
 
-## **Effortless Kubeconfig Management for Kubernetes Users – Built with PowerShell**
+## **PowerShell-Based Kubernetes Insights for Cluster Health & Security**
 
 <p align="center">
 <img id="logo" src="assets/images/KubeBuddyDark.png" />
 </p>
 
-Welcome to **KubeBuddy** – the **PowerShell-powered** tool that keeps your `kubeconfig` files clean, organized, and hassle-free.
+Welcome to **KubeBuddy** – the **PowerShell-powered** tool that helps you monitor, analyze, and report on your Kubernetes environments with ease.
 
-Whether you're an administrator juggling multiple Kubernetes clusters or a developer working across different environments, **KubeBuddy** simplifies your workflow by automatically managing and optimizing your configurations.
+Whether you're an administrator managing production clusters or a developer troubleshooting workloads, **KubeBuddy** simplifies Kubernetes monitoring with automated health checks, security insights, and structured reporting.
 
 ## ✨ Key Features
 
-✅ **Written in PowerShell** – Cross-platform support for Windows, Linux, and macOS.  
-✅ **Cluster Cleanup** – Remove unreachable clusters and their associated users and contexts.  
-✅ **Merge Configurations** – Combine multiple `kubeconfig` files into one.  
-✅ **Exclusion List** – Preserve specific clusters even if they appear unreachable.  
-✅ **Backup & Restore** – Automatically back up your original `kubeconfig` before making changes.  
-✅ **List & Export** – Display or export clusters and contexts without modifying your files.  
-✅ **Dry Run Mode** – Preview changes before applying them.  
-✅ **Verbose Logging** – Get full transparency on every operation.  
+✅ **Cluster Health Monitoring** – Check node status, resource utilization, and pod conditions.  
+✅ **Workload Analysis** – Detect failing pods, restart loops, and job issues.  
+✅ **Event Reporting** – Summarize Kubernetes events to surface errors and warnings.  
+✅ **RBAC & Security Checks** – Identify excessive permissions and security misconfigurations.  
+✅ **Storage & Networking Insights** – Analyze persistent volumes, services, and network policies.  
+✅ **Customizable Thresholds** – Set warning/critical levels in `kubebuddy-config.yaml`.  
+✅ **HTML & Text Reports** – Generate clean, shareable reports.  
+✅ **Azure AKS Health Check** – Monitor AKS clusters with PowerShell commands.  
 
 ## 🚀 Get Started
 
@@ -39,5 +39,5 @@ Whether you're an administrator juggling multiple Kubernetes clusters or a devel
 <img id="logo" src="assets/images/KubeBuddyDark.png" width="200px" />
 </p>
 
-💡 **Tidy up your Kubernetes configurations today with KubeBuddy – Powered by PowerShell!**
+💡 **Monitor and analyze your Kubernetes clusters effortlessly with KubeBuddy – Powered by PowerShell!**
 
