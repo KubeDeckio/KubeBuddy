@@ -46,9 +46,9 @@ To generate an HTML report:
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
-![Screenshot of KubeBuddy HTML Report](../../assets/images/report-examples/html-report-sample.png)
+![Screenshot of KubeBuddy HTML Report](../../../assets/images/report-examples/html-report-sample.png)
 
-[View Sample HTML Report](../../assets/examples/html-report-sample.html)
+[View Sample HTML Report](../../../assets/examples/html-report-sample.html)
 
 
 For a text-based report:
@@ -56,9 +56,9 @@ For a text-based report:
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
-![Screenshot of KubeBuddy Text Report](../../assets/images/report-examples/text-report-sample.png)
+![Screenshot of KubeBuddy Text Report](../../../assets/images/report-examples/text-report-sample.png)
 
-[View Sample Text Report](../../assets/examples/text-report-sample.txt)
+[View Sample Text Report](../../../assets/examples/text-report-sample.txt)
 
 ## 3. Running an AKS Health Check alongside the HTML report
 
@@ -69,9 +69,9 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy HTML + AKS Report](../../assets/images/report-examples/html-aks-report-sample.png)
+![Screenshot of KubeBuddy HTML + AKS Report](../../../assets/images/report-examples/html-aks-report-sample.png)
 
-[View Sample HTML Report](../../assets/examples/html-report-sample.html)
+[View Sample HTML Report](../../../assets/examples/html-report-sample.html)
 
 ## 4. Running an AKS Health Check alongside the txt report
 
@@ -82,9 +82,9 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy txt Report](../../assets/images/report-examples/txt-aks-report-sample.png)
+![Screenshot of KubeBuddy txt Report](../../../assets/images/report-examples/txt-aks-report-sample.png)
 
-[View Sample txt Report](../../assets/examples/txt-report-sample.txt)
+[View Sample txt Report](../../../assets/examples/txt-report-sample.txt)
 
 ---
 
