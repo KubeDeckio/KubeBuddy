@@ -14,6 +14,7 @@ KubeBuddy evaluates various aspects of your **Azure Kubernetes Service (AKS)** s
 Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 
 ### Best Practices
+
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
 | BP001 | Allowed Container Images Policy        | High     |
@@ -28,12 +29,14 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 | BP010 | Customized MC_ Resource Group Name     | Medium   |
 
 ### Disaster Recovery
+
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
 | DR001 | Agent Pools with Availability Zones    | High     |
 | DR002 | Control Plane SLA                      | Medium   |
 
 ### Identity & Access
+
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
 | IAM001| RBAC Enabled                           | High     |
@@ -45,12 +48,14 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 | IAM007| Local Accounts Disabled                | High     |
 
 ### Monitoring & Logging
+
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
 | MON001| Azure Monitor                          | High     |
 | MON002| Managed Prometheus Enabled             | High     |
 
 ### Networking
+
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
 | NET001| Authorized IP Ranges                   | High     |
@@ -59,12 +64,14 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 | NET004| Azure CNI Networking Recommended       | Medium   |
 
 ### Resource Management
+
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
 | RES001| Cluster Autoscaler                     | Medium   |
 | RES002| AKS Built-in Cost Tooling Enabled      | Medium   |
 
 ### Security
+
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
 | SEC001| Private Cluster                        | High     |
