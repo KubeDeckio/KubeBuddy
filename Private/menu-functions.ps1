@@ -438,7 +438,13 @@ function Show-InfraBestPracticesMenu {
 
         switch ($infraChoice) {
             "1" { 
+                if (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName) {
+                    Write-Host "Parameters are missing. please rerun Invoke-KubeBuddy with the following parameters.`n Invoke-KubeBuddy -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName"
+                    return
+                }
+                
                 Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+                
             }
             "B" { return }  # Back to main menu
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }

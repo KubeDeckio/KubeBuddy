@@ -142,6 +142,3 @@ Below are optional parameters you can use with `Invoke-KubeBuddy`:
 | `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `$OutputPath\kubebuddy-report.html`.                             |
 | `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `$OutputPath\kubebuddy-report.txt`.                              |
 
-
-✅ **Next Steps:** Explore more commands in the [PowerShell Usage Guide](powershell-usage).
-
