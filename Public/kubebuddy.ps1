@@ -1,12 +1,12 @@
 $Global:MakeReport = $false  # Global flag to control report mode
 
-$localScripts = Get-ChildItem -Path "$pwd/Private/*.ps1"
+# $localScripts = Get-ChildItem -Path "$pwd/Private/*.ps1"
 
-# Execute each .ps1 script found in the local Private directory
-foreach ($script in $localScripts) {
-    Write-Verbose "Executing script: $($script.FullName)"
-    . $script.FullName  # Call the script
-}
+# # Execute each .ps1 script found in the local Private directory
+# foreach ($script in $localScripts) {
+#     Write-Verbose "Executing script: $($script.FullName)"
+#     . $script.FullName  # Call the script
+# }
 
 $moduleVersion = "v0.0.4"
 
