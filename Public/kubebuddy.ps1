@@ -18,23 +18,44 @@ function Invoke-KubeBuddy {
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName,
-        [string]$outputpath = "$HOME\kubebuddy-report"
+        [string]$outputpath
     )
+    
+    # Assign default value if $outputpath is not set
+    if (-not $outputpath) {
+        $outputpath = Join-Path -Path $HOME -ChildPath "kubebuddy-report"
+    }
+    
 
-    # Ensure the output directory exists
-    if (!(Test-Path -Path $outputpath)) {
-        Write-Host "📂 Creating directory: $outputpath" -ForegroundColor Yellow
-        New-Item -ItemType Directory -Path $outputpath -Force | Out-Null
+    # Detect if outputpath is a FILE or DIRECTORY
+    $fileExtension = [System.IO.Path]::GetExtension($outputpath)
+
+    if ($fileExtension -in @(".html", ".txt")) {
+        # User provided a full file path, extract directory and base name
+        $reportDir = Split-Path -Parent $outputpath
+        $reportBaseName = [System.IO.Path]::GetFileNameWithoutExtension($outputpath)
+    }
+    else {
+        # User provided a directory, set default report names
+        $reportDir = $outputpath
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $reportBaseName = "kubebuddy-report-$timestamp"
+
     }
 
-    # Define report file paths
-    $htmlReportFile = "$outputpath\kubebuddy-report.html"
-    $txtReportFile = "$outputpath\kubebuddy-report.txt"
+    # Ensure the output directory exists
+    if (!(Test-Path -Path $reportDir)) {
+        Write-Host "📂 Creating directory: $reportDir" -ForegroundColor Yellow
+        New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
+    }
 
+    # Define report file paths based on the given outputpath
+    $htmlReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.html"
+    $txtReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.txt"
     Clear-Host
 
-# **KubeBuddy ASCII Art**
-$banner = @"
+    # **KubeBuddy ASCII Art**
+    $banner = @"
 ██╗  ██╗██╗   ██╗██████╗ ███████╗██████╗ ██╗   ██╗██████╗ ██████╗ ██╗   ██╗
 ██║ ██╔╝██║   ██║██╔══██╗██╔════╝██╔══██╗██║   ██║██╔══██╗██╔══██╗╚██╗ ██╔╝
 █████╔╝ ██║   ██║██████╔╝█████╗  ██████╔╝██║   ██║██║  ██║██║  ██║ ╚████╔╝ 
@@ -43,12 +64,12 @@ $banner = @"
 ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝    ╚═╝   
 "@
 
-Write-Host ""
-Write-Host -NoNewline $banner -ForegroundColor Cyan
-Write-Host "$moduleVersion" -ForegroundColor Magenta
-Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
-Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
-Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host -NoNewline $banner -ForegroundColor Cyan
+    Write-Host "$moduleVersion" -ForegroundColor Magenta
+    Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
+    Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
 
     # **HTML Report with Optional AKS Check**
     if ($HtmlReport) {
@@ -79,7 +100,7 @@ Write-Host "-------------------------------------------------------------" -Fore
     }
 
     # Get the current Kubernetes context
-$context = kubectl config view --minify -o jsonpath="{.current-context}"
+    $context = kubectl config view --minify -o jsonpath="{.current-context}"
 
 
 

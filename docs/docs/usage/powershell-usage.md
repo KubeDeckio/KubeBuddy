@@ -26,9 +26,10 @@ The following table provides a quick reference for KubeBuddy commands:
 | Run KubeBuddy | `Invoke-KubeBuddy` |
 | Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
 | Generate a text report | `Invoke-KubeBuddy -txtReport` |
-| Run a KubeBuddy with an AKS Best Practices Check | `Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
-| Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
-| Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
+| Generate reports with custom path | `Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report` |
+| Run a KubeBuddy with an AKS Best Practices Check | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
+| Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
+| Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 
 ## 1. Running KubeBuddy
 
@@ -38,22 +39,21 @@ To run KubeBuddy on your Kubernetes cluster:
 Invoke-KubeBuddy
 ```
 
-This command provides a detailed menu-driven interface that allows you to navigate through various monitoring options. It analyzes node status, resource usage, workloads, and RBAC security settings. The interactive menu lets you explore different categories, such as pod health, event summaries, and networking insights, making it easier to assess and troubleshoot your Kubernetes cluster.
+This command provides a detailed menu-driven interface that allows you to navigate through various monitoring options. It analyzes node status, resource usage, workloads, and RBAC security settings.
 
-## 2. Running KubeBuddy with an AKS Practices Check
+## 2. Running KubeBuddy with an AKS Best Practices Check
 
-To run KubeBuddy on your cluster and be able to run the AKS Best Practices Check:
+To check best practices for an **Azure Kubernetes Service (AKS)** cluster:
 
 ```powershell
-Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
+Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
 ```
 
-Making sure you supply your subscription ID the Resource Group name where the AKS cluster lives, and also the cluster Name. With out these details you will not be able to run the AKS best Practices Check.
+You **must** provide your Azure Subscription ID, the **Resource Group** where your AKS cluster resides, and the **Cluster Name**.
 
 ## 3. Generating Reports
 
-To generate an HTML report:
-
+### **Generate an HTML Report**
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
@@ -61,16 +61,58 @@ Invoke-KubeBuddy -HtmlReport
 
 <a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
+---
 
-
-For a text-based report:
-
+### **Generate a Text Report**
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
 ![Screenshot of KubeBuddy Text Report](../../../assets/images/report-examples/text-report-sample.png)
 
 <a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
+
+---
+
+### **Customizing Report Output Path**
+You can specify a **custom filename or directory** for the report using `-OutputPath`.
+
+#### **Save report in a specific directory**
+```powershell
+Invoke-KubeBuddy -HtmlReport -OutputPath ./reports
+```
+✔️ Saves the **HTML** report as:
+```
+./reports/kubebuddy-report-YYYYMMDD-HHMMSS.html
+```
+
+```powershell
+Invoke-KubeBuddy -txtReport -OutputPath ./reports
+```
+✔️ Saves the **TXT** report as:
+```
+./reports/kubebuddy-report-YYYYMMDD-HHMMSS.txt
+```
+
+---
+
+#### **Generate report with a custom filename**
+```powershell
+Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report.html
+```
+✔️ Saves the **HTML** report as:
+```
+./custom-report.html
+```
+
+```powershell
+Invoke-KubeBuddy -txtReport -OutputPath ./custom-report.txt
+```
+✔️ Saves the **TXT** report as:
+```
+./custom-report.txt
+```
+
+
 
 ## 4. Running an AKS Health Check alongside the HTML report
 
@@ -79,26 +121,26 @@ To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure yo
 ```powershell
 az login
 az account set --subscription <subscription-id>
-Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
 ![Screenshot of KubeBuddy HTML + AKS Report](../../../assets/images/report-examples/html-aks-report-sample.png)
 
 <a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
+---
 
 ## 5. Running an AKS Health Check alongside the txt report
 
-To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure you are logged into Azure and using the correct subscription:
+To check best practices for an Azure Kubernetes Service (AKS) cluster:
 
 ```powershell
 az login
 az account set --subscription <subscription-id>
-Invoke-KubeBuddy -txtReport -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
 ![Screenshot of KubeBuddy Text Report](../../../assets/images/report-examples/text-aks-report-sample.png)
 
 <a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
-
 
 ---
 
@@ -124,21 +166,18 @@ thresholds:
   event_warnings_critical: 100
 ```
 
-Adjust these values to suit your environment’s needs. If `kubebuddy-config.yaml` is missing, KubeBuddy uses default threshold values.
+Adjust these values to fit your environment. If `kubebuddy-config.yaml` is missing, KubeBuddy uses default thresholds.
 
 ---
 
 ## 7. Additional Parameters
 
-Below are optional parameters you can use with `Invoke-KubeBuddy`:
-
 | Parameter                 | Type      | Default                              | Description                                                                                  |
 |---------------------------|----------|--------------------------------------|----------------------------------------------------------------------------------------------|
-| `-OutputPath`            | String   | `$HOME\kubebuddy-report`             | Folder where report files are saved. If not present, KubeBuddy creates it automatically.      |
+| `-OutputPath`            | String   | `$HOME/kubebuddy-report`             | Folder or file name where report files are saved. Supports custom filenames.                 |
 | `-Aks`                   | Switch   | (N/A)                                | Runs AKS best practices checks. Requires `-SubscriptionId`, `-ResourceGroup`, `-ClusterName`. |
 | `-SubscriptionId`        | String   | (None)                               | Azure subscription ID (used with `-Aks`).                                                    |
 | `-ResourceGroup`         | String   | (None)                               | Azure resource group (used with `-Aks`).                                                     |
 | `-ClusterName`           | String   | (None)                               | AKS cluster name (used with `-Aks`).                                                         |
-| `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `$OutputPath\kubebuddy-report.html`.                             |
-| `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `$OutputPath\kubebuddy-report.txt`.                              |
-
+| `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `-OutputPath`.                                                   |
+| `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `-OutputPath`.                                                   |
