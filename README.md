@@ -19,7 +19,7 @@
 
 ## Documentation
 
-For complete installation, usage, and advanced configuration instructions, visit the **[KubeBuddy Documentation](https://docs.kubebuddy.io)**.
+For complete installation, usage, and advanced configuration instructions, visit the **[KubeBuddy Documentation](https://kubebuddy.kubedeck.io)**.
 
 ---
 
@@ -50,7 +50,7 @@ Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
 ### **Platform Support**
 - **PowerShell Module:** Works on **Windows**, **macOS**, and **Linux**.
 
-For additional installation methods, refer to the **[KubeBuddy Documentation](https://docs.kubebuddy.io).**
+For additional installation methods, refer to the **[KubeBuddy Documentation](https://kubebuddy.kubedeck.io).**
 
 ---
 
