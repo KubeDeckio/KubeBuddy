@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.10] - 2025-03-25
+
+### Added
+- Added `Check-PodsRunningAsRoot` to identify pods that run with UID 0 or no `runAsUser` set.
+- Added `Check-PrivilegedContainers` to detect containers running with `privileged: true`.
+- Added `Check-HostPidAndNetwork` to find pods using `hostPID` or `hostNetwork`.
+- Added `Check-RBACOverexposure` to flag direct or indirect access to `cluster-admin` privileges, including wildcard permissions via custom roles.
+- Integrated all the above checks into:
+  - The **RBAC & Security** interactive menu
+  - The **HTML report** with collapsible sections
+  - The floating sidebar navigation (TOC)
+
+### Changed
+- Updated `Show-RBACMenu` to include the new security checks as menu options.
+- Updated HTML report to include additional security findings in the **Security** section.
+
 ## [0.0.9] - 2025-03-20
 
 ### Added

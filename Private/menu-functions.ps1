@@ -293,6 +293,7 @@ function Show-ServiceMenu {
 
         $serviceOptions = @(
             "[1]  Show services without endpoints"
+            "[2]  Show publicly accessible services"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -302,16 +303,14 @@ function Show-ServiceMenu {
         Clear-Host
 
         switch ($serviceChoice) {
-            "1" { 
-                Show-ServicesWithoutEndpoints 
-            }
+            "1" { Show-ServicesWithoutEndpoints }
+            "2" { Check-PubliclyAccessibleServices }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
         Clear-Host
-
     } while ($true)
 }
 
@@ -353,8 +352,12 @@ function Show-RBACMenu {
 
         $rbacOptions = @(
             "[1]  Check RBAC misconfigurations"
-            "[2]  Show orphaned ConfigMaps"
-            "[3]  Show orphaned Secrets"
+            "[2]  Check RBAC overexposure"
+            "[3]  Show orphaned ConfigMaps"
+            "[4]  Show orphaned Secrets"
+            "[5]  Check Pods running as root"
+            "[6]  Check privileged containers"
+            "[7]  Check hostPID / hostNetwork usage"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -364,22 +367,19 @@ function Show-RBACMenu {
         Clear-Host
 
         switch ($rbacChoice) {
-            "1" { 
-                Check-RBACMisconfigurations 
-            }
-            "2" { 
-                Check-OrphanedConfigMaps
-            }
-            "3" { 
-                Check-OrphanedSecrets 
-            }
+            "1" { Check-RBACMisconfigurations }
+            "2" { Check-RBACOverexposure }
+            "3" { Check-OrphanedConfigMaps }
+            "4" { Check-OrphanedSecrets }
+            "5" { Check-PodsRunningAsRoot }
+            "6" { Check-PrivilegedContainers }
+            "7" { Check-HostPidAndNetwork }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
         Clear-Host
-
     } while ($true)
 }
 

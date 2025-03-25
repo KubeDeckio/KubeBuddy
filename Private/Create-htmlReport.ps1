@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     
 
-$heroRatingHtml = @"
+    $heroRatingHtml = @"
 <h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
   <div class="metric-card normal">✅ Passed: <strong>$aksPass</strong></div>
@@ -89,7 +89,7 @@ $heroRatingHtml = @"
 </div>
 "@
 
-$aksHealthCheck = @"
+    $aksHealthCheck = @"
   <!-- AKS summary Container -->
   <div class="container">
   <h1 id="aks">AKS Best Practices Details</h1>
@@ -102,7 +102,7 @@ $aksHealthCheck = @"
 "@
 
 
-$aksMenuItem = @"
+    $aksMenuItem = @"
 <li><a href="#aks">AKS Best Practices</a></li>
 "@
   }
@@ -147,17 +147,33 @@ $aksMenuItem = @"
   $servicesWithoutEndpointsHtml = Show-ServicesWithoutEndpoints -Html -PageSize 999
   $collapsibleServicesWithoutEndpointsHtml = ConvertToCollapsible -Id "servicesWithoutEndpoints" -defaultText "Show Table" -content $servicesWithoutEndpointsHtml
 
+  $publicServicesHtml = Check-PubliclyAccessibleServices -Html -PageSize 999
+  $collapsiblePublicServicesHtml = ConvertToCollapsible -Id "publicServices" -defaultText "Show Table" -content $publicServicesHtml
+
   $unmountedpvHtml = Show-UnusedPVCs  -Html -PageSize 999
   $collapsibleUnmountedpvHtml = ConvertToCollapsible -Id "unmountedPV" -defaultText "Show Table" -content $unmountedpvHtml
 
   $rbacmisconfigHtml = Check-RBACMisconfigurations -Html -PageSize 999
   $collapsibleRbacmisconfigHtml = ConvertToCollapsible -Id "rbacMisconfig" -defaultText "Show Table" -content $rbacmisconfigHtml
 
+  $rbacOverexposureHtml = Check-RBACOverexposure -Html -PageSize 999
+  $collapsibleRbacOverexposureHtml = ConvertToCollapsible -Id "rbacOverexposure" -defaultText "Show Table" -content $rbacOverexposureHtml
+
   $orphanedConfigMapsHtml = Check-OrphanedConfigMaps -Html -PageSize 999
   $collapsibleOrphanedConfigMapsHtml = ConvertToCollapsible -Id "orphanedConfigMaps" -defaultText "Show Table" -content $orphanedConfigMapsHtml
 
   $orphanedSecretsHtml = Check-OrphanedSecrets -Html -PageSize 999
   $collapsibleOrphanedSecretsHtml = ConvertToCollapsible -Id "orphanedSecrets" -defaultText "Show Table" -content $orphanedSecretsHtml
+
+  $podsRootHtml = Check-PodsRunningAsRoot -Html -PageSize 999
+  $collapsiblePodsRootHtml = ConvertToCollapsible -Id "podsRoot" -defaultText "Show Table" -content $podsRootHtml
+
+  $privilegedContainersHtml = Check-PrivilegedContainers -Html -PageSize 999
+  $collapsiblePrivilegedContainersHtml = ConvertToCollapsible -Id "privilegedContainers" -defaultText "Show Table" -content $privilegedContainersHtml
+
+  $hostPidNetHtml = Check-HostPidAndNetwork -Html -PageSize 999
+  $collapsibleHostPidNetHtml = ConvertToCollapsible -Id "hostPidNet" -defaultText "Show Table" -content $hostPidNetHtml
+
 
   $eventSummaryHtml = Show-KubeEvents -Html -PageSize 999
   $collapsibleEventSummaryHtml = ConvertToCollapsible -Id "eventSummary" -defaultText "Show Table" -content $eventSummaryHtml
@@ -666,15 +682,16 @@ $aksMenuItem = @"
     </details>
   </li>
 
-  <!-- Collapsible "Networking" section -->
-    <li>
-    <details>
-      <summary>Networking</summary>
-      <ul>
-        <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
-              </ul>
-    </details>
-  </li>
+<!-- Collapsible "Networking" section -->
+<li>
+<details>
+  <summary>Networking</summary>
+  <ul>
+    <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
+    <li><a href="#publicServices">Public Services</a></li>
+  </ul>
+</details>
+</li>
 
     <!-- Collapsible "Storage" section -->
         <li>
@@ -691,9 +708,13 @@ $aksMenuItem = @"
         <summary>Security</summary>
         <ul>
             <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
+            <li><a href="#rbacOverexposure">RBAC Overexposure</a></li>
             <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
             <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
-                </ul>
+            <li><a href="#podsRoot">Pods Running as Root</a></li>
+            <li><a href="#privilegedContainers">Privileged Containers</a></li>
+            <li><a href="#hostPidNet">hostPID / hostNetwork</a></li>
+        </ul>
         </details>
     <li><a href="#clusterwarnings">Kubernetes Events</a></li>
     $aksMenuItem
@@ -867,14 +888,20 @@ $aksMenuItem = @"
   $collapsibleJobFailHtml
   </div>
   </div>
+
 <!-- Networking Container -->
 <div class="container">
-<h1 id="jobs">Networking</h1>
+<h1 id="networking">Networking</h1>
   <h2 id="servicenoendpoints">Services without Endpoints</h2>
   <div class="table-container">
   $collapsibleServicesWithoutEndpointsHtml
   </div>
+  <h2 id="publicServices">Publicly Accessible Services</h2>
+  <div class="table-container">
+  $collapsiblePublicServicesHtml
+  </div>
 </div>
+
 <!-- Storage Container -->
 <div class="container">
 <h1 id="storage">Storage</h1>
@@ -883,12 +910,17 @@ $aksMenuItem = @"
   $collapsibleUnmountedpvHtml
   </div>
   </div>
+
 <!-- Security Container -->
 <div class="container">
 <h1 id="security">Security</h1>
   <h2 id="rbacmisconfig">RBAC Misconfigurations</h2>
   <div class="table-container">
   $collapsibleRbacmisconfigHtml
+  </div>
+  <h2 id="rbacOverexposure">RBAC Overexposure</h2>
+  <div class="table-container">
+  $collapsibleRbacOverexposureHtml
   </div>
   <h2 id="orphanedconfigmaps">Orphaned ConfigMaps</h2>
   <div class="table-container">
@@ -898,7 +930,20 @@ $aksMenuItem = @"
   <div class="table-container">
   $collapsibleOrphanedSecretsHtml
   </div>
+  <h2 id="podsRoot">Pods Running as Root</h2>
+  <div class="table-container">
+  $collapsiblePodsRootHtml
   </div>
+  <h2 id="privilegedContainers">Privileged Containers</h2>
+  <div class="table-container">
+  $collapsiblePrivilegedContainersHtml
+  </div>
+  <h2 id="hostPidNet">hostPID / hostNetwork Enabled</h2>
+  <div class="table-container">
+  $collapsibleHostPidNetHtml
+  </div>
+</div>
+
   <!-- Kube Event Container -->
   <div class="container">
   <h1 id="kubeevents">Kubernetes Warning Events</h1>

@@ -159,3 +159,113 @@ function Show-ServicesWithoutEndpoints {
         $currentPage = $newPage
     } while ($true)
 }
+
+function Check-PubliclyAccessibleServices {
+    param(
+        [int]$PageSize = 10,
+        [switch]$Html
+    )
+
+    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    Write-Host "`n[🌐 Publicly Accessible Services]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Services..." -ForegroundColor Yellow
+
+    $services = kubectl get services --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if (-not $services) {
+        Write-Host "`r🤖 ❌ Failed to fetch service data." -ForegroundColor Red
+        if ($Html) { return "<p>❌ Failed to fetch service data.</p>" }
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Services fetched. ($($services.Count) total)" -ForegroundColor Green
+    Write-Host -NoNewline "`n🤖 Analyzing for external exposure..." -ForegroundColor Yellow
+
+    $publicServices = $services | Where-Object {
+        $_.spec.type -in @("LoadBalancer", "NodePort")
+    }
+
+    $totalPublic = $publicServices.Count
+    Write-Host "`r🤖 ✅ Analysis complete. ($totalPublic exposed services)" -ForegroundColor Green
+
+    if ($totalPublic -eq 0) {
+        Write-Host "✅ No publicly accessible services found." -ForegroundColor Green
+        if ($Global:MakeReport -and -not $Html) {
+            Write-ToReport "`n[🌐 Publicly Accessible Services]`n"
+            Write-ToReport "✅ No publicly accessible services found."
+        }
+        if ($Html) {
+            return "<p><strong>✅ No publicly accessible services found.</strong></p>"
+        }
+        if (-not $Global:MakeReport -and -not $Html) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
+        return
+    }
+
+    $tableData = foreach ($svc in $publicServices) {
+        [PSCustomObject]@{
+            Namespace = $svc.metadata.namespace
+            Service   = $svc.metadata.name
+            Type      = $svc.spec.type
+            Ports     = ($svc.spec.ports | ForEach-Object { "$($_.port)/$($_.protocol)" }) -join ", "
+            ExternalIP = if ($svc.status.loadBalancer.ingress) {
+                ($svc.status.loadBalancer.ingress | ForEach-Object { $_.ip }) -join ", "
+            } else {
+                "Pending"
+            }
+        }
+    }
+
+    if ($Html) {
+        $htmlTable = $tableData |
+        ConvertTo-Html -Fragment -Property Namespace, Service, Type, Ports, ExternalIP -PreContent "<h2>Publicly Accessible Services</h2>" |
+        Out-String
+
+        $htmlTable = "<p><strong>⚠️ Total Public Services Found:</strong> $totalPublic</p>" + $htmlTable
+        return $htmlTable
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🌐 Publicly Accessible Services]`n"
+        Write-ToReport "⚠️ Total Public Services Found: $totalPublic"
+
+        $tableString = $tableData | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
+
+    # Pagination
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalPublic / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🌐 Publicly Accessible Services - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $msg = @(
+            "🤖 Services of type LoadBalancer or NodePort may be exposed to the internet.",
+            "",
+            "📌 This check identifies services with potential public access.",
+            "   - External IPs from LoadBalancers.",
+            "   - NodePort access on each cluster node.",
+            "",
+            "⚠️ Review these services for exposure risk.",
+            "",
+            "⚠️ Total Public Services Found: $totalPublic"
+        )
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalPublic)
+
+        $tableData[$startIndex..($endIndex - 1)] | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
