@@ -136,6 +136,7 @@ function Generate-K8sTextReport {
     $Host.UI.RawUI.CursorPosition = $cursorEndPos
     $Global:MakeReport = $false
 }
+
 function Get-KubeBuddyThresholds {
     param(
         [switch]$Silent  # Suppress output when set
@@ -185,6 +186,29 @@ function Get-KubeBuddyThresholds {
         event_errors_critical   = 20
         event_warnings_warning  = 50
         event_warnings_critical = 100
+    }
+}
+
+function Exclude-Namespaces {
+    param(
+        [array]$items
+    )
+
+    $config = Get-KubeBuddyThresholds -Silent
+    $excludedNamespaces = if ($config -and $config.ContainsKey("excluded_namespaces")) {
+        $config["excluded_namespaces"]
+    } else {
+        @(
+            "kube-system", "kube-public", "kube-node-lease",
+            "local-path-storage", "kube-flannel",
+            "tigera-operator", "calico-system", "coredns", "aks-istio-system"
+        )
+    }
+
+    $excludedSet = $excludedNamespaces | ForEach-Object { $_.ToLowerInvariant() }
+
+    return $items | Where-Object {
+        $_ -and ($_.ToLowerInvariant() -notin $excludedSet)
     }
 }
 

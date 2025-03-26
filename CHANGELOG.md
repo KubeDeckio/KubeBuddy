@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Added `Check-PrivilegedContainers` to detect containers running with `privileged: true`.
 - Added `Check-HostPidAndNetwork` to find pods using `hostPID` or `hostNetwork`.
 - Added `Check-RBACOverexposure` to flag direct or indirect access to `cluster-admin` privileges, including wildcard permissions via custom roles.
+- Added `-ExcludeNamespaces` switch to most checks and report generators.  
+  - Automatically uses custom list from `kubebuddy-config.yaml` if present.
+  - Falls back to default list of common system namespaces.
 - Integrated all the above checks into:
   - The **RBAC & Security** interactive menu
   - The **HTML report** with collapsible sections

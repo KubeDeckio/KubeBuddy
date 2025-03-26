@@ -108,26 +108,29 @@ function Invoke-AKSBestPractices {
         param (
             [string]$SubscriptionId,
             [string]$ResourceGroup,
-            [string]$ClusterName
+            [string]$ClusterName,
+            [switch]$ExcludeNamespaces
         )
+    
         Write-Host -no "`n🤖 Fetching AKS cluster details..." -ForegroundColor Cyan
         $clusterInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --output json | ConvertFrom-Json
         if (-not $clusterInfo) {
             Write-Host "🤖 Error: Failed to fetch cluster details. Exiting..." -ForegroundColor Red
             exit 1
         }
-
-        # Fetch Kubernetes constraint data in a single command
+    
         Write-Host "🤖 Fetching Kubernetes constraint data..." -ForegroundColor Cyan
-        $kubeData = @{
-            Constraints = kubectl get constraints -A -o json | ConvertFrom-Json
+        $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    
+        if ($ExcludeNamespaces) {
+            $constraints = Exclude-Namespaces -items $constraints -namespaceSelector { $_.metadata.namespace }
         }
-
-        # Attach KubeData to clusterInfo
+    
+        $kubeData = @{ Constraints = $constraints }
         $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value $kubeData
-
+    
         return $clusterInfo
-    }
+    }    
 
     # Combine all checks from variables ending with 'Checks'
     $checks = @()

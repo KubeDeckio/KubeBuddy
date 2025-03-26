@@ -1,5 +1,8 @@
 
 function show-mainMenu {
+    param(
+        [switch]$ExcludeNamespaces
+    )
     do {
         if ($firstRun) {
             $firstRun = $false
@@ -35,7 +38,7 @@ function show-mainMenu {
         switch ($choice) {
             "1" { Show-ClusterSummary }
             "2" { Show-NodeMenu }
-            "3" { Show-NamespaceMenu }
+            "3" { Show-NamespaceMenu -ExcludeNamespaces:$ExcludeNamespaces }
             "4" { Show-WorkloadMenu }
             "5" { Show-PodMenu }
             "6" { Show-JobsMenu }
@@ -158,6 +161,9 @@ function Show-NodeMenu {
 }
 
 function show-NamespaceMenu {
+    param(
+        [switch]$ExcludeNamespaces
+    )
     do {
         Write-Host "`n🌐 Namespace Menu" -ForegroundColor Cyan
         Write-Host "------------------------------------"
@@ -174,7 +180,7 @@ function show-NamespaceMenu {
 
         switch ($namespaceChoice) {
             "1" { 
-                Show-EmptyNamespaces 
+                Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
