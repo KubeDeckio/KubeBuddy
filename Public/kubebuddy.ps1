@@ -15,6 +15,7 @@ function Invoke-KubeBuddy {
         [switch]$HtmlReport,
         [switch]$txtReport,
         [switch]$Aks,
+        [switch]$ExcludeNamespaces,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName,
@@ -81,10 +82,9 @@ function Invoke-KubeBuddy {
                 Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
                 return
             }
-            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
-        }
-        else {
-            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile
+            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces
+        } else {
+            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile -ExcludeNamespaces:$ExcludeNamespaces
         }
 
         Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
@@ -94,7 +94,7 @@ function Invoke-KubeBuddy {
     # **TXT Report Generation**
     if ($txtReport) {
         Write-Host "📄 Generating Text report: $txtReportFile" -ForegroundColor Cyan
-        Generate-K8sTextReport -ReportFile $txtReportFile
+        Generate-K8sTextReport -ReportFile $txtReportFile -ExcludeNamespaces:$ExcludeNamespaces
         Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
         return
     }
@@ -102,11 +102,9 @@ function Invoke-KubeBuddy {
     # Get the current Kubernetes context
     $context = kubectl config view --minify -o jsonpath="{.current-context}"
 
-
-
     # Thinking animation
     Write-Host -NoNewline "`r🤖 Initializing KubeBuddy..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 2  
+    Start-Sleep -Seconds 2
     Write-Host "`r✅ KubeBuddy is ready to assist you!  " -ForegroundColor Green
 
     $msg = @(
@@ -122,11 +120,9 @@ function Invoke-KubeBuddy {
         "",
         "  - Choose an option from the menu below to get started."
     )
-    
-    
 
     Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Green" -delay 50
 
-    $firstRun = $true  
-    show-mainMenu
+    $firstRun = $true
+    show-mainMenu -ExcludeNamespaces:$ExcludeNamespaces
 }

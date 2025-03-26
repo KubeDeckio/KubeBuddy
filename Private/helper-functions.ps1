@@ -9,7 +9,8 @@ function Write-ToReport {
 
 function Generate-K8sTextReport {
     param (
-        [string]$ReportFile = "$pwd/kubebuddy-report.txt"
+        [string]$ReportFile = "$pwd/kubebuddy-report.txt",
+        [switch]$ExcludeNamespaces
     )
     $Global:MakeReport = $true
     
@@ -46,7 +47,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Namespace Information." -ForegroundColor Yellow
-    Show-EmptyNamespaces
+    Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Namespace Information fetched.   " -ForegroundColor Green
@@ -55,7 +56,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Workload Information." -ForegroundColor Yellow
-    Show-DaemonSetIssues
+    Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Workload Information fetched.   " -ForegroundColor Green
@@ -64,12 +65,12 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Pod Information..." -ForegroundColor Yellow
-    Show-PodsWithHighRestarts
-    Show-LongRunningPods
-    Show-FailedPods
-    Show-PendingPods
-    Show-CrashLoopBackOffPods
-    Show-LeftoverDebugPods
+    Show-PodsWithHighRestarts -ExcludeNamespaces:$ExcludeNamespaces
+    Show-LongRunningPods -ExcludeNamespaces:$ExcludeNamespaces
+    Show-FailedPods -ExcludeNamespaces:$ExcludeNamespaces
+    Show-PendingPods -ExcludeNamespaces:$ExcludeNamespaces
+    Show-CrashLoopBackOffPods -ExcludeNamespaces:$ExcludeNamespaces
+    Show-LeftoverDebugPods -ExcludeNamespaces:$ExcludeNamespaces
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Pod Information fetched.   " -ForegroundColor Green
@@ -78,8 +79,8 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Job Information..." -ForegroundColor Yellow
-    Show-StuckJobs
-    Show-FailedJobs
+    Show-StuckJobs -ExcludeNamespaces:$ExcludeNamespaces
+    Show-FailedJobs -ExcludeNamespaces:$ExcludeNamespaces
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Job Information fetched.   " -ForegroundColor Green
@@ -88,7 +89,8 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Service Information." -ForegroundColor Yellow
-    Show-ServicesWithoutEndpoints
+    Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces
+    Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Service Information fetched.   " -ForegroundColor Green
@@ -97,7 +99,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Storage Information." -ForegroundColor Yellow
-    Show-UnusedPVCs
+    Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Storage Information fetched.   " -ForegroundColor Green
@@ -106,9 +108,12 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Security Information." -ForegroundColor Yellow
-    Check-RBACMisconfigurations
-    Check-OrphanedConfigMaps
-    Check-OrphanedSecrets
+    Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces
+    Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces
+    Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces
+    Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces
+    Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces
+    Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Security Information fetched.   " -ForegroundColor Green
@@ -136,6 +141,7 @@ function Generate-K8sTextReport {
     $Host.UI.RawUI.CursorPosition = $cursorEndPos
     $Global:MakeReport = $false
 }
+
 function Get-KubeBuddyThresholds {
     param(
         [switch]$Silent  # Suppress output when set
@@ -185,6 +191,44 @@ function Get-KubeBuddyThresholds {
         event_errors_critical   = 20
         event_warnings_warning  = 50
         event_warnings_critical = 100
+    }
+}
+
+function Get-ExcludedNamespaces {
+    $config = Get-KubeBuddyThresholds -Silent
+    if ($config -and $config.ContainsKey("excluded_namespaces")) {
+        return $config["excluded_namespaces"]
+    }
+
+    return @(
+        "kube-system", "kube-public", "kube-node-lease",
+        "local-path-storage", "kube-flannel",
+        "tigera-operator", "calico-system", "coredns", "aks-istio-system"
+    )
+}
+
+function Exclude-Namespaces {
+    param([array]$items)
+
+    $excludedNamespaces = Get-ExcludedNamespaces
+    $excludedSet = $excludedNamespaces | ForEach-Object { $_.ToLowerInvariant() }
+
+    return $items | Where-Object {
+        if ($_ -is [string]) {
+            $_.ToLowerInvariant() -notin $excludedSet
+        } elseif ($_.metadata) {
+            $ns = if ($_.metadata.namespace) {
+                $_.metadata.namespace
+            } elseif ($_.metadata.name) {
+                $_.metadata.name
+            } else {
+                $null
+            }
+
+            $ns -and $ns.ToLowerInvariant() -notin $excludedSet
+        } else {
+            $true
+        }
     }
 }
 

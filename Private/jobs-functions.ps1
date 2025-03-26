@@ -1,7 +1,8 @@
 function Show-StuckJobs {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -46,6 +47,10 @@ function Show-StuckJobs {
         return
     }
 
+    if ($ExcludeNamespaces) {
+        $jobs = Exclude-Namespaces -items $jobs
+    }
+
     if (-not $jobs -or $jobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No jobs found in the cluster." -ForegroundColor Green
         if ($Global:MakeReport -and -not $Html) {
@@ -58,6 +63,7 @@ function Show-StuckJobs {
         if ($Html) { return "<p><strong>✅ No jobs found in the cluster.</strong></p>" }
         return
     }
+
 
     Write-Host "`r🤖 ✅ Jobs fetched. (Total: $($jobs.Count))" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Analyzing Stuck Jobs..." -ForegroundColor Yellow
@@ -193,7 +199,8 @@ function Show-StuckJobs {
 function Show-FailedJobs {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -236,6 +243,10 @@ function Show-FailedJobs {
         }
         if ($Html) { return "<p><strong>❌ Unexpected response from kubectl. No valid JSON received.</strong></p>" }
         return
+    }
+
+    if ($ExcludeNamespaces) {
+        $jobs = Exclude-Namespaces -items $jobs
     }
 
     if (-not $jobs -or $jobs.Count -eq 0) {

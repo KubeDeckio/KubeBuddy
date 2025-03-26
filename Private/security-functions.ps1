@@ -1,7 +1,8 @@
 function Check-OrphanedConfigMaps {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -13,6 +14,10 @@ function Check-OrphanedConfigMaps {
 
     $configMaps = kubectl get configmaps --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
     Where-Object { $_.metadata.name -notmatch ($excludedConfigMapPatterns -join "|") }
+
+    if ($ExcludeNamespaces) {
+        $configMaps = Exclude-Namespaces -items $configMaps
+    }    
 
     Write-Host "`r🤖 ✅ ConfigMaps fetched. ($($configMaps.Count) total)" -ForegroundColor Green
 
@@ -73,7 +78,7 @@ function Check-OrphanedConfigMaps {
 
     # Clean up references
     $usedConfigMaps = $usedConfigMaps | Where-Object { $_ } | Sort-Object -Unique
-    Write-Host "`r✅ ConfigMap usage checked." -ForegroundColor Green
+    Write-Host "`r✅ ConfigMap usage checked.   " -ForegroundColor Green
 
     # Orphaned = not in usedConfigMaps
     $orphanedConfigMaps = $configMaps | Where-Object { $_.metadata.name -notin $usedConfigMaps }
@@ -161,7 +166,8 @@ function Check-OrphanedConfigMaps {
 function Check-OrphanedSecrets {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -173,6 +179,10 @@ function Check-OrphanedSecrets {
 
     $secrets = kubectl get secrets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
     Where-Object { $_.metadata.name -notmatch ($excludedSecretPatterns -join "|") }
+
+    if ($ExcludeNamespaces) {
+        $secrets = Exclude-Namespaces -items $secrets
+    }
 
     Write-Host "`r🤖 ✅ Secrets fetched. ($($secrets.Count) total)" -ForegroundColor Green
 
@@ -212,10 +222,7 @@ function Check-OrphanedSecrets {
     # ServiceAccounts
     $usedSecrets += $serviceAccounts | ForEach-Object { $_.secrets | Select-Object -ExpandProperty name }
 
-    Write-Host "`r🤖 ✅ Secret usage checked." -ForegroundColor Green
-
     # Check custom resources
-    Write-Host "`n🤖 Checking Custom Resources for Secret usage..." -ForegroundColor Yellow
     $customResources = kubectl api-resources --verbs=list --namespaced -o name | Where-Object { $_ }
     foreach ($cr in $customResources) {
         $crInstances = kubectl get $cr --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
@@ -229,7 +236,7 @@ function Check-OrphanedSecrets {
     }
 
     $usedSecrets = $usedSecrets | Where-Object { $_ } | Sort-Object -Unique
-    Write-Host "`r🤖 ✅ Secret usage checked. ($($usedSecrets.Count) in use)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Secret usage checked. ($($usedSecrets.Count) in use)         " -ForegroundColor Green
 
     # Orphaned Secrets
     $orphanedSecrets = $secrets | Where-Object { $_.metadata.name -notin $usedSecrets }
@@ -312,10 +319,173 @@ function Check-OrphanedSecrets {
         $currentPage = $newPage
     } while ($true)
 }
+
+function Check-RBACOverexposure {
+    param(
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    Write-Host "`n[🔓 RBAC Overexposure Check]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Analyzing Roles and Bindings..." -ForegroundColor Yellow
+
+    $findings = @()
+
+    # Get all roles and cluster roles
+    $roles = kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $clusterRoles = kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+    }
+
+    # Get bindings
+    $roleBindings = kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $clusterRoleBindings = kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+    }
+    
+    # Find risky roles
+    $wildcardRoles = @{}
+
+    foreach ($cr in $clusterRoles) {
+        foreach ($rule in $cr.rules) {
+            if ($rule.verbs -contains "*" -and $rule.resources -contains "*" -and $rule.apiGroups -contains "*") {
+                $wildcardRoles[$cr.metadata.name] = "ClusterRole"
+                break
+            }
+        }
+    }
+
+    foreach ($r in $roles) {
+        foreach ($rule in $r.rules) {
+            if ($rule.verbs -contains "*" -and $rule.resources -contains "*" -and $rule.apiGroups -contains "*") {
+                $wildcardRoles["$($r.metadata.namespace)/$($r.metadata.name)"] = "Role"
+                break
+            }
+        }
+    }
+
+    # Check ClusterRoleBindings
+    foreach ($crb in $clusterRoleBindings) {
+        $roleName = $crb.roleRef.name
+        $isClusterAdmin = ($roleName -eq "cluster-admin")
+        $isWildcard = $wildcardRoles.ContainsKey($roleName)
+
+        if ($isClusterAdmin -or $isWildcard) {
+            foreach ($subject in $crb.subjects) {
+                $findings += [PSCustomObject]@{
+                    Namespace = "🌍 Cluster-Wide"
+                    Binding   = $crb.metadata.name
+                    Subject   = "$($subject.kind)/$($subject.name)"
+                    Role      = $roleName
+                    Scope     = "ClusterRoleBinding"
+                    Risk      = if ($isClusterAdmin) { "❗ cluster-admin" } else { "⚠️ wildcard access" }
+                }
+            }
+        }
+    }
+
+    # Check RoleBindings
+    foreach ($rb in $roleBindings) {
+        $roleName = $rb.roleRef.name
+        $ns = $rb.metadata.namespace
+        $key = "$ns/$roleName"
+        $isClusterAdmin = ($roleName -eq "cluster-admin")
+        $isWildcard = $wildcardRoles.ContainsKey($key)
+
+        if ($isClusterAdmin -or $isWildcard) {
+            foreach ($subject in $rb.subjects) {
+                $findings += [PSCustomObject]@{
+                    Namespace = $ns
+                    Binding   = $rb.metadata.name
+                    Subject   = "$($subject.kind)/$($subject.name)"
+                    Role      = $roleName
+                    Scope     = "RoleBinding"
+                    Risk      = if ($isClusterAdmin) { "❗ cluster-admin" } else { "⚠️ wildcard access" }
+                }
+            }
+        }
+    }
+
+    $total = $findings.Count
+    Write-Host "`r🤖 ✅ Check complete. ($total high-risk bindings found)" -ForegroundColor Green
+
+    if ($total -eq 0) {
+        Write-Host "✅ No overexposed roles or bindings found." -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No RBAC overexposure detected.</strong></p>" }
+        if ($Global:MakeReport -and -not $Html) {
+            Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
+            Write-ToReport "✅ No cluster-admin or wildcard access detected."
+        }
+        if (-not $Global:MakeReport -and -not $Html) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
+        return
+    }
+
+    if ($Html) {
+        $htmlTable = $findings |
+        ConvertTo-Html -Fragment -Property Namespace, Binding, Subject, Role, Scope, Risk -PreContent "<h2>RBAC Overexposure (cluster-admin or wildcard)</h2>" |
+        Out-String
+
+        $htmlTable = "<p><strong>⚠️ Total Overexposed Bindings:</strong> $total</p>" + $htmlTable
+        return $htmlTable
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
+        Write-ToReport "⚠️ Total Overexposed Bindings: $total"
+        $tableString = $findings | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
+
+    # Pagination
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($total / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🔓 RBAC Overexposure - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $msg = @(
+            "🤖 This check identifies risky access via RBAC.",
+            "",
+            "📌 Included:",
+            "   - cluster-admin grants (direct bindings)",
+            "   - Custom Roles with * verbs, * resources, * apiGroups",
+            "",
+            "⚠️ These bindings may allow full control over your cluster.",
+            "",
+            "⚠️ Total Overexposed Bindings Found: $total"
+        )
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $total)
+
+        $pageData = $findings[$startIndex..($endIndex - 1)]
+        $pageData | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
 function Check-RBACMisconfigurations {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -330,11 +500,20 @@ function Check-RBACMisconfigurations {
 
     $existingNamespaces = kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items | Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
 
+    if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+    }
+    
+    if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+    }
+    
+
     Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings.`n" -ForegroundColor Green
 
     $invalidRBAC = @()
 
-    Write-Host "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
+    Write-Host -NoNewline "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
 
     # Evaluate RoleBindings
     foreach ($rb in $roleBindings) {
@@ -411,8 +590,10 @@ function Check-RBACMisconfigurations {
         }
     }
 
+    write-host  "`r🤖 ✅ RBAC configurations Checked.       " -ForegroundColor Green
+
     if ($invalidRBAC.Count -eq 0) {
-        Write-Host "✅ No RBAC misconfigurations found." -ForegroundColor Green
+        Write-Host "`r✅ No RBAC misconfigurations found." -ForegroundColor Green
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[RBAC Misconfigurations]`n"
             Write-ToReport "✅ No RBAC misconfigurations found."
@@ -475,6 +656,336 @@ function Check-RBACMisconfigurations {
         $tableData = $invalidRBAC[$startIndex..($endIndex - 1)]
         if ($tableData) {
             $tableData | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
+function Check-HostPidAndNetwork {
+    param(
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    Write-Host "`n[🔌 Pods with hostPID / hostNetwork]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
+
+    $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+    }
+
+    Write-Host "`r🤖 ✅ Pods fetched. ($($pods.Count) total)" -ForegroundColor Green
+    Write-Host -NoNewline "`n🤖 Scanning for hostPID / hostNetwork usage..." -ForegroundColor Yellow
+
+    $flaggedPods = @()
+
+    foreach ($pod in $pods) {
+        $hostPID = $pod.spec.hostPID
+        $hostNetwork = $pod.spec.hostNetwork
+
+        if ($hostPID -or $hostNetwork) {
+            $flaggedPods += [PSCustomObject]@{
+                Namespace   = $pod.metadata.namespace
+                Pod         = $pod.metadata.name
+                hostPID     = if ($hostPID-eq "true") { "❌ true" } else { "✅ false" }
+                hostNetwork = if ($hostNetwork -eq "true") { "❌ true" } else { "✅ false" }                
+            }
+            
+        }
+    }
+
+    Write-Host "`r🤖 ✅ Scan complete. ($($flaggedPods.Count) flagged)              " -ForegroundColor Green
+
+    if ($flaggedPods.Count -eq 0) {
+        Write-Host "✅ No pods with hostPID or hostNetwork found." -ForegroundColor Green
+        if ($Global:MakeReport -and -not $Html) {
+            Write-ToReport "`n[🔌 Pods with hostPID / hostNetwork]`n"
+            Write-ToReport "✅ No pods with hostPID or hostNetwork found."
+        }
+        if (-not $Global:MakeReport -and -not $Html) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
+        return
+    }
+
+    if ($Html) {
+        if ($flaggedPods.Count -eq 0) {
+            return "<p><strong>✅ No pods with hostPID or hostNetwork found.</strong></p>"
+        }
+        $htmlTable = $flaggedPods |
+        ConvertTo-Html -Fragment -Property Namespace, Pod, hostPID, hostNetwork -PreContent "<h2>Pods with hostPID / hostNetwork</h2>" |
+        Out-String
+
+        $htmlTable = "<p><strong>⚠️ Total Flagged Pods:</strong> $($flaggedPods.Count)</p>" + $htmlTable
+        return $htmlTable
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔌 Pods with hostPID / hostNetwork]`n"
+        Write-ToReport "⚠️ Total Flagged Pods: $($flaggedPods.Count)"
+
+        $tableString = $flaggedPods | Format-Table Namespace, Pod, hostPID, hostNetwork -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
+
+    # Pagination
+    $totalItems = $flaggedPods.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalItems / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🔌 Pods with hostPID / hostNetwork - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $msg = @(
+            "🤖 Some pods use host-level process or network namespaces.",
+            "",
+            "📌 This check identifies pods with:",
+            "   - hostPID = true",
+            "   - hostNetwork = true",
+            "",
+            "⚠️ These settings can bypass isolation and expose the node.",
+            "",
+            "⚠️ Total Flagged Pods: $($flaggedPods.Count)"
+        )
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalItems)
+
+        $tableData = $flaggedPods[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, hostPID, hostNetwork -AutoSize
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
+function Check-PodsRunningAsRoot {
+    param(
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    Write-Host "`n[👑 Pods Running as Root]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
+
+    $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+    }
+
+    Write-Host "`r🤖 ✅ Pods fetched. ($($pods.Count) total)" -ForegroundColor Green
+    Write-Host -NoNewline "`n🤖 Scanning for root user usage..." -ForegroundColor Yellow
+
+    $rootPods = @()
+
+    foreach ($pod in $pods) {
+        $podUser = $pod.spec.securityContext.runAsUser
+
+        foreach ($container in $pod.spec.containers) {
+            $containerUser = $container.securityContext.runAsUser
+
+            $isRoot = -not $containerUser -and -not $podUser
+            if (($containerUser -eq 0) -or ($podUser -eq 0) -or $isRoot) {
+                $rootPods += [PSCustomObject]@{
+                    Namespace   = $pod.metadata.namespace
+                    Pod         = $pod.metadata.name
+                    Container   = $container.name
+                    runAsUser   = if ($containerUser) { $containerUser } elseif ($podUser) { $podUser } else { "Not Set (Defaults to root)" }
+                }
+            }
+        }
+    }
+
+    Write-Host "`r🤖 ✅ Scan complete. ($($rootPods.Count) flagged)   " -ForegroundColor Green
+
+    if ($rootPods.Count -eq 0) {
+        Write-Host "✅ No pods running as root." -ForegroundColor Green
+        if ($Global:MakeReport -and -not $Html) {
+            Write-ToReport "`n[👑 Pods Running as Root]`n"
+            Write-ToReport "✅ No pods running as root."
+        }
+        if (-not $Global:MakeReport -and -not $Html) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
+        return
+    }
+
+    if ($Html) {
+        if ($rootPods.Count -eq 0) {
+            return "<p><strong>✅ No pods running as root.</strong></p>"
+        }
+        $htmlTable = $rootPods |
+        ConvertTo-Html -Fragment -Property Namespace, Pod, Container, runAsUser -PreContent "<h2>Pods Running as Root</h2>" |
+        Out-String
+
+        $htmlTable = "<p><strong>⚠️ Total Pods Running as Root:</strong> $($rootPods.Count)</p>" + $htmlTable
+        return $htmlTable
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[👑 Pods Running as Root]`n"
+        Write-ToReport "⚠️ Total Pods Running as Root: $($rootPods.Count)"
+
+        $tableString = $rootPods | Format-Table Namespace, Pod, Container, runAsUser -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
+
+    # Pagination
+    $totalItems = $rootPods.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalItems / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[👑 Pods Running as Root - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $msg = @(
+            "🤖 Some pods are running as root (UID 0) or without explicit user settings.",
+            "",
+            "📌 This check looks for:",
+            "   - container or pod runAsUser = 0",
+            "   - runAsUser not set (defaults to root)",
+            "",
+            "⚠️ Running as root bypasses container security boundaries.",
+            "",
+            "⚠️ Total Flagged Pods: $($rootPods.Count)"
+        )
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalItems)
+
+        $tableData = $rootPods[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, Container, runAsUser -AutoSize
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
+function Check-PrivilegedContainers {
+    param(
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    Write-Host "`n[🔓 Privileged Containers]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
+
+    $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+    }
+
+    Write-Host "`r🤖 ✅ Pods fetched. ($($pods.Count) total)" -ForegroundColor Green
+    Write-Host -NoNewline "`n🤖 Scanning for privileged containers..." -ForegroundColor Yellow
+
+    $privileged = @()
+
+    foreach ($pod in $pods) {
+        foreach ($container in $pod.spec.containers) {
+            $isPrivileged = $container.securityContext.privileged
+            if ($isPrivileged) {
+                $privileged += [PSCustomObject]@{
+                    Namespace  = $pod.metadata.namespace
+                    Pod        = $pod.metadata.name
+                    Container  = $container.name
+                }
+            }
+        }
+    }
+
+    Write-Host "`r🤖 ✅ Scan complete. ($($privileged.Count) flagged)        " -ForegroundColor Green
+
+    if ($privileged.Count -eq 0) {
+        Write-Host "✅ No privileged containers found." -ForegroundColor Green
+        if ($Global:MakeReport -and -not $Html) {
+            Write-ToReport "`n[🔓 Privileged Containers]`n"
+            Write-ToReport "✅ No privileged containers found."
+        }
+        if (-not $Global:MakeReport -and -not $Html) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
+        return
+    }
+
+    if ($Html) {
+        if ($privileged.Count -eq 0) {
+            return "<p><strong>✅ No privileged containers found.</strong></p>"
+        }
+        $htmlTable = $privileged |
+        ConvertTo-Html -Fragment -Property Namespace, Pod, Container -PreContent "<h2>Privileged Containers</h2>" |
+        Out-String
+
+        $htmlTable = "<p><strong>⚠️ Total Privileged Containers Found:</strong> $($privileged.Count)</p>" + $htmlTable
+        return $htmlTable
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🔓 Privileged Containers]`n"
+        Write-ToReport "⚠️ Total Privileged Containers Found: $($privileged.Count)"
+
+        $tableString = $privileged | Format-Table Namespace, Pod, Container -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
+
+    # Pagination
+    $totalItems = $privileged.Count
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($totalItems / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🔓 Privileged Containers - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        $msg = @(
+            "🤖 Privileged containers run with extended access to the host.",
+            "",
+            "📌 This check flags containers where:",
+            "   - securityContext.privileged = true",
+            "",
+            "⚠️ This setting grants broad capabilities and should be avoided.",
+            "",
+            "⚠️ Total Privileged Containers Found: $($privileged.Count)"
+        )
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $startIndex = $currentPage * $PageSize
+        $endIndex = [math]::Min($startIndex + $PageSize, $totalItems)
+
+        $tableData = $privileged[$startIndex..($endIndex - 1)]
+        if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, Container -AutoSize
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

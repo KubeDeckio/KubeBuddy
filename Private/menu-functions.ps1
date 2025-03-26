@@ -1,5 +1,8 @@
 
 function show-mainMenu {
+    param(
+        [switch]$ExcludeNamespaces
+    )
     do {
         if ($firstRun) {
             $firstRun = $false
@@ -34,16 +37,16 @@ function show-mainMenu {
     
         switch ($choice) {
             "1" { Show-ClusterSummary }
-            "2" { Show-NodeMenu }
-            "3" { Show-NamespaceMenu }
-            "4" { Show-WorkloadMenu }
-            "5" { Show-PodMenu }
-            "6" { Show-JobsMenu }
-            "7" { Show-ServiceMenu }
-            "8" { Show-StorageMenu }
-            "9" { Show-RBACMenu }
-            "10" { Show-KubeEvents }
-            "11" { Show-InfraBestPracticesMenu }
+            "2" { $result = Show-NodeMenu; if ($result -eq "exit") { return } }
+            "3" { $result = Show-NamespaceMenu -ExcludeNamespaces:$ExcludeNamespaces; if ($result -eq "exit") { return } }
+            "4" { $result = Show-WorkloadMenu -ExcludeNamespaces:$ExcludeNamespaces; if ($result -eq "exit") { return } }
+            "5" { $result = Show-PodMenu; if ($result -eq "exit") { return } }
+            "6" { $result = Show-JobsMenu -ExcludeNamespaces:$ExcludeNamespaces; if ($result -eq "exit") { return } }
+            "7" { $result = Show-ServiceMenu -ExcludeNamespaces:$ExcludeNamespaces; if ($result -eq "exit") { return } }
+            "8" { $result = Show-StorageMenu -ExcludeNamespaces:$ExcludeNamespaces; if ($result -eq "exit") { return } }
+            "9" { $result = Show-RBACMenu -ExcludeNamespaces:$ExcludeNamespaces; if ($result -eq "exit") { return } }
+            "10" { $result = Show-KubeEvents; if ($result -eq "exit") { return } }
+            "11" { $result = Show-InfraBestPracticesMenu; if ($result -eq "exit") { return } }
             "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
@@ -112,7 +115,7 @@ function Show-WorkloadMenu {
             }
 
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
@@ -148,7 +151,7 @@ function Show-NodeMenu {
                 Show-NodeResourceUsage
             }
             "B" { return }  # Back to main menu
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
@@ -158,6 +161,9 @@ function Show-NodeMenu {
 }
 
 function show-NamespaceMenu {
+    param(
+        [switch]$ExcludeNamespaces
+    )
     do {
         Write-Host "`n🌐 Namespace Menu" -ForegroundColor Cyan
         Write-Host "------------------------------------"
@@ -174,10 +180,10 @@ function show-NamespaceMenu {
 
         switch ($namespaceChoice) {
             "1" { 
-                Show-EmptyNamespaces 
+                Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
@@ -256,25 +262,25 @@ function Show-PodMenu {
 
             switch ($podChoice) {
                 "1" { 
-                    Show-PodsWithHighRestarts -Namespace $Namespace
+                    Show-PodsWithHighRestarts -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "2" { 
-                    Show-LongRunningPods -Namespace $Namespace
+                    Show-LongRunningPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "3" { 
-                    Show-FailedPods -Namespace $Namespace
+                    Show-FailedPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "4" { 
-                    Show-PendingPods -Namespace $Namespace
+                    Show-PendingPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "5" {
-                    Show-CrashLoopBackOffPods -Namespace $Namespace
+                    Show-CrashLoopBackOffPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "6" {
-                    Show-LeftoverDebugPods -Namespace $Namespace
+                    Show-LeftoverDebugPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "B" { return }
-                "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+                "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
                 default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
             }
 
@@ -293,6 +299,7 @@ function Show-ServiceMenu {
 
         $serviceOptions = @(
             "[1]  Show services without endpoints"
+            "[2]  Show publicly accessible services"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -302,16 +309,14 @@ function Show-ServiceMenu {
         Clear-Host
 
         switch ($serviceChoice) {
-            "1" { 
-                Show-ServicesWithoutEndpoints 
-            }
+            "1" { Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces }
+            "2" { Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
         Clear-Host
-
     } while ($true)
 }
 
@@ -333,10 +338,10 @@ function Show-StorageMenu {
 
         switch ($storageChoice) {
             "1" { 
-                Show-UnusedPVCs 
+                Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
@@ -353,8 +358,12 @@ function Show-RBACMenu {
 
         $rbacOptions = @(
             "[1]  Check RBAC misconfigurations"
-            "[2]  Show orphaned ConfigMaps"
-            "[3]  Show orphaned Secrets"
+            "[2]  Check RBAC overexposure"
+            "[3]  Show orphaned ConfigMaps"
+            "[4]  Show orphaned Secrets"
+            "[5]  Check Pods running as root"
+            "[6]  Check privileged containers"
+            "[7]  Check hostPID / hostNetwork usage"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -364,22 +373,19 @@ function Show-RBACMenu {
         Clear-Host
 
         switch ($rbacChoice) {
-            "1" { 
-                Check-RBACMisconfigurations 
-            }
-            "2" { 
-                Check-OrphanedConfigMaps
-            }
-            "3" { 
-                Check-OrphanedSecrets 
-            }
+            "1" { Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces }
+            "2" { Check-RBACOverexposure -ExcludeNamespaces:$ExcludeNamespaces }
+            "3" { Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces }
+            "4" { Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces }
+            "5" { Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces }
+            "6" { Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces }
+            "7" { Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
         Clear-Host
-
     } while ($true)
 }
 
@@ -402,13 +408,13 @@ function Show-JobsMenu {
 
         switch ($jobChoice) {
             "1" { 
-                Show-StuckJobs 
+                Show-StuckJobs -ExcludeNamespaces:$ExcludeNamespaces
             }
             "2" { 
-                Show-FailedJobs 
+                Show-FailedJobs -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
@@ -447,7 +453,7 @@ function Show-InfraBestPracticesMenu {
                 
             }
             "B" { return }  # Back to main menu
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 

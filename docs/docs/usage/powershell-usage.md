@@ -170,7 +170,32 @@ Adjust these values to fit your environment. If `kubebuddy-config.yaml` is missi
 
 ---
 
-## 7. Additional Parameters
+## 7. Excluding System Namespaces (Optional)
+
+Some KubeBuddy checks (like secrets, configmaps, pods, and RBAC) allow you to exclude **system namespaces** using the `-ExcludeSystem` switch.
+
+To customize which namespaces are excluded, define them in your `kubebuddy-config.yaml` file:
+
+```yaml
+excluded_namespaces:
+  - kube-system
+  - kube-public
+  - kube-node-lease
+  - local-path-storage
+  - coredns
+  - calico-system
+```
+
+If `excluded_namespaces` is not defined, KubeBuddy falls back to a default set.
+
+To apply the exclusion in any CLI command:
+
+```powershell
+Invoke-KubeBuddy -HtmlReport -ExcludeSystem
+```
+
+
+## 8. Additional Parameters
 
 | Parameter                 | Type      | Default                              | Description                                                                                  |
 |---------------------------|----------|--------------------------------------|----------------------------------------------------------------------------------------------|

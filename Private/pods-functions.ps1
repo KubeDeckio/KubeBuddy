@@ -2,7 +2,8 @@ function Show-PodsWithHighRestarts {
     param(
         [string]$Namespace = "",
         [int]$PageSize = 10, # Number of pods per page
-        [switch]$Html       # If specified, return an HTML table rather than ASCII output
+        [switch]$Html,       # If specified, return an HTML table rather than ASCII output
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -35,6 +36,10 @@ function Show-PodsWithHighRestarts {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
+    }
+
+    if ($ExcludeNamespaces) {
+        $restartPods = Exclude-Namespaces -items $restartPods
     }
 
     # Filter pods with high restart counts
@@ -175,7 +180,8 @@ function Show-LongRunningPods {
     param(
         [string]$Namespace = "",
         [int]$PageSize = 10, # Number of pods per page
-        [switch]$Html        # If specified, return an HTML table
+        [switch]$Html,        # If specified, return an HTML table
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -207,6 +213,10 @@ function Show-LongRunningPods {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
+    }
+
+    if ($ExcludeNamespaces) {
+        $stalePods = Exclude-Namespaces -items $stalePods
     }
 
     # Filter only long-running pods exceeding warning/critical threshold
@@ -334,7 +344,8 @@ function Show-FailedPods {
     param(
         [string]$Namespace = "",
         [int]$PageSize = 10, # Number of pods per page
-        [switch]$Html       # If specified, return an HTML table
+        [switch]$Html,       # If specified, return an HTML table
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -366,6 +377,10 @@ function Show-FailedPods {
         return
     }
 
+    if ($ExcludeNamespaces) {
+        $failedPods = Exclude-Namespaces -items $failedPods
+    }
+
     $totalPods = $failedPods.Count
 
     if ($totalPods -eq 0) {
@@ -382,6 +397,7 @@ function Show-FailedPods {
         }
         return
     }
+
 
     Write-Host "`r🤖 ✅ Failed Pods fetched. ($totalPods detected)" -ForegroundColor Green
 
@@ -500,7 +516,8 @@ function Show-PendingPods {
     param(
         [string]$Namespace = "",
         [int]$PageSize = 10,
-        [switch]$Html   # If specified, return an HTML table
+        [switch]$Html,   # If specified, return an HTML table
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -525,6 +542,10 @@ function Show-PendingPods {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
+    }
+
+    if ($ExcludeNamespaces) {
+        $pendingPods = Exclude-Namespaces -items $pendingPods
     }
 
     # Filter Pending pods
@@ -679,12 +700,12 @@ function Show-PendingPods {
     } while ($true)
 }
 
-
 function Show-CrashLoopBackOffPods {
     param(
         [string]$Namespace = "",
         [int]$PageSize = 10,
-        [switch]$Html   # If specified, return an HTML table
+        [switch]$Html,   # If specified, return an HTML table
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -711,6 +732,10 @@ function Show-CrashLoopBackOffPods {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
+    }
+
+    if ($ExcludeNamespaces) {
+        $crashPods = Exclude-Namespaces -items $crashPods
     }
 
     # Filter CrashLoopBackOff pods
@@ -848,7 +873,8 @@ function Show-LeftoverDebugPods {
     param(
         [string]$Namespace = "",
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -871,6 +897,10 @@ function Show-LeftoverDebugPods {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
+    }
+
+    if ($ExcludeNamespaces) {
+        $podItems = Exclude-Namespaces -items $podItems
     }
 
     # Find debug pods (kubectl debug creates pods containing 'debugger')

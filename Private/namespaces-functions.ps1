@@ -1,7 +1,8 @@
 function Show-EmptyNamespaces {
     param(
         [int]$PageSize = 10, # Number of namespaces per page
-        [switch]$Html        # If specified, return an HTML table
+        [switch]$Html, # If specified, return an HTML table
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -9,10 +10,9 @@ function Show-EmptyNamespaces {
     Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
     # Fetch all namespaces
-    $namespaces = kubectl get namespaces -o json | ConvertFrom-Json |
+    $namespaces = @(kubectl get namespaces -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
-    Select-Object -ExpandProperty metadata |
-    Select-Object -ExpandProperty name
+    ForEach-Object { $_.metadata.name })
 
     # Fetch all pods and their namespaces
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json |
@@ -23,7 +23,19 @@ function Show-EmptyNamespaces {
     $namespacesWithPods = $pods.Name
 
     # Get only namespaces that are completely empty
-    $emptyNamespaces = $namespaces | Where-Object { $_ -notin $namespacesWithPods }
+    $emptyNamespaces = @($namespaces | Where-Object { $_ -notin $namespacesWithPods })
+
+    if ($ExcludeNamespaces) {
+        $emptyNamespaces = Exclude-Namespaces -items $emptyNamespaces
+    }
+
+    # Force split into an array if it's a multiline string
+    if ($emptyNamespaces -is [string]) {
+        $emptyNamespaces = $emptyNamespaces -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    } else {
+        $emptyNamespaces = @($emptyNamespaces)
+    }
+
 
     $totalNamespaces = $emptyNamespaces.Count
 
@@ -109,7 +121,7 @@ function Show-EmptyNamespaces {
         $tableData = @()
         for ($i = $startIndex; $i -lt $endIndex; $i++) {
             $namespace = $emptyNamespaces[$i]
-            $tableData += [PSCustomObject]@{ "Namespace" = $namespace }
+            $tableData += [PSCustomObject]@{ Namespace = $namespace.ToString() }
         }
 
         if ($tableData) {

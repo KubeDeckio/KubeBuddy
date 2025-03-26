@@ -1,7 +1,8 @@
 function Show-DaemonSetIssues {
     param(
         [int]$PageSize = 10, # Number of daemonsets per page
-        [switch]$Html   # If specified, return an HTML table instead of ASCII/pagination
+        [switch]$Html,   # If specified, return an HTML table instead of ASCII/pagination
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -22,6 +23,11 @@ function Show-DaemonSetIssues {
         }
         return
     }
+
+    if ($ExcludeNamespaces) {
+        $daemonsets = Exclude-Namespaces -items $daemonsets
+    }
+    
 
     # Filter only DaemonSets with issues
     $filteredDaemonSets = @()

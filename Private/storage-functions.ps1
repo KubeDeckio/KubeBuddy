@@ -1,7 +1,8 @@
 function Show-UnusedPVCs {
     param(
         [int]$PageSize = 10,
-        [switch]$Html  # If specified, return an HTML table
+        [switch]$Html,  # If specified, return an HTML table
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -24,6 +25,11 @@ function Show-UnusedPVCs {
         if ($Html) { return "<p><strong>✅ No PVCs found in the cluster.</strong></p>" }
         return
     }
+
+    if ($ExcludeNamespaces) {
+        $pvcsRaw = Exclude-Namespaces -items $pvcsRaw
+    }
+    
 
     # Convert JSON
     try {
