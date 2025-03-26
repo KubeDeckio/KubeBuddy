@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.10] - 2025-03-25
+## [0.0.10] - 2025-03-26
 
 ### Added
 - Added `Check-PodsRunningAsRoot` to identify pods that run with UID 0 or no `runAsUser` set.
@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - The **HTML report** with collapsible sections
   - The floating sidebar navigation (TOC)
 - Added contextual tooltips to HTML report headers for better inline explanation of metrics and checks.
+
+### Fixed
+- Quitting from sub menus does not **kill** the PowerShell session now.
 
 ### Changed
 - Updated `Show-RBACMenu` to include the new security checks as menu options.
