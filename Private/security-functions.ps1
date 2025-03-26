@@ -1,7 +1,8 @@
 function Check-OrphanedConfigMaps {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -13,6 +14,10 @@ function Check-OrphanedConfigMaps {
 
     $configMaps = kubectl get configmaps --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
     Where-Object { $_.metadata.name -notmatch ($excludedConfigMapPatterns -join "|") }
+
+    if ($ExcludeNamespaces) {
+        $configMaps = Exclude-Namespaces -items $configMaps
+    }    
 
     Write-Host "`r🤖 ✅ ConfigMaps fetched. ($($configMaps.Count) total)" -ForegroundColor Green
 
@@ -73,7 +78,7 @@ function Check-OrphanedConfigMaps {
 
     # Clean up references
     $usedConfigMaps = $usedConfigMaps | Where-Object { $_ } | Sort-Object -Unique
-    Write-Host "`r✅ ConfigMap usage checked." -ForegroundColor Green
+    Write-Host "`r✅ ConfigMap usage checked.   " -ForegroundColor Green
 
     # Orphaned = not in usedConfigMaps
     $orphanedConfigMaps = $configMaps | Where-Object { $_.metadata.name -notin $usedConfigMaps }
@@ -161,7 +166,8 @@ function Check-OrphanedConfigMaps {
 function Check-OrphanedSecrets {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -173,6 +179,10 @@ function Check-OrphanedSecrets {
 
     $secrets = kubectl get secrets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items |
     Where-Object { $_.metadata.name -notmatch ($excludedSecretPatterns -join "|") }
+
+    if ($ExcludeNamespaces) {
+        $secrets = Exclude-Namespaces -items $secrets
+    }
 
     Write-Host "`r🤖 ✅ Secrets fetched. ($($secrets.Count) total)" -ForegroundColor Green
 
@@ -212,10 +222,7 @@ function Check-OrphanedSecrets {
     # ServiceAccounts
     $usedSecrets += $serviceAccounts | ForEach-Object { $_.secrets | Select-Object -ExpandProperty name }
 
-    Write-Host "`r🤖 ✅ Secret usage checked." -ForegroundColor Green
-
     # Check custom resources
-    Write-Host "`n🤖 Checking Custom Resources for Secret usage..." -ForegroundColor Yellow
     $customResources = kubectl api-resources --verbs=list --namespaced -o name | Where-Object { $_ }
     foreach ($cr in $customResources) {
         $crInstances = kubectl get $cr --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
@@ -229,7 +236,7 @@ function Check-OrphanedSecrets {
     }
 
     $usedSecrets = $usedSecrets | Where-Object { $_ } | Sort-Object -Unique
-    Write-Host "`r🤖 ✅ Secret usage checked. ($($usedSecrets.Count) in use)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Secret usage checked. ($($usedSecrets.Count) in use)         " -ForegroundColor Green
 
     # Orphaned Secrets
     $orphanedSecrets = $secrets | Where-Object { $_.metadata.name -notin $usedSecrets }
@@ -316,7 +323,8 @@ function Check-OrphanedSecrets {
 function Check-RBACOverexposure {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -329,10 +337,18 @@ function Check-RBACOverexposure {
     $roles = kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     $clusterRoles = kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
 
+    if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+    }
+
     # Get bindings
     $roleBindings = kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     $clusterRoleBindings = kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
 
+    if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+    }
+    
     # Find risky roles
     $wildcardRoles = @{}
 
@@ -468,7 +484,8 @@ function Check-RBACOverexposure {
 function Check-RBACMisconfigurations {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -483,11 +500,20 @@ function Check-RBACMisconfigurations {
 
     $existingNamespaces = kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items | Select-Object -ExpandProperty metadata | Select-Object -ExpandProperty name
 
+    if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+    }
+    
+    if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+    }
+    
+
     Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings.`n" -ForegroundColor Green
 
     $invalidRBAC = @()
 
-    Write-Host "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
+    Write-Host -NoNewline "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
 
     # Evaluate RoleBindings
     foreach ($rb in $roleBindings) {
@@ -564,8 +590,10 @@ function Check-RBACMisconfigurations {
         }
     }
 
+    write-host  "`r🤖 ✅ RBAC configurations Checked.       " -ForegroundColor Green
+
     if ($invalidRBAC.Count -eq 0) {
-        Write-Host "✅ No RBAC misconfigurations found." -ForegroundColor Green
+        Write-Host "`r✅ No RBAC misconfigurations found." -ForegroundColor Green
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[RBAC Misconfigurations]`n"
             Write-ToReport "✅ No RBAC misconfigurations found."
@@ -639,7 +667,8 @@ function Check-RBACMisconfigurations {
 function Check-HostPidAndNetwork {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -647,6 +676,10 @@ function Check-HostPidAndNetwork {
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+    }
 
     Write-Host "`r🤖 ✅ Pods fetched. ($($pods.Count) total)" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Scanning for hostPID / hostNetwork usage..." -ForegroundColor Yellow
@@ -661,13 +694,14 @@ function Check-HostPidAndNetwork {
             $flaggedPods += [PSCustomObject]@{
                 Namespace   = $pod.metadata.namespace
                 Pod         = $pod.metadata.name
-                hostPID     = $hostPID
-                hostNetwork = $hostNetwork
+                hostPID     = if ($hostPID-eq "true") { "❌ true" } else { "✅ false" }
+                hostNetwork = if ($hostNetwork -eq "true") { "❌ true" } else { "✅ false" }                
             }
+            
         }
     }
 
-    Write-Host "`r🤖 ✅ Scan complete. ($($flaggedPods.Count) flagged)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Scan complete. ($($flaggedPods.Count) flagged)              " -ForegroundColor Green
 
     if ($flaggedPods.Count -eq 0) {
         Write-Host "✅ No pods with hostPID or hostNetwork found." -ForegroundColor Green
@@ -743,7 +777,8 @@ function Check-HostPidAndNetwork {
 function Check-PodsRunningAsRoot {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -751,6 +786,10 @@ function Check-PodsRunningAsRoot {
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+    }
 
     Write-Host "`r🤖 ✅ Pods fetched. ($($pods.Count) total)" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Scanning for root user usage..." -ForegroundColor Yellow
@@ -775,7 +814,7 @@ function Check-PodsRunningAsRoot {
         }
     }
 
-    Write-Host "`r🤖 ✅ Scan complete. ($($rootPods.Count) flagged)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Scan complete. ($($rootPods.Count) flagged)   " -ForegroundColor Green
 
     if ($rootPods.Count -eq 0) {
         Write-Host "✅ No pods running as root." -ForegroundColor Green
@@ -851,7 +890,8 @@ function Check-PodsRunningAsRoot {
 function Check-PrivilegedContainers {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -859,6 +899,10 @@ function Check-PrivilegedContainers {
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+
+    if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+    }
 
     Write-Host "`r🤖 ✅ Pods fetched. ($($pods.Count) total)" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Scanning for privileged containers..." -ForegroundColor Yellow
@@ -878,7 +922,7 @@ function Check-PrivilegedContainers {
         }
     }
 
-    Write-Host "`r🤖 ✅ Scan complete. ($($privileged.Count) flagged)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Scan complete. ($($privileged.Count) flagged)        " -ForegroundColor Green
 
     if ($privileged.Count -eq 0) {
         Write-Host "✅ No privileged containers found." -ForegroundColor Green

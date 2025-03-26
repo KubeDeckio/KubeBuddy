@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - The **RBAC & Security** interactive menu
   - The **HTML report** with collapsible sections
   - The floating sidebar navigation (TOC)
+- Added contextual tooltips to HTML report headers for better inline explanation of metrics and checks.
 
 ### Changed
 - Updated `Show-RBACMenu` to include the new security checks as menu options.

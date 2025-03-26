@@ -1,7 +1,8 @@
 function Show-ServicesWithoutEndpoints {
     param(
         [int]$PageSize = 10, # Number of services per page
-        [switch]$Html         # If specified, return an HTML table
+        [switch]$Html,         # If specified, return an HTML table
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -24,6 +25,11 @@ function Show-ServicesWithoutEndpoints {
         return
     }
 
+    if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+    }
+    
+
     Write-Host "`r🤖 ✅ Services fetched. (Total: $($services.Count))" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Fetching Endpoint Data..." -ForegroundColor Yellow
 
@@ -43,8 +49,13 @@ function Show-ServicesWithoutEndpoints {
         return
     }
 
+    if ($ExcludeNamespaces) {
+        $endpoints = Exclude-Namespaces -items $endpoints
+    }
+    
+
     Write-Host "`r🤖 ✅ Endpoints fetched. (Total: $($endpoints.Count))" -ForegroundColor Green
-    Write-Host "`n🤖 Analyzing Services..." -ForegroundColor Yellow
+    Write-Host -NoNewline "`n🤖 Analyzing Services..." -ForegroundColor Yellow
 
     # Convert endpoints to a lookup table
     $endpointsLookup = @{}
@@ -59,6 +70,8 @@ function Show-ServicesWithoutEndpoints {
 
     $totalServices = $servicesWithoutEndpoints.Count
 
+    Write-Host "`r🤖 ✅ Service analysis complete. ($totalServices services without endpoints detected)" -ForegroundColor Green
+
     if ($totalServices -eq 0) {
         Write-Host "`r🤖 ✅ All services have endpoints." -ForegroundColor Green
         if ($Global:MakeReport -and -not $Html) {
@@ -72,7 +85,6 @@ function Show-ServicesWithoutEndpoints {
         return
     }
 
-    Write-Host "`r🤖 ✅ Service analysis complete. ($totalServices services without endpoints detected)" -ForegroundColor Green
 
     # If -Html, return an HTML table
     if ($Html) {
@@ -163,7 +175,8 @@ function Show-ServicesWithoutEndpoints {
 function Check-PubliclyAccessibleServices {
     param(
         [int]$PageSize = 10,
-        [switch]$Html
+        [switch]$Html,
+        [switch]$ExcludeNamespaces
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
@@ -177,6 +190,9 @@ function Check-PubliclyAccessibleServices {
         if ($Html) { return "<p>❌ Failed to fetch service data.</p>" }
         return
     }
+    if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+    }    
 
     Write-Host "`r🤖 ✅ Services fetched. ($($services.Count) total)" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Analyzing for external exposure..." -ForegroundColor Yellow

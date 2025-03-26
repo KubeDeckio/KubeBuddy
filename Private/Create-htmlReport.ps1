@@ -5,7 +5,8 @@ function Generate-K8sHTMLReport {
     [string]$SubscriptionId,
     [string]$ResourceGroup,
     [string]$ClusterName,
-    [switch]$aks
+    [switch]$aks,
+    [switch]$ExcludeNamespaces
   )
 
   function ConvertToCollapsible {
@@ -114,68 +115,67 @@ document.addEventListener('DOMContentLoaded', function() {
   $nodeResources = Show-NodeResourceUsage -PageSize 999 -Html
   $collapsibleNodeResources = ConvertToCollapsible -Id "nodeResources" -defaultText "Show Table" -content $nodeResources
 
-  $emptyNsHtml = Show-EmptyNamespaces -PageSize 999 -Html
+  $emptyNsHtml = Show-EmptyNamespaces -PageSize 999 -Html -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleEmptyNsHtmls = ConvertToCollapsible -Id "emptyNamespace" -defaultText "Show Table" -content $emptyNsHtml
 
-  $dsIssuesHtml = Show-DaemonSetIssues -PageSize 999 -Html
+  $dsIssuesHtml = Show-DaemonSetIssues -PageSize 999 -Html -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleDsIssuesHtml = ConvertToCollapsible -Id "daemonSetIssues" -defaultText "Show Table" -content $dsIssuesHtml
 
-  $podsRestartHtml = Show-PodsWithHighRestarts -Html -PageSize 999
+  $podsRestartHtml = Show-PodsWithHighRestarts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsiblePodsRestartHtml = ConvertToCollapsible -Id "podsRestart" -defaultText "Show Table" -content $podsRestartHtml
 
-  $podLongRunningHtml = Show-LongRunningPods -Html -PageSize 999
+  $podLongRunningHtml = Show-LongRunningPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsiblePodLongRunningHtml = ConvertToCollapsible -Id "podLongRunning" -defaultText "Show Table" -content $podLongRunningHtml
 
-  $podFailHtml = Show-FailedPods -Html -PageSize 999
+  $podFailHtml = Show-FailedPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsiblePodFailHtml = ConvertToCollapsible -Id "podFail" -defaultText "Show Table" -content $podFailHtml
 
-  $podpendHtml = Show-PendingPods -Html -PageSize 999
+  $podpendHtml = Show-PendingPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsiblePodPendingHtml = ConvertToCollapsible -Id "podPending" -defaultText "Show Table" -content $podpendHtml
 
-  $crashloopHtml = Show-CrashLoopBackOffPods -Html -PageSize 999
+  $crashloopHtml = Show-CrashLoopBackOffPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleCrashloopHtml = ConvertToCollapsible -Id "crashloop" -defaultText "Show Table" -content $crashloopHtml
 
-  $leftoverdebugHtml = Show-LeftoverDebugPods -Html -PageSize 999
+  $leftoverdebugHtml = Show-LeftoverDebugPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleLeftoverdebugHtml = ConvertToCollapsible -Id "leftoverDebug" -defaultText "Show Table" -content $leftoverdebugHtml
 
-  $stuckJobHtml = Show-StuckJobs -Html -PageSize 999
+  $stuckJobHtml = Show-StuckJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleStuckJobHtml = ConvertToCollapsible -Id "stuckJobs" -defaultText "Show Table" -content $stuckJobHtml
 
-  $jobFailHtml = Show-FailedJobs -Html -PageSize 999
+  $jobFailHtml = Show-FailedJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleJobFailHtml = ConvertToCollapsible -Id "jobFail" -defaultText "Show Table" -content $jobFailHtml
 
-  $servicesWithoutEndpointsHtml = Show-ServicesWithoutEndpoints -Html -PageSize 999
+  $servicesWithoutEndpointsHtml = Show-ServicesWithoutEndpoints -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleServicesWithoutEndpointsHtml = ConvertToCollapsible -Id "servicesWithoutEndpoints" -defaultText "Show Table" -content $servicesWithoutEndpointsHtml
 
-  $publicServicesHtml = Check-PubliclyAccessibleServices -Html -PageSize 999
+  $publicServicesHtml = Check-PubliclyAccessibleServices -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsiblePublicServicesHtml = ConvertToCollapsible -Id "publicServices" -defaultText "Show Table" -content $publicServicesHtml
 
-  $unmountedpvHtml = Show-UnusedPVCs  -Html -PageSize 999
+  $unmountedpvHtml = Show-UnusedPVCs  -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleUnmountedpvHtml = ConvertToCollapsible -Id "unmountedPV" -defaultText "Show Table" -content $unmountedpvHtml
 
-  $rbacmisconfigHtml = Check-RBACMisconfigurations -Html -PageSize 999
+  $rbacmisconfigHtml = Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleRbacmisconfigHtml = ConvertToCollapsible -Id "rbacMisconfig" -defaultText "Show Table" -content $rbacmisconfigHtml
 
-  $rbacOverexposureHtml = Check-RBACOverexposure -Html -PageSize 999
+  $rbacOverexposureHtml = Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleRbacOverexposureHtml = ConvertToCollapsible -Id "rbacOverexposure" -defaultText "Show Table" -content $rbacOverexposureHtml
 
-  $orphanedConfigMapsHtml = Check-OrphanedConfigMaps -Html -PageSize 999
+  $orphanedConfigMapsHtml = Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleOrphanedConfigMapsHtml = ConvertToCollapsible -Id "orphanedConfigMaps" -defaultText "Show Table" -content $orphanedConfigMapsHtml
 
-  $orphanedSecretsHtml = Check-OrphanedSecrets -Html -PageSize 999
+  $orphanedSecretsHtml = Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleOrphanedSecretsHtml = ConvertToCollapsible -Id "orphanedSecrets" -defaultText "Show Table" -content $orphanedSecretsHtml
 
-  $podsRootHtml = Check-PodsRunningAsRoot -Html -PageSize 999
+  $podsRootHtml = Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsiblePodsRootHtml = ConvertToCollapsible -Id "podsRoot" -defaultText "Show Table" -content $podsRootHtml
 
-  $privilegedContainersHtml = Check-PrivilegedContainers -Html -PageSize 999
+  $privilegedContainersHtml = Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsiblePrivilegedContainersHtml = ConvertToCollapsible -Id "privilegedContainers" -defaultText "Show Table" -content $privilegedContainersHtml
 
-  $hostPidNetHtml = Check-HostPidAndNetwork -Html -PageSize 999
+  $hostPidNetHtml = Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleHostPidNetHtml = ConvertToCollapsible -Id "hostPidNet" -defaultText "Show Table" -content $hostPidNetHtml
 
-
-  $eventSummaryHtml = Show-KubeEvents -Html -PageSize 999
+  $eventSummaryHtml = Show-KubeEvents -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
   $collapsibleEventSummaryHtml = ConvertToCollapsible -Id "eventSummary" -defaultText "Show Table" -content $eventSummaryHtml
 
   # Convert output array to a single string
@@ -266,19 +266,6 @@ document.addEventListener('DOMContentLoaded', function() {
     0 
   }  $memStatus = if ($clusterSummaryText -match "💾 Memory Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
 
-  # # Debugging: Print extracted values
-  # Write-Host "📊 Extracted Values:"
-  # Write-Host "Cluster Name: $clusterName"
-  # Write-Host "Kubernetes Version: $k8sVersion"
-  # Write-Host "Compatibility: $compatibilityCheck"
-  # Write-Host "Nodes: $totalNodes, Healthy: $healthyNodes, Issues: $issueNodes"
-  # Write-Host "Pods: $totalPods, Running: $runningPods, Failed: $failedPods"
-  # Write-Host "Restarts: $totalRestarts, Warnings: $warnings, Critical: $critical"
-  # Write-Host "Pending Pods: $pendingPods, Stuck Pods: $stuckPods, Job Failures: $jobFailures"
-  # Write-Host "Pod Distribution -> Avg: $podAvg, Max: $podMax, Min: $podMin, Total Nodes: $podTotalNodes"
-  # Write-Host "CPU Usage: $cpuUsage%, Status: $cpuStatus"
-  # Write-Host "Memory Usage: $memUsage%, Status: $memStatus"
-
   # Prepare the dynamic date
   $today = (Get-Date).ToUniversalTime().ToString("MMMM dd, yyyy HH:mm:ss 'UTC'")
   $year = (Get-Date).ToUniversalTime().ToString("yyyy")
@@ -286,11 +273,12 @@ document.addEventListener('DOMContentLoaded', function() {
   # Get thresholds from config or use defaults
   $thresholds = Get-KubeBuddyThresholds -Silent
 
+  $excludedNamespaces = Get-ExcludedNamespaces -Silent
+
   # Define classes based on config-defined thresholds
   $errorClass = if ($eventErrors -ge $thresholds.event_errors_critical) { "critical" } `
     elseif ($eventErrors -ge $thresholds.event_errors_warning) { "warning" } `
     else { "normal" }
-
 
   $warningClass = if ($eventWarnings -ge $thresholds.event_warnings_critical) { "critical" } `
     elseif ($eventWarnings -ge $thresholds.event_warnings_warning) { "warning" } `
@@ -305,6 +293,21 @@ document.addEventListener('DOMContentLoaded', function() {
     else { "normal" }
 
 
+  if ($ExcludeNamespaces) {
+    $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
+
+    $excludedNamespacesHtml = @"
+    <h2>Excluded Namespaces
+      <span class="tooltip"><span class="info-icon">i</span>
+        <span class="tooltip-text">These namespaces are excluded from analysis and reporting.</span>
+      </span>
+    </h2>
+    <p>$excludedList</p>
+"@
+} else {
+    $excludedNamespacesHtml = ""
+}
+  
   # Build the HTML Template
   $htmlTemplate = @"
 <!DOCTYPE html>
@@ -459,6 +462,13 @@ document.addEventListener('DOMContentLoaded', function() {
         details { display: block; } /* Expand all details on print */
     }
 
+    .excluded-ns {
+    padding: 2px 6px;
+    background-color: #eee;
+    border-radius: 4px;
+    margin-right: 4px;
+    display: inline-block;
+}
 
     /* Floating TOC (Initially Collapsed) */
     #toc {
@@ -605,6 +615,62 @@ document.addEventListener('DOMContentLoaded', function() {
         .metric-card {
             width: 80%;
         }
+    }
+
+    .tooltip {
+      display: inline-block;
+      position: relative;
+      cursor: pointer;
+      margin-left: 8px;
+      color: #0071FF;
+      font-weight: bold;
+    }
+
+    .tooltip .tooltip-text {
+      visibility: hidden;
+      width: 260px;
+      background-color: #0071FF;
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 8px;
+      position: absolute;
+      z-index: 10;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -130px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 13px;
+    }
+
+    .tooltip:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .tooltip .tooltip-text::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -6px;
+      border-width: 6px;
+      border-style: solid;
+      border-color: #0071FF transparent transparent transparent;
+    }
+
+    .info-icon {
+      font-size: 14px;
+      border: 1px solid #0071FF;
+      border-radius: 50%;
+      padding: 0 5px;
+      line-height: 1;
+      display: inline-block;
+      background-color: white;
+      vertical-align: middle; /* key fix */
+      position: relative;
+      top: -2px; /* fine-tune as needed */
     }
 
     .footer {
@@ -763,7 +829,9 @@ document.addEventListener('DOMContentLoaded', function() {
     <p><strong>Kubernetes Version:</strong> $k8sVersion</p>
     <div class="compatibility $compatibilityClass"><strong>$compatibilityCheck</strong></div>
 
-    <h2>Cluster Metrics Summary</h2>
+    <h2>Cluster Metrics Summary
+      <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of node and pod counts including warnings, restarts, and issues.</span></span>
+    </h2>
     <table>
         <tr>
             <td>🚀 Nodes: $totalNodes</td>
@@ -797,7 +865,9 @@ document.addEventListener('DOMContentLoaded', function() {
         </tr>
     </table>
 
-    <h2>Pod Distribution</h2>
+    <h2>Pod Distribution
+      <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Average, min, and max pods per node, and total node count.</span></span>
+    </h2>
     <table>
         <tr>
             <td>Avg: <strong>$podAvg</strong></td>
@@ -807,96 +877,133 @@ document.addEventListener('DOMContentLoaded', function() {
         </tr>
     </table>
 
-        <h2>Resource Usage</h2>
+    <h2>Resource Usage
+      <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Cluster-wide CPU and memory usage.</span></span>
+    </h2>
     <div class="hero-metrics">
         <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong> <br><span>$cpuStatus</span></div>
         <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong> <br><span>$memStatus</span></div>
     </div>
-        <!-- Hero Metrics Section -->
-    <h2>Cluster Events</h2>
+
+    <h2>Cluster Events
+      <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Recent warning and error events from the cluster.</span></span>
+    </h2>
     <div class="hero-metrics">
         <div class="metric-card $errorClass">❌ Errors: <strong>$eventErrors</strong></div>
         <div class="metric-card $warningClass">⚠️ Warnings: <strong>$eventWarnings</strong></div>
     </div>
-    </div>
+     $excludedNamespacesHtml
 </div>
+
 <!-- Node Conditions Container -->
 <div class="container">
 <h1>Node Conditions & Resources</h1>
-  <h2 id="nodecon">Node Conditions</h2>
+  <h2 id="nodecon">Node Conditions
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Displays node readiness, taints, and schedulability.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleNodeSection
   </div>
-  <h2 id="noderesource">Node Resources</h2>
+  <h2 id="noderesource">Node Resources
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Shows CPU and memory usage across nodes.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleNodeResources
   </div>
 </div>
+
 <!-- Namespace Container -->
 <div class="container">
 <h1 id="namespaces">Namespaces</h1>
-  <h2>Empty Namespaces</h2>
+  <h2>Empty Namespaces
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleEmptyNsHtmls
   </div>
 </div>
+
 <!-- Workload Container -->
 <div class="container">
 <h1 id="workloads">Workloads</h1>
-  <h2 id=daemonsets>DaemonSets Not Fully Running</h2>
+  <h2 id="daemonsets">DaemonSets Not Fully Running
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with unavailable pods or rollout issues.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleDsIssuesHtml
   </div>
 </div>
+
 <!-- Pods Container -->
 <div class="container">
 <h1 id="pods">Pods</h1>
-  <h2 id="podrestarts">Pods with High Restarts</h2>
+  <h2 id="podrestarts">Pods with High Restarts
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods with restarts above the configured threshold.</span></span>
+  </h2>
   <div class="table-container">
   $collapsiblePodsRestartHtml
   </div>
-  <h2 id="podlong">Long Running Pods</h2>
+  <h2 id="podlong">Long Running Pods
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods running beyond expected duration (e.g. stuck Jobs).</span></span>
+  </h2>
   <div class="table-container">
   $collapsiblePodLongRunningHtml
   </div>
-  <h2 id="podfail">Failed Pods</h2>
+  <h2 id="podfail">Failed Pods
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods that exited with a non-zero status.</span></span>
+  </h2>
   <div class="table-container">
   $collapsiblePodFailHtml
   </div>
-  <h2 id="podpending">Pending Pods</h2>
+  <h2 id="podpending">Pending Pods
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods pending scheduling or resource allocation.</span></span>
+  </h2>
   <div class="table-container">
   $collapsiblePodPendingHtml
   </div>
-  <h2 id="crashloop">CrashLoopBackOff Pods</h2>
+  <h2 id="crashloop">CrashLoopBackOff Pods
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods continuously crashing and restarting.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleCrashloopHtml
   </div>
-    <h2 id="debugpods">Running Debug Pods</h2>
+  <h2 id="debugpods">Running Debug Pods
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ephemeral containers or debug pods left running.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleLeftoverdebugHtml
   </div>
 </div>
+
 <!-- Job Container -->
 <div class="container">
 <h1 id="jobs">Jobs</h1>
-  <h2 id="stuckjobs">Stuck Jobs</h2>
+  <h2 id="stuckjobs">Stuck Jobs
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that haven't progressed or completed as expected.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleStuckJobHtml
   </div>
-  <h2 id="failedjobs">Job Failures</h2>
+  <h2 id="failedjobs">Job Failures
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that exceeded retries or failed execution.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleJobFailHtml
   </div>
-  </div>
+</div>
 
 <!-- Networking Container -->
 <div class="container">
 <h1 id="networking">Networking</h1>
-  <h2 id="servicenoendpoints">Services without Endpoints</h2>
+  <h2 id="servicenoendpoints">Services without Endpoints
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services that have no active pods backing them.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleServicesWithoutEndpointsHtml
   </div>
-  <h2 id="publicServices">Publicly Accessible Services</h2>
+  <h2 id="publicServices">Publicly Accessible Services
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed via LoadBalancer or external IPs.</span></span>
+  </h2>
   <div class="table-container">
   $collapsiblePublicServicesHtml
   </div>
@@ -905,53 +1012,72 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Storage Container -->
 <div class="container">
 <h1 id="storage">Storage</h1>
-  <h2 id="unmountedpv">Unmounted Persistent Volumes</h2>
+  <h2 id="unmountedpv">Unmounted Persistent Volumes
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Persistent volumes not currently mounted to any pod.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleUnmountedpvHtml
   </div>
-  </div>
+</div>
 
 <!-- Security Container -->
 <div class="container">
 <h1 id="security">Security</h1>
-  <h2 id="rbacmisconfig">RBAC Misconfigurations</h2>
+  <h2 id="rbacmisconfig">RBAC Misconfigurations
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ClusterRole or RoleBindings without subjects or bindings.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleRbacmisconfigHtml
   </div>
-  <h2 id="rbacOverexposure">RBAC Overexposure</h2>
+  <h2 id="rbacOverexposure">RBAC Overexposure
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Subjects with excessive or broad access rights.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleRbacOverexposureHtml
   </div>
-  <h2 id="orphanedconfigmaps">Orphaned ConfigMaps</h2>
+  <h2 id="orphanedconfigmaps">Orphaned ConfigMaps
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ConfigMaps not referenced by any pod or controller.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleOrphanedConfigMapsHtml
   </div>
-  <h2 id="orphanedsecrets">Orphaned Secrets</h2>
+  <h2 id="orphanedsecrets">Orphaned Secrets
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Secrets that are unused or unmounted by workloads.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleOrphanedSecretsHtml
   </div>
-  <h2 id="podsRoot">Pods Running as Root</h2>
+  <h2 id="podsRoot">Pods Running as Root
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Workloads running containers as UID 0 (root).</span></span>
+  </h2>
   <div class="table-container">
   $collapsiblePodsRootHtml
   </div>
-  <h2 id="privilegedContainers">Privileged Containers</h2>
+  <h2 id="privilegedContainers">Privileged Containers
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running with privileged security context.</span></span>
+  </h2>
   <div class="table-container">
   $collapsiblePrivilegedContainersHtml
   </div>
-  <h2 id="hostPidNet">hostPID / hostNetwork Enabled</h2>
+  <h2 id="hostPidNet">hostPID / hostNetwork Enabled
+    <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span>
+  </h2>
   <div class="table-container">
   $collapsibleHostPidNetHtml
   </div>
 </div>
 
-  <!-- Kube Event Container -->
-  <div class="container">
-  <h1 id="kubeevents">Kubernetes Warning Events</h1>
-  <h2 id="clusterwarnings">Recent Cluster Warnings</h2>
-  <div class="table-container">
+<!-- Kube Event Container -->
+<div class="container">
+<h1 id="kubeevents">Kubernetes Warning Events</h1>
+<h2 id="clusterwarnings">Recent Cluster Warnings
+  <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Recent Warning and Error events from the cluster.</span></span>
+</h2>
+<div class="table-container">
   $collapsibleEventSummaryHtml
-  </div>
-  </div>
+</div>
+</div>
+
   $aksHealthCheck
     <footer class="footer">
         <p><strong>Report generated by Kubebuddy $version</strong> on $today</p>
@@ -1068,8 +1194,9 @@ document.addEventListener('DOMContentLoaded', function() {
 </html>
 "@
 
-  # Save the updated HTML report
-  $htmlTemplate | Set-Content $outputPath
+ 
+   # Save the updated HTML report
+   $htmlTemplate | Set-Content $outputPath
 }
 
 # Example usage:

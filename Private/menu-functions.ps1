@@ -39,12 +39,12 @@ function show-mainMenu {
             "1" { Show-ClusterSummary }
             "2" { Show-NodeMenu }
             "3" { Show-NamespaceMenu -ExcludeNamespaces:$ExcludeNamespaces }
-            "4" { Show-WorkloadMenu }
+            "4" { Show-WorkloadMenu -ExcludeNamespaces:$ExcludeNamespaces }
             "5" { Show-PodMenu }
-            "6" { Show-JobsMenu }
-            "7" { Show-ServiceMenu }
-            "8" { Show-StorageMenu }
-            "9" { Show-RBACMenu }
+            "6" { Show-JobsMenu -ExcludeNamespaces:$ExcludeNamespaces }
+            "7" { Show-ServiceMenu -ExcludeNamespaces:$ExcludeNamespaces }
+            "8" { Show-StorageMenu -ExcludeNamespaces:$ExcludeNamespaces }
+            "9" { Show-RBACMenu -ExcludeNamespaces:$ExcludeNamespaces }
             "10" { Show-KubeEvents }
             "11" { Show-InfraBestPracticesMenu }
             "Q" { Write-Host "👋 Goodbye! Have a great day! 🚀"; return }
@@ -262,22 +262,22 @@ function Show-PodMenu {
 
             switch ($podChoice) {
                 "1" { 
-                    Show-PodsWithHighRestarts -Namespace $Namespace
+                    Show-PodsWithHighRestarts -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "2" { 
-                    Show-LongRunningPods -Namespace $Namespace
+                    Show-LongRunningPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "3" { 
-                    Show-FailedPods -Namespace $Namespace
+                    Show-FailedPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "4" { 
-                    Show-PendingPods -Namespace $Namespace
+                    Show-PendingPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "5" {
-                    Show-CrashLoopBackOffPods -Namespace $Namespace
+                    Show-CrashLoopBackOffPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "6" {
-                    Show-LeftoverDebugPods -Namespace $Namespace
+                    Show-LeftoverDebugPods -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                 }
                 "B" { return }
                 "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
@@ -309,8 +309,8 @@ function Show-ServiceMenu {
         Clear-Host
 
         switch ($serviceChoice) {
-            "1" { Show-ServicesWithoutEndpoints }
-            "2" { Check-PubliclyAccessibleServices }
+            "1" { Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces }
+            "2" { Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
@@ -338,7 +338,7 @@ function Show-StorageMenu {
 
         switch ($storageChoice) {
             "1" { 
-                Show-UnusedPVCs 
+                Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
@@ -373,13 +373,13 @@ function Show-RBACMenu {
         Clear-Host
 
         switch ($rbacChoice) {
-            "1" { Check-RBACMisconfigurations }
-            "2" { Check-RBACOverexposure }
-            "3" { Check-OrphanedConfigMaps }
-            "4" { Check-OrphanedSecrets }
-            "5" { Check-PodsRunningAsRoot }
-            "6" { Check-PrivilegedContainers }
-            "7" { Check-HostPidAndNetwork }
+            "1" { Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces }
+            "2" { Check-RBACOverexposure -ExcludeNamespaces:$ExcludeNamespaces }
+            "3" { Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces }
+            "4" { Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces }
+            "5" { Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces }
+            "6" { Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces }
+            "7" { Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
@@ -408,10 +408,10 @@ function Show-JobsMenu {
 
         switch ($jobChoice) {
             "1" { 
-                Show-StuckJobs 
+                Show-StuckJobs -ExcludeNamespaces:$ExcludeNamespaces
             }
             "2" { 
-                Show-FailedJobs 
+                Show-FailedJobs -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; exit }

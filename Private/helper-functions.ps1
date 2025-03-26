@@ -189,26 +189,41 @@ function Get-KubeBuddyThresholds {
     }
 }
 
-function Exclude-Namespaces {
-    param(
-        [array]$items
-    )
-
+function Get-ExcludedNamespaces {
     $config = Get-KubeBuddyThresholds -Silent
-    $excludedNamespaces = if ($config -and $config.ContainsKey("excluded_namespaces")) {
-        $config["excluded_namespaces"]
-    } else {
-        @(
-            "kube-system", "kube-public", "kube-node-lease",
-            "local-path-storage", "kube-flannel",
-            "tigera-operator", "calico-system", "coredns", "aks-istio-system"
-        )
+    if ($config -and $config.ContainsKey("excluded_namespaces")) {
+        return $config["excluded_namespaces"]
     }
 
+    return @(
+        "kube-system", "kube-public", "kube-node-lease",
+        "local-path-storage", "kube-flannel",
+        "tigera-operator", "calico-system", "coredns", "aks-istio-system"
+    )
+}
+
+function Exclude-Namespaces {
+    param([array]$items)
+
+    $excludedNamespaces = Get-ExcludedNamespaces
     $excludedSet = $excludedNamespaces | ForEach-Object { $_.ToLowerInvariant() }
 
     return $items | Where-Object {
-        $_ -and ($_.ToLowerInvariant() -notin $excludedSet)
+        if ($_ -is [string]) {
+            $_.ToLowerInvariant() -notin $excludedSet
+        } elseif ($_.metadata) {
+            $ns = if ($_.metadata.namespace) {
+                $_.metadata.namespace
+            } elseif ($_.metadata.name) {
+                $_.metadata.name
+            } else {
+                $null
+            }
+
+            $ns -and $ns.ToLowerInvariant() -notin $excludedSet
+        } else {
+            $true
+        }
     }
 }
 

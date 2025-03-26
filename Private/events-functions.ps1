@@ -30,7 +30,7 @@ function Show-KubeEvents {
     }
 
     if ($warningCount -eq 0) {
-        Write-Host "`r🤖 ✅ No warnings found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No warnings found.          " -ForegroundColor Green
         if ($Html) {
             return "<p><strong>✅ No Kubernetes warnings found.</strong></p>"
         }
