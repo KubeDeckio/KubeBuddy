@@ -21,7 +21,7 @@ function Show-EmptyNamespaces {
 
     # Fetch all pods and their namespaces
     if ($kubeData) {
-        $pods = $kubeData.Pods |
+        $pods = $kubeData.Pods.items |
         Group-Object { $_.metadata.namespace }
     } else {
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json |

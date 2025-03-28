@@ -12,12 +12,16 @@ function Get-KubeData {
         Write-Host "`n[📦 Gathering Kubernetes Resource Data]" -ForegroundColor Cyan
 
         Write-Host -NoNewline "`n🤖 📄 Fetching Pods..." -ForegroundColor Yellow
-        $data.Pods = @( (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items )
+        $data.Pods = @( (kubectl get pods --all-namespaces -o json | ConvertFrom-Json))
         Write-Host "`r🤖 📄 Pods fetched.         " -ForegroundColor Green
 
         Write-Host -NoNewline "`n🤖 🧱 Fetching Nodes..." -ForegroundColor Yellow
-        $data.Nodes = @( (kubectl get nodes -o json | ConvertFrom-Json).items )
+        $data.Nodes = @( (kubectl get nodes -o json | ConvertFrom-Json) )
         Write-Host "`r🤖 🧱 Nodes fetched.        " -ForegroundColor Green
+
+        Write-Host -NoNewline "`n🤖 🧱 Fetching Top Nodes..." -ForegroundColor Yellow
+        $data.TopNodes = @( kubectl top nodes --no-headers )
+        Write-Host "`r🤖 🧱 Top Nodes fetched.        " -ForegroundColor Green
 
         Write-Host -NoNewline "`n🤖 📂 Fetching Namespaces..." -ForegroundColor Yellow
         $data.Namespaces = @( (kubectl get namespaces -o json | ConvertFrom-Json).items )
@@ -44,8 +48,12 @@ function Get-KubeData {
         Write-Host "`r🤖 🚀 Deployments fetched.   " -ForegroundColor Green
 
         Write-Host -NoNewline "`n🤖 🔌 Fetching Services..." -ForegroundColor Yellow
-        $data.Services = @( (kubectl get svc --all-namespaces -o json | ConvertFrom-Json).items )
+        $data.Services = @( (kubectl get svc --all-namespaces -o json | ConvertFrom-Json))
         Write-Host "`r🤖 🔌 Services fetched.      " -ForegroundColor Green
+
+        Write-Host -NoNewline "`n🤖 🔌 Fetching Endpoints..." -ForegroundColor Yellow
+        $data.Endpoints = @( (kubectl get endpoints --all-namespaces -o json | ConvertFrom-Json))
+        Write-Host "`r🤖 🔌 Endpoints fetched.      " -ForegroundColor Green
 
         Write-Host -NoNewline "`n🤖 💾 Fetching PersistentVolumes..." -ForegroundColor Yellow
         $data.PersistentVolumes = @( (kubectl get pv -o json | ConvertFrom-Json).items )
@@ -74,9 +82,7 @@ function Get-KubeData {
             Write-Host -NoNewline "`n🤖 📏 Fetching Gatekeeper and Azure Policy constraints..." -ForegroundColor Yellow
             $data.ConstraintTemplates = @( (kubectl get constrainttemplates -o json | ConvertFrom-Json).items )
             $data.Constraints = @( (kubectl get constraints -A -o json | ConvertFrom-Json).items )
-            $data.AzPolicies = @( (kubectl get azurepolicy -A -o json | ConvertFrom-Json).items )
-            $data.K8sAzureConstraints = @( (kubectl get k8sazureconstraints -A -o json | ConvertFrom-Json).items )
-            Write-Host "`r🤖 📏 Constraints fetched.           " -ForegroundColor Green
+            Write-Host "`r🤖 📏 Constraints fetched.                             " -ForegroundColor Green
         }
 
     } catch {

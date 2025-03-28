@@ -10,7 +10,10 @@ function Check-OrphanedConfigMaps {
     Write-Host "`n[📜 Orphaned ConfigMaps]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching ConfigMaps..." -ForegroundColor Yellow
 
-    $excludedConfigMapPatterns = @("^sh\.helm\.release\.v1\.")
+    $excludedConfigMapPatterns = @(
+    "^sh\.helm\.release\.v1\.",
+    "^kube-root-ca\.crt$"
+    )
 
     try {
         $configMaps = if ($KubeData -and $KubeData.ConfigMaps) {
@@ -65,7 +68,12 @@ function Check-OrphanedConfigMaps {
     foreach ($resource in $pods + $workloads) {
         $usedConfigMaps += $resource.spec.volumes | Where-Object { $_.configMap } | Select-Object -ExpandProperty configMap | Select-Object -ExpandProperty name
 
-        foreach ($container in $resource.spec.containers) {
+        $allContainers = @()
+        $allContainers += $resource.spec.containers
+        $allContainers += $resource.spec.initContainers
+        $allContainers += $resource.spec.ephemeralContainers
+        
+        foreach ($container in $allContainers) {
             if ($container.env) {
                 $usedConfigMaps += $container.env | Where-Object { $_.valueFrom.configMapKeyRef } |
                     Select-Object -ExpandProperty valueFrom |
@@ -79,7 +87,7 @@ function Check-OrphanedConfigMaps {
             }
         }
     }
-
+        
     $usedConfigMaps += $ingresses | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
     $usedConfigMaps += $services  | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
 
@@ -127,10 +135,10 @@ function Check-OrphanedConfigMaps {
     }
 
     if ($Html) {
-        $html = $items |
+        $htmlOutput = $items |
             ConvertTo-Html -Fragment -Property Namespace, Type, Name -PreContent "<h2>Orphaned ConfigMaps</h2>" |
             Out-String
-        return "<p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> $($items.Count)</p>$html"
+        return "<p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> $($items.Count)</p>$htmlOutput"
     }
 
     if ($Global:MakeReport) {
@@ -240,14 +248,24 @@ function Check-OrphanedSecrets {
         $usedSecrets += $resource.spec.volumes | Where-Object { $_.secret } |
             Select-Object -ExpandProperty secret | Select-Object -ExpandProperty secretName
 
-        foreach ($container in $resource.spec.containers) {
-            if ($container.env) {
-                $usedSecrets += $container.env | Where-Object { $_.valueFrom.secretKeyRef } |
-                    Select-Object -ExpandProperty valueFrom |
-                    Select-Object -ExpandProperty secretKeyRef |
-                    Select-Object -ExpandProperty name
+            $allContainers = @()
+            $allContainers += $resource.spec.containers
+            $allContainers += $resource.spec.initContainers
+            $allContainers += $resource.spec.ephemeralContainers
+            
+            foreach ($container in $allContainers) {
+                if ($container.env) {
+                    $usedConfigMaps += $container.env | Where-Object { $_.valueFrom.configMapKeyRef } |
+                        Select-Object -ExpandProperty valueFrom |
+                        Select-Object -ExpandProperty configMapKeyRef |
+                        Select-Object -ExpandProperty name
+                }
+                if ($container.envFrom) {
+                    $usedConfigMaps += $container.envFrom | Where-Object { $_.configMapRef } |
+                        Select-Object -ExpandProperty configMapRef |
+                        Select-Object -ExpandProperty name
+                }
             }
-        }
     }
 
     $usedSecrets += $ingresses | ForEach-Object {
@@ -297,10 +315,10 @@ function Check-OrphanedSecrets {
     }
 
     if ($Html) {
-        $html = $items |
+        $htmlOutput = $items |
             ConvertTo-Html -Fragment -Property Namespace, Type, Name -PreContent "<h2>Orphaned Secrets</h2>" |
             Out-String
-        return "<p><strong>⚠️ Total Orphaned Secrets Found:</strong> $($items.Count)</p>$html"
+        return "<p><strong>⚠️ Total Orphaned Secrets Found:</strong> $($items.Count)</p>$htmlOutput"
     }
 
     if ($Global:MakeReport) {
@@ -359,25 +377,25 @@ function Check-RBACOverexposure {
     # Pull data from KubeData or fallback to kubectl
     try {
         $roles = if ($KubeData -and $KubeData.Roles) {
-            $KubeData.Roles.items
+            $KubeData.Roles
         } else {
             kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
 
         $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) {
-            $KubeData.ClusterRoles.items
+            $KubeData.ClusterRoles
         } else {
             kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
 
         $roleBindings = if ($KubeData -and $KubeData.RoleBindings) {
-            $KubeData.RoleBindings.items
+            $KubeData.RoleBindings
         } else {
             kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
 
         $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) {
-            $KubeData.ClusterRoleBindings.items
+            $KubeData.ClusterRoleBindings
         } else {
             kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
@@ -418,7 +436,8 @@ function Check-RBACOverexposure {
     foreach ($crb in $clusterRoleBindings) {
         $roleName = $crb.roleRef.name
         $isClusterAdmin = ($roleName -eq "cluster-admin")
-        $isWildcard = $wildcardRoles.ContainsKey($roleName)
+        $isWildcard = $roleName -and $wildcardRoles.ContainsKey($roleName)
+        
 
         if ($isClusterAdmin -or $isWildcard) {
             foreach ($subject in $crb.subjects) {
@@ -438,9 +457,9 @@ function Check-RBACOverexposure {
     foreach ($rb in $roleBindings) {
         $roleName = $rb.roleRef.name
         $ns = $rb.metadata.namespace
-        $key = "$ns/$roleName"
+        $key = $ns -and $roleName ? "$ns/$roleName" : $null
         $isClusterAdmin = ($roleName -eq "cluster-admin")
-        $isWildcard = $wildcardRoles.ContainsKey($key)
+        $isWildcard = $key -and $wildcardRoles.ContainsKey($key)        
 
         if ($isClusterAdmin -or $isWildcard) {
             foreach ($subject in $rb.subjects) {
@@ -534,31 +553,31 @@ function Check-RBACMisconfigurations {
     # Use KubeData if provided, else fallback to kubectl
     try {
         $roleBindings = if ($KubeData -and $KubeData.RoleBindings) {
-            $KubeData.RoleBindings.items
+            $KubeData.RoleBindings
         } else {
             kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
 
         $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) {
-            $KubeData.ClusterRoleBindings.items
+            $KubeData.ClusterRoleBindings
         } else {
             kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
 
         $roles = if ($KubeData -and $KubeData.Roles) {
-            $KubeData.Roles.items
+            $KubeData.Roles
         } else {
             kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
 
         $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) {
-            $KubeData.ClusterRoles.items
+            $KubeData.ClusterRoles
         } else {
             kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
 
         $existingNamespaces = if ($KubeData -and $KubeData.Namespaces) {
-            $KubeData.Namespaces.items.metadata.name
+            $KubeData.Namespaces.metadata.name
         } else {
             kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items | ForEach-Object { $_.metadata.name }
         }
@@ -655,6 +674,7 @@ function Check-RBACMisconfigurations {
 
     if ($invalidRBAC.Count -eq 0) {
         Write-Host "`r✅ No RBAC misconfigurations found." -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No RBAC misconfigurations found.</strong></p>" }
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[RBAC Misconfigurations]`n"
             Write-ToReport "✅ No RBAC misconfigurations found."

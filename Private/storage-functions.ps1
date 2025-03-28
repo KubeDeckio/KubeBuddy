@@ -40,7 +40,7 @@ function Show-UnusedPVCs {
     }
 
     if (-not $pvcs -or $pvcs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No PVCs found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No PVCs found.   " -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No PVCs found.</strong></p>" }
         return
     }

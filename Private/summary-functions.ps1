@@ -1,14 +1,7 @@
 function Check-KubernetesVersion {
-    param (
-      [object]$KubeData = $null
-    )
-  
-    if ($KubeData) {
-      $k8sVersion = $KubeData.version.serverVersion.gitVersion
-    } else {
+
       $versionInfo = kubectl version -o json | ConvertFrom-Json
       $k8sVersion = $versionInfo.serverVersion.gitVersion
-    }
   
     $latestVersion = (Invoke-WebRequest -Uri "https://dl.k8s.io/release/stable.txt").Content.Trim()
   
@@ -22,22 +15,16 @@ function Check-KubernetesVersion {
   function Show-ClusterSummary {
     param(
       [switch]$Html,
-      [object]$KubeData = $null
+      [object]$KubeData
     )
   
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
     Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
   
-    if ($KubeData) {
-      $versionInfo = $KubeData.version
-      $k8sVersion = $versionInfo.serverVersion.gitVersion
-      $clusterName = $KubeData.context
-    } else {
       $versionInfo = kubectl version -o json | ConvertFrom-Json
       $k8sVersion = $versionInfo.serverVersion.gitVersion
       $clusterName = (kubectl config current-context)
-    }
   
     Write-Host "`r🤖 Cluster Information fetched." -ForegroundColor Green
   
@@ -69,8 +56,8 @@ function Check-KubernetesVersion {
       $events = kubectl get events -A --sort-by=.metadata.creationTimestamp -o json | ConvertFrom-Json
     }
   
-    $warningCount = ($events.items | Where-Object { $_.type -eq "Warning" }).Count
-    $errorCount = ($events.items | Where-Object { $_.reason -match "Failed|Error" }).Count
+    $warningCount = ($events | Where-Object { $_.type -eq "Warning" }).Count
+    $errorCount = ($events | Where-Object { $_.reason -match "Failed|Error" }).Count
   
     Write-Host "`r🤖 Kubernetes Events counted." -ForegroundColor Green
     Write-Host "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount" -ForegroundColor Yellow

@@ -49,11 +49,14 @@ function Show-ServicesWithoutEndpoints {
         $endpointsLookup[$ep.Name] = $true
     }
 
-    # Filter services without endpoints
     $servicesWithoutEndpoints = $services | Where-Object {
-        -not $endpointsLookup.ContainsKey($_.metadata.namespace + "/" + $_.metadata.name)
+        $key = $_.metadata.namespace + "/" + $_.metadata.name
+        $ep = $endpointsRaw | Where-Object { $_.metadata.namespace + "/" + $_.metadata.name -eq $key }
+    
+        # If there's no endpoints object or it's empty
+        -not $ep -or -not $ep.subsets -or $ep.subsets.Count -eq 0
     }
-
+    
     $totalServices = $servicesWithoutEndpoints.Count
     Write-Host "`r🤖 ✅ Endpoint analysis complete. ($totalServices services without endpoints)" -ForegroundColor Green
 
@@ -148,8 +151,7 @@ function Check-PubliclyAccessibleServices {
         } else {
             kubectl get services --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
-    }
-    catch {
+    } catch {
         Write-Host "`r🤖 ❌ Failed to fetch service data: $_" -ForegroundColor Red
         if ($Html) { return "<p>❌ Failed to fetch service data.</p>" }
         return
@@ -168,39 +170,72 @@ function Check-PubliclyAccessibleServices {
     Write-Host "`r🤖 ✅ Services fetched. ($($services.Count) total)" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Analyzing for external exposure..." -ForegroundColor Yellow
 
+    $internalIpPatterns = @(
+        '^10\.',              # 10.0.0.0/8
+        '^172\.(1[6-9]|2[0-9]|3[0-1])\.',  # 172.16.0.0/12
+        '^192\.168\.',        # 192.168.0.0/16
+        '^127\.',             # Loopback
+        '^169\.254\.',        # APIPA
+        '^100\.64\.',         # CGNAT
+        '^0\.'                # Invalid
+    )
+
+    $isInternalIp = {
+        param($ip)
+        foreach ($pattern in $internalIpPatterns) {
+            if ($ip -match $pattern) { return $true }
+        }
+        return $false
+    }
+
     $publicServices = $services | Where-Object {
         $_.spec.type -in @("LoadBalancer", "NodePort")
     }
 
-    $totalPublic = $publicServices.Count
-    Write-Host "`r🤖 ✅ Analysis complete. ($totalPublic exposed services)" -ForegroundColor Green
+    $tableData = @()
+
+    foreach ($svc in $publicServices) {
+        $externalEntries = @()
+        if ($svc.status.loadBalancer.ingress) {
+            foreach ($entry in $svc.status.loadBalancer.ingress) {
+                if ($entry.ip -and -not (&$isInternalIp $entry.ip)) {
+                    $externalEntries += $entry.ip
+                }
+                elseif ($entry.hostname) {
+                    $externalEntries += $entry.hostname
+                }
+            }
+        }
+
+        $hasNodePort = ($svc.spec.type -eq "NodePort")
+        $hasExternalIp = $externalEntries.Count -gt 0
+
+        if ($hasExternalIp -or $hasNodePort) {
+            $tableData += [PSCustomObject]@{
+                Namespace  = $svc.metadata.namespace
+                Service    = $svc.metadata.name
+                Type       = $svc.spec.type
+                Ports      = if ($svc.spec.ports) {
+                    ($svc.spec.ports | ForEach-Object { "$($_.port)/$($_.protocol)" }) -join ", "
+                } else { "N/A" }
+                ExternalIP = if ($externalEntries.Count -gt 0) { $externalEntries -join ", " } else { "None" }
+            }
+        }
+    }
+
+    $totalPublic = $tableData.Count
+    Write-Host "`r🤖 ✅ Analysis complete. ($totalPublic public services)" -ForegroundColor Green
 
     if ($totalPublic -eq 0) {
         Write-Host "✅ No publicly accessible services found." -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No publicly accessible services found.</strong></p>" }
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[🌐 Publicly Accessible Services]`n✅ No publicly accessible services found."
-        }
-        if ($Html) {
-            return "<p><strong>✅ No publicly accessible services found.</strong></p>"
         }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
-    }
-
-    $tableData = foreach ($svc in $publicServices) {
-        [PSCustomObject]@{
-            Namespace  = $svc.metadata.namespace
-            Service    = $svc.metadata.name
-            Type       = $svc.spec.type
-            Ports      = ($svc.spec.ports | ForEach-Object { "$($_.port)/$($_.protocol)" }) -join ", "
-            ExternalIP = if ($svc.status.loadBalancer.ingress) {
-                ($svc.status.loadBalancer.ingress | ForEach-Object { $_.ip }) -join ", "
-            } else {
-                "Pending"
-            }
-        }
     }
 
     if ($Html) {
@@ -212,11 +247,11 @@ function Check-PubliclyAccessibleServices {
 
     if ($Global:MakeReport) {
         Write-ToReport "`n[🌐 Publicly Accessible Services]`n⚠️ Total Public Services Found: $totalPublic"
-        $tableString = $tableData | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-String
-        Write-ToReport $tableString
+        $tableData | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-String | Write-ToReport
         return
     }
 
+    # Console output with pagination
     $currentPage = 0
     $totalPages = [math]::Ceiling($totalPublic / $PageSize)
 
@@ -226,24 +261,18 @@ function Check-PubliclyAccessibleServices {
 
         if ($currentPage -eq 0) {
             Write-SpeechBubble -msg @(
-                "🤖 Services of type LoadBalancer or NodePort may be exposed to the internet.",
+                "🤖 Services of type LoadBalancer or NodePort may be publicly reachable.",
                 "",
-                "📌 This check identifies services with potential public access.",
-                "   - External IPs from LoadBalancers.",
-                "   - NodePort access on each cluster node.",
-                "",
-                "⚠️ Review these services for exposure risk.",
+                "📌 This check detects services exposed via:",
+                "   - External IPs (if not private)",
+                "   - NodePort access across all cluster nodes",
                 "",
                 "⚠️ Total Public Services Found: $totalPublic"
             ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
-        $startIndex = $currentPage * $PageSize
-        $endIndex = [math]::Min($startIndex + $PageSize, $totalPublic)
-
-        $tableData[$startIndex..($endIndex - 1)] |
-            Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize |
-            Out-Host
+        $paged = $tableData | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
+        $paged | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-Host
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }

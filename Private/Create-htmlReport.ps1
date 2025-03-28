@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
   # Capture console output while still displaying it
   Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
   Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
-  $clusterSummaryRaw = Show-ClusterSummary -Html *>&1  # Captures output while displaying it
+  $clusterSummaryRaw = Show-ClusterSummary -Html -KubeData:$KubeData *>&1  # Captures output while displaying it
   write-Host "`r🤖 Cluster Information fetched.   " -ForegroundColor Green
 
   # **Run AKS Best Practices Checks**

@@ -57,20 +57,20 @@ function Show-PodsWithHighRestarts {
         } else {
             "N/A"
         }
-
-        $restarts = if ($pod.status.containerStatuses -and $pod.status.containerStatuses.Count -gt 0) {
-            [int]$pod.status.containerStatuses[0].restartCount
+    
+        $restarts = if ($pod.status.containerStatuses) {
+            [int]($pod.status.containerStatuses | Measure-Object -Property restartCount -Sum | Select-Object -ExpandProperty Sum)
         } else {
             0
         }
-
+    
         $restartStatus = $null
         if ($restarts -gt $thresholds.restarts_critical) {
             $restartStatus = "🔴 Critical"
         } elseif ($restarts -gt $thresholds.restarts_warning) {
             $restartStatus = "🟡 Warning"
         }
-
+    
         if ($restartStatus) {
             $filteredPods += [PSCustomObject]@{
                 Namespace  = $ns
