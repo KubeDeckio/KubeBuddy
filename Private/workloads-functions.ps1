@@ -129,7 +129,7 @@ function Show-DaemonSetIssues {
 
         $tableData = $filteredDaemonSets[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize
+            $tableData | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

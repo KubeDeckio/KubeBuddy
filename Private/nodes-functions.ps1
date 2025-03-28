@@ -132,7 +132,7 @@ function Show-NodeConditions {
 
         $tableData = $allNodesData[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table -AutoSize
+            $tableData | Format-Table -AutoSize | Out-Host
         }
 
         # Call the pagination function
@@ -323,7 +323,7 @@ function Show-NodeResourceUsage {
         if ($tableData) {
             $tableData | Format-Table -Property Node, "CPU %", "CPU Used", "CPU Total",
             "CPU Status", "Mem %", "Mem Used", "Mem Total",
-            "Mem Status", "Disk %", "Disk Status" -AutoSize
+            "Mem Status", "Disk %", "Disk Status" -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

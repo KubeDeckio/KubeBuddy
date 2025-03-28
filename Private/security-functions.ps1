@@ -154,7 +154,7 @@ function Check-OrphanedConfigMaps {
 
         $tableData = $orphanedItems[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Type, Name -AutoSize
+            $tableData | Format-Table Namespace, Type, Name -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -311,7 +311,7 @@ function Check-OrphanedSecrets {
 
         $tableData = $orphanedItems[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Type, Name -AutoSize
+            $tableData | Format-Table Namespace, Type, Name -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -473,7 +473,7 @@ function Check-RBACOverexposure {
         $endIndex = [math]::Min($startIndex + $PageSize, $total)
 
         $pageData = $findings[$startIndex..($endIndex - 1)]
-        $pageData | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize
+        $pageData | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize | Out-Host
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
@@ -655,7 +655,7 @@ function Check-RBACMisconfigurations {
 
         $tableData = $invalidRBAC[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize
+            $tableData | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -765,7 +765,7 @@ function Check-HostPidAndNetwork {
 
         $tableData = $flaggedPods[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, hostPID, hostNetwork -AutoSize
+            $tableData | Format-Table Namespace, Pod, hostPID, hostNetwork -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -878,7 +878,7 @@ function Check-PodsRunningAsRoot {
 
         $tableData = $rootPods[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Container, runAsUser -AutoSize
+            $tableData | Format-Table Namespace, Pod, Container, runAsUser -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -985,7 +985,7 @@ function Check-PrivilegedContainers {
 
         $tableData = $privileged[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Container -AutoSize
+            $tableData | Format-Table Namespace, Pod, Container -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

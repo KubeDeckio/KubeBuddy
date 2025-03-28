@@ -163,7 +163,7 @@ function Show-ServicesWithoutEndpoints {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, Service, Type, Status -AutoSize
+            $tableData | Format-Table Namespace, Service, Type, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -278,7 +278,7 @@ function Check-PubliclyAccessibleServices {
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPublic)
 
-        $tableData[$startIndex..($endIndex - 1)] | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize
+        $tableData[$startIndex..($endIndex - 1)] | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-Host
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }

@@ -186,7 +186,7 @@ function Show-StuckJobs {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, Job, Age_Hours, Status -AutoSize
+            $tableData | Format-Table Namespace, Job, Age_Hours, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -379,7 +379,7 @@ function Show-FailedJobs {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, Job, Age_Hours, Failures, Status -AutoSize
+            $tableData | Format-Table Namespace, Job, Age_Hours, Failures, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

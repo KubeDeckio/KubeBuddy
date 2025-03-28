@@ -96,7 +96,7 @@ function Show-KubeEvents {
 
         $tableData = $sortedData[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table -Property Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize
+            $tableData | Format-Table -Property Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

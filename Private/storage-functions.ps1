@@ -188,7 +188,7 @@ function Show-UnusedPVCs {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, PVC, Storage -AutoSize
+            $tableData | Format-Table Namespace, PVC, Storage -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

@@ -125,7 +125,7 @@ function Show-EmptyNamespaces {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace -AutoSize
+            $tableData | Format-Table Namespace -AutoSize | Out-Host
         }
 
         # Pagination

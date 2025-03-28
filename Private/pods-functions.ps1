@@ -165,7 +165,7 @@ function Show-PodsWithHighRestarts {
 
         $tableData = $filteredPods[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize
+            $tableData | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-Host
         }
 
         # Pagination
@@ -330,7 +330,7 @@ function Show-LongRunningPods {
 
         $tableData = $filteredPods[$startIndex..($endIndex - 1)]
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Age_Days, Status -AutoSize
+            $tableData | Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -502,7 +502,7 @@ function Show-FailedPods {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize
+            $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -690,7 +690,7 @@ function Show-PendingPods {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize
+            $tableData | Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -859,7 +859,7 @@ function Show-CrashLoopBackOffPods {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Restarts, Status -AutoSize
+            $tableData | Format-Table Namespace, Pod, Restarts, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -1014,7 +1014,7 @@ function Show-LeftoverDebugPods {
         }
 
         if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize
+            $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
