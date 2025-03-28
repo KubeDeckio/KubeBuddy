@@ -6,7 +6,8 @@ function Generate-K8sHTMLReport {
     [string]$ResourceGroup,
     [string]$ClusterName,
     [switch]$aks,
-    [switch]$ExcludeNamespaces
+    [switch]$ExcludeNamespaces,
+    [object]$KubeData
   )
 
   function ConvertToCollapsible {
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
   # **Run AKS Best Practices Checks**
   if ($aks) {
     Write-Host -NoNewline "`n🤖Running AKS Best Practices Checklist..." -ForegroundColor Cyan
-    $aksBestPractices = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Html
+    $aksBestPractices = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Html -KubeData:$KubeData
     # $aksBestPractices = [PSCustomObject]$aksBestPractices
     Write-Host "`r🤖 AKS Information fetched.          " -ForegroundColor Green
 
@@ -109,73 +110,73 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   # Capture all nodes at once so we get a complete ASCII table:
-  $nodeConditionsHtml = Show-NodeConditions -Html -PageSize 999
+  $nodeConditionsHtml = Show-NodeConditions -Html -PageSize 999 -KubeData:$KubeData
   $collapsibleNodeSection = ConvertToCollapsible -Id "nodeConditions" -defaultText "Show Table" -content $nodeConditionsHtml
 
-  $nodeResources = Show-NodeResourceUsage -PageSize 999 -Html
+  $nodeResources = Show-NodeResourceUsage -PageSize 999 -Html -KubeData:$KubeData
   $collapsibleNodeResources = ConvertToCollapsible -Id "nodeResources" -defaultText "Show Table" -content $nodeResources
 
-  $emptyNsHtml = Show-EmptyNamespaces -PageSize 999 -Html -ExcludeNamespaces:$ExcludeNamespaces
+  $emptyNsHtml = Show-EmptyNamespaces -PageSize 999 -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleEmptyNsHtmls = ConvertToCollapsible -Id "emptyNamespace" -defaultText "Show Table" -content $emptyNsHtml
 
-  $dsIssuesHtml = Show-DaemonSetIssues -PageSize 999 -Html -ExcludeNamespaces:$ExcludeNamespaces
+  $dsIssuesHtml = Show-DaemonSetIssues -PageSize 999 -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleDsIssuesHtml = ConvertToCollapsible -Id "daemonSetIssues" -defaultText "Show Table" -content $dsIssuesHtml
 
-  $podsRestartHtml = Show-PodsWithHighRestarts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $podsRestartHtml = Show-PodsWithHighRestarts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsiblePodsRestartHtml = ConvertToCollapsible -Id "podsRestart" -defaultText "Show Table" -content $podsRestartHtml
 
-  $podLongRunningHtml = Show-LongRunningPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $podLongRunningHtml = Show-LongRunningPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsiblePodLongRunningHtml = ConvertToCollapsible -Id "podLongRunning" -defaultText "Show Table" -content $podLongRunningHtml
 
-  $podFailHtml = Show-FailedPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $podFailHtml = Show-FailedPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsiblePodFailHtml = ConvertToCollapsible -Id "podFail" -defaultText "Show Table" -content $podFailHtml
 
-  $podpendHtml = Show-PendingPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $podpendHtml = Show-PendingPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsiblePodPendingHtml = ConvertToCollapsible -Id "podPending" -defaultText "Show Table" -content $podpendHtml
 
-  $crashloopHtml = Show-CrashLoopBackOffPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $crashloopHtml = Show-CrashLoopBackOffPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleCrashloopHtml = ConvertToCollapsible -Id "crashloop" -defaultText "Show Table" -content $crashloopHtml
 
-  $leftoverdebugHtml = Show-LeftoverDebugPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $leftoverdebugHtml = Show-LeftoverDebugPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleLeftoverdebugHtml = ConvertToCollapsible -Id "leftoverDebug" -defaultText "Show Table" -content $leftoverdebugHtml
 
-  $stuckJobHtml = Show-StuckJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $stuckJobHtml = Show-StuckJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleStuckJobHtml = ConvertToCollapsible -Id "stuckJobs" -defaultText "Show Table" -content $stuckJobHtml
 
-  $jobFailHtml = Show-FailedJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $jobFailHtml = Show-FailedJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleJobFailHtml = ConvertToCollapsible -Id "jobFail" -defaultText "Show Table" -content $jobFailHtml
 
-  $servicesWithoutEndpointsHtml = Show-ServicesWithoutEndpoints -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $servicesWithoutEndpointsHtml = Show-ServicesWithoutEndpoints -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleServicesWithoutEndpointsHtml = ConvertToCollapsible -Id "servicesWithoutEndpoints" -defaultText "Show Table" -content $servicesWithoutEndpointsHtml
 
-  $publicServicesHtml = Check-PubliclyAccessibleServices -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $publicServicesHtml = Check-PubliclyAccessibleServices -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsiblePublicServicesHtml = ConvertToCollapsible -Id "publicServices" -defaultText "Show Table" -content $publicServicesHtml
 
-  $unmountedpvHtml = Show-UnusedPVCs  -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $unmountedpvHtml = Show-UnusedPVCs  -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleUnmountedpvHtml = ConvertToCollapsible -Id "unmountedPV" -defaultText "Show Table" -content $unmountedpvHtml
 
-  $rbacmisconfigHtml = Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $rbacmisconfigHtml = Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleRbacmisconfigHtml = ConvertToCollapsible -Id "rbacMisconfig" -defaultText "Show Table" -content $rbacmisconfigHtml
 
-  $rbacOverexposureHtml = Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $rbacOverexposureHtml = Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleRbacOverexposureHtml = ConvertToCollapsible -Id "rbacOverexposure" -defaultText "Show Table" -content $rbacOverexposureHtml
 
-  $orphanedConfigMapsHtml = Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $orphanedConfigMapsHtml = Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleOrphanedConfigMapsHtml = ConvertToCollapsible -Id "orphanedConfigMaps" -defaultText "Show Table" -content $orphanedConfigMapsHtml
 
-  $orphanedSecretsHtml = Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $orphanedSecretsHtml = Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleOrphanedSecretsHtml = ConvertToCollapsible -Id "orphanedSecrets" -defaultText "Show Table" -content $orphanedSecretsHtml
 
-  $podsRootHtml = Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $podsRootHtml = Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsiblePodsRootHtml = ConvertToCollapsible -Id "podsRoot" -defaultText "Show Table" -content $podsRootHtml
 
-  $privilegedContainersHtml = Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $privilegedContainersHtml = Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsiblePrivilegedContainersHtml = ConvertToCollapsible -Id "privilegedContainers" -defaultText "Show Table" -content $privilegedContainersHtml
 
-  $hostPidNetHtml = Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $hostPidNetHtml = Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleHostPidNetHtml = ConvertToCollapsible -Id "hostPidNet" -defaultText "Show Table" -content $hostPidNetHtml
 
-  $eventSummaryHtml = Show-KubeEvents -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces
+  $eventSummaryHtml = Show-KubeEvents -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
   $collapsibleEventSummaryHtml = ConvertToCollapsible -Id "eventSummary" -defaultText "Show Table" -content $eventSummaryHtml
 
   # Convert output array to a single string

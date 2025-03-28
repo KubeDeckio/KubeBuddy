@@ -72,38 +72,73 @@ function Invoke-KubeBuddy {
     Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
     Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
 
-    # **HTML Report with Optional AKS Check**
+    # Get current context first
+    $context = kubectl config view --minify -o jsonpath="{.current-context}"
+    Write-Host "`n🤖 Connected to Kubernetes context: '$context'" -ForegroundColor Cyan
+
+    # Confirm before proceeding
+    $confirmation = Read-Host "🤖 Is this the correct cluster context? (y/n)"
+    if ($confirmation.Trim().ToLower() -ne 'y') {
+        Write-Host "🤖 Exiting. Please switch context and try again." -ForegroundColor Yellow
+        return
+    }
+
+    if ($Aks) {
+        Write-Host "`n🤖 Validating AKS cluster access..." -ForegroundColor Yellow
+        try {
+            $aksInfo = az aks show --resource-group $ResourceGroup --name $ClusterName | ConvertFrom-Json
+        }
+        catch {
+            Write-Host "🤖 ❌ Failed to access AKS cluster '$ClusterName' in '$ResourceGroup'" -ForegroundColor Red
+            Write-Host "🤖 Check that you're logged in to Azure and that the cluster exists." -ForegroundColor Red
+            return
+        }
+    
+        Write-Host "🤖 ✅ Connected to AKS Cluster: $($aksInfo.name) in $($aksInfo.location)`n" -ForegroundColor Green
+    }
+
+    # ========== REPORT MODES ==========
+
     if ($HtmlReport) {
         Write-Host "📄 Generating HTML report: $htmlReportFile" -ForegroundColor Cyan
-        
-        if ($Aks) {
-            # Ensure required parameters for AKS are provided
-            if (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName) {
-                Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
-                return
-            }
-            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile -aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces
-        } else {
-            Generate-K8sHTMLReport -version $moduleVersion -outputPath $htmlReportFile -ExcludeNamespaces:$ExcludeNamespaces
+
+        if ($Aks -and (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName)) {
+            Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
+            return
         }
+
+        $KubeData = Get-KubeData -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks
+
+        Generate-K8sHTMLReport `
+            -version $moduleVersion `
+            -outputPath $htmlReportFile `
+            -aks:$Aks `
+            -SubscriptionId $SubscriptionId `
+            -ResourceGroup $ResourceGroup `
+            -ClusterName $ClusterName `
+            -ExcludeNamespaces:$ExcludeNamespaces `
+            -KubeData $KubeData
 
         Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
         return
     }
 
-    # **TXT Report Generation**
     if ($txtReport) {
         Write-Host "📄 Generating Text report: $txtReportFile" -ForegroundColor Cyan
-        Generate-K8sTextReport -ReportFile $txtReportFile -ExcludeNamespaces:$ExcludeNamespaces
+
+        $KubeData = Get-KubeData -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks
+
+        Generate-K8sTextReport `
+            -ReportFile $txtReportFile `
+            -ExcludeNamespaces:$ExcludeNamespaces `
+            -KubeData $KubeData
+
         Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
         return
     }
 
-    # Get the current Kubernetes context
-    $context = kubectl config view --minify -o jsonpath="{.current-context}"
-
-    # Thinking animation
-    Write-Host -NoNewline "`r🤖 Initializing KubeBuddy..." -ForegroundColor Yellow
+    # ========== INTERACTIVE MODE ==========
+    Write-Host -NoNewline "`n`r🤖 Initializing KubeBuddy..." -ForegroundColor Yellow
     Start-Sleep -Seconds 2
     Write-Host "`r✅ KubeBuddy is ready to assist you!  " -ForegroundColor Green
 
@@ -124,5 +159,5 @@ function Invoke-KubeBuddy {
     Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Green" -delay 50
 
     $firstRun = $true
-    show-mainMenu -ExcludeNamespaces:$ExcludeNamespaces
+    show-mainMenu -ExcludeNamespaces:$ExcludeNamespaces -KubeData $KubeData
 }

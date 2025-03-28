@@ -1,25 +1,35 @@
 function Show-KubeEvents {
     param(
-        [int]$PageSize = 10, # Number of events per page
-        [switch]$Html
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [object]$KubeData
     )
 
     if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
     Write-Host "`n[📢 Kubernetes Warnings]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Kubernetes Warnings..." -ForegroundColor Yellow
 
-    $events = kubectl get events -A --sort-by=.metadata.creationTimestamp -o json | ConvertFrom-Json
-    $totalEvents = $events.items.Count
+    try {
+        $events = if ($KubeData -and $KubeData.Events) {
+            $KubeData.Events
+        } else {
+            kubectl get events -A --sort-by=.metadata.creationTimestamp -o json | ConvertFrom-Json
+        }
+    } catch {
+        Write-Host "`r🤖 ❌ Failed to fetch Kubernetes events." -ForegroundColor Red
+        return
+    }
 
+    $totalEvents = $events.items.Count
     $eventData = @()
     $warningCount = 0
 
     foreach ($event in $events.items) {
         if ($event.type -eq "Warning") {
-            $severity = "⚠️ Warning"; $warningCount++
+            $warningCount++
             $eventData += [PSCustomObject]@{
                 Timestamp = $event.metadata.creationTimestamp
-                Type      = $severity
+                Type      = "⚠️ Warning"
                 Namespace = $event.metadata.namespace
                 Source    = $event.source.component
                 Object    = "$($event.involvedObject.kind)/$($event.involvedObject.name)"
@@ -30,10 +40,8 @@ function Show-KubeEvents {
     }
 
     if ($warningCount -eq 0) {
-        Write-Host "`r🤖 ✅ No warnings found.          " -ForegroundColor Green
-        if ($Html) {
-            return "<p><strong>✅ No Kubernetes warnings found.</strong></p>"
-        }
+        Write-Host "`r🤖 ✅ No warnings found." -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No Kubernetes warnings found.</strong></p>" }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
@@ -42,14 +50,14 @@ function Show-KubeEvents {
 
     Write-Host "`r🤖 ✅ Warnings fetched. (Total: $warningCount)" -ForegroundColor Green
 
-    if ($Html) {
-        $sortedData = $eventData | Sort-Object Timestamp -Descending
-        $htmlTable = $sortedData |
-        ConvertTo-Html -Fragment -Property Timestamp, Type, Namespace, Source, Object, Reason, Message |
-        Out-String
+    $sortedData = $eventData | Sort-Object Timestamp -Descending
 
-        $htmlTable = "<p><strong>⚠️ Warnings:</strong> $warningCount</p>" + $htmlTable
-        return $htmlTable
+    if ($Html) {
+        $htmlTable = $sortedData |
+            ConvertTo-Html -Fragment -Property Timestamp, Type, Namespace, Source, Object, Reason, Message |
+            Out-String
+
+        return "<p><strong>⚠️ Warnings:</strong> $warningCount</p>$htmlTable"
     }
 
     if ($Global:MakeReport) {
@@ -57,16 +65,17 @@ function Show-KubeEvents {
         Write-ToReport "`n⚠️ Warnings: $warningCount"
         Write-ToReport "-----------------------------------------------------------"
 
-        $sortedData = $eventData | Sort-Object Timestamp -Descending
-        $tableString = $sortedData | Format-Table -Property Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize | Out-String -Width 500
-        $tableString -split "`n" | ForEach-Object { Write-ToReport $_ }
+        $tableString = $sortedData |
+            Format-Table Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize |
+            Out-Host | Out-String -Width 500
 
+        $tableString -split "`n" | ForEach-Object { Write-ToReport $_ }
         return
     }
 
-    # Pagination
+    # Console pagination
     $currentPage = 0
-    $totalPages = [math]::Ceiling($eventData.Count / $PageSize)
+    $totalPages = [math]::Ceiling($sortedData.Count / $PageSize)
 
     do {
         Clear-Host
@@ -80,28 +89,24 @@ function Show-KubeEvents {
                 "   - ⚠️ Warnings indicate possible failures",
                 "",
                 "🔍 Troubleshooting Tips:",
-                "   - Run: kubectl describe node <NODE_NAME>",
-                "   - Check pod logs: kubectl logs <POD_NAME> -n <NAMESPACE>",
-                "   - Look for patterns in warnings",
+                "   - kubectl describe node <NODE_NAME>",
+                "   - kubectl logs <POD_NAME> -n <NAMESPACE>",
                 "",
                 "📢 Total Warnings: $warningCount"
             )
-
             Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
-        $sortedData = $eventData | Sort-Object Timestamp -Descending
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $sortedData.Count)
+        $pageData = $sortedData[$startIndex..($endIndex - 1)]
 
-        $tableData = $sortedData[$startIndex..($endIndex - 1)]
-        if ($tableData) {
-            $tableData | Format-Table -Property Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize
+        if ($pageData) {
+            $pageData | Format-Table Timestamp, Type, Namespace, Source, Object, Reason, Message -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage
-
     } while ($true)
 }

@@ -10,7 +10,8 @@ function Write-ToReport {
 function Generate-K8sTextReport {
     param (
         [string]$ReportFile = "$pwd/kubebuddy-report.txt",
-        [switch]$ExcludeNamespaces
+        [switch]$ExcludeNamespaces,
+        [object]$KubeData 
     )
     $Global:MakeReport = $true
     
@@ -37,8 +38,8 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Node Information..." -ForegroundColor Yellow
-    Show-NodeConditions
-    Show-NodeResourceUsage
+    Show-NodeConditions -KubeData:$KubeData
+    Show-NodeResourceUsage -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Node Information fetched.   " -ForegroundColor Green
@@ -47,7 +48,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Namespace Information." -ForegroundColor Yellow
-    Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces
+    Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Namespace Information fetched.   " -ForegroundColor Green
@@ -56,7 +57,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Workload Information." -ForegroundColor Yellow
-    Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces
+    Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Workload Information fetched.   " -ForegroundColor Green
@@ -65,12 +66,12 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Pod Information..." -ForegroundColor Yellow
-    Show-PodsWithHighRestarts -ExcludeNamespaces:$ExcludeNamespaces
-    Show-LongRunningPods -ExcludeNamespaces:$ExcludeNamespaces
-    Show-FailedPods -ExcludeNamespaces:$ExcludeNamespaces
-    Show-PendingPods -ExcludeNamespaces:$ExcludeNamespaces
-    Show-CrashLoopBackOffPods -ExcludeNamespaces:$ExcludeNamespaces
-    Show-LeftoverDebugPods -ExcludeNamespaces:$ExcludeNamespaces
+    Show-PodsWithHighRestarts -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Show-LongRunningPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Show-FailedPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Show-PendingPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Show-CrashLoopBackOffPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Show-LeftoverDebugPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Pod Information fetched.   " -ForegroundColor Green
@@ -79,8 +80,8 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Job Information..." -ForegroundColor Yellow
-    Show-StuckJobs -ExcludeNamespaces:$ExcludeNamespaces
-    Show-FailedJobs -ExcludeNamespaces:$ExcludeNamespaces
+    Show-StuckJobs -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Show-FailedJobs -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Job Information fetched.   " -ForegroundColor Green
@@ -89,8 +90,8 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Service Information." -ForegroundColor Yellow
-    Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces
-    Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces
+    Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Service Information fetched.   " -ForegroundColor Green
@@ -99,7 +100,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Storage Information." -ForegroundColor Yellow
-    Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces
+    Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Storage Information fetched.   " -ForegroundColor Green
@@ -108,12 +109,12 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Security Information." -ForegroundColor Yellow
-    Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces
-    Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces
-    Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces
-    Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces
-    Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces
-    Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces
+    Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Security Information fetched.   " -ForegroundColor Green
@@ -122,7 +123,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching Kube Events." -ForegroundColor Yellow
-    show-KubeEvents
+    show-KubeEvents -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 Kube Events fetched.   " -ForegroundColor Green
@@ -132,7 +133,7 @@ function Generate-K8sTextReport {
     Write-Host ""
     $cursorPos = $Host.UI.RawUI.CursorPosition
     Write-Host -NoNewline "🤖 Fetching AKS Information." -ForegroundColor Yellow
-    Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+    Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData:$KubeData
     $cursorEndPos = $Host.UI.RawUI.CursorPosition
     $Host.UI.RawUI.CursorPosition = $cursorPos
     Write-Host "🤖 AKS Information fetched.   " -ForegroundColor Green

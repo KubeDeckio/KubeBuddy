@@ -74,7 +74,7 @@ function Show-WorkloadMenu {
         Clear-Host
 
         switch ($choice) {
-            "1" { Show-DaemonSetIssues }
+            "1" { Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces }
 
             "2" {
                 $msg = @(

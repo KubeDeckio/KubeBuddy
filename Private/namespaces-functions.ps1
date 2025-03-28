@@ -2,6 +2,7 @@ function Show-EmptyNamespaces {
     param(
         [int]$PageSize = 10, # Number of namespaces per page
         [switch]$Html, # If specified, return an HTML table
+        [object]$kubeData,
         [switch]$ExcludeNamespaces
     )
 
@@ -10,14 +11,23 @@ function Show-EmptyNamespaces {
     Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
     # Fetch all namespaces
+    if ($kubeData) {
+        $namespaces = $kubeData.Namespaces.Metadata.Name
+    } else {
     $namespaces = @(kubectl get namespaces -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     ForEach-Object { $_.metadata.name })
+    }
 
     # Fetch all pods and their namespaces
+    if ($kubeData) {
+        $pods = $kubeData.Pods |
+        Group-Object { $_.metadata.namespace }
+    } else {
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     Group-Object { $_.metadata.namespace }
+    }
 
     # Extract namespaces that have at least one pod
     $namespacesWithPods = $pods.Name
@@ -110,6 +120,8 @@ function Show-EmptyNamespaces {
             "",
             "⚠️ Total Empty Namespaces: $totalNamespaces"
         )
+
+        
         if ($currentPage -eq 0) {
             Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
         }
@@ -117,16 +129,15 @@ function Show-EmptyNamespaces {
         # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalNamespaces)
-
-        $tableData = @()
-        for ($i = $startIndex; $i -lt $endIndex; $i++) {
-            $namespace = $emptyNamespaces[$i]
-            $tableData += [PSCustomObject]@{ Namespace = $namespace.ToString() }
+        
+        $tableData = $emptyNamespaces | Select-Object -Skip $startIndex -First ($endIndex - $startIndex) | ForEach-Object {
+            [PSCustomObject]@{ Namespace = $_ }
         }
-
+        
         if ($tableData) {
-            $tableData | Format-Table Namespace -AutoSize
+            $tableData | Format-Table Namespace -AutoSize | Out-Host
         }
+        
 
         # Pagination
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
