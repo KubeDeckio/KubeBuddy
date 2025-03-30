@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12] - 2025-03-30
+
+### Added
+- Major performance improvement: report generation is now significantly faster due to parallelised kubectl resource fetching in `Get-KubeData`. This applies to **HTML, text, and new JSON reports only**, not interactive checks.
+- Added support for `-Json` output across key functions and checks, enabling structured machine-readable exports.
+- New `-Yes` parameter added to bypass interactive prompts in non-interactive or CI contexts.
+- Improved HTML report with optional hiding of ✅ sections when no issues are found.
+
+### Fixed
+- Fixed incorrect exclusion of stuck jobs due to filtering logic.
+
+### Changed
+- Error output during resource fetch and report generation is now cleaner and more informative.
+
+## [0.0.11] - 2025-03-28
+
+### Fixed
+- Table output now displays correctly when pagination is enabled.
+
 ## [0.0.10] - 2025-03-26
 
 ### Added

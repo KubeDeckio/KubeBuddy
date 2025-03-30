@@ -40,8 +40,8 @@ function Show-StuckJobs {
     }
 
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No stuck jobs found in the cluster." -ForegroundColor Green
-        if ($Html) { return "<p><strong>✅ No  stuck jobs found in the cluster.</strong></p>" }
+        Write-Host "`r🤖 ✅ No jobs found.   " -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No  jobs found.</strong></p>" }
         return
     }
     
@@ -206,8 +206,8 @@ function Show-FailedJobs {
     }
 
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No failed jobs found in the cluster." -ForegroundColor Green
-        if ($Html) { return "<p><strong>✅ No failed jobs found.</strong></p>" }
+        Write-Host "`r🤖 ✅ No jobs found.   " -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No jobs found.</strong></p>" }
         return
     }
 

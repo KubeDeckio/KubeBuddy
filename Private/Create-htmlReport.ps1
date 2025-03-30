@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
       $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
     }
   
-    if ($pre -match '✅') {
+    if ($pre -notmatch '⚠️' ) {
       $content = $pre  # just the message, no table
     } else {
       $content = "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText "Show Table" -content $html)
