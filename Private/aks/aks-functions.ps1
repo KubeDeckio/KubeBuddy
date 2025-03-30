@@ -52,7 +52,7 @@ function Invoke-AKSBestPractices {
             )
             Write-SpeechBubble -msg $msg -color "Yellow" -icon "🤖" -lastColor "Red"
             if ($yes) {
-                Write-SpeechBubble -msg @("🤖 Skipping context confirmation.") -color "Yellow" -icon "🤖"
+                Write-SpeechBubble -msg @("🤖 Skipping context confirmation.") -color "Red" -icon "🤖"
                 return $true
             }
             Write-SpeechBubble -msg @("🤖 Please confirm if you want to continue.") -color "Yellow" -icon "🤖"

@@ -257,7 +257,8 @@ function Check-PubliclyAccessibleServices {
 
     if ($Global:MakeReport) {
         Write-ToReport "`n[🌐 Publicly Accessible Services]`n⚠️ Total Public Services Found: $totalPublic"
-        $tableData | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-String | Write-ToReport
+        $tableString = $tableData | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-String 
+        Write-ToReport $tableString
         return
     }
 

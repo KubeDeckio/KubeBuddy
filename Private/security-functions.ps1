@@ -133,7 +133,8 @@ function Check-OrphanedConfigMaps {
     if ($Global:MakeReport) {
         Write-ToReport "`n[📜 Orphaned ConfigMaps]`n"
         Write-ToReport "⚠️ Total Orphaned ConfigMaps Found: $($items.Count)"
-        $items | Format-Table Namespace, Type, Name -AutoSize | Out-Host | Out-String | Write-ToReport
+        $tableString = $items | Format-Table Namespace, Type, Name -AutoSize | Out-String 
+        Write-ToReport $tableString
         return
     }
 
@@ -318,7 +319,8 @@ function Check-OrphanedSecrets {
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔑 Orphaned Secrets]`n"
         Write-ToReport "⚠️ Total Orphaned Secrets Found: $($items.Count)"
-        $items | Format-Table Namespace, Type, Name -AutoSize | Out-Host | Out-String | Write-ToReport
+        $tableString = $items | Format-Table Namespace, Type, Name -AutoSize | Out-String
+        Write-ToReport $tableString
         return
     }
 
@@ -496,7 +498,8 @@ function Check-RBACOverexposure {
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
         Write-ToReport "⚠️ Total Overexposed Bindings: $total"
-        $findings | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize | Out-Host | Out-String | Write-ToReport
+        $tableString = $findings | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize | Out-String
+        Write-ToReport $tableString
         return
     }
 
@@ -702,7 +705,8 @@ function Check-RBACMisconfigurations {
     if ($Global:MakeReport) {
         Write-ToReport "`n[RBAC Misconfigurations]`n"
         Write-ToReport "⚠️ Total RBAC Misconfigurations Detected: $($invalidRBAC.Count)"
-        Write-ToReport ($invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize | Out-Host | Out-String)
+        $tableString = $invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize | Out-String
+        Write-ToReport $tableString
         return
     }
 
@@ -818,7 +822,8 @@ function Check-HostPidAndNetwork {
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔌 Pods with hostPID / hostNetwork]`n"
         Write-ToReport "⚠️ Total Flagged Pods: $($flaggedPods.Count)"
-        Write-ToReport ($flaggedPods | Format-Table Namespace, Pod, hostPID, hostNetwork -AutoSize | Out-Host | Out-String)
+        $tableString = $flaggedPods | Format-Table Namespace, Pod, hostPID, hostNetwork -AutoSize | Out-String
+        Write-ToReport $tableString
         return
     }
 
@@ -943,7 +948,8 @@ function Check-PodsRunningAsRoot {
     if ($Global:MakeReport) {
         Write-ToReport "`n[👑 Pods Running as Root]`n"
         Write-ToReport "⚠️ Total Pods Running as Root: $($rootPods.Count)"
-        Write-ToReport ($rootPods | Format-Table Namespace, Pod, Container, runAsUser -AutoSize | Out-Host | Out-String)
+        $tableString =$rootPods | Format-Table Namespace, Pod, Container, runAsUser -AutoSize | Out-String
+        Write-ToReport $tableString
         return
     }
 
@@ -1058,7 +1064,8 @@ function Check-PrivilegedContainers {
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔓 Privileged Containers]`n"
         Write-ToReport "⚠️ Total Privileged Containers Found: $($privileged.Count)"
-        Write-ToReport ($privileged | Format-Table Namespace, Pod, Container -AutoSize | Out-Host | Out-String)
+        $tableString = $privileged | Format-Table Namespace, Pod, Container -AutoSize | Out-String
+        Write-ToReport $tableString
         return
     }
 

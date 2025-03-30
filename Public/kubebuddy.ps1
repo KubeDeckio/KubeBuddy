@@ -81,7 +81,7 @@ function Invoke-KubeBuddy {
 
     # Confirm before proceeding
     if ($yes) {
-        Write-Host "🤖 Skipping context confirmation." -ForegroundColor Yellow
+        Write-Host "🤖 Skipping context confirmation." -ForegroundColor Red
     } else {
         $confirmation = Read-Host "🤖 Is this the correct context? (y/n)"
         if ($confirmation.Trim().ToLower() -ne 'y') {

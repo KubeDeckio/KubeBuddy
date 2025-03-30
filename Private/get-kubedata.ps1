@@ -115,9 +115,9 @@ function Get-KubeData {
                 $data.CustomResourcesByKind[$kind] = $items.items
             } catch {}
         }
-        Write-Host "✅ Custom Resource Instances fetched." -ForegroundColor Green
+        Write-Host "`r✅ Custom Resource Instances fetched.   " -ForegroundColor Green
     } catch {
-        Write-Host "❌ Failed to fetch CRDs or CR Instances" -ForegroundColor Red
+        Write-Host "`r❌ Failed to fetch CRDs or CR Instances" -ForegroundColor Red
     }
 
     # AKS Metadata (only if needed)
@@ -127,10 +127,10 @@ function Get-KubeData {
             $data.AksCluster = az aks show --resource-group $ResourceGroup --name $ClusterName | ConvertFrom-Json
             Write-Host "`r✅ AKS Metadata fetched." -ForegroundColor Green
 
-            Write-Host -NoNewline "🤖 Fetching Constraints..." -ForegroundColor Yellow
+            Write-Host -NoNewline "`n🤖 Fetching Constraints..." -ForegroundColor Yellow
             $data.ConstraintTemplates = @( (kubectl get constrainttemplates -o json | ConvertFrom-Json).items )
             $data.Constraints = @( (kubectl get constraints -A -o json | ConvertFrom-Json).items )
-            Write-Host "`r✅ Constraints fetched." -ForegroundColor Green
+            Write-Host "`r✅ Constraints fetched.   " -ForegroundColor Green
         } catch {
             Write-Host "`r❌ Failed to fetch AKS Metadata or Constraints" -ForegroundColor Red
         }

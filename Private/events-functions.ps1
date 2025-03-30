@@ -112,10 +112,21 @@ function Show-KubeEvents {
         Write-Host "`n[📢 Kubernetes Warnings - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
         if ($currentPage -eq 0) {
-            Write-Host "`n📊 Grouped Warning Summary:" -ForegroundColor Yellow
-            $summaryTable | Format-Table Count, Reason, Message, Source -AutoSize | Out-Host
+            $msg = @(
+                "🤖 Kubernetes Warnings track potential issues in the cluster.",
+                "",
+                "📌 What to look for:",
+                "   - ⚠️ Warnings indicate possible failures",
+                "",
+                "🔍 Troubleshooting Tips:",
+                "   - Run: kubectl describe node <NODE_NAME>",
+                "   - Check pod logs: kubectl logs <POD_NAME> -n <NAMESPACE>",
+                "   - Look for patterns in warnings",
+                "",
+                "📢 Total Warnings: $warningCount"
+            )
 
-            Write-Host "`n📜 Full Events Below:"
+            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
         $startIndex = $currentPage * $PageSize

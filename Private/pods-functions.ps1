@@ -119,7 +119,7 @@ function Show-PodsWithHighRestarts {
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔁 Pods with High Restarts]`n"
         Write-ToReport "⚠️ Total High-Restart Pods: $totalPods"
-        $tableString = $filteredPods | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-Host | Out-String
+        $tableString = $filteredPods | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize| Out-String
         Write-ToReport $tableString
         return
     }
@@ -273,7 +273,7 @@ function Show-LongRunningPods {
         Write-ToReport "`n[⏳ Long Running Pods]`n"
         Write-ToReport "⚠️ Total Long-Running Pods: $totalPods"
         $tableString = $filteredPods |
-            Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-Host | Out-String
+            Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -398,7 +398,7 @@ function Show-FailedPods {
         Write-ToReport "`n[🔴 Failed Pods]`n"
         Write-ToReport "⚠️ Total Failed Pods: $totalPods"
         $tableString = $tableData |
-            Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-Host | Out-String
+            Format-Table Namespace, Pod, Reason, Message -AutoSize| Out-String
         Write-ToReport $tableString
         return
     }
@@ -528,7 +528,7 @@ function Show-PendingPods {
         Write-ToReport "`n[⏳ Pending Pods]`n"
         Write-ToReport "⚠️ Total Pending Pods Found: $totalPods"
         $tableString = $tableData |
-            Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-Host | Out-String
+            Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -657,7 +657,8 @@ function Show-CrashLoopBackOffPods {
 
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n⚠️ Total CrashLoopBackOff Pods Found: $totalPods"
-        Write-ToReport ($crashPods | Format-Table Namespace, Pod, Restarts, Status -AutoSize | Out-Host | Out-String)
+        $tableString = $crashPods | Format-Table Namespace, Pod, Restarts, Status -AutoSize | Out-String
+        Write-ToReport $tableString
         return
     }
 
@@ -774,7 +775,7 @@ function Show-LeftoverDebugPods {
 
     if ($Global:MakeReport) {
         Write-ToReport "`n[🐞 Leftover Debug Pods]`n⚠️ Total Leftover Debug Pods Found: $totalPods"
-        $tableString = $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize | Out-Host | Out-String
+        $tableString = $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize| Out-String
         Write-ToReport $tableString
         return
     }
