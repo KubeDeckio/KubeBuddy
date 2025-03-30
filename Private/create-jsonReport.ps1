@@ -2,7 +2,7 @@ function Create-jsonReport {
     param (
         [string]$OutputPath,
         [object]$KubeData,
-        [switch]$IncludeAks
+        [switch]$aks
     )
 
     $clusterName = (kubectl config current-context)
@@ -32,6 +32,7 @@ function Create-jsonReport {
             FailedJobs               = Show-FailedJobs -Json -KubeData $KubeData
             ServicesWithoutEndpoints = Show-ServicesWithoutEndpoints -Json -KubeData $KubeData
             PublicServices           = Check-PubliclyAccessibleServices -Json -KubeData $KubeData
+            UnusedPVCs               = Show-UnusedPVCs -Json -KubeData $KubeData
             OrphanedConfigMaps       = Check-OrphanedConfigMaps -Json -KubeData $KubeData
             OrphanedSecrets          = Check-OrphanedSecrets -Json -KubeData $KubeData
             RBACMisconfig            = Check-RBACMisconfigurations -Json -KubeData $KubeData
@@ -43,11 +44,10 @@ function Create-jsonReport {
         }
     }
 
-    if ($IncludeAks -and $KubeData.AksCluster) {
+    if ($aks -and $KubeData.AksCluster) {
         $results.metadata.aks = $KubeData.AksCluster
         $results.checks.AKSBestPractices = Invoke-AKSBestPractices -Json -KubeData $KubeData
     }
 
     $results | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $OutputPath
-    Write-Host "✅ JSON report saved to $OutputPath" -ForegroundColor Green
 }

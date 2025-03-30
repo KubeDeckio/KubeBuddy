@@ -3,10 +3,11 @@ function Show-EmptyNamespaces {
         [int]$PageSize = 10, # Number of namespaces per page
         [switch]$Html, # If specified, return an HTML table
         [object]$kubeData,
+        [switch]$json,
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[📂 Empty Namespaces]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
@@ -52,6 +53,13 @@ function Show-EmptyNamespaces {
     if ($totalNamespaces -eq 0) {
         Write-Host "`r🤖 ✅ No empty namespaces found." -ForegroundColor Green
 
+        if ($Json) {
+            return [pscustomobject]@{
+                TotalEmptyNamespaces = 0
+                Namespaces           = @()
+            }
+        }
+
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[📂 Empty Namespaces]`n"
             Write-ToReport "✅ No empty namespaces found."
@@ -68,6 +76,14 @@ function Show-EmptyNamespaces {
     }
 
     Write-Host "`r🤖 ✅ Namespaces fetched. ($totalNamespaces empty namespaces detected)" -ForegroundColor Green
+
+
+    if ($Json) {
+        return [pscustomobject]@{
+            TotalEmptyNamespaces = $totalNamespaces
+            Namespaces           = $emptyNamespaces
+        }
+    }
 
     # ----- HTML SWITCH -----
     if ($Html) {

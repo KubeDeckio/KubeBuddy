@@ -1,85 +1,94 @@
 function Check-KubernetesVersion {
 
-      $versionInfo = kubectl version -o json | ConvertFrom-Json
-      $k8sVersion = $versionInfo.serverVersion.gitVersion
-  
-    $latestVersion = (Invoke-WebRequest -Uri "https://dl.k8s.io/release/stable.txt").Content.Trim()
-  
-    if ($k8sVersion -lt $latestVersion) {
-      return "⚠️  Cluster is running an outdated version: $k8sVersion (Latest: $latestVersion)"
-    } else {
-      return "✅ Cluster is up to date ($k8sVersion)"
-    }
+  $versionInfo = kubectl version -o json | ConvertFrom-Json
+  $k8sVersion = $versionInfo.serverVersion.gitVersion
+
+  $latestVersion = (Invoke-WebRequest -Uri "https://dl.k8s.io/release/stable.txt").Content.Trim()
+
+  if ($k8sVersion -lt $latestVersion) {
+    return "⚠️  Cluster is running an outdated version: $k8sVersion (Latest: $latestVersion)"
+  } else {
+    return "✅ Cluster is up to date ($k8sVersion)"
   }
-  
-  function Show-ClusterSummary {
+}
+
+function Show-ClusterSummary {
     param(
-      [switch]$Html,
-      [object]$KubeData
+        [switch]$Html,
+        [switch]$Json,
+        [object]$KubeData
     )
-  
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
-  
-      $versionInfo = kubectl version -o json | ConvertFrom-Json
-      $k8sVersion = $versionInfo.serverVersion.gitVersion
-      $clusterName = (kubectl config current-context)
-  
+
+    $versionInfo = kubectl version -o json | ConvertFrom-Json
+    $k8sVersion = $versionInfo.serverVersion.gitVersion
+    $clusterName = kubectl config current-context
+
     Write-Host "`r🤖 Cluster Information fetched." -ForegroundColor Green
-  
-    if (-not $Global:MakeReport) {
-      Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
-      Write-Host "is " -NoNewline
-      Write-Host "$clusterName" -ForegroundColor Yellow
-      Write-Host "Kubernetes Version " -NoNewline -ForegroundColor Green
-      Write-Host "is " -NoNewline
-      Write-Host "$k8sVersion" -ForegroundColor Yellow
-      if (-not $KubeData) { kubectl cluster-info }
-    }
-  
+
     Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility..." -ForegroundColor Yellow
-    $versionCheck = Check-KubernetesVersion -KubeData:$KubeData
+    $versionCheckResult = Check-KubernetesVersion
     Write-Host "`r🤖 Kubernetes Version Compatibility checked." -ForegroundColor Green
-    if (-not $Global:MakeReport) { Write-Host "`n$versionCheck" }
-  
+
     Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics..." -ForegroundColor Yellow
-    $summary = Show-HeroMetrics -KubeData:$KubeData
+    $summaryText = Show-HeroMetrics -KubeData:$KubeData
     Write-Host "`r🤖 Cluster Metrics fetched." -ForegroundColor Green
-    if (-not $Global:MakeReport) { Write-Host "`n$summary" }
-  
+
     Write-Host -NoNewline "`n🤖 Counting Kubernetes Events..." -ForegroundColor Yellow
-  
-    if ($KubeData) {
-      $events = $KubeData.events
-    } else {
-      $events = kubectl get events -A --sort-by=.metadata.creationTimestamp -o json | ConvertFrom-Json
+    $events = if ($KubeData) { $KubeData.events } else {
+        kubectl get events -A --sort-by=.metadata.creationTimestamp -o json | ConvertFrom-Json
     }
-  
+
     $warningCount = ($events | Where-Object { $_.type -eq "Warning" }).Count
     $errorCount = ($events | Where-Object { $_.reason -match "Failed|Error" }).Count
-  
     Write-Host "`r🤖 Kubernetes Events counted." -ForegroundColor Green
-    Write-Host "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount" -ForegroundColor Yellow
-  
+
+    if ($Json) {
+        return @{
+            ClusterName   = $clusterName
+            KubernetesVersion = $k8sVersion
+            VersionStatus = $versionCheckResult
+            ErrorEvents   = $errorCount
+            WarningEvents = $warningCount
+            MetricsSummary = $summaryText
+        }
+    }
+
+    if (-not $Global:MakeReport) {
+        Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
+        Write-Host "is " -NoNewline
+        Write-Host "$clusterName" -ForegroundColor Yellow
+        Write-Host "Kubernetes Version " -NoNewline -ForegroundColor Green
+        Write-Host "is " -NoNewline
+        Write-Host "$k8sVersion" -ForegroundColor Yellow
+        if (-not $KubeData) { kubectl cluster-info }
+        Write-Host "`n$($versionCheckResult)"
+        Write-Host "`n$summaryText"
+        Write-Host "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount" -ForegroundColor Yellow
+    }
+
     if ($Global:MakeReport) {
-      Write-ToReport "Cluster Name: $clusterName"
-      Write-ToReport "Kubernetes Version: $k8sVersion"
-      if (-not $KubeData) {
-        $info = kubectl cluster-info | Out-String
-        Write-ToReport $info
-      }
-      Write-ToReport "Compatibility Check: $versionCheck"
-      Write-ToReport "`nMetrics: $summary"
-      Write-ToReport "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount"
+        Write-ToReport "Cluster Name: $clusterName"
+        Write-ToReport "Kubernetes Version: $k8sVersion"
+        if (-not $KubeData) {
+            $info = kubectl cluster-info | Out-String
+            Write-ToReport $info
+        }
+        Write-ToReport "Compatibility Check: $($versionCheckResult)"
+        Write-ToReport "`nMetrics: $summaryText"
+        Write-ToReport "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount"
     }
-  
+
     if (-not $Global:MakeReport -and -not $Html) {
-      Read-Host "`nPress Enter to return to the main menu"
+        Read-Host "`nPress Enter to return to the main menu"
     }
-  }
+}
+
   
-  function Show-HeroMetrics {
+function Show-HeroMetrics {
     param (
       [object]$KubeData = $null
     )
@@ -93,7 +102,7 @@ function Check-KubernetesVersion {
     $nodeData = if ($KubeData) { $KubeData.nodes } else { kubectl get nodes -o json | ConvertFrom-Json }
     $podData = if ($KubeData) { $KubeData.pods } else { kubectl get pods --all-namespaces -o json | ConvertFrom-Json }
     $jobData = if ($KubeData) { $KubeData.jobs } else { kubectl get jobs --all-namespaces -o json | ConvertFrom-Json }
-    $topNodes = if ($KubeData) { $KubeData.top_nodes } else { kubectl top nodes --no-headers }
+    $topNodes = if ($KubeData) { $KubeData.topNodes } else { kubectl top nodes --no-headers }
   
     $totalNodes = $nodeData.items.Count
     $healthyNodes = ($nodeData.items | Where-Object { $_.status.conditions | Where-Object { $_.type -eq 'Ready' -and $_.status -eq 'True' } }).Count

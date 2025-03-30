@@ -3,15 +3,16 @@ function Show-DaemonSetIssues {
         [object]$DaemonSetsData,
         [int]$PageSize = 10,
         [switch]$Html,
-        [switch]$ExcludeNamespaces
+        [switch]$ExcludeNamespaces,
+        [switch]$Json
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔄 DaemonSets Not Fully Running]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Checking DaemonSet status..." -ForegroundColor Yellow
 
     try {
-        $daemonsets = if ($null -ne $DaemonSetsData) {
+        $daemonsets = if ($DaemonSetsData -and $DaemonSetsData.items) {
             $DaemonSetsData
         } else {
             kubectl get daemonsets --all-namespaces -o json 2>&1 | ConvertFrom-Json
@@ -29,7 +30,7 @@ function Show-DaemonSetIssues {
     }
 
     if ($ExcludeNamespaces) {
-        $daemonsets = Exclude-Namespaces -items $daemonsets
+        $daemonsets.items = Exclude-Namespaces -items $daemonsets.items
     }
 
     $filtered = $daemonsets.items | Where-Object {
@@ -52,11 +53,10 @@ function Show-DaemonSetIssues {
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n✅ All DaemonSets are fully running."
         }
+        if ($Html) { return "<p><strong>✅ All DaemonSets are fully running.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
-        }
-        if ($Html) {
-            return "<p><strong>✅ All DaemonSets are fully running.</strong></p>"
         }
         return
     }
@@ -68,6 +68,10 @@ function Show-DaemonSetIssues {
             ConvertTo-Html -Fragment -Property Namespace, DaemonSet, Desired, Running, Scheduled, Status |
             Out-String
         return "<p><strong>⚠️ Total DaemonSets with Issues:</strong> $total</p>" + $htmlTable
+    }
+
+    if ($Json) {
+        return @{ Total = $total; Items = $filtered }
     }
 
     if ($Global:MakeReport) {

@@ -11,7 +11,11 @@ function Generate-K8sTextReport {
     param (
         [string]$ReportFile = "$pwd/kubebuddy-report.txt",
         [switch]$ExcludeNamespaces,
-        [object]$KubeData 
+        [object]$KubeData,
+        [switch]$Aks,
+        [string]$SubscriptionId,
+        [string]$ResourceGroup,
+        [string]$ClusterName
     )
     $Global:MakeReport = $true
     

@@ -3,10 +3,11 @@ function Show-StuckJobs {
         [object]$KubeData,
         [int]$PageSize = 10,
         [switch]$Html,
+        [switch]$Json,
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[⏳ Stuck Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
@@ -39,23 +40,23 @@ function Show-StuckJobs {
     }
 
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No jobs found in the cluster." -ForegroundColor Green
-        if ($Html) { return "<p><strong>✅ No jobs found in the cluster.</strong></p>" }
+        Write-Host "`r🤖 ✅ No stuck jobs found in the cluster." -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No  stuck jobs found in the cluster.</strong></p>" }
         return
     }
+    
 
     Write-Host "`r🤖 ✅ Jobs fetched. (Total: $($jobs.Count))" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Analyzing Stuck Jobs..." -ForegroundColor Yellow
 
     $stuckJobs = $jobs | Where-Object {
-        (-not $_.status.conditions -or $_.status.conditions.type -notcontains "Complete") -and
-        $_.status.PSObject.Properties['active'] -and $_.status.active -gt 0 -and
-        (-not $_.status.PSObject.Properties['ready'] -or $_.status.ready -eq 0) -and
-        (-not $_.status.PSObject.Properties['succeeded'] -or $_.status.succeeded -eq 0) -and
-        (-not $_.status.PSObject.Properties['failed'] -or $_.status.failed -eq 0) -and
         $_.status.PSObject.Properties['startTime'] -and
-        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $thresholds.stuck_job_hours)
-    }
+        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $thresholds.stuck_job_hours) -and
+        (
+            -not $_.status.conditions -or
+            ($_.status.conditions | Where-Object { $_.type -eq "Complete" -and $_.status -eq "True" }) -eq $null
+        )
+    }    
 
     if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No stuck jobs found." -ForegroundColor Green
@@ -67,6 +68,23 @@ function Show-StuckJobs {
 
     $totalJobs = $stuckJobs.Count
 
+    if ($Json) {
+        if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
+            return @{ Total = 0; Items = @() }
+        }
+    
+        $tableData = $stuckJobs | ForEach-Object {
+            [PSCustomObject]@{
+                Namespace = $_.metadata.namespace
+                Job       = $_.metadata.name
+                Age_Hours = [int](New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours
+                Status    = "🟡 Stuck"
+            }
+        }
+    
+        return @{ Total = $tableData.Count; Items = $tableData }
+    }
+    
     if ($Html) {
         $tableData = $stuckJobs | ForEach-Object {
             [PSCustomObject]@{
@@ -152,10 +170,11 @@ function Show-FailedJobs {
         [object]$KubeData,
         [int]$PageSize = 10,
         [switch]$Html,
+        [switch]$Json,
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[🔴 Failed Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
@@ -187,7 +206,7 @@ function Show-FailedJobs {
     }
 
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No jobs found in the cluster." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No failed jobs found in the cluster." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No failed jobs found.</strong></p>" }
         return
     }
@@ -212,6 +231,25 @@ function Show-FailedJobs {
 
     $totalJobs = $failedJobs.Count
 
+    if ($Json) {
+        if (-not $failedJobs -or $failedJobs.Count -eq 0) {
+            return @{ Total = 0; Items = @() }
+        }
+    
+        $tableData = $failedJobs | ForEach-Object {
+            [PSCustomObject]@{
+                Namespace = $_.metadata.namespace
+                Job       = $_.metadata.name
+                Age_Hours = [int](New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours
+                Failures  = $_.status.failed
+                Status    = "🔴 Failed"
+            }
+        }
+    
+        return @{ Total = $tableData.Count; Items = $tableData }
+    }
+    
+    
     if ($Html) {
         $tableData = $failedJobs | ForEach-Object {
             [PSCustomObject]@{

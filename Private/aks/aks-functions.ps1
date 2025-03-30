@@ -51,6 +51,11 @@ function Invoke-AKSBestPractices {
                 "💡 Run: kubectl config use-context $aksContext"
             )
             Write-SpeechBubble -msg $msg -color "Yellow" -icon "🤖" -lastColor "Red"
+            if ($yes) {
+                Write-SpeechBubble -msg @("🤖 Skipping context confirmation.") -color "Yellow" -icon "🤖"
+                return $true
+            }
+            Write-SpeechBubble -msg @("🤖 Please confirm if you want to continue.") -color "Yellow" -icon "🤖"
             $confirmation = Read-Host "🤖 Continue anyway? (yes/no)"
             Clear-Host
             if ($confirmation -match "^(y|yes)$") {

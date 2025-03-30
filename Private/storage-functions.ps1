@@ -3,10 +3,11 @@ function Show-UnusedPVCs {
         [object]$KubeData,
         [int]$PageSize = 10,
         [switch]$Html,
+        [switch]$Json,
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[💾 Unused Persistent Volume Claims]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching PVC Data..." -ForegroundColor Yellow
 
@@ -16,6 +17,7 @@ function Show-UnusedPVCs {
         } else {
             $raw = kubectl get pvc --all-namespaces -o json 2>&1 | Out-String
             if ($raw -match "No resources found") {
+                if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No PVCs found in the cluster." -ForegroundColor Green
                 if ($Global:MakeReport -and -not $Html) {
                     Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n✅ No PVCs found in the cluster."
@@ -31,6 +33,7 @@ function Show-UnusedPVCs {
     }
     catch {
         Write-Host "`r🤖 ❌ Failed to retrieve PVC data: $_" -ForegroundColor Red
+        if ($Json) { return @{ Error = "Failed to fetch PVC data"; Items = @() } }
         if ($Html) { return "<p><strong>❌ Failed to fetch PVC data.</strong></p>" }
         return
     }
@@ -40,6 +43,7 @@ function Show-UnusedPVCs {
     }
 
     if (-not $pvcs -or $pvcs.Count -eq 0) {
+        if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No PVCs found.   " -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No PVCs found.</strong></p>" }
         return
@@ -57,6 +61,7 @@ function Show-UnusedPVCs {
     }
     catch {
         Write-Host "`r🤖 ❌ Failed to fetch Pod data: $_" -ForegroundColor Red
+        if ($Json) { return @{ Error = "Failed to fetch Pod data"; Items = @() } }
         if ($Html) { return "<p><strong>❌ Failed to fetch Pod data.</strong></p>" }
         return
     }
@@ -72,6 +77,7 @@ function Show-UnusedPVCs {
     $totalPVCs = $unusedPVCs.Count
 
     if ($totalPVCs -eq 0) {
+        if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No unused PVCs found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No unused PVCs found.</strong></p>" }
         if ($Global:MakeReport -and -not $Html) {
@@ -85,15 +91,22 @@ function Show-UnusedPVCs {
 
     Write-Host "`r🤖 ✅ PVC usage analyzed. ($totalPVCs unused PVCs detected)" -ForegroundColor Green
 
-    if ($Html) {
-        $tableData = $unusedPVCs | ForEach-Object {
-            [PSCustomObject]@{
-                Namespace = $_.metadata.namespace
-                PVC       = $_.metadata.name
-                Storage   = $_.spec.resources.requests.storage
-            }
+    $tableData = $unusedPVCs | ForEach-Object {
+        [PSCustomObject]@{
+            Namespace = $_.metadata.namespace
+            PVC       = $_.metadata.name
+            Storage   = $_.spec.resources.requests.storage
         }
+    }
 
+    if ($Json) {
+        return @{
+            Total = $tableData.Count
+            Items = $tableData
+        }
+    }
+
+    if ($Html) {
         $htmlTable = $tableData |
             ConvertTo-Html -Fragment -Property Namespace, PVC, Storage |
             Out-String
@@ -102,13 +115,7 @@ function Show-UnusedPVCs {
 
     if ($Global:MakeReport) {
         Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n⚠️ Total Unused PVCs Found: $totalPVCs"
-        $tableString = $unusedPVCs | ForEach-Object {
-            [PSCustomObject]@{
-                Namespace = $_.metadata.namespace
-                PVC       = $_.metadata.name
-                Storage   = $_.spec.resources.requests.storage
-            }
-        } | Format-Table Namespace, PVC, Storage -AutoSize | Out-Host | Out-String
+        $tableString = $tableData | Format-Table Namespace, PVC, Storage -AutoSize | Out-Host | Out-String
         Write-ToReport $tableString
         return
     }
@@ -137,21 +144,14 @@ function Show-UnusedPVCs {
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPVCs)
 
-        $tableData = $unusedPVCs[$startIndex..($endIndex - 1)] | ForEach-Object {
-            [PSCustomObject]@{
-                Namespace = $_.metadata.namespace
-                PVC       = $_.metadata.name
-                Storage   = $_.spec.resources.requests.storage
-            }
-        }
+        $paged = $tableData[$startIndex..($endIndex - 1)]
 
-        if ($tableData) {
-            $tableData | Format-Table Namespace, PVC, Storage -AutoSize | Out-Host
+        if ($paged) {
+            $paged | Format-Table Namespace, PVC, Storage -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage
-
     } while ($true)
 }

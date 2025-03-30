@@ -3,10 +3,11 @@ function Show-ServicesWithoutEndpoints {
         [object]$KubeData,
         [int]$PageSize = 10,
         [switch]$Html,
+        [switch]$Json,
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[🔍 Services Without Endpoints]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Service Data..." -ForegroundColor Yellow
 
@@ -84,6 +85,10 @@ function Show-ServicesWithoutEndpoints {
         }
     }
 
+    if ($Json) {
+        return @{ Total = $tableData.Count; Items = $tableData }
+    }    
+
     if ($Html) {
         $htmlTable = $tableData |
             ConvertTo-Html -Fragment -Property Namespace, Service, Type, Status |
@@ -138,10 +143,11 @@ function Check-PubliclyAccessibleServices {
         [object]$KubeData,
         [int]$PageSize = 10,
         [switch]$Html,
+        [switch]$Json,
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[🌐 Publicly Accessible Services]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Services..." -ForegroundColor Yellow
 
@@ -237,6 +243,10 @@ function Check-PubliclyAccessibleServices {
         }
         return
     }
+
+    if ($Json) {
+        return @{ Total = $tableData.Count; Items = $tableData }
+    }    
 
     if ($Html) {
         $htmlTable = $tableData |

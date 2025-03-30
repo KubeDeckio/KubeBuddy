@@ -3,21 +3,22 @@ function Check-OrphanedConfigMaps {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$ExcludeNamespaces,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📜 Orphaned ConfigMaps]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching ConfigMaps..." -ForegroundColor Yellow
 
     $excludedConfigMapPatterns = @(
-    "^sh\.helm\.release\.v1\.",
-    "^kube-root-ca\.crt$"
+        "^sh\.helm\.release\.v1\.",
+        "^kube-root-ca\.crt$"
     )
 
     try {
         $configMaps = if ($KubeData -and $KubeData.ConfigMaps) {
-            $KubeData.ConfigMaps.items
+            $KubeData.ConfigMaps
         } else {
             kubectl get configmaps --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
@@ -35,91 +36,73 @@ function Check-OrphanedConfigMaps {
     Write-Host "`r🤖 ✅ ConfigMaps fetched. ($($configMaps.Count) total)" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Checking ConfigMap usage..." -ForegroundColor Yellow
 
-    $usedConfigMaps = @()
+    $usedConfigMaps = [System.Collections.Generic.HashSet[string]]::new()
 
-    # PODS
     $pods = if ($KubeData -and $KubeData.Pods) { $KubeData.Pods.items } else {
         kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
 
-    # WORKLOADS
-    $workloads = @()
-    foreach ($type in @("deployments", "statefulsets", "daemonsets", "cronjobs", "jobs", "replicasets")) {
-        $data = if ($KubeData -and $KubeData[$type]) {
-            $KubeData[$type].items
-        } else {
-            kubectl get $type --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $workloadTypes = @("deployments", "statefulsets", "daemonsets", "cronjobs", "jobs", "replicasets")
+    $workloads = $workloadTypes | ForEach-Object {
+        if ($KubeData -and $KubeData[$_]) { $KubeData[$_].items } else {
+            kubectl get $_ --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
-        $workloads += $data
-    }
-
-    $ingresses = if ($KubeData -and $KubeData.Ingresses) {
-        $KubeData.Ingresses.items
-    } else {
-        kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    }
-
-    $services = if ($KubeData -and $KubeData.Services) {
-        $KubeData.Services.items
-    } else {
-        kubectl get services --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
 
     foreach ($resource in $pods + $workloads) {
-        $usedConfigMaps += $resource.spec.volumes | Where-Object { $_.configMap } | Select-Object -ExpandProperty configMap | Select-Object -ExpandProperty name
+        $resource.spec.volumes | Where-Object { $_.configMap } | ForEach-Object {
+            $null = $usedConfigMaps.Add($_.configMap.name)
+        }
 
-        $allContainers = @()
-        $allContainers += $resource.spec.containers
-        $allContainers += $resource.spec.initContainers
-        $allContainers += $resource.spec.ephemeralContainers
-        
-        foreach ($container in $allContainers) {
-            if ($container.env) {
-                $usedConfigMaps += $container.env | Where-Object { $_.valueFrom.configMapKeyRef } |
-                    Select-Object -ExpandProperty valueFrom |
-                    Select-Object -ExpandProperty configMapKeyRef |
-                    Select-Object -ExpandProperty name
+        $containers = @()
+        $containers += $resource.spec.containers
+        $containers += $resource.spec.initContainers
+        $containers += $resource.spec.ephemeralContainers
+
+        foreach ($container in $containers) {
+            $container.env | Where-Object { $_.valueFrom.configMapKeyRef } | ForEach-Object {
+                $null = $usedConfigMaps.Add($_.valueFrom.configMapKeyRef.name)
             }
-            if ($container.envFrom) {
-                $usedConfigMaps += $container.envFrom | Where-Object { $_.configMapRef } |
-                    Select-Object -ExpandProperty configMapRef |
-                    Select-Object -ExpandProperty name
+            $container.envFrom | Where-Object { $_.configMapRef } | ForEach-Object {
+                $null = $usedConfigMaps.Add($_.configMapRef.name)
             }
         }
     }
-        
-    $usedConfigMaps += $ingresses | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
-    $usedConfigMaps += $services  | ForEach-Object { $_.metadata.annotations.Values -match "configMap" }
 
-    # CRDs
-    try {
-        $crds = if ($KubeData -and $KubeData.CRDs) {
-            $KubeData.CRDs.items
-        } else {
-            kubectl get crds -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    # Add references from annotations (ingresses, services)
+    foreach ($annotationSet in @($KubeData.Ingresses, $KubeData.Services)) {
+        $annotationSet | ForEach-Object {
+            $_.metadata.annotations.Values | Where-Object { $_ -match "configMap" } | ForEach-Object {
+                $null = $usedConfigMaps.Add($_)
+            }
         }
+    }
 
-        foreach ($crd in $crds) {
-            $kind = $crd.spec.names.kind
-            if ($kind -match "^[a-z0-9-]+$") {
-                $customResources = kubectl get $kind --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
-                foreach ($cr in $customResources) {
-                    $usedConfigMaps += $cr.metadata.annotations.Values -match "configMap"
+    # Add references from CR annotations
+    if ($KubeData -and $KubeData.CRDs -and $KubeData.CustomResourcesByKind) {
+        foreach ($kind in $KubeData.CustomResourcesByKind.Keys) {
+            $resources = $KubeData.CustomResourcesByKind[$kind]
+            foreach ($res in $resources) {
+                $res.metadata.annotations.Values | Where-Object { $_ -match "configMap" } | ForEach-Object {
+                    $null = $usedConfigMaps.Add($_)
                 }
             }
         }
-    } catch {}
+    }
 
-    $usedConfigMaps = $usedConfigMaps | Where-Object { $_ } | Sort-Object -Unique
     Write-Host "`r✅ ConfigMap usage checked.   " -ForegroundColor Green
 
-    $orphaned = $configMaps | Where-Object { $_.metadata.name -notin $usedConfigMaps }
+    $orphaned = $configMaps | Where-Object { -not $usedConfigMaps.Contains($_.metadata.name) }
 
-    $items = $orphaned | ForEach-Object {
+
+    $items = foreach ($s in $orphaned) {
+        $ns = if ($s.metadata.namespace) { $s.metadata.namespace } else { "N/A" }
+        $name = if ($s.metadata.name) { $s.metadata.name } else { "N/A" }
+    
         [PSCustomObject]@{
-            Namespace = $_.metadata.namespace
+            Namespace = $ns
             Type      = "📜 ConfigMap"
-            Name      = $_.metadata.name
+            Name      = $name
         }
     }
 
@@ -130,12 +113,18 @@ function Check-OrphanedConfigMaps {
             Write-ToReport "✅ No orphaned ConfigMaps found."
         }
         if ($Html) { return "<p><strong>✅ No orphaned ConfigMaps found.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
+    if ($Json) {
+        return @{ Total = $items.Count; Items = $items }
+    }
+
     if ($Html) {
         $htmlOutput = $items |
+            Sort-Object Namespace, Name |
             ConvertTo-Html -Fragment -Property Namespace, Type, Name -PreContent "<h2>Orphaned ConfigMaps</h2>" |
             Out-String
         return "<p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> $($items.Count)</p>$htmlOutput"
@@ -148,7 +137,6 @@ function Check-OrphanedConfigMaps {
         return
     }
 
-    # Pagination
     $total = $items.Count
     $currentPage = 0
     $totalPages = [math]::Ceiling($total / $PageSize)
@@ -178,7 +166,6 @@ function Check-OrphanedConfigMaps {
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage
-
     } while ($true)
 }
 
@@ -187,18 +174,24 @@ function Check-OrphanedSecrets {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$ExcludeNamespaces,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔑 Orphaned Secrets]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Secrets..." -ForegroundColor Yellow
 
-    $excludedSecretPatterns = @("^sh\.helm\.release\.v1\.", "^bootstrap-token-", "^default-token-", "^kube-root-ca.crt$", "^kubernetes.io/service-account-token")
+    $excludedSecretPatterns = @(
+        "^sh\.helm\.release\.v1\.",
+        "^bootstrap-token-",
+        "^default-token-",
+        "^kube-root-ca\.crt$"
+    )
 
     try {
         $secrets = if ($KubeData -and $KubeData.Secrets) {
-            $KubeData.Secrets.items
+            $KubeData.Secrets
         } else {
             kubectl get secrets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
@@ -216,93 +209,89 @@ function Check-OrphanedSecrets {
     Write-Host "`r🤖 ✅ Secrets fetched. ($($secrets.Count) total)" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Checking Secret usage..." -ForegroundColor Yellow
 
-    $usedSecrets = @()
+    $usedSecrets = [System.Collections.Generic.HashSet[string]]::new()
 
     $pods = if ($KubeData -and $KubeData.Pods) { $KubeData.Pods.items } else {
         kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
 
-    $workloads = @()
-    foreach ($type in @("deployments", "statefulsets", "daemonsets")) {
-        $data = if ($KubeData -and $KubeData[$type]) {
-            $KubeData[$type].items
-        } else {
-            kubectl get $type --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $workloadTypes = @("deployments", "statefulsets", "daemonsets")
+    $workloads = $workloadTypes | ForEach-Object {
+        if ($KubeData -and $KubeData[$_]) { $KubeData[$_] } else {
+            kubectl get $_ --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
-        $workloads += $data
     }
 
     $ingresses = if ($KubeData -and $KubeData.Ingresses) {
-        $KubeData.Ingresses.items
+        $KubeData.Ingresses
     } else {
         kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
 
     $serviceAccounts = if ($KubeData -and $KubeData.ServiceAccounts) {
-        $KubeData.ServiceAccounts.items
+        $KubeData.ServiceAccounts
     } else {
         kubectl get serviceaccounts --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
 
     foreach ($resource in $pods + $workloads) {
-        $usedSecrets += $resource.spec.volumes | Where-Object { $_.secret } |
-            Select-Object -ExpandProperty secret | Select-Object -ExpandProperty secretName
+        $resource.spec.volumes | Where-Object { $_.secret } | ForEach-Object {
+            $null = $usedSecrets.Add($_.secret.secretName)
+        }
 
-            $allContainers = @()
-            $allContainers += $resource.spec.containers
-            $allContainers += $resource.spec.initContainers
-            $allContainers += $resource.spec.ephemeralContainers
-            
-            foreach ($container in $allContainers) {
-                if ($container.env) {
-                    $usedConfigMaps += $container.env | Where-Object { $_.valueFrom.configMapKeyRef } |
-                        Select-Object -ExpandProperty valueFrom |
-                        Select-Object -ExpandProperty configMapKeyRef |
-                        Select-Object -ExpandProperty name
-                }
-                if ($container.envFrom) {
-                    $usedConfigMaps += $container.envFrom | Where-Object { $_.configMapRef } |
-                        Select-Object -ExpandProperty configMapRef |
-                        Select-Object -ExpandProperty name
-                }
+        $containers = @()
+        $containers += $resource.spec.containers
+        $containers += $resource.spec.initContainers
+        $containers += $resource.spec.ephemeralContainers
+
+        foreach ($container in $containers) {
+            $container.env | Where-Object { $_.valueFrom.secretKeyRef } | ForEach-Object {
+                $null = $usedSecrets.Add($_.valueFrom.secretKeyRef.name)
             }
-    }
-
-    $usedSecrets += $ingresses | ForEach-Object {
-        if ($_.spec.tls) {
-            $_.spec.tls | Where-Object { $_.secretName } | Select-Object -ExpandProperty secretName
+            $container.envFrom | Where-Object { $_.secretRef } | ForEach-Object {
+                $null = $usedSecrets.Add($_.secretRef.name)
+            }
         }
     }
 
-    $usedSecrets += $serviceAccounts | ForEach-Object {
-        $_.secrets | Select-Object -ExpandProperty name
+    $ingresses | ForEach-Object {
+        $_.spec.tls | Where-Object { $_.secretName } | ForEach-Object {
+            $null = $usedSecrets.Add($_.secretName)
+        }
     }
 
-    try {
-        $crNames = kubectl api-resources --verbs=list --namespaced -o name
-        foreach ($cr in $crNames) {
-            $resources = kubectl get $cr --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
+    $serviceAccounts | ForEach-Object {
+        $_.secrets | ForEach-Object {
+            $null = $usedSecrets.Add($_.name)
+        }
+    }
+
+    if ($KubeData -and $KubeData.CustomResourcesByKind) {
+        foreach ($kind in $KubeData.CustomResourcesByKind.Keys) {
+            $resources = $KubeData.CustomResourcesByKind[$kind]
             foreach ($res in $resources) {
                 if ($res.spec -and $res.spec.PSObject.Properties.name -contains "secretName") {
-                    $usedSecrets += $res.spec.secretName
+                    $null = $usedSecrets.Add($res.spec.secretName)
                 }
             }
         }
-    } catch {}
-
-    $usedSecrets = $usedSecrets | Where-Object { $_ } | Sort-Object -Unique
-    Write-Host "`r🤖 ✅ Secret usage checked. ($($usedSecrets.Count) in use)         " -ForegroundColor Green
-
-    $orphaned = $secrets | Where-Object { $_.metadata.name -notin $usedSecrets }
-
-    $items = $orphaned | ForEach-Object {
-        [PSCustomObject]@{
-            Namespace = $_.metadata.namespace
-            Type      = "🔑 Secret"
-            Name      = $_.metadata.name
-        }
     }
 
+    Write-Host "`r🤖 ✅ Secret usage checked. ($($usedSecrets.Count) in use)" -ForegroundColor Green
+
+    $orphaned = $secrets | Where-Object { -not $usedSecrets.Contains($_.metadata.name) }
+
+    $items = foreach ($s in $orphaned) {
+        $ns = if ($s.metadata.namespace) { $s.metadata.namespace } else { "N/A" }
+        $name = if ($s.metadata.name) { $s.metadata.name } else { "N/A" }
+    
+        [PSCustomObject]@{
+            Namespace = $ns
+            Type      = "🔑 Secret"
+            Name      = $name
+        }
+    }
+    
     if ($items.Count -eq 0) {
         Write-Host "🤖 ✅ No orphaned Secrets found." -ForegroundColor Green
         if ($Global:MakeReport -and -not $Html) {
@@ -310,8 +299,13 @@ function Check-OrphanedSecrets {
             Write-ToReport "✅ No orphaned Secrets found."
         }
         if ($Html) { return "<p><strong>✅ No orphaned Secrets found.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
+    }
+
+    if ($Json) {
+        return @{ Total = $items.Count; Items = $items }
     }
 
     if ($Html) {
@@ -357,6 +351,7 @@ function Check-OrphanedSecrets {
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage
+
     } while ($true)
 }
 
@@ -365,16 +360,16 @@ function Check-RBACOverexposure {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$ExcludeNamespaces,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔓 RBAC Overexposure Check]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Analyzing Roles and Bindings..." -ForegroundColor Yellow
 
     $findings = @()
 
-    # Pull data from KubeData or fallback to kubectl
     try {
         $roles = if ($KubeData -and $KubeData.Roles) {
             $KubeData.Roles
@@ -399,8 +394,7 @@ function Check-RBACOverexposure {
         } else {
             kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
-    }
-    catch {
+    } catch {
         Write-Host "`r🤖 ❌ Failed to fetch RBAC data: $_" -ForegroundColor Red
         return
     }
@@ -410,7 +404,6 @@ function Check-RBACOverexposure {
         $roleBindings = Exclude-Namespaces -items $roleBindings
     }
 
-    # Identify wildcard roles
     $wildcardRoles = @{}
 
     foreach ($cr in $clusterRoles) {
@@ -432,12 +425,10 @@ function Check-RBACOverexposure {
         }
     }
 
-    # Analyze ClusterRoleBindings
     foreach ($crb in $clusterRoleBindings) {
         $roleName = $crb.roleRef.name
         $isClusterAdmin = ($roleName -eq "cluster-admin")
-        $isWildcard = $roleName -and $wildcardRoles.ContainsKey($roleName)
-        
+        $isWildcard = $wildcardRoles.ContainsKey($roleName)
 
         if ($isClusterAdmin -or $isWildcard) {
             foreach ($subject in $crb.subjects) {
@@ -453,13 +444,12 @@ function Check-RBACOverexposure {
         }
     }
 
-    # Analyze RoleBindings
     foreach ($rb in $roleBindings) {
         $roleName = $rb.roleRef.name
         $ns = $rb.metadata.namespace
-        $key = $ns -and $roleName ? "$ns/$roleName" : $null
+        $key = "$ns/$roleName"
         $isClusterAdmin = ($roleName -eq "cluster-admin")
-        $isWildcard = $key -and $wildcardRoles.ContainsKey($key)        
+        $isWildcard = $wildcardRoles.ContainsKey($key)
 
         if ($isClusterAdmin -or $isWildcard) {
             foreach ($subject in $rb.subjects) {
@@ -481,6 +471,7 @@ function Check-RBACOverexposure {
     if ($total -eq 0) {
         Write-Host "✅ No overexposed roles or bindings found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No RBAC overexposure detected.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
             Write-ToReport "✅ No cluster-admin or wildcard access detected."
@@ -489,6 +480,10 @@ function Check-RBACOverexposure {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
+    }
+
+    if ($Json) {
+        return @{ Total = $total; Items = $findings }
     }
 
     if ($Html) {
@@ -505,7 +500,6 @@ function Check-RBACOverexposure {
         return
     }
 
-    # Console pagination
     $currentPage = 0
     $totalPages = [math]::Ceiling($total / $PageSize)
 
@@ -534,6 +528,7 @@ function Check-RBACOverexposure {
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage
+
     } while ($true)
 }
 
@@ -542,15 +537,14 @@ function Check-RBACMisconfigurations {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$ExcludeNamespaces,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[RBAC Misconfigurations]" -ForegroundColor Cyan
-
     Write-Host -NoNewline "`n🤖 Fetching RoleBindings & ClusterRoleBindings..." -ForegroundColor Yellow
 
-    # Use KubeData if provided, else fallback to kubectl
     try {
         $roleBindings = if ($KubeData -and $KubeData.RoleBindings) {
             $KubeData.RoleBindings
@@ -577,9 +571,15 @@ function Check-RBACMisconfigurations {
         }
 
         $existingNamespaces = if ($KubeData -and $KubeData.Namespaces) {
-            $KubeData.Namespaces.metadata.name
+            $KubeData.Namespaces | ForEach-Object { $_.metadata.name }
         } else {
             kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items | ForEach-Object { $_.metadata.name }
+        }
+
+        $serviceAccounts = if ($KubeData -and $KubeData.ServiceAccounts) {
+            $KubeData.ServiceAccounts
+        } else {
+            kubectl get serviceaccounts --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
     }
     catch {
@@ -597,7 +597,6 @@ function Check-RBACMisconfigurations {
 
     $invalidRBAC = @()
 
-    # Check RoleBindings
     foreach ($rb in $roleBindings) {
         $rbNamespace = $rb.metadata.namespace
         $namespaceExists = $rbNamespace -in $existingNamespaces
@@ -608,7 +607,7 @@ function Check-RBACMisconfigurations {
 
         if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
             $invalidRBAC += [PSCustomObject]@{
-                Namespace   = if ($namespaceExists) { $rbNamespace } else { "🛑 Namespace Missing" }
+                Namespace   = if ($namespaceExists) { $rbNamespace } else { "🚩 Namespace Missing" }
                 Type        = "🔹 Namespace Role"
                 RoleBinding = $rb.metadata.name
                 Subject     = "N/A"
@@ -620,14 +619,16 @@ function Check-RBACMisconfigurations {
             if ($subject.kind -eq "ServiceAccount") {
                 if (-not $namespaceExists) {
                     $invalidRBAC += [PSCustomObject]@{
-                        Namespace   = "🛑 Namespace Missing"
+                        Namespace   = "🚩 Namespace Missing"
                         Type        = "🔹 Namespace Role"
                         RoleBinding = $rb.metadata.name
                         Subject     = "$($subject.kind)/$($subject.name)"
-                        Issue       = "🛑 Namespace does not exist"
+                        Issue       = "🚩 Namespace does not exist"
                     }
                 } else {
-                    $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
+                    $exists = $serviceAccounts | Where-Object {
+                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subject.namespace
+                    }
                     if (-not $exists) {
                         $invalidRBAC += [PSCustomObject]@{
                             Namespace   = $rbNamespace
@@ -642,20 +643,21 @@ function Check-RBACMisconfigurations {
         }
     }
 
-    # Check ClusterRoleBindings
     foreach ($crb in $clusterRoleBindings) {
         foreach ($subject in $crb.subjects) {
             if ($subject.kind -eq "ServiceAccount") {
                 if ($subject.namespace -notin $existingNamespaces) {
                     $invalidRBAC += [PSCustomObject]@{
-                        Namespace   = "🛑 Namespace Missing"
+                        Namespace   = "🚩 Namespace Missing"
                         Type        = "🔸 Cluster Role"
                         RoleBinding = $crb.metadata.name
                         Subject     = "$($subject.kind)/$($subject.name)"
-                        Issue       = "🛑 Namespace does not exist"
+                        Issue       = "🚩 Namespace does not exist"
                     }
                 } else {
-                    $exists = kubectl get serviceaccount -n $subject.namespace $subject.name -o json 2>$null
+                    $exists = $serviceAccounts | Where-Object {
+                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subject.namespace
+                    }
                     if (-not $exists) {
                         $invalidRBAC += [PSCustomObject]@{
                             Namespace   = "🌍 Cluster-Wide"
@@ -675,6 +677,7 @@ function Check-RBACMisconfigurations {
     if ($invalidRBAC.Count -eq 0) {
         Write-Host "`r✅ No RBAC misconfigurations found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No RBAC misconfigurations found.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[RBAC Misconfigurations]`n"
             Write-ToReport "✅ No RBAC misconfigurations found."
@@ -683,6 +686,10 @@ function Check-RBACMisconfigurations {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
+    }
+
+    if ($Json) {
+        return @{ Total = $invalidRBAC.Count; Items = $invalidRBAC }
     }
 
     if ($Html) {
@@ -727,6 +734,7 @@ function Check-RBACMisconfigurations {
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage
+
     } while ($true)
 }
 
@@ -735,10 +743,11 @@ function Check-HostPidAndNetwork {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$ExcludeNamespaces,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔌 Pods with hostPID / hostNetwork]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
@@ -778,6 +787,12 @@ function Check-HostPidAndNetwork {
 
     if ($flaggedPods.Count -eq 0) {
         Write-Host "✅ No pods with hostPID or hostNetwork found." -ForegroundColor Green
+        if ($Html) {
+            return "<p><strong>✅ No pods with hostPID or hostNetwork found.</strong></p>"
+        }
+        if ($Json) {
+            return @{ Total = 0; Items = @() }
+        }
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[🔌 Pods with hostPID / hostNetwork]`n"
             Write-ToReport "✅ No pods with hostPID or hostNetwork found."
@@ -785,10 +800,11 @@ function Check-HostPidAndNetwork {
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
-        if ($Html) {
-            return "<p><strong>✅ No pods with hostPID or hostNetwork found.</strong></p>"
-        }
         return
+    }
+
+    if ($Json) {
+        return @{ Total = $flaggedPods.Count; Items = $flaggedPods }
     }
 
     if ($Html) {
@@ -844,10 +860,11 @@ function Check-PodsRunningAsRoot {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$ExcludeNamespaces,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[👑 Pods Running as Root]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
@@ -876,8 +893,8 @@ function Check-PodsRunningAsRoot {
 
         foreach ($container in $pod.spec.containers) {
             $containerUser = $container.securityContext.runAsUser
-
             $isRoot = -not $containerUser -and -not $podUser
+
             if (($containerUser -eq 0) -or ($podUser -eq 0) -or $isRoot) {
                 $rootPods += [PSCustomObject]@{
                     Namespace = $pod.metadata.namespace
@@ -903,11 +920,10 @@ function Check-PodsRunningAsRoot {
             Write-ToReport "`n[👑 Pods Running as Root]`n"
             Write-ToReport "✅ No pods running as root."
         }
+        if ($Html) { return "<p><strong>✅ No pods running as root.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
-        }
-        if ($Html) {
-            return "<p><strong>✅ No pods running as root.</strong></p>"
         }
         return
     }
@@ -918,6 +934,10 @@ function Check-PodsRunningAsRoot {
             Out-String
 
         return "<p><strong>⚠️ Total Pods Running as Root:</strong> $($rootPods.Count)</p>$htmlTable"
+    }
+
+    if ($Json) {
+        return @{ Total = $rootPods.Count; Items = $rootPods }
     }
 
     if ($Global:MakeReport) {
@@ -967,10 +987,11 @@ function Check-PrivilegedContainers {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$ExcludeNamespaces,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔓 Privileged Containers]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
@@ -996,8 +1017,7 @@ function Check-PrivilegedContainers {
 
     foreach ($pod in $pods) {
         foreach ($container in $pod.spec.containers) {
-            $isPrivileged = $container.securityContext.privileged
-            if ($isPrivileged) {
+            if ($container.securityContext.privileged -eq $true) {
                 $privileged += [PSCustomObject]@{
                     Namespace = $pod.metadata.namespace
                     Pod       = $pod.metadata.name
@@ -1015,11 +1035,10 @@ function Check-PrivilegedContainers {
             Write-ToReport "`n[🔓 Privileged Containers]`n"
             Write-ToReport "✅ No privileged containers found."
         }
+        if ($Html) { return "<p><strong>✅ No privileged containers found.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
-        }
-        if ($Html) {
-            return "<p><strong>✅ No privileged containers found.</strong></p>"
         }
         return
     }
@@ -1030,6 +1049,10 @@ function Check-PrivilegedContainers {
             Out-String
 
         return "<p><strong>⚠️ Total Privileged Containers Found:</strong> $($privileged.Count)</p>$htmlTable"
+    }
+
+    if ($Json) {
+        return @{ Total = $privileged.Count; Items = $privileged }
     }
 
     if ($Global:MakeReport) {

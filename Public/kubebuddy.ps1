@@ -14,8 +14,10 @@ function Invoke-KubeBuddy {
     param (
         [switch]$HtmlReport,
         [switch]$txtReport,
+        [switch]$jsonReport,
         [switch]$Aks,
         [switch]$ExcludeNamespaces,
+        [switch]$yes,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName,
@@ -53,6 +55,7 @@ function Invoke-KubeBuddy {
     # Define report file paths based on the given outputpath
     $htmlReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.html"
     $txtReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.txt"
+    $jsonReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.json"
     Clear-Host
 
     # **KubeBuddy ASCII Art**
@@ -77,10 +80,14 @@ function Invoke-KubeBuddy {
     Write-Host "`n🤖 Connected to Kubernetes context: '$context'" -ForegroundColor Cyan
 
     # Confirm before proceeding
-    $confirmation = Read-Host "🤖 Is this the correct cluster context? (y/n)"
-    if ($confirmation.Trim().ToLower() -ne 'y') {
-        Write-Host "🤖 Exiting. Please switch context and try again." -ForegroundColor Yellow
-        return
+    if ($yes) {
+        Write-Host "🤖 Skipping context confirmation." -ForegroundColor Yellow
+    } else {
+        $confirmation = Read-Host "🤖 Is this the correct context? (y/n)"
+        if ($confirmation.Trim().ToLower() -ne 'y') {
+            Write-Host "🤖 Exiting. Please switch context and try again." -ForegroundColor Yellow
+            return
+        }
     }
 
     if ($Aks) {
@@ -126,14 +133,42 @@ function Invoke-KubeBuddy {
     if ($txtReport) {
         Write-Host "📄 Generating Text report: $txtReportFile" -ForegroundColor Cyan
 
+        if ($Aks -and (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName)) {
+            Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
+            return
+        }
+
         $KubeData = Get-KubeData -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks
 
         Generate-K8sTextReport `
             -ReportFile $txtReportFile `
             -ExcludeNamespaces:$ExcludeNamespaces `
+            -aks:$Aks `
+            -SubscriptionId $SubscriptionId `
+            -ResourceGroup $ResourceGroup `
+            -ClusterName $ClusterName `
             -KubeData $KubeData
 
         Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
+        return
+    }
+
+    if ($jsonReport) {
+        Write-Host "📄 Generating Json report: $jsonReportFile" -ForegroundColor Cyan
+
+        if ($Aks -and (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName)) {
+            Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
+            return
+        }
+
+        $KubeData = Get-KubeData -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks
+
+        Create-jsonReport `
+            -outputpath $jsonReportFile `
+            -aks:$Aks `
+            
+
+        Write-Host "`n🤖 ✅ Json report saved at: $jsonReportFile" -ForegroundColor Green
         return
     }
 
