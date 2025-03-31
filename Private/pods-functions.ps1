@@ -155,6 +155,7 @@ function Show-PodsWithHighRestarts {
         $tableData = $filteredPods[$startIndex..($endIndex - 1)]
         if ($tableData) {
             $tableData | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-Host
+            $tableData | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -306,6 +307,7 @@ function Show-LongRunningPods {
         $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
         $tableData = $filteredPods[$startIndex..($endIndex - 1)]
         if ($tableData) {
+            $tableData | Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-Host
             $tableData | Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-Host
         }
 
