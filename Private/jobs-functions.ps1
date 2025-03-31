@@ -7,11 +7,11 @@ function Show-StuckJobs {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[⏳ Stuck Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) {
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
         $thresholds = Get-KubeBuddyThresholds
     } else {
         $thresholds = Get-KubeBuddyThresholds -Silent
@@ -40,12 +40,14 @@ function Show-StuckJobs {
     }
 
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No jobs found.   " -ForegroundColor Green
-        if ($Html) { return "<p><strong>✅ No  jobs found.</strong></p>" }
+        Write-Host "`r🤖 ✅ No jobs found." -ForegroundColor Green
+        if ($Html) { return "<p><strong>✅ No jobs found.</strong></p>" }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
     
-
     Write-Host "`r🤖 ✅ Jobs fetched. (Total: $($jobs.Count))" -ForegroundColor Green
     Write-Host -NoNewline "`n🤖 Analyzing Stuck Jobs..." -ForegroundColor Yellow
 
@@ -61,6 +63,9 @@ function Show-StuckJobs {
     if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No stuck jobs found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No stuck jobs found.</strong></p>" }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -174,11 +179,11 @@ function Show-FailedJobs {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔴 Failed Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) {
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
         $thresholds = Get-KubeBuddyThresholds
     } else {
         $thresholds = Get-KubeBuddyThresholds -Silent
@@ -206,8 +211,11 @@ function Show-FailedJobs {
     }
 
     if (-not $jobs -or $jobs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No jobs found.   " -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No jobs found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No jobs found.</strong></p>" }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -224,6 +232,9 @@ function Show-FailedJobs {
     if (-not $failedJobs -or $failedJobs.Count -eq 0) {
         Write-Host "`r🤖 ✅ No failed jobs found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No failed jobs found.</strong></p>" }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -248,7 +259,6 @@ function Show-FailedJobs {
     
         return @{ Total = $tableData.Count; Items = $tableData }
     }
-    
     
     if ($Html) {
         $tableData = $failedJobs | ForEach-Object {

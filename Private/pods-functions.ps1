@@ -37,6 +37,9 @@ function Show-PodsWithHighRestarts {
                 if ($Html) { return "<p><strong>✅ No pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No pods found." -ForegroundColor Green
+                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                    Read-Host "🤖 Press Enter to return to the menu"
+                }
                 return
             }
             ($restartPods | ConvertFrom-Json).items
@@ -57,6 +60,9 @@ function Show-PodsWithHighRestarts {
         if ($Html) { return "<p><strong>✅ No pods found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No pods found." -ForegroundColor Green
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -100,6 +106,9 @@ function Show-PodsWithHighRestarts {
         if ($Html) { return "<p><strong>✅ No pods with excessive restarts detected.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No pods with excessive restarts detected." -ForegroundColor Green
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -119,7 +128,7 @@ function Show-PodsWithHighRestarts {
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔁 Pods with High Restarts]`n"
         Write-ToReport "⚠️ Total High-Restart Pods: $totalPods"
-        $tableString = $filteredPods | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize| Out-String
+        $tableString = $filteredPods | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -150,12 +159,9 @@ function Show-PodsWithHighRestarts {
             ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
-        $startIndex = $currentPage * $PageSize
-        $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
-        $tableData = $filteredPods[$startIndex..($endIndex - 1)]
-        if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-Host
-            $tableData | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-Host
+        $paged = $filteredPods | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
+        if ($paged) {
+            $paged | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -203,6 +209,9 @@ function Show-LongRunningPods {
                 if ($Html) { return "<p><strong>✅ No pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No pods found." -ForegroundColor Green
+                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                    Read-Host "🤖 Press Enter to return to the menu"
+                }
                 return
             }
             ($pods | ConvertFrom-Json).items
@@ -249,14 +258,17 @@ function Show-LongRunningPods {
 
     $totalPods = $filteredPods.Count
 
-    Write-Host "`r🤖 ✅ Long-running pods fetched. ($totalPods detected)" -ForegroundColor Green
-
     if ($totalPods -eq 0) {
         if ($Html) { return "<p><strong>✅ No long-running pods detected.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No long-running pods detected." -ForegroundColor Green
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
+
+    Write-Host "`r🤖 ✅ Long-running pods fetched. ($totalPods detected)" -ForegroundColor Green
 
     if ($Json) {
         return @{ Total = $totalPods; Items = $filteredPods }
@@ -303,12 +315,9 @@ function Show-LongRunningPods {
             ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
-        $startIndex = $currentPage * $PageSize
-        $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
-        $tableData = $filteredPods[$startIndex..($endIndex - 1)]
-        if ($tableData) {
-            $tableData | Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-Host
-            $tableData | Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-Host
+        $paged = $filteredPods | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
+        if ($paged) {
+            $paged | Format-Table Namespace, Pod, Age_Days, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
@@ -349,6 +358,9 @@ function Show-FailedPods {
                 if ($Html) { return "<p><strong>✅ No failed pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No failed pods found." -ForegroundColor Green
+                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                    Read-Host "🤖 Press Enter to return to the menu"
+                }
                 return
             }
             $parsed = $failedPods | ConvertFrom-Json
@@ -371,6 +383,9 @@ function Show-FailedPods {
         if ($Html) { return "<p><strong>✅ No failed pods found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No failed pods found." -ForegroundColor Green
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -380,8 +395,8 @@ function Show-FailedPods {
         [PSCustomObject]@{
             Namespace = $pod.metadata.namespace
             Pod       = $pod.metadata.name
-            Reason    = $pod.status.reason
-            Message   = ($pod.status.message -replace "`n", " ")
+            Reason    = if ($pod.status.reason) { $pod.status.reason } else { "Unknown" }
+            Message   = if ($pod.status.message) { $pod.status.message -replace "`n", " " } else { "No details" }
         }
     }
 
@@ -400,7 +415,7 @@ function Show-FailedPods {
         Write-ToReport "`n[🔴 Failed Pods]`n"
         Write-ToReport "⚠️ Total Failed Pods: $totalPods"
         $tableString = $tableData |
-            Format-Table Namespace, Pod, Reason, Message -AutoSize| Out-String
+            Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -429,10 +444,7 @@ function Show-FailedPods {
             ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
-        $startIndex = $currentPage * $PageSize
-        $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
-
-        $paged = $tableData[$startIndex..($endIndex - 1)]
+        $paged = $tableData | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
         if ($paged) {
             $paged | Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-Host
         }
@@ -475,6 +487,9 @@ function Show-PendingPods {
                 if ($Html) { return "<p><strong>✅ No pending pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No pending pods found." -ForegroundColor Green
+                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                    Read-Host "🤖 Press Enter to return to the menu"
+                }
                 return
             }
             $parsed = $pendingPods | ConvertFrom-Json
@@ -493,14 +508,17 @@ function Show-PendingPods {
 
     $totalPods = $pendingPods.Count
 
-    Write-Host "`r🤖 ✅ Pods fetched. ($totalPods Pending pods detected)" -ForegroundColor Green
-
     if ($totalPods -eq 0) {
         if ($Html) { return "<p><strong>✅ No pending pods found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No pending pods found." -ForegroundColor Green
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
+
+    Write-Host "`r🤖 ✅ Pods fetched. ($totalPods Pending pods detected)" -ForegroundColor Green
 
     $tableData = foreach ($pod in $pendingPods) {
         [PSCustomObject]@{
@@ -559,10 +577,7 @@ function Show-PendingPods {
             ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
-        $startIndex = $currentPage * $PageSize
-        $endIndex = [math]::Min($startIndex + $PageSize, $totalPods)
-
-        $paged = $tableData[$startIndex..($endIndex - 1)]
+        $paged = $tableData | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
         if ($paged) {
             $paged | Format-Table Namespace, Pod, Reason, Message -AutoSize | Out-Host
         }
@@ -640,6 +655,9 @@ function Show-CrashLoopBackOffPods {
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n✅ No CrashLoopBackOff pods found."
+        }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
         }
         return
     }
@@ -746,6 +764,9 @@ function Show-LeftoverDebugPods {
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[🐞 Leftover Debug Pods]`n✅ No leftover debug pods detected."
         }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -777,7 +798,7 @@ function Show-LeftoverDebugPods {
 
     if ($Global:MakeReport) {
         Write-ToReport "`n[🐞 Leftover Debug Pods]`n⚠️ Total Leftover Debug Pods Found: $totalPods"
-        $tableString = $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize| Out-String
+        $tableString = $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -809,6 +830,8 @@ function Show-LeftoverDebugPods {
         $paged = $tableData | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
         if ($paged) {
             $paged | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize | Out-Host
+        } else {
+            Write-Host "DEBUG: No data for page $currentPage (totalPods: $totalPods)" -ForegroundColor Yellow
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages

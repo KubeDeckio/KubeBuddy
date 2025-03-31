@@ -23,7 +23,7 @@ function Show-UnusedPVCs {
                     Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n✅ No PVCs found in the cluster."
                 }
                 if ($Html) { return "<p><strong>✅ No PVCs found in the cluster.</strong></p>" }
-                if (-not $Global:MakeReport -and -not $Html) {
+                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
                     Read-Host "🤖 Press Enter to return to the menu"
                 }
                 return
@@ -43,9 +43,12 @@ function Show-UnusedPVCs {
     }
 
     if (-not $pvcs -or $pvcs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No PVCs found.   " -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No PVCs found." -ForegroundColor Green
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ No PVCs found.</strong></p>" }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
@@ -83,7 +86,7 @@ function Show-UnusedPVCs {
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n✅ No unused PVCs found."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
