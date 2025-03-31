@@ -74,7 +74,7 @@ function Show-WorkloadMenu {
         Clear-Host
 
         switch ($choice) {
-            "1" { Show-DaemonSetIssues }
+            "1" { Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces }
 
             "2" {
                 $msg = @(
@@ -445,7 +445,8 @@ function Show-InfraBestPracticesMenu {
         switch ($infraChoice) {
             "1" { 
                 if (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName) {
-                    Write-Host "Parameters are missing. please rerun Invoke-KubeBuddy with the following parameters.`n Invoke-KubeBuddy -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName"
+                    Write-Host "Parameters are missing. please rerun Invoke-KubeBuddy with the following parameters.`n Invoke-KubeBuddy -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName`n" -ForegroundColor Red
+                    Read-Host "Press Enter to return to the main menu"
                     return
                 }
                 

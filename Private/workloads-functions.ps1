@@ -1,22 +1,27 @@
 function Show-DaemonSetIssues {
     param(
-        [int]$PageSize = 10, # Number of daemonsets per page
-        [switch]$Html,   # If specified, return an HTML table instead of ASCII/pagination
-        [switch]$ExcludeNamespaces
+        [object]$DaemonSetsData,
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$ExcludeNamespaces,
+        [switch]$Json
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔄 DaemonSets Not Fully Running]" -ForegroundColor Cyan
-    Write-Host -NoNewline "`n🤖 Fetching DaemonSet Data..." -ForegroundColor Yellow
+    Write-Host -NoNewline "`n🤖 Checking DaemonSet status..." -ForegroundColor Yellow
 
     try {
-        $daemonsets = kubectl get daemonsets --all-namespaces -o json 2>&1 | ConvertFrom-Json
+        $daemonsets = if ($DaemonSetsData -and $DaemonSetsData.items) {
+            $DaemonSetsData
+        } else {
+            kubectl get daemonsets --all-namespaces -o json 2>&1 | ConvertFrom-Json
+        }
     }
     catch {
-        Write-Host "`r🤖 ❌ Error retrieving DaemonSet data: $_" -ForegroundColor Red
+        Write-Host "`r🤖 ❌ Failed to retrieve DaemonSet data: $_" -ForegroundColor Red
         if ($Global:MakeReport -and -not $Html) {
-            Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n"
-            Write-ToReport "❌ Error retrieving DaemonSet data: $_"
+            Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n❌ Error: $_"
         }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
@@ -25,116 +30,85 @@ function Show-DaemonSetIssues {
     }
 
     if ($ExcludeNamespaces) {
-        $daemonsets = Exclude-Namespaces -items $daemonsets
+        $daemonsets.items = Exclude-Namespaces -items $daemonsets.items
     }
-    
 
-    # Filter only DaemonSets with issues
-    $filteredDaemonSets = @()
-    foreach ($ds in $daemonsets.items) {
-        $ns = $ds.metadata.namespace
-        $name = $ds.metadata.name
-        $desired = $ds.status.desiredNumberScheduled
-        $current = $ds.status.currentNumberScheduled
-        $running = $ds.status.numberReady
-
-        # Only include DaemonSets that are NOT fully running
-        if ($desired -ne $running) {
-            $filteredDaemonSets += [PSCustomObject]@{
-                Namespace = $ns
-                DaemonSet = $name
-                Desired   = $desired
-                Running   = $running
-                Scheduled = $current
-                Status    = "⚠️ Incomplete"
-            }
+    $filtered = $daemonsets.items | Where-Object {
+        $_.status.desiredNumberScheduled -ne $_.status.numberReady
+    } | ForEach-Object {
+        [PSCustomObject]@{
+            Namespace = $_.metadata.namespace
+            DaemonSet = $_.metadata.name
+            Desired   = $_.status.desiredNumberScheduled
+            Running   = $_.status.numberReady
+            Scheduled = $_.status.currentNumberScheduled
+            Status    = "⚠️ Incomplete"
         }
     }
 
-    $totalDaemonSets = $filteredDaemonSets.Count
+    $total = $filtered.Count
 
-    if ($totalDaemonSets -eq 0) {
+    if ($total -eq 0) {
         Write-Host "`r🤖 ✅ All DaemonSets are fully running." -ForegroundColor Green
         if ($Global:MakeReport -and -not $Html) {
-            Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n"
-            Write-ToReport "✅ All DaemonSets are fully running."
+            Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n✅ All DaemonSets are fully running."
         }
+        if ($Html) { return "<p><strong>✅ All DaemonSets are fully running.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
-        if ($Html) { return "<p><strong>✅ All DaemonSets are fully running.</strong></p>" }
         return
     }
 
-    Write-Host "`r🤖 ✅ DaemonSets fetched. ($totalDaemonSets DaemonSets with issues detected)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ DaemonSets checked. ($total with issues)" -ForegroundColor Green
 
-    # If -Html is specified, return a real HTML table
     if ($Html) {
-        # Convert to sorted data if desired. For example,
-        # you might want to sort by namespace, or keep as-is:
-        $sortedData = $filteredDaemonSets | Sort-Object Namespace
-
-        # Build HTML table
-        $htmlTable = $sortedData |
-        ConvertTo-Html -Fragment -Property "Namespace", "DaemonSet", "Desired", "Running", "Scheduled", "Status" |
-        Out-String
-
-        # Insert note about total DS with issues
-        $htmlTable = "<p><strong>⚠️ Total DaemonSets with Issues:</strong> $totalDaemonSets</p>" + $htmlTable
-
-        return $htmlTable
+        $htmlTable = ($filtered | Sort-Object Namespace) |
+            ConvertTo-Html -Fragment -Property Namespace, DaemonSet, Desired, Running, Scheduled, Status |
+            Out-String
+        return "<p><strong>⚠️ Total DaemonSets with Issues:</strong> $total</p>" + $htmlTable
     }
 
-    # If in report mode (but NOT using -Html), do the original ASCII approach
+    if ($Json) {
+        return @{ Total = $total; Items = $filtered }
+    }
+
     if ($Global:MakeReport) {
-        Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n"
-        Write-ToReport "⚠️ Total DaemonSets with Issues: $totalDaemonSets"
-        Write-ToReport "----------------------------------------------------"
-        $tableString = $filteredDaemonSets |
-        Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize |
-        Out-String
-        Write-ToReport $tableString
+        Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n⚠️ Total Issues: $total"
+        $filtered | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize |
+            Out-String | Write-ToReport
         return
     }
 
-    # Otherwise, do console pagination (no -Html, no MakeReport)
     $currentPage = 0
-    $totalPages = [math]::Ceiling($totalDaemonSets / $PageSize)
+    $totalPages = [math]::Ceiling($total / $PageSize)
 
     do {
         Clear-Host
         Write-Host "`n[🔄 DaemonSets Not Fully Running - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
-        $msg = @(
-            "🤖 DaemonSets run on every node in your cluster.",
-            "",
-            "📌 This check identifies DaemonSets that are not fully running.",
-            "   - Nodes may lack resources (CPU, Memory).",
-            "   - Scheduling constraints (taints, affinity) could be blocking.",
-            "   - DaemonSet pod images may be failing to pull.",
-            "",
-            "🔍 Investigate further using:",
-            "   - 'kubectl describe ds <daemonset-name> -n <namespace>'",
-            "   - 'kubectl get pods -n <namespace> -o wide'",
-            "",
-            "⚠️ Total DaemonSets with Issues: $totalDaemonSets"
-        )
         if ($currentPage -eq 0) {
-            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
+            Write-SpeechBubble -msg @(
+                "🤖 DaemonSets run pods on every node.",
+                "",
+                "📌 These are not fully running:",
+                "   - Check taints, node status, or resource limits.",
+                "   - Use: kubectl describe ds <name> -n <ns>",
+                "",
+                "⚠️ Total DaemonSets with Issues: $total"
+            ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
 
-        # Display current page
-        $startIndex = $currentPage * $PageSize
-        $endIndex = [math]::Min($startIndex + $PageSize, $totalDaemonSets)
+        $start = $currentPage * $PageSize
+        $slice = $filtered | Select-Object -Skip $start -First $PageSize
 
-        $tableData = $filteredDaemonSets[$startIndex..($endIndex - 1)]
-        if ($tableData) {
-            $tableData | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize | Out-Host
+        if ($slice.Count -gt 0) {
+            $slice | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize | Out-Host
         }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
-        
         $currentPage = $newPage
     } while ($true)
 }

@@ -1,15 +1,22 @@
 function Show-NodeConditions {
     param(
+        [object]$KubeData,
         [int]$PageSize = 10, # Number of nodes per page
-        [switch]$html
+        [switch]$html,
+        [switch]$Json
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[🌍 Node Conditions]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Node Conditions..." -ForegroundColor Yellow
 
     # Fetch nodes
+    if ($kubeData) {
+        $nodes = $kubeData.Nodes
+    } else {
     $nodes = kubectl get nodes -o json | ConvertFrom-Json
+    }
+
     $totalNodes = $nodes.items.Count
 
     if ($totalNodes -eq 0) {
@@ -52,6 +59,15 @@ function Show-NodeConditions {
             Issues = $issues
         }
     }
+
+    if ($Json) {
+        return @{
+            Total = $allNodesData.Count
+            NotReady = $totalNotReadyNodes
+            Items = $allNodesData
+        }
+    }
+    
     # If the -Html switch is used, return an HTML table
     if ($Html) {
         # Sort so that "❌ Not Ready" is at the top
@@ -149,23 +165,29 @@ function Show-NodeConditions {
 function Show-NodeResourceUsage {
     param(
         [int]$PageSize = 10, # Number of nodes per page
-        [switch]$Html    # If specified, return an HTML table (no ASCII pagination)
+        [switch]$Html,    # If specified, return an HTML table (no ASCII pagination)
+        [switch]$Json
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[📊 Node Resource Usage]" -ForegroundColor Cyan
     if (-not $Global:MakeReport -and -not $Html) {
         Write-Host -NoNewline "`n🤖 Fetching Node Data & Resource Usage..." -ForegroundColor Yellow
     }
 
     # Get thresholds and node data
-    if (-not $Global:MakeReport -and -not $Html) { $thresholds = Get-KubeBuddyThresholds }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { $thresholds = Get-KubeBuddyThresholds }
     else {
         $thresholds = Get-KubeBuddyThresholds -Silent
     }
     
+    if ($kubeData) {
+        $allocatableRaw = $kubeData.Nodes
+        $nodeUsageRaw = $kubeData.TopNodes
+    } else {
     $allocatableRaw = kubectl get nodes -o json | ConvertFrom-Json
     $nodeUsageRaw = kubectl top nodes --no-headers
+    }
 
     $totalNodes = $allocatableRaw.items.Count
 
@@ -176,7 +198,7 @@ function Show-NodeResourceUsage {
         }
         return
     }
-    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)          " -ForegroundColor Green
 
     # Track total warnings across all nodes
     $totalWarnings = 0
@@ -247,6 +269,14 @@ function Show-NodeResourceUsage {
         }
     }
 
+    if ($Json) {
+        return @{
+            Total = $allNodesData.Count
+            Warnings = $totalWarnings
+            Items = $allNodesData
+        }
+    }
+    
     # If in report mode (MakeReport) or no HTML switch, do normal ASCII printing
     if ($Global:MakeReport -and -not $Html) {
         Write-ToReport "`n[📊 Node Resource Usage]"

@@ -1,57 +1,35 @@
-# Main Script: AKS Best Practices Checklist
 function Invoke-AKSBestPractices {
     param (
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName,
         [switch]$FailedOnly,
-        [switch]$html
+        [switch]$Html,
+        [object]$KubeData
     )
 
-    # Authenticate with Azure and fetch cluster details
-    function Authenticate {
-        Write-Host "🤖 Authenticating with Azure..." -ForegroundColor Cyan
-        az login --use-device-code --output none
-        az account set --subscription $SubscriptionId
-        if ($?) {
-            Write-Host "🤖 Authentication successful." -ForegroundColor Green
-        }
-        else {
-            Write-Host "🤖 Authentication failed. Exiting..." -ForegroundColor Red
-            exit 1
-        }
-    }
-
     function Validate-Context {
-        param (
-            [string]$ResourceGroup,
-            [string]$ClusterName
-        )
-    
-        # Get the current Kubernetes context
+        param ($ResourceGroup, $ClusterName)
+        if ($KubeData) { return $true | Out-Null }
+
         $currentContext = kubectl config current-context
-    
-        # Get the AKS cluster details and extract the correct context
-        $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv
-    
-        # If report mode is enabled, log the context check but don’t print anything to CLI
+        $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv --only-show-errors
+
         if ($Global:MakeReport) {
             Write-Host "🔄 Checking Kubernetes context..." -ForegroundColor Cyan
             Write-Host "   - Current context: '$currentContext'" -ForegroundColor Yellow
             Write-Host "   - Expected AKS cluster: '$aksContext'" -ForegroundColor Yellow
-    
+
             if ($currentContext -eq $aksContext) {
                 Write-Host "✅ Kubernetes context matches. Proceeding with the scan." -ForegroundColor Green
                 return $true
-            }
-            else {
-                Write-Host "⚠️ WARNING: The current Kubernetes context ('$currentContext') does NOT match the expected AKS cluster ('$aksContext')." -ForegroundColor Red
-                Write-ToReport "   - Cluster validation skipped due to mismatched context."
-                return $false  # Skip cluster validation in report mode but continue execution
+            } else {
+                Write-Host "⚠️ WARNING: Context mismatch." -ForegroundColor Red
+                Write-ToReport "   - Skipping validation due to mismatched context."
+                return $false
             }
         }
-    
-        # Speech bubble message for CLI output (only if not in report mode)
+
         $msg = @(
             "🔄 Checking your Kubernetes context...",
             "",
@@ -59,98 +37,89 @@ function Invoke-AKSBestPractices {
             "   - The expected AKS cluster context is: '$aksContext'.",
             ""
         )
-    
+
         if ($currentContext -eq $aksContext) {
-            $msg += @("✅ The context is correct. Proceeding with the scan.")
+            $msg += @("✅ The context is correct.")
             Write-SpeechBubble -msg $msg -color "Green" -icon "🤖"
             return $true
-        }
-        else {
+        } else {
             $msg += @(
-                "⚠️ WARNING: The current Kubernetes context does NOT match the AKS cluster!",
+                "⚠️ WARNING: Context mismatch!",
                 "",
-                "❌ Running commands in the wrong context may impact the wrong cluster!",
+                "❌ Commands may target the wrong cluster.",
                 "",
-                "💡 To set the correct context, run the following command:",
-                "   kubectl config use-context $aksContext",
-                "",
-                "Then re-run this script."
+                "💡 Run: kubectl config use-context $aksContext"
             )
-    
             Write-SpeechBubble -msg $msg -color "Yellow" -icon "🤖" -lastColor "Red"
-    
-            $confirmation = Read-Host "🤖 Do you want to continue anyway? (yes/no)"
-            
-            Clear-Host
-    
-            if ($confirmation -match "^(y|yes)$") {
-                $msg = @("⚠️ Proceeding with mismatched context...")
-                Write-SpeechBubble -msg $msg -color "Yellow" -icon "🤖"
+            if ($yes) {
+                Write-SpeechBubble -msg @("🤖 Skipping context confirmation.") -color "Red" -icon "🤖"
                 return $true
             }
-            else {
-                $msg = @(
-                    "❌ Exiting to prevent incorrect cluster impact.",
-                    "",
-                    "💡 Run the following command to switch to the correct AKS context:",
-                    "   kubectl config use-context $aksContext",
-                    "",
-                    "Once the correct context is set, you can rerun this script."
-                )
-                Write-SpeechBubble -msg $msg -color "Red" -icon "🤖"
+            Write-SpeechBubble -msg @("🤖 Please confirm if you want to continue.") -color "Yellow" -icon "🤖"
+            $confirmation = Read-Host "🤖 Continue anyway? (yes/no)"
+            Clear-Host
+            if ($confirmation -match "^(y|yes)$") {
+                Write-SpeechBubble -msg @("⚠️ Proceeding despite mismatch...") -color "Yellow" -icon "🤖"
+                return $true
+            } else {
+                Write-SpeechBubble -msg @("❌ Exiting to prevent incorrect execution.") -color "Red" -icon "🤖"
                 exit 1
             }
         }
     }
-    
 
     function Get-AKSClusterInfo {
         param (
             [string]$SubscriptionId,
             [string]$ResourceGroup,
             [string]$ClusterName,
-            [switch]$ExcludeNamespaces
+            [object]$KubeData
         )
-    
-        Write-Host -no "`n🤖 Fetching AKS cluster details..." -ForegroundColor Cyan
-        $clusterInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --output json | ConvertFrom-Json
-        if (-not $clusterInfo) {
-            Write-Host "🤖 Error: Failed to fetch cluster details. Exiting..." -ForegroundColor Red
-            exit 1
-        }
-    
-        Write-Host "🤖 Fetching Kubernetes constraint data..." -ForegroundColor Cyan
-        $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    
-        if ($ExcludeNamespaces) {
-            $constraints = Exclude-Namespaces -items $constraints -namespaceSelector { $_.metadata.namespace }
-        }
-    
-        $kubeData = @{ Constraints = $constraints }
-        $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value $kubeData
-    
-        return $clusterInfo
-    }    
 
-    # Combine all checks from variables ending with 'Checks'
+        Write-Host -NoNewline "`n🤖 Fetching AKS cluster details..." -ForegroundColor Cyan
+
+        $clusterInfo = $null
+    $constraints = @()
+
+    try {
+        if ($KubeData -and $KubeData.AksCluster -and $KubeData.Constraints) {
+            $clusterInfo = $KubeData.AksCluster
+            $constraints = $KubeData.Constraints
+            Write-Host "`r🤖 Using cached AKS cluster data. " -ForegroundColor Green
+        } else {
+            $clusterInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --output json --only-show-errors | ConvertFrom-Json
+            Write-Host "`r🤖 Live cluster data fetched.    " -ForegroundColor Green
+
+            Write-Host -NoNewline "`n🤖 Fetching Kubernetes constraints..." -ForegroundColor Cyan
+            $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+            Write-Host "`r🤖 Constraints fetched." -ForegroundColor Green
+        }
+    }
+    catch {
+        Write-Host "`r❌ Error retrieving AKS or constraint data: $_" -ForegroundColor Red
+        return $null
+    }
+
+# Attach constraints regardless of source
+$clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints }
+
+return $clusterInfo
+    }
+
+    # Collect all checks
     $checks = @()
     Get-Variable -Name "*Checks" | ForEach-Object {
         $checks += $_.Value
     }
-
-    # Remove duplicate checks based on their ID
     $checks = $checks | Group-Object -Property ID | ForEach-Object { $_.Group[0] }
 
     function Run-Checks {
-        param (
-            $clusterInfo
-        )
-
-        Write-Host "🤖 Running best practice checks..." -ForegroundColor Cyan
-
+        param ($clusterInfo)
+        if (-not $HtmlReport){
+        Write-Host -NoNewline "`n🤖 Running best practice checks..." -ForegroundColor Cyan
+        }
         if ($Global:MakeReport) {
             Write-ToReport "`n[✅ AKS Best Practices Check]`n"
-
         }
 
         $categories = @{
@@ -163,69 +132,42 @@ function Invoke-AKSBestPractices {
             "Best Practices"       = @();
         }
 
-        if (-not $Global:MakeReport) {
-        Clear-Host
-    }
+        if (-not $Global:MakeReport -and -not $HtmlReport -and -not $jsonReport) { Clear-Host }
 
         foreach ($check in $checks) {
             try {
-                # Write-Host "Evaluating Check: $($check.Name)"
-                # Write-Host "Expression: $($check.Value)"
-
-                # If the check is stored as a ScriptBlock, execute it
-                if ($check.Value -is [scriptblock]) {
-                    $value = & $check.Value
-                }
-                else {
-                    # Fix: Ensure we only evaluate valid PowerShell expressions
-                    if ($check.Value -match "^(True|False|[0-9]+)$") {
-                        $value = [bool]([System.Convert]::ChangeType($check.Value, [boolean]))
-                    }
-                    else {
-                        $value = Invoke-Expression ($check.Value -replace '\$clusterInfo', '$clusterInfo')
-                    }
+                $value = if ($check.Value -is [scriptblock]) {
+                    & $check.Value
+                } elseif ($check.Value -match "^(True|False|[0-9]+)$") {
+                    [bool]([System.Convert]::ChangeType($check.Value, [boolean]))
+                } else {
+                    Invoke-Expression ($check.Value -replace '\$clusterInfo', '$clusterInfo')
                 }
 
+                $result = if ($value -eq $check.Expected) { "✅ PASS" } else { "❌ FAIL" }
 
-                # Write-Host "Evaluated Value: $value"
-                # Write-Host "Expected Value: $($check.Expected)"
-
-                if ($value -eq $check.Expected) {
-                    $categories[$check.Category] += [PSCustomObject]@{
-                        ID             = $check.ID;
-                        Check          = $check.Name;
-                        Severity       = $check.Severity;
-                        Category       = $check.Category;
-                        Status         = "✅ PASS";
-                        Recommendation = "$($check.Name) is enabled.";
-                        URL            = $check.URL
-                    }
-                }
-                else {
-                    $categories[$check.Category] += [PSCustomObject]@{
-                        ID             = $check.ID;
-                        Check          = $check.Name;
-                        Severity       = $check.Severity;
-                        Category       = $check.Category;
-                        Status         = "❌ FAIL";
-                        Recommendation = $check.FailMessage
-                        URL            = $check.URL
-                    }
+                $categories[$check.Category] += [PSCustomObject]@{
+                    ID             = $check.ID;
+                    Check          = $check.Name;
+                    Severity       = $check.Severity;
+                    Category       = $check.Category;
+                    Status         = $result;
+                    Recommendation = if ($result -eq "✅ PASS") { "$($check.Name) is enabled." } else { $check.FailMessage }
+                    URL            = $check.URL
                 }
 
-                # Log to text report
                 if ($Global:MakeReport) {
-                    Write-ToReport "[$($check.Category)] $($check.Name) - Status: $($categories[$check.Category][-1].Status)"
+                    Write-ToReport "[$($check.Category)] $($check.Name) - $result"
                     Write-ToReport "   🔹 Severity: $($check.Severity)"
                     Write-ToReport "   🔹 Recommendation: $($categories[$check.Category][-1].Recommendation)"
-                    Write-ToReport "   🔹 More Info: $($check.URL)`n"
+                    Write-ToReport "   🔹 Info: $($check.URL)`n"
                 }
-
             }
             catch {
-                Write-Host "Error processing check: $($check.Name). Skipping... $_" -ForegroundColor Red
+                Write-Host "Error processing check: $($check.Name). $_" -ForegroundColor Red
             }
         }
+
         return $categories
     }
 
@@ -349,33 +291,26 @@ function Invoke-AKSBestPractices {
             }
         }
     }
-    
-    # Main Execution
-    # ✅ Execute the checks
+
+    # Main Execution Flow
     if ($Global:MakeReport) {
         Write-Host "`n🤖 Starting AKS Best Practices Check...`n" -ForegroundColor Green
     }
 
-    #Authenticate
     Validate-Context -ResourceGroup $ResourceGroup -ClusterName $ClusterName
-    $clusterInfo = Get-AKSClusterInfo -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
-
+    $clusterInfo = Get-AKSClusterInfo -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData $KubeData
     $checkResults = Run-Checks -clusterInfo $clusterInfo
-    if ($html) {
-        # Capture HTML output and return it
-        $htmlContent = Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Html
-        return $htmlContent
-    }
-    else {
-        # Display results in console
+
+    if ($Html) {
+        return Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Html
+    } else {
         Display-Results -categories $checkResults -FailedOnly:$FailedOnly
-        # ✅ Keep the script open until the user presses Enter
-        If (-not $Global:MakeReport) {
+        if (-not $Global:MakeReport) {
             Write-Host "`nPress Enter to return to the menu..." -ForegroundColor Yellow
             Read-Host
         }
     }
-    # ✅ Close the report when done
+
     if ($Global:MakeReport) {
         Write-Host "`n✅ AKS Best Practices Check Completed.`n" -ForegroundColor Green
     }

@@ -2,22 +2,33 @@ function Show-EmptyNamespaces {
     param(
         [int]$PageSize = 10, # Number of namespaces per page
         [switch]$Html, # If specified, return an HTML table
+        [object]$kubeData,
+        [switch]$json,
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[📂 Empty Namespaces]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
     # Fetch all namespaces
+    if ($kubeData) {
+        $namespaces = $kubeData.Namespaces.Metadata.Name
+    } else {
     $namespaces = @(kubectl get namespaces -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     ForEach-Object { $_.metadata.name })
+    }
 
     # Fetch all pods and their namespaces
+    if ($kubeData) {
+        $pods = $kubeData.Pods.items |
+        Group-Object { $_.metadata.namespace }
+    } else {
     $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json |
     Select-Object -ExpandProperty items |
     Group-Object { $_.metadata.namespace }
+    }
 
     # Extract namespaces that have at least one pod
     $namespacesWithPods = $pods.Name
@@ -42,6 +53,13 @@ function Show-EmptyNamespaces {
     if ($totalNamespaces -eq 0) {
         Write-Host "`r🤖 ✅ No empty namespaces found." -ForegroundColor Green
 
+        if ($Json) {
+            return [pscustomobject]@{
+                TotalEmptyNamespaces = 0
+                Namespaces           = @()
+            }
+        }
+
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[📂 Empty Namespaces]`n"
             Write-ToReport "✅ No empty namespaces found."
@@ -58,6 +76,14 @@ function Show-EmptyNamespaces {
     }
 
     Write-Host "`r🤖 ✅ Namespaces fetched. ($totalNamespaces empty namespaces detected)" -ForegroundColor Green
+
+
+    if ($Json) {
+        return [pscustomobject]@{
+            TotalEmptyNamespaces = $totalNamespaces
+            Namespaces           = $emptyNamespaces
+        }
+    }
 
     # ----- HTML SWITCH -----
     if ($Html) {
@@ -110,6 +136,8 @@ function Show-EmptyNamespaces {
             "",
             "⚠️ Total Empty Namespaces: $totalNamespaces"
         )
+
+        
         if ($currentPage -eq 0) {
             Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50 # first page only
         }
@@ -117,16 +145,15 @@ function Show-EmptyNamespaces {
         # Display current page
         $startIndex = $currentPage * $PageSize
         $endIndex = [math]::Min($startIndex + $PageSize, $totalNamespaces)
-
-        $tableData = @()
-        for ($i = $startIndex; $i -lt $endIndex; $i++) {
-            $namespace = $emptyNamespaces[$i]
-            $tableData += [PSCustomObject]@{ Namespace = $namespace.ToString() }
+        
+        $tableData = $emptyNamespaces | Select-Object -Skip $startIndex -First ($endIndex - $startIndex) | ForEach-Object {
+            [PSCustomObject]@{ Namespace = $_ }
         }
-
+        
         if ($tableData) {
             $tableData | Format-Table Namespace -AutoSize | Out-Host
         }
+        
 
         # Pagination
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
