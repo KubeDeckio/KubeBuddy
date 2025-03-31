@@ -95,9 +95,9 @@ function Show-HeroMetrics {
     )
   
     $thresholds = if (-not $Global:MakeReport -and -not $Json) {
-      Get-KubeBuddyThresholds -Silent
+      Get-KubeBuddyThresholds
     } else {
-      Get-KubeBuddyThresholds -Silet
+      Get-KubeBuddyThresholds -Silent
     }
   
     $nodeData = if ($KubeData) { $KubeData.nodes } else { kubectl get nodes -o json | ConvertFrom-Json }

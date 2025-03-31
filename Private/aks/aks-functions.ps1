@@ -10,7 +10,7 @@ function Invoke-AKSBestPractices {
 
     function Validate-Context {
         param ($ResourceGroup, $ClusterName)
-        if ($KubeData) { return $true }
+        if ($KubeData) { return $true | Out-Null }
 
         $currentContext = kubectl config current-context
         $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv --only-show-errors
