@@ -17,8 +17,8 @@ function Show-UnusedPVCs {
         } else {
             $raw = kubectl get pvc --all-namespaces -o json 2>&1 | Out-String
             if ($raw -match "No resources found") {
-                if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No PVCs found in the cluster." -ForegroundColor Green
+                if ($Json) { return @{ Total = 0; Items = @() } }
                 if ($Global:MakeReport -and -not $Html) {
                     Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n✅ No PVCs found in the cluster."
                 }
@@ -43,8 +43,8 @@ function Show-UnusedPVCs {
     }
 
     if (-not $pvcs -or $pvcs.Count -eq 0) {
-        if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No PVCs found.   " -ForegroundColor Green
+        if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ No PVCs found.</strong></p>" }
         return
     }

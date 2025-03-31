@@ -52,10 +52,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   # **Run AKS Best Practices Checks**
   if ($aks) {
-    Write-Host -NoNewline "`n🤖Running AKS Best Practices Checklist..." -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Running AKS Best Practices Checklist..." -ForegroundColor Cyan
     $aksBestPractices = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Html -KubeData:$KubeData
     # $aksBestPractices = [PSCustomObject]$aksBestPractices
-    Write-Host "`r🤖 AKS Information fetched.          " -ForegroundColor Green
+    Write-Host "`r🤖 AKS Check Results fetched.          " -ForegroundColor Green
 
     # Extract key values
     $aksPass = $aksBestPractices.Passed
@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
 "@
   }
 
-  $checks = @(
+$checks = @(
     @{ Id = "nodeConditions"; Cmd = { Show-NodeConditions -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "nodeResources"; Cmd = { Show-NodeResourceUsage -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "emptyNamespace"; Cmd = { Show-EmptyNamespaces -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
@@ -132,30 +132,54 @@ document.addEventListener('DOMContentLoaded', function() {
     @{ Id = "podsRoot"; Cmd = { Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "privilegedContainers"; Cmd = { Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "hostPidNet"; Cmd = { Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
-  )
-  
-  foreach ($check in $checks) {
+    @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -KubeData:$KubeData } }
+)
+
+foreach ($check in $checks) {
+    # Write-Host "🤖 Processing check: $($check.Id)" -ForegroundColor Cyan  # Debugging output
     $html = & $check.Cmd
-  
+
+    # Handle cases where $html might be null or empty
+    if (-not $html) {
+        $html = "<p>No data available for $($check.Id).</p>"
+    }
+
+    # Special handling for eventSummary to capture multiple <p> tags
     $pre = ""
-    if ($html -match '^\s*<p>.*?</p>') {
-      $pre = ($html -split '(?<=</p>)')[0]
-      $html = $html -replace [regex]::Escape($pre), ""
-    } elseif ($html -match '^\s*[^<]+$') {
-      $lines = $html -split "`n", 2
-      $pre = "<p>$($lines[0].Trim())</p>"
-      $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
-    }
-  
-    if ($pre -notmatch '⚠️' ) {
-      $content = $pre  # just the message, no table
+    if ($check.Id -eq "eventSummary") {
+        # Capture all <p> tags until the first <h3> (tables start)
+        if ($html -match '^(.*?)(?=<h3>)') {
+            $pre = $matches[1].Trim()
+            $html = $html -replace [regex]::Escape($pre), ""
+        } else {
+            $pre = $html
+            $html = ""
+        }
     } else {
-      $content = "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText "Show Table" -content $html)
+        # Default handling for other checks
+        if ($html -match '^\s*<p>.*?</p>') {
+            $pre = $matches[0]
+            $html = $html -replace [regex]::Escape($pre), ""
+        } elseif ($html -match '^\s*[^<]+$') {
+            $lines = $html -split "`n", 2
+            $pre = "<p>$($lines[0].Trim())</p>"
+            $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
+        } else {
+            $pre = "<p>⚠️ $($check.Id) Report</p>"
+        }
     }
-  
+
+    # Decide whether to make it collapsible based on content
+    if ($html.Trim() -and $html -notmatch '^\s*<p>.*?</p>\s*$') {
+        # Has additional content (e.g., tables), make it collapsible
+        $content = "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText "Show Table" -content $html)
+    } else {
+        # Just a message, no table
+        $content = $pre
+    }
+
     Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
-  }  
+}
 
   # Convert output array to a single string
   $clusterSummaryText = $clusterSummaryRaw -join "`n"

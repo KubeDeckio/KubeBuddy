@@ -13,7 +13,7 @@ function Invoke-AKSBestPractices {
         if ($KubeData) { return $true }
 
         $currentContext = kubectl config current-context
-        $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv
+        $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv --only-show-errors
 
         if ($Global:MakeReport) {
             Write-Host "🔄 Checking Kubernetes context..." -ForegroundColor Cyan
@@ -82,13 +82,13 @@ function Invoke-AKSBestPractices {
     $constraints = @()
 
     try {
-        if ($KubeData -and $KubeData.AksCluster) {
+        if ($KubeData -and $KubeData.AksCluster -and $KubeData.Constraints) {
             $clusterInfo = $KubeData.AksCluster
             $constraints = $KubeData.Constraints
-            Write-Host "`r🤖 Using cached AKS cluster data." -ForegroundColor Green
+            Write-Host "`r🤖 Using cached AKS cluster data. " -ForegroundColor Green
         } else {
-            $clusterInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --output json | ConvertFrom-Json
-            Write-Host "`r🤖 Live cluster data fetched." -ForegroundColor Green
+            $clusterInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --output json --only-show-errors | ConvertFrom-Json
+            Write-Host "`r🤖 Live cluster data fetched.    " -ForegroundColor Green
 
             Write-Host -NoNewline "`n🤖 Fetching Kubernetes constraints..." -ForegroundColor Cyan
             $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
@@ -115,8 +115,9 @@ return $clusterInfo
 
     function Run-Checks {
         param ($clusterInfo)
-
-        Write-Host "🤖 Running best practice checks..." -ForegroundColor Cyan
+        if (-not $HtmlReport){
+        Write-Host -NoNewline "`n🤖 Running best practice checks..." -ForegroundColor Cyan
+        }
         if ($Global:MakeReport) {
             Write-ToReport "`n[✅ AKS Best Practices Check]`n"
         }
@@ -131,7 +132,7 @@ return $clusterInfo
             "Best Practices"       = @();
         }
 
-        if (-not $Global:MakeReport) { Clear-Host }
+        if (-not $Global:MakeReport -and -not $HtmlReport -and -not $jsonReport) { Clear-Host }
 
         foreach ($check in $checks) {
             try {
@@ -297,7 +298,7 @@ return $clusterInfo
     }
 
     Validate-Context -ResourceGroup $ResourceGroup -ClusterName $ClusterName
-    $clusterInfo = Get-AKSClusterInfo -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+    $clusterInfo = Get-AKSClusterInfo -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData $KubeData
     $checkResults = Run-Checks -clusterInfo $clusterInfo
 
     if ($Html) {

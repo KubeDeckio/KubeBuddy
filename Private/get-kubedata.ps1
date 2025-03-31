@@ -93,6 +93,7 @@ function Get-KubeData {
             $data[$r.Key] = $r.Value
         } else {
             Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
+            exit
         }
     }
 
@@ -124,8 +125,8 @@ function Get-KubeData {
     if ($AKS -and $ResourceGroup -and $ClusterName) {
         Write-Host -NoNewline "`n🤖 Fetching AKS Metadata..." -ForegroundColor Yellow
         try {
-            $data.AksCluster = az aks show --resource-group $ResourceGroup --name $ClusterName | ConvertFrom-Json
-            Write-Host "`r✅ AKS Metadata fetched." -ForegroundColor Green
+            $data.AksCluster = az aks show --resource-group $ResourceGroup --name $ClusterName --only-show-errors | ConvertFrom-Json
+            Write-Host "`r✅ AKS Metadata fetched.   " -ForegroundColor Green
 
             Write-Host -NoNewline "`n🤖 Fetching Constraints..." -ForegroundColor Yellow
             $data.ConstraintTemplates = @( (kubectl get constrainttemplates -o json | ConvertFrom-Json).items )

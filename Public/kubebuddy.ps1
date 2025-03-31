@@ -81,7 +81,7 @@ function Invoke-KubeBuddy {
 
     # Confirm before proceeding
     if ($yes) {
-        Write-Host "🤖 Skipping context confirmation." -ForegroundColor Red
+        Write-Host "`n🤖 Skipping context confirmation." -ForegroundColor Red
     } else {
         $confirmation = Read-Host "🤖 Is this the correct context? (y/n)"
         if ($confirmation.Trim().ToLower() -ne 'y') {
@@ -91,9 +91,9 @@ function Invoke-KubeBuddy {
     }
 
     if ($Aks) {
-        Write-Host "`n🤖 Validating AKS cluster access..." -ForegroundColor Yellow
+        Write-Host -NoNewline "`n🤖 Validating AKS cluster access..." -ForegroundColor Yellow
         try {
-            $aksInfo = az aks show --resource-group $ResourceGroup --name $ClusterName | ConvertFrom-Json
+            $aksInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --only-show-errors | ConvertFrom-Json
         }
         catch {
             Write-Host "🤖 ❌ Failed to access AKS cluster '$ClusterName' in '$ResourceGroup'" -ForegroundColor Red
@@ -101,7 +101,7 @@ function Invoke-KubeBuddy {
             return
         }
     
-        Write-Host "🤖 ✅ Connected to AKS Cluster: $($aksInfo.name) in $($aksInfo.location)`n" -ForegroundColor Green
+        Write-Host "`r🤖 ✅ Connected to AKS Cluster: $($aksInfo.name) in $($aksInfo.location)`n" -ForegroundColor Green
     }
 
     # ========== REPORT MODES ==========

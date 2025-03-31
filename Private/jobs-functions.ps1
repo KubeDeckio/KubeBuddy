@@ -11,7 +11,7 @@ function Show-StuckJobs {
     Write-Host "`n[⏳ Stuck Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
-    if (-not $Global:MakeReport -and -not $Html) {
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) {
         $thresholds = Get-KubeBuddyThresholds
     } else {
         $thresholds = Get-KubeBuddyThresholds -Silent
@@ -178,7 +178,7 @@ function Show-FailedJobs {
     Write-Host "`n[🔴 Failed Kubernetes Jobs]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Job Data..." -ForegroundColor Yellow
 
-    if (-not $Global:MakeReport -and -not $Html) {
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) {
         $thresholds = Get-KubeBuddyThresholds
     } else {
         $thresholds = Get-KubeBuddyThresholds -Silent

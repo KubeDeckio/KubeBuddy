@@ -27,15 +27,15 @@ function Show-ClusterSummary {
     $k8sVersion = $versionInfo.serverVersion.gitVersion
     $clusterName = kubectl config current-context
 
-    Write-Host "`r🤖 Cluster Information fetched." -ForegroundColor Green
+    Write-Host "`r🤖 Cluster Information fetched.   " -ForegroundColor Green
 
     Write-Host -NoNewline "`n🤖 Checking Kubernetes Version Compatibility..." -ForegroundColor Yellow
     $versionCheckResult = Check-KubernetesVersion
-    Write-Host "`r🤖 Kubernetes Version Compatibility checked." -ForegroundColor Green
+    Write-Host "`r🤖 Kubernetes Version Compatibility checked.   " -ForegroundColor Green
 
     Write-Host -NoNewline "`n🤖 Fetching Cluster Metrics..." -ForegroundColor Yellow
-    $summaryText = Show-HeroMetrics -KubeData:$KubeData
-    Write-Host "`r🤖 Cluster Metrics fetched." -ForegroundColor Green
+    $summaryText = Show-HeroMetrics -KubeData:$KubeData -Json:$Json
+    Write-Host "`r🤖 Cluster Metrics fetched.   " -ForegroundColor Green
 
     Write-Host -NoNewline "`n🤖 Counting Kubernetes Events..." -ForegroundColor Yellow
     $events = if ($KubeData) { $KubeData.events } else {
@@ -44,7 +44,7 @@ function Show-ClusterSummary {
 
     $warningCount = ($events | Where-Object { $_.type -eq "Warning" }).Count
     $errorCount = ($events | Where-Object { $_.reason -match "Failed|Error" }).Count
-    Write-Host "`r🤖 Kubernetes Events counted." -ForegroundColor Green
+    Write-Host "`r🤖 Kubernetes Events counted.   " -ForegroundColor Green
 
     if ($Json) {
         return @{
@@ -90,13 +90,14 @@ function Show-ClusterSummary {
   
 function Show-HeroMetrics {
     param (
-      [object]$KubeData = $null
+      [object]$KubeData = $null,
+      [switch]$Json
     )
   
-    $thresholds = if ($Global:MakeReport) {
+    $thresholds = if (-not $Global:MakeReport -and -not $Json) {
       Get-KubeBuddyThresholds -Silent
     } else {
-      Get-KubeBuddyThresholds
+      Get-KubeBuddyThresholds -Silet
     }
   
     $nodeData = if ($KubeData) { $KubeData.nodes } else { kubectl get nodes -o json | ConvertFrom-Json }

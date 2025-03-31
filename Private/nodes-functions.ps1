@@ -176,7 +176,7 @@ function Show-NodeResourceUsage {
     }
 
     # Get thresholds and node data
-    if (-not $Global:MakeReport -and -not $Html) { $thresholds = Get-KubeBuddyThresholds }
+    if (-not $Global:MakeReport -and -not $Html -and -not $json) { $thresholds = Get-KubeBuddyThresholds }
     else {
         $thresholds = Get-KubeBuddyThresholds -Silent
     }
@@ -198,7 +198,7 @@ function Show-NodeResourceUsage {
         }
         return
     }
-    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Nodes fetched. (Total: $totalNodes)          " -ForegroundColor Green
 
     # Track total warnings across all nodes
     $totalWarnings = 0
