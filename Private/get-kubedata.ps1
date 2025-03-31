@@ -93,7 +93,7 @@ function Get-KubeData {
             $data[$r.Key] = $r.Value
         } else {
             Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
-            exit
+            return
         }
     }
 
