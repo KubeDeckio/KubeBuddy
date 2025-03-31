@@ -136,49 +136,36 @@ $checks = @(
 )
 
 foreach ($check in $checks) {
-    # Write-Host "🤖 Processing check: $($check.Id)" -ForegroundColor Cyan  # Debugging output
-    $html = & $check.Cmd
+  # Write-Host "🤖 Processing check: $($check.Id)" -ForegroundColor Cyan  # Debugging output
+  $html = & $check.Cmd
 
-    # Handle cases where $html might be null or empty
-    if (-not $html) {
-        $html = "<p>No data available for $($check.Id).</p>"
-    }
+  # Handle cases where $html might be null or empty
+  if (-not $html) {
+      $html = "<p>No data available for $($check.Id).</p>"
+  }
 
-    # Special handling for eventSummary to capture multiple <p> tags
-    $pre = ""
-    if ($check.Id -eq "eventSummary") {
-        # Capture all <p> tags until the first <h3> (tables start)
-        if ($html -match '^(.*?)(?=<h3>)') {
-            $pre = $matches[1].Trim()
-            $html = $html -replace [regex]::Escape($pre), ""
-        } else {
-            $pre = $html
-            $html = ""
-        }
-    } else {
-        # Default handling for other checks
-        if ($html -match '^\s*<p>.*?</p>') {
-            $pre = $matches[0]
-            $html = $html -replace [regex]::Escape($pre), ""
-        } elseif ($html -match '^\s*[^<]+$') {
-            $lines = $html -split "`n", 2
-            $pre = "<p>$($lines[0].Trim())</p>"
-            $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
-        } else {
-            $pre = "<p>⚠️ $($check.Id) Report</p>"
-        }
-    }
+  # Default handling for all checks
+  $pre = ""
+  if ($html -match '^\s*<p>.*?</p>') {
+      $pre = $matches[0]
+      $html = $html -replace [regex]::Escape($pre), ""
+  } elseif ($html -match '^\s*[^<]+$') {
+      $lines = $html -split "`n", 2
+      $pre = "<p>$($lines[0].Trim())</p>"
+      $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
+  } else {
+      $pre = "<p>⚠️ $($check.Id) Report</p>"
+  }
 
-    # Decide whether to make it collapsible based on content
-    if ($html.Trim() -and $html -notmatch '^\s*<p>.*?</p>\s*$') {
-        # Has additional content (e.g., tables), make it collapsible
-        $content = "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText "Show Table" -content $html)
-    } else {
-        # Just a message, no table
-        $content = $pre
-    }
+  # Decide whether to make it collapsible based on content
+  if ($html.Trim() -and $html -notmatch '^\s*<p>.*?</p>\s*$') {
+      $defaultText = if ($check.Id -eq "eventSummary") { "Show Kubernetes Events" } else { "Show Table" }
+      $content = "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText $defaultText -content $html)
+  } else {
+      $content = $pre
+  }
 
-    Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
+  Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
 }
 
   # Convert output array to a single string
