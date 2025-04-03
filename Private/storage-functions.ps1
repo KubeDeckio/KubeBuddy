@@ -43,7 +43,7 @@ function Show-UnusedPVCs {
     }
 
     if (-not $pvcs -or $pvcs.Count -eq 0) {
-        Write-Host "`r🤖 ✅ No PVCs found." -ForegroundColor Green
+        Write-Host "`r🤖 ✅ No PVCs found.   " -ForegroundColor Green
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ No PVCs found.</strong></p>" }
         if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
