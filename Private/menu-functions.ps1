@@ -303,8 +303,9 @@ function Show-ServiceMenu {
         Write-Host "------------------------------------"
 
         $serviceOptions = @(
-            "[1]  Show services without endpoints"
-            "[2]  Show publicly accessible services"
+            "[1]  Show services without Endpoints"
+            "[2]  Show publicly accessible Services"
+            "[3]  Show Ingress configuration issues"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -316,6 +317,7 @@ function Show-ServiceMenu {
         switch ($serviceChoice) {
             "1" { Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces }
             "2" { Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces }
+            "3" { Check-IngressHealth -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }

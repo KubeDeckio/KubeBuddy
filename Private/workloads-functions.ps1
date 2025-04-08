@@ -160,13 +160,16 @@ function Check-DeploymentIssues {
 
     if ($total -eq 0) {
         Write-Host "`r🤖 ✅ All deployments are healthy." -ForegroundColor Green
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ All deployments are healthy.</strong></p>" }
         if ($Global:MakeReport) {
             Write-ToReport "`n[🚀 Deployment Issues]`n✅ All deployments are healthy."
         }
         return
-    }
+    }    
 
     Write-Host "`r🤖 ✅ Deployment scan complete. ($total with issues)" -ForegroundColor Green
 
@@ -264,13 +267,16 @@ function Check-StatefulSetIssues {
 
     if ($total -eq 0) {
         Write-Host "`r🤖 ✅ All StatefulSets are healthy." -ForegroundColor Green
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ All StatefulSets are healthy.</strong></p>" }
         if ($Global:MakeReport) {
             Write-ToReport "`n[🏗️ StatefulSet Issues]`n✅ All StatefulSets are healthy."
         }
         return
-    }
+    }    
 
     Write-Host "`r🤖 ✅ StatefulSets checked. ($total with issues)" -ForegroundColor Green
 

@@ -346,6 +346,9 @@ function Check-IngressHealth {
         if ($Global:MakeReport) {
             Write-ToReport "`n[🌐 Ingress Health]`n✅ All Ingresses are valid."
         }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+            Read-Host "🤖 Press Enter to return to the menu"
+        }
         return
     }
 
