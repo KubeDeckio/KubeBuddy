@@ -975,10 +975,17 @@ function Check-OrphanedServiceAccounts {
     }
 
     if ($ExcludeNamespaces) {
-        $sas = Exclude-Namespaces -items $sas
-        $roleBindings = Exclude-Namespaces -items $roleBindings
-        $pods = Exclude-Namespaces -items $pods
-    }
+        $excludedSet = (Get-ExcludedNamespaces) | ForEach-Object { $_.ToLowerInvariant() }
+    
+        $sas = $sas | Where-Object { $_.metadata.namespace.ToLowerInvariant() -notin $excludedSet }
+        $roleBindings = $roleBindings | Where-Object { $_.metadata.namespace.ToLowerInvariant() -notin $excludedSet }
+        $pods = $pods | Where-Object { $_.metadata.namespace.ToLowerInvariant() -notin $excludedSet }
+        $clusterRoleBindings = $clusterRoleBindings | Where-Object {
+            $_.subjects | Where-Object {
+                $_.kind -eq "ServiceAccount" -and $_.namespace -and ($_.namespace.ToLowerInvariant() -notin $excludedSet)
+            }
+        }
+    }    
 
     Write-Host "`r🤖 ✅ Resources fetched. Analyzing usage..." -ForegroundColor Green
 
@@ -1044,10 +1051,10 @@ function Check-OrphanedServiceAccounts {
     }
 
     if ($Html) {
-        $html = $items |
+        $htmlOutput = $items |
             ConvertTo-Html -Fragment -Property Namespace, Name |
             Out-String
-        return "<p><strong>⚠️ Orphaned ServiceAccounts:</strong> $total</p>" + $html
+        return "<p><strong>⚠️ Orphaned ServiceAccounts:</strong> $total</p>" + $htmlOutput
     }
 
     if ($Global:MakeReport) {
@@ -1100,43 +1107,20 @@ function Check-OrphanedRoles {
     Write-Host -NoNewline "`n🤖 Fetching RBAC data..." -ForegroundColor Yellow
 
     try {
-        $roles = if ($KubeData -and $KubeData.Roles) {
-            $KubeData.Roles
-        } else {
-            kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
-
-        $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) {
-            $KubeData.ClusterRoles
-        } else {
-            kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
-
-        $roleBindings = if ($KubeData -and $KubeData.RoleBindings) {
-            $KubeData.RoleBindings
-        } else {
-            kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
-
-        $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) {
-            $KubeData.ClusterRoleBindings
-        } else {
-            kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
+        $roles = if ($KubeData -and $KubeData.Roles) { $KubeData.Roles } else { kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items }
+        $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) { $KubeData.ClusterRoles } else { kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items }
+        $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items }
+        $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items }
     }
     catch {
         Write-Host "`r🤖 ❌ Error fetching RBAC data: $_" -ForegroundColor Red
         return
     }
 
-    if ($ExcludeNamespaces) {
-        $roles = Exclude-Namespaces -items $roles
-        $roleBindings = Exclude-Namespaces -items $roleBindings
-    }
-
     $usedRoleNames = [System.Collections.Generic.HashSet[string]]::new()
     $usedClusterRoleNames = [System.Collections.Generic.HashSet[string]]::new()
 
+    # Populate used roles and cluster roles from all bindings, regardless of namespace
     foreach ($rb in $roleBindings) {
         if ($rb.roleRef.kind -eq "Role") {
             $usedRoleNames.Add("$($rb.metadata.namespace)/$($rb.roleRef.name)") | Out-Null
@@ -1154,24 +1138,23 @@ function Check-OrphanedRoles {
 
     $results = @()
 
+    # Filter Roles by excluded namespaces, if applicable
+    if ($ExcludeNamespaces) {
+        $excludedSet = (Get-ExcludedNamespaces) | ForEach-Object { $_.ToLowerInvariant() }
+        Write-Host "`n🤖 Excluding namespaces for Roles: $($excludedSet -join ', ')" -ForegroundColor Yellow
+        $roles = $roles | Where-Object { $_.metadata.namespace.ToLowerInvariant() -notin $excludedSet }
+    }
+
     foreach ($r in $roles) {
         $key = "$($r.metadata.namespace)/$($r.metadata.name)"
         if (-not $usedRoleNames.Contains($key)) {
-            $results += [PSCustomObject]@{
-                Namespace = $r.metadata.namespace
-                Role      = $r.metadata.name
-                Type      = "Role"
-            }
+            $results += [PSCustomObject]@{ Namespace = $r.metadata.namespace; Role = $r.metadata.name; Type = "Role" }
         }
     }
 
     foreach ($cr in $clusterRoles) {
         if (-not $usedClusterRoleNames.Contains($cr.metadata.name)) {
-            $results += [PSCustomObject]@{
-                Namespace = "🌍 Cluster-Wide"
-                Role      = $cr.metadata.name
-                Type      = "ClusterRole"
-            }
+            $results += [PSCustomObject]@{ Namespace = "🌍 Cluster-Wide"; Role = $cr.metadata.name; Type = "ClusterRole" }
         }
     }
 
@@ -1181,26 +1164,16 @@ function Check-OrphanedRoles {
     if ($total -eq 0) {
         if ($Html) { return "<p><strong>✅ No unused roles or clusterroles found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
-            Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n✅ No unused roles."
-        }
-        if (-not $Global:MakeReport -and -not $Html) {
-            Read-Host "🤖 Press Enter to return to the menu"
-        }
+        if ($Global:MakeReport -and -not $Html) { Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n✅ No unused roles." }
+        if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
-    if ($Json) {
-        return @{ Total = $total; Items = $results }
-    }
-
+    if ($Json) { return @{ Total = $total; Items = $results } }
     if ($Html) {
-        $html = $results |
-            ConvertTo-Html -Fragment -Property Namespace, Role, Type |
-            Out-String
-        return "<p><strong>⚠️ Unused Roles:</strong> $total</p>" + $html
+        $htmlOutput = $results | ConvertTo-Html -Fragment -Property Namespace, Role, Type | Out-String
+        return "<p><strong>⚠️ Unused Roles:</strong> $total</p>" + $htmlOutput
     }
-
     if ($Global:MakeReport) {
         Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n⚠️ Total: $total"
         $tableString = $results | Format-Table Namespace, Role, Type -AutoSize | Out-String
@@ -1210,11 +1183,9 @@ function Check-OrphanedRoles {
 
     $currentPage = 0
     $totalPages = [math]::Ceiling($total / $PageSize)
-
     do {
         Clear-Host
         Write-Host "`n[🗂️ Unused Roles - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
-
         if ($currentPage -eq 0) {
             Write-SpeechBubble -msg @(
                 "🤖 These Roles and ClusterRoles are not referenced by any bindings.",
@@ -1226,10 +1197,8 @@ function Check-OrphanedRoles {
                 "⚠️ Total unused roles: $total"
             ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
-
         $paged = $results | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
         $paged | Format-Table Namespace, Role, Type -AutoSize | Out-Host
-
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage

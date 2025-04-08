@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.13] - 2025-04-08
+
+### Added
+- **11 new checks** added to the JSON and HTML reports:
+  - Resource configuration:  
+    - `Check-ResourceQuotas`  
+    - `Check-NamespaceLimitRanges`  
+    - `Check-MissingResourceLimits`  
+    - `Check-HPAStatus`  
+    - `Check-PodDisruptionBudgets`  
+    - `Check-MissingHealthProbes`
+  - Workload health:  
+    - `Check-DeploymentIssues`  
+    - `Check-StatefulSetIssues`
+  - Networking  
+    - `Check-IngressHealth`
+  - RBAC and identity:  
+    - `Check-OrphanedRoles`  
+    - `Check-OrphanedServiceAccounts`
+- HTML report now includes collapsible recommendations for all checks
+- Ingress health check detects references to missing backend services
+- New logic in the HTML report to add pagination when needed
+
+### Changed
+- `Check-OrphanedRoles` filtering updated to properly exclude namespaces during binding resolution
+- JSON report mode now uses `$KubeData` cache to speed up execution by avoiding duplicate `kubectl` calls
+- HTML report section order and navigation updated to include new categories and findings
+
+### Fixed
+- Fixed logic for HTML checks showing no findings — now prints the ✅ message consistently
+- Corrected orphaned role detection to handle exclusion before usage analysis
+
 ## [0.0.12] - 2025-03-30
 
 ### Added

@@ -114,6 +114,213 @@ function Show-DaemonSetIssues {
     } while ($true)
 }
 
+function Check-DeploymentIssues {
+    param(
+        [object]$KubeData,
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$Json,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Html -and -not $Json -and -not $Global:MakeReport) { Clear-Host }
+    Write-Host "`n[🚀 Deployment Issues]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Checking deployments..." -ForegroundColor Yellow
+
+    $deployments = if ($KubeData -and $KubeData.Deployments) {
+        $KubeData.Deployments
+    } else {
+        kubectl get deployments --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    }
+
+    if ($ExcludeNamespaces) {
+        $deployments = Exclude-Namespaces -items $deployments
+    }
+
+    $issues = @()
+
+    foreach ($d in $deployments) {
+        $ns = $d.metadata.namespace
+        $name = $d.metadata.name
+        $available = $d.status.availableReplicas
+        $desired = $d.spec.replicas
+
+        if (-not $available -or $available -lt $desired) {
+            $issues += [pscustomobject]@{
+                Namespace  = $ns
+                Deployment = $name
+                Available  = $available
+                Desired    = $desired
+                Issue      = "⚠️ Insufficient replicas"
+            }
+        }
+    }
+
+    $total = $issues.Count
+
+    if ($total -eq 0) {
+        Write-Host "`r🤖 ✅ All deployments are healthy." -ForegroundColor Green
+        if ($Json) { return @{ Total = 0; Items = @() } }
+        if ($Html) { return "<p><strong>✅ All deployments are healthy.</strong></p>" }
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🚀 Deployment Issues]`n✅ All deployments are healthy."
+        }
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Deployment scan complete. ($total with issues)" -ForegroundColor Green
+
+    if ($Json) { return @{ Total = $total; Items = $issues } }
+
+    if ($Html) {
+        return "<p><strong>⚠️ Deployment Issues: $total</strong></p>" +
+            ($issues | Sort-Object Namespace |
+            ConvertTo-Html -Fragment -Property Namespace, Deployment, Available, Desired, Issue | Out-String)
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🚀 Deployment Issues]`n⚠️ Total: $total"
+        $issues | Format-Table Namespace, Deployment, Available, Desired, Issue -AutoSize |
+            Out-String | Write-ToReport
+        return
+    }
+
+    # CLI paginated view
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($total / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🚀 Deployment Issues - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg @(
+                "🤖 Deployments manage stateless apps.",
+                "",
+                "📌 These are missing available replicas:",
+                "   - Check rollout progress or pod failures.",
+                "   - Use: kubectl describe deploy <name> -n <ns>",
+                "",
+                "⚠️ Total Deployment Issues: $total"
+            ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $start = $currentPage * $PageSize
+        $slice = $issues | Select-Object -Skip $start -First $PageSize
+
+        if ($slice.Count -gt 0) {
+            $slice | Format-Table Namespace, Deployment, Available, Desired, Issue -AutoSize | Out-Host
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
+function Check-StatefulSetIssues {
+    param(
+        [object]$KubeData,
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$Json,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Html -and -not $Json -and -not $Global:MakeReport) { Clear-Host }
+    Write-Host "`n[🏗️ StatefulSet Issues]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Checking StatefulSets..." -ForegroundColor Yellow
+
+    $statefulsets = if ($KubeData -and $KubeData.StatefulSets) {
+        $KubeData.StatefulSets
+    } else {
+        kubectl get statefulsets --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    }
+
+    if ($ExcludeNamespaces) {
+        $statefulsets = Exclude-Namespaces -items $statefulsets
+    }
+
+    $results = @()
+
+    foreach ($s in $statefulsets) {
+        $name = $s.metadata.name
+        $ns = $s.metadata.namespace
+        $ready = $s.status.readyReplicas
+        $desired = $s.spec.replicas
+
+        if (-not $ready -or $ready -lt $desired) {
+            $results += [pscustomobject]@{
+                Namespace   = $ns
+                StatefulSet = $name
+                Ready       = $ready
+                Desired     = $desired
+                Issue       = "⚠️ Incomplete rollout"
+            }
+        }
+    }
+
+    $total = $results.Count
+
+    if ($total -eq 0) {
+        Write-Host "`r🤖 ✅ All StatefulSets are healthy." -ForegroundColor Green
+        if ($Json) { return @{ Total = 0; Items = @() } }
+        if ($Html) { return "<p><strong>✅ All StatefulSets are healthy.</strong></p>" }
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🏗️ StatefulSet Issues]`n✅ All StatefulSets are healthy."
+        }
+        return
+    }
+
+    Write-Host "`r🤖 ✅ StatefulSets checked. ($total with issues)" -ForegroundColor Green
+
+    if ($Json) { return @{ Total = $total; Items = $results } }
+
+    if ($Html) {
+        return "<p><strong>⚠️ StatefulSet Issues: $total</strong></p>" +
+            ($results | Sort-Object Namespace |
+            ConvertTo-Html -Fragment -Property Namespace, StatefulSet, Ready, Desired, Issue | Out-String)
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🏗️ StatefulSet Issues]`n⚠️ Total: $total"
+        $results | Format-Table Namespace, StatefulSet, Ready, Desired, Issue -AutoSize |
+            Out-String | Write-ToReport
+        return
+    }
+
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($total / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🏗️ StatefulSet Issues - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg @(
+                "🤖 StatefulSets manage ordered, persistent workloads.",
+                "",
+                "📌 These sets have missing ready pods:",
+                "   - Check pod logs and PVC binding.",
+                "   - Use: kubectl describe sts <name> -n <ns>",
+                "",
+                "⚠️ Total StatefulSet Issues: $total"
+            ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $start = $currentPage * $PageSize
+        $slice = $results | Select-Object -Skip $start -First $PageSize
+
+        if ($slice.Count -gt 0) {
+            $slice | Format-Table Namespace, StatefulSet, Ready, Desired, Issue -AutoSize | Out-Host
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
 function Check-HPAStatus {
     param(
         [object]$KubeData,

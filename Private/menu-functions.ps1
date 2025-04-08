@@ -81,29 +81,11 @@ function Show-WorkloadMenu {
             "1" { Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces }
 
             "2" {
-                $msg = @(
-                    "🤖 Deployment Issues Check is coming soon!",
-                    "",
-                    "   - This feature will identify failing or unhealthy Deployments, rollout failures, and unavailable pods.",
-                    "   - Stay tuned! 🚀"
-                )
-
-                Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Cyan" -delay 50
-                
-                Read-Host "🤖 Press Enter to return to the menu"
+                Check-DeploymentIssues -ExcludeNamespaces:$ExcludeNamespaces
             }
 
             "3" {
-                $msg = @(
-                    "🤖 StatefulSet Health Check is coming soon!",
-                    "",
-                    "   - This feature will analyze StatefulSets for failures, stuck rollouts, and missing pods.",
-                    "   - Stay tuned for updates! 🏗️"
-                )
-
-                Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Cyan" -delay 50
-
-                Read-Host "🤖 Press Enter to return to the menu"
+                Check-StatefulSetIssues -ExcludeNamespaces:$ExcludeNamespaces
             }
 
             "4" {

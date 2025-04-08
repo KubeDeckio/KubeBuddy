@@ -11,34 +11,38 @@ function Show-EmptyNamespaces {
     Write-Host "`n[📂 Empty Namespaces]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
-    # Fetch all namespaces
-    if ($kubeData) {
-        $namespaces = $kubeData.Namespaces.Metadata.Name
+    # Fetch full namespace objects first
+    if ($KubeData -and $KubeData.Namespaces) {
+        $allNamespaces = $KubeData.Namespaces
     } else {
-    $namespaces = @(kubectl get namespaces -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    ForEach-Object { $_.metadata.name })
+        $allNamespaces = kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
     }
-
-    # Fetch all pods and their namespaces
-    if ($kubeData) {
-        $pods = $kubeData.Pods.items |
-        Group-Object { $_.metadata.namespace }
-    } else {
-    $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json |
-    Select-Object -ExpandProperty items |
-    Group-Object { $_.metadata.namespace }
-    }
-
-    # Extract namespaces that have at least one pod
-    $namespacesWithPods = $pods.Name
-
-    # Get only namespaces that are completely empty
-    $emptyNamespaces = @($namespaces | Where-Object { $_ -notin $namespacesWithPods })
-
+    
+    # Apply exclusion early, while they’re still objects
     if ($ExcludeNamespaces) {
-        $emptyNamespaces = Exclude-Namespaces -items $emptyNamespaces
+        $allNamespaces = Exclude-Namespaces -items $allNamespaces
     }
+    
+    # Now extract the namespace names to check
+    $allNsNames = $allNamespaces | ForEach-Object { $_.metadata.name.Trim() }
+    
+    # Get pod namespaces
+    if ($KubeData -and $KubeData.Pods) {
+        $pods = $KubeData.Pods.items |
+            Where-Object { $_.metadata.namespace -and $_.metadata.namespace.Trim() -ne "" } |
+            Group-Object { $_.metadata.namespace.Trim() }
+    } else {
+        $pods = kubectl get pods --all-namespaces -o json | ConvertFrom-Json |
+            Select-Object -ExpandProperty items |
+            Where-Object { $_.metadata.namespace } |
+            Group-Object { $_.metadata.namespace }
+    }
+    
+    $namespacesWithPods = $pods | ForEach-Object { $_.Name.Trim() }
+    
+    # Calculate empty namespaces
+    $emptyNamespaces = $allNsNames | Where-Object { $_ -notin $namespacesWithPods }
+
 
     # Force split into an array if it's a multiline string
     if ($emptyNamespaces -is [string]) {
@@ -209,8 +213,9 @@ function Check-ResourceQuotas {
 
     if ($ExcludeNamespaces) {
         $namespaces = Exclude-Namespaces -items $namespaces
-        $quotas = Exclude-Namespaces -items $quotas
-    }
+        $quotaNamespaces = $namespaces | ForEach-Object { $_.metadata.name }
+        $quotas = $quotas | Where-Object { $_.metadata.namespace -in $quotaNamespaces }
+    }    
 
     $results = @()
     foreach ($ns in $namespaces) {
@@ -338,7 +343,8 @@ function Check-NamespaceLimitRanges {
 
     if ($ExcludeNamespaces) {
         $namespaces = Exclude-Namespaces -items $namespaces
-        $limitRanges = Exclude-Namespaces -items $limitRanges
+        $validNamespaces = $namespaces | ForEach-Object { $_.metadata.name }
+        $limitRanges = $limitRanges | Where-Object { $_.metadata.namespace -in $validNamespaces }
     }
 
     $results = @()

@@ -4,13 +4,13 @@
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Load all private functions (not exported)
-$privateScripts = Get-ChildItem -Path (Join-Path $scriptPath "Private") -Recurse -File
+$privateScripts = Get-ChildItem -Path (Join-Path $scriptPath "Private") -Recurse -File -Include "*.ps1"
 foreach ($script in $privateScripts) {
     . $script.FullName
 }
 
 # Load all public functions (exported)
-$publicScripts = Get-ChildItem -Path (Join-Path $scriptPath "Public") -Recurse -File
+$publicScripts = Get-ChildItem -Path (Join-Path $scriptPath "Public") -Recurse -File -Include "*.ps1"
 foreach ($script in $publicScripts) {
     . $script.FullName
 }

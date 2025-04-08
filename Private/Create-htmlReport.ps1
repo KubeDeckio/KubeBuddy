@@ -103,6 +103,8 @@ $collapsibleAKSHtml
         @{ Id = "nodeConditions"; Cmd = { Show-NodeConditions -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "nodeResources"; Cmd = { Show-NodeResourceUsage -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "emptyNamespace"; Cmd = { Show-EmptyNamespaces -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "resourceQuotas"; Cmd = { Check-ResourceQuotas -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "namespaceLimitRanges"; Cmd = { Check-NamespaceLimitRanges -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "daemonSetIssues"; Cmd = { Show-DaemonSetIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "HPA"; Cmd = { Check-HPAStatus -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "missingResourceLimits"; Cmd = { Check-MissingResourceLimits -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
@@ -121,13 +123,18 @@ $collapsibleAKSHtml
         @{ Id = "unmountedPV"; Cmd = { Show-UnusedPVCs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "rbacMisconfig"; Cmd = { Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "rbacOverexposure"; Cmd = { Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "orphanedServiceAccounts"; Cmd = { Check-OrphanedServiceAccounts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "orphanedRoles"; Cmd = { Check-OrphanedRoles -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "orphanedConfigMaps"; Cmd = { Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "orphanedSecrets"; Cmd = { Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "podsRoot"; Cmd = { Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "privilegedContainers"; Cmd = { Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
         @{ Id = "hostPidNet"; Cmd = { Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-        @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -KubeData:$KubeData } }
-    )
+        @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -KubeData:$KubeData } },
+        @{ Id = "deploymentIssues"; Cmd = { Check-DeploymentIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "statefulSetIssues"; Cmd = { Check-StatefulSetIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "ingressHealth"; Cmd = { Check-IngressHealth -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }        
+        )
 
     foreach ($check in $checks) {
         $html = & $check.Cmd
@@ -212,6 +219,58 @@ $collapsibleAKSHtml
 </div>
 "@
                 }
+                "resourceQuotas" {
+@"
+<div class="recommendation-content">
+  <h4>🛠️ Set ResourceQuotas</h4>
+  <ul>
+      <li><strong>Define:</strong> Create ResourceQuota objects with limits on CPU, memory, and pods per namespace.</li>
+      <li><strong>Example:</strong> 
+<pre><code>apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resources
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+</code></pre></li>
+      <li><strong>Scope:</strong> Apply different quotas per environment (e.g., dev vs prod).</li>
+      <li><strong>Monitor:</strong> Use <code>kubectl describe quota -n <namespace></code> to see usage.</li>
+  </ul>
+</div>
+"@
+                }
+                "namespaceLimitRanges" {
+@"
+<div class="recommendation-content">
+  <h4>🛠️ Add LimitRanges</h4>
+  <ul>
+      <li><strong>Define Defaults:</strong> Set default requests and limits per container using LimitRange.</li>
+      <li><strong>Example:</strong> 
+<pre><code>apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limits
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "250m"
+      memory: "256Mi"
+    type: Container
+</code></pre></li>
+      <li><strong>Purpose:</strong> Prevent pods from running without resource caps or defaults.</li>
+      <li><strong>Apply:</strong> <code>kubectl apply -f limitrange.yaml -n <namespace></code></li>
+  </ul>
+</div>
+"@
+                }
                 "daemonSetIssues" {
                     @"
 <div class="recommendation-content">
@@ -221,6 +280,32 @@ $collapsibleAKSHtml
       <li><strong>Node Affinity:</strong> Ensure DaemonSet spec matches node conditions (<code>kubectl describe ds <name></code>).</li>
       <li><strong>Tolerations:</strong> Add tolerations if nodes are tainted (<code>spec.template.spec.tolerations</code>).</li>
       <li><strong>Rollout:</strong> Restart rollout if stuck (<code>kubectl rollout restart ds <name></code>).</li>
+  </ul>
+</div>
+"@
+                }
+                "deployments" {
+@"
+<div class="recommendation-content">
+  <h4>🛠️ Fix Deployment Issues</h4>
+  <ul>
+      <li><strong>Rollout Status:</strong> Use <code>kubectl rollout status deploy <name> -n <namespace></code> to check for rollout problems.</li>
+      <li><strong>Unavailable Pods:</strong> If replicas are unavailable, inspect pod events and logs for failures.</li>
+      <li><strong>Strategy:</strong> Consider using <code>RollingUpdate</code> with a proper <code>maxUnavailable</code> setting to avoid disruption.</li>
+      <li><strong>Recreate:</strong> Use <code>kubectl rollout restart deploy <name></code> if stuck or hanging.</li>
+  </ul>
+</div>
+"@
+                }
+                "statefulsets" {
+@"
+<div class="recommendation-content">
+  <h4>🛠️ Review StatefulSet Health</h4>
+  <ul>
+      <li><strong>Pod Status:</strong> Check pod readiness and init status with <code>kubectl get pods -l app=<label> -n <namespace></code>.</li>
+      <li><strong>Persistent Volumes:</strong> Verify PVCs are properly bound and mounted.</li>
+      <li><strong>Pod Ordinality:</strong> StatefulSets start pods in order. A stuck pod blocks the rest—check logs of the first pod.</li>
+      <li><strong>Headless Service:</strong> Ensure a headless service is defined for network identity.</li>
   </ul>
 </div>
 "@
@@ -412,6 +497,19 @@ $collapsibleAKSHtml
 </div>
 "@
                 }
+                "ingress" {
+@"
+<div class="recommendation-content">
+  <h4>🛠️ Validate Ingress Resources</h4>
+  <ul>
+      <li><strong>Backend Services:</strong> Verify Ingress routes to services with healthy endpoints.</li>
+      <li><strong>Annotations:</strong> Confirm correct ingress class or controller annotations.</li>
+      <li><strong>TLS:</strong> Use <code>cert-manager</code> or secrets to configure valid TLS certs.</li>
+      <li><strong>Check Errors:</strong> Look for HTTP 404s, 502s or connection errors in the ingress controller logs.</li>
+  </ul>
+</div>
+"@
+                }
                 "unmountedPV" {
                     @"
 <div class="recommendation-content">
@@ -485,7 +583,7 @@ $collapsibleAKSHtml
       <li><strong>Config:</strong> Set <code>securityContext.runAsNonRoot: true</code> in pod spec.</li>
       <li><strong>User:</strong> Define <code>runAsUser: <non-zero-uid></code> to avoid root.</li>
       <li><strong>Verify:</strong> Check with <code>kubectl exec <pod-name> -- whoami</code>.</li>
-      <li><strong>Policy:</strong> Enforce via PodSecurityPolicy or admission controllers.</li>
+      <li><strong>Policy:</strong> Enforce via PodSecurity admission controller.</li>
   </ul>
 </div>
 "@
@@ -498,7 +596,7 @@ $collapsibleAKSHtml
       <li><strong>Check:</strong> Inspect spec (<code>kubectl get pod <pod-name> -o yaml</code>).</li>
       <li><strong>Fix:</strong> Remove <code>privileged: true</code> from <code>securityContext</code>.</li>
       <li><strong>Capabilities:</strong> Use specific capabilities instead (<code>securityContext.capabilities.add</code>).</li>
-      <li><strong>Audit:</strong> Block privileged pods with Open Policy Agent or PodSecurityPolicy.</li>
+      <li><strong>Audit:</strong> Block privileged pods with Open Policy Agent or PodSecurity admission controller.</li>
   </ul>
 </div>
 "@
@@ -512,6 +610,32 @@ $collapsibleAKSHtml
       <li><strong>Fix:</strong> Set <code>hostPID: false</code> and <code>hostNetwork: false</code> in <code>spec</code>.</li>
       <li><strong>Use Case:</strong> Justify if required (e.g., monitoring tools), otherwise remove.</li>
       <li><strong>Security:</strong> Enforce via admission controllers to prevent host access.</li>
+  </ul>
+</div>
+"@
+                }
+                "orphanedServiceAccounts" {
+@"
+<div class="recommendation-content">
+  <h4>🛠️ Clean Up Orphaned ServiceAccounts</h4>
+  <ul>
+      <li><strong>Verify:</strong> Run <code>kubectl get sa -A</code> and check usage across pods, RoleBindings, and ClusterRoleBindings.</li>
+      <li><strong>Delete:</strong> Remove unused SAs with <code>kubectl delete sa <name> -n <namespace></code>.</li>
+      <li><strong>Audit:</strong> Confirm bindings and pods no longer reference the SA to avoid runtime issues.</li>
+      <li><strong>Policy:</strong> Set up a process to review and clean up stale SAs periodically.</li>
+  </ul>
+</div>
+"@
+                }
+                "orphanedRoles" {
+@"
+<div class="recommendation-content">
+  <h4>🛠️ Remove Unused Roles and ClusterRoles</h4>
+  <ul>
+      <li><strong>List:</strong> Get all Roles and ClusterRoles using <code>kubectl get roles,clusterroles -A</code>.</li>
+      <li><strong>Bindings:</strong> Confirm if they’re bound using <code>kubectl get rolebindings,clusterrolebindings -A</code>.</li>
+      <li><strong>Prune:</strong> Delete unused roles with <code>kubectl delete role <name> -n <namespace></code> or <code>kubectl delete clusterrole <name></code>.</li>
+      <li><strong>Review:</strong> Avoid clutter and reduce audit noise by cleaning up unbound roles regularly.</li>
   </ul>
 </div>
 "@
@@ -801,14 +925,29 @@ $collapsibleAKSHtml
                   </ul>
               </details>
           </li>
-          <li class="nav-item"><a href="#namespaces"><span class="material-icons">folder</span> Namespaces</a></li>
           <li class="nav-item">
-              <details>
-                  <summary><span class="material-icons">build</span> Workloads</summary>
-                  <ul>
-                      <li><a href="#daemonsets">DaemonSets</a></li>
-                  </ul>
-              </details>
+            <details>
+              <summary><span class="material-icons">folder</span> Namespaces</summary>
+              <ul>
+                <li><a href="#namespaces">Empty Namespaces</a></li>
+                <li><a href="#resourceQuotas">ResourceQuotas</a></li>
+                <li><a href="#namespaceLimitRanges">LimitRanges</a></li>
+              </ul>
+            </details>
+          </li>
+          <li class="nav-item">
+            <details>
+              <summary><span class="material-icons">build</span> Workloads</summary>
+              <ul>
+                <li><a href="#daemonsets">DaemonSets</a></li>
+                <li><a href="#deploymentIssues">Deployment Issues</a></li>
+                <li><a href="#statefulSetIssues">StatefulSet Issues</a></li>
+                <li><a href="#HPA">Horizontal Pod Autoscalers</a></li>
+                <li><a href="#missingResourceLimits">Missing Resource Limits</a></li>
+                <li><a href="#PDB">PodDisruptionBudgets</a></li>
+                <li><a href="#missingProbes">Missing Health Probes</a></li>
+              </ul>
+            </details>
           </li>
           <li class="nav-item">
               <details>
@@ -838,6 +977,7 @@ $collapsibleAKSHtml
                   <ul>
                       <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
                       <li><a href="#publicServices">Public Services</a></li>
+                      <li><a href="#ingressHealth">Ingress Health</a></li>
                   </ul>
               </details>
           </li>
@@ -850,18 +990,25 @@ $collapsibleAKSHtml
               </details>
           </li>
           <li class="nav-item">
-              <details>
-                  <summary><span class="material-icons">security</span> Security</summary>
-                  <ul>
-                      <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
-                      <li><a href="#rbacOverexposure">RBAC Overexposure</a></li>
-                      <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
-                      <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
-                      <li><a href="#podsRoot">Pods Running as Root</a></li>
-                      <li><a href="#privilegedContainers">Privileged Containers</a></li>
-                      <li><a href="#hostPidNet">hostPID / hostNetwork</a></li>
-                  </ul>
-              </details>
+            <details>
+              <summary><span class="material-icons">security</span> Security</summary>
+              <ul>
+                <!-- RBAC -->
+                <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
+                <li><a href="#rbacOverexposure">RBAC Overexposure</a></li>
+                <li><a href="#orphanedRoles">Unused Roles</a></li>
+                <li><a href="#orphanedServiceAccounts">Orphaned ServiceAccounts</a></li>
+          
+                <!-- Orphaned resources -->
+                <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
+                <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
+          
+                <!-- Pod/container security -->
+                <li><a href="#podsRoot">Pods Running as Root</a></li>
+                <li><a href="#privilegedContainers">Privileged Containers</a></li>
+                <li><a href="#hostPidNet">hostPID / hostNetwork</a></li>
+              </ul>
+            </details>
           </li>
           <li class="nav-item"><a href="#clusterwarnings"><span class="material-icons">warning</span> Kubernetes Events</a></li>
           $aksMenuItem
@@ -915,9 +1062,22 @@ $collapsibleAKSHtml
   $excludedNamespacesHtml
 </div>
 <div class="container"><h1>Node Conditions & Resources</h1><h2 id="nodecon">Node Conditions <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Displays node readiness, taints, and schedulability.</span></span></h2><div class="table-container">$collapsibleNodeConditionsHtml</div><h2 id="noderesource">Node Resources <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Shows CPU and memory usage across nodes.</span></span></h2><div class="table-container">$collapsibleNodeResourcesHtml</div></div>
-<div class="container"><h1 id="namespaces">Namespaces</h1><h2>Empty Namespaces <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span></h2><div class="table-container">$collapsibleEmptyNamespaceHtml</div></div>
+<div class="container"><h1 id="namespaces">Namespaces</h1><h2>Empty Namespaces <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span></h2><div class="table-container">$collapsibleEmptyNamespaceHtml</div>
+<h2 id="resourceQuotas">ResourceQuota Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces lacking or missing quota definitions.</span></span></h2>
+<div class="table-container">$collapsibleResourceQuotasHtml</div>
+
+<h2 id="namespaceLimitRanges">LimitRange Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces missing default resource limits.</span></span></h2>
+<div class="table-container">$collapsibleNamespaceLimitRangesHtml</div>
+</div>
 <div class="container"><h1 id="workloads">Workloads</h1><h2 id="daemonsets">DaemonSets Not Fully Running <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with unavailable pods or rollout issues.</span></span></h2><div class="table-container">$collapsibleDaemonSetIssuesHtml</div>
-  <h2 id="HPA">Horizontal Pod Autoscalers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Checks HPA presence and effectiveness.</span></span></h2>
+
+<h2 id="deploymentIssues">Deployment Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies Deployments with unhealthy replicas or rollout problems.</span></span></h2>
+<div class="table-container">$collapsibleDeploymentIssuesHtml</div>
+
+<h2 id="statefulSetIssues">StatefulSet Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects StatefulSets with unavailable pods or replica mismatches.</span></span></h2>
+<div class="table-container">$collapsibleStatefulSetIssuesHtml</div>
+
+<h2 id="HPA">Horizontal Pod Autoscalers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Checks HPA presence and effectiveness.</span></span></h2>
   <div class="table-container">$collapsibleHPAHtml</div>
 
   <h2 id="missingResourceLimits">Missing Resource Requests & Limits <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Finds containers without memory/CPU requests or limits.</span></span></h2>
@@ -931,9 +1091,41 @@ $collapsibleAKSHtml
 </div>
 <div class="container"><h1 id="pods">Pods</h1><h2 id="podrestarts">Pods with High Restarts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods with restarts above the configured threshold.</span></span></h2><div class="table-container">$collapsiblePodsRestartHtml</div><h2 id="podlong">Long Running Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods running beyond expected duration (e.g. stuck Jobs).</span></span></h2><div class="table-container">$collapsiblePodLongRunningHtml</div><h2 id="podfail">Failed Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods that exited with a non-zero status.</span></span></h2><div class="table-container">$collapsiblePodFailHtml</div><h2 id="podpend">Pending Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods pending scheduling or resource allocation.</span></span></h2><div class="table-container">$collapsiblePodPendingHtml</div><h2 id="crashloop">CrashLoopBackOff Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods continuously crashing and restarting.</span></span></h2><div class="table-container">$collapsibleCrashloopHtml</div><h2 id="debugpods">Running Debug Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ephemeral containers or debug pods left running.</span></span></h2><div class="table-container">$collapsibleLeftoverdebugHtml</div></div>
 <div class="container"><h1 id="jobs">Jobs</h1><h2 id="stuckjobs">Stuck Jobs <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that haven't progressed or completed as expected.</span></span></h2><div class="table-container">$collapsibleStuckJobsHtml</div><h2 id="failedjobs">Job Failures <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that exceeded retries or failed execution.</span></span></h2><div class="table-container">$collapsibleJobFailHtml</div></div>
-<div class="container"><h1 id="networking">Networking</h1><h2 id="servicenoendpoints">Services without Endpoints <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services that have no active pods backing them.</span></span></h2><div class="table-container">$collapsibleServicesWithoutEndpointsHtml</div><h2 id="publicServices">Publicly Accessible Services <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed via LoadBalancer or external IPs.</span></span></h2><div class="table-container">$collapsiblePublicServicesHtml</div></div>
+<div class="container"><h1 id="networking">Networking</h1><h2 id="servicenoendpoints">Services without Endpoints <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services that have no active pods backing them.</span></span></h2><div class="table-container">$collapsibleServicesWithoutEndpointsHtml</div><h2 id="publicServices">Publicly Accessible Services <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed via LoadBalancer or external IPs.</span></span></h2><div class="table-container">$collapsiblePublicServicesHtml</div>
+<h2 id="ingressHealth">Ingress Configuration Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Validates Ingress resources for misconfigurations or missing backend services.</span></span></h2>
+<div class="table-container">$collapsibleIngressHealthHtml</div>
+</div>
 <div class="container"><h1 id="storage">Storage</h1><h2 id="unmountedpv">Unmounted Persistent Volumes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Persistent volumes not currently mounted to any pod.</span></span></h2><div class="table-container">$collapsibleUnmountedpvHtml</div></div>
-<div class="container"><h1 id="security">Security</h1><h2 id="rbacmisconfig">RBAC Misconfigurations <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ClusterRole or RoleBindings without subjects or bindings.</span></span></h2><div class="table-container">$collapsibleRbacmisconfigHtml</div><h2 id="rbacOverexposure">RBAC Overexposure <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Subjects with excessive or broad access rights.</span></span></h2><div class="table-container">$collapsibleRbacOverexposureHtml</div><h2 id="orphanedconfigmaps">Orphaned ConfigMaps <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ConfigMaps not referenced by any pod or controller.</span></span></h2><div class="table-container">$collapsibleOrphanedConfigMapsHtml</div><h2 id="orphanedsecrets">Orphaned Secrets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Secrets that are unused or unmounted by workloads.</span></span></h2><div class="table-container">$collapsibleOrphanedSecretsHtml</div><h2 id="podsRoot">Pods Running as Root <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Workloads running containers as UID 0 (root).</span></span></h2><div class="table-container">$collapsiblePodsRootHtml</div><h2 id="privilegedContainers">Privileged Containers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running with privileged security context.</span></span></h2><div class="table-container">$collapsiblePrivilegedContainersHtml</div><h2 id="hostPidNet">hostPID / hostNetwork Enabled <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span></h2><div class="table-container">$collapsibleHostPidNetHtml</div></div>
+<div class="container"><h1 id="security">Security</h1>
+
+<h2 id="rbacmisconfig">RBAC Misconfigurations <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">RoleBindings or ClusterRoleBindings with missing subjects.</span></span></h2>
+<div class="table-container">$collapsibleRbacmisconfigHtml</div>
+
+<h2 id="rbacOverexposure">RBAC Overexposure <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Subjects with excessive or unnecessary privileges.</span></span></h2>
+<div class="table-container">$collapsibleRbacOverexposureHtml</div>
+
+<h2 id="orphanedRoles">Unused Roles & ClusterRoles <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Roles not referenced by any binding.</span></span></h2>
+<div class="table-container">$collapsibleOrphanedRolesHtml</div>
+
+<h2 id="orphanedServiceAccounts">Orphaned ServiceAccounts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ServiceAccounts not used by any Pod or Binding.</span></span></h2>
+<div class="table-container">$collapsibleOrphanedServiceAccountsHtml</div>
+
+<h2 id="orphanedconfigmaps">Orphaned ConfigMaps <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ConfigMaps not referenced by any pod or controller.</span></span></h2>
+<div class="table-container">$collapsibleOrphanedConfigMapsHtml</div>
+
+<h2 id="orphanedsecrets">Orphaned Secrets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Secrets that are unused or unmounted by workloads.</span></span></h2>
+<div class="table-container">$collapsibleOrphanedSecretsHtml</div>
+
+<h2 id="podsRoot">Pods Running as Root <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running as UID 0.</span></span></h2>
+<div class="table-container">$collapsiblePodsRootHtml</div>
+
+<h2 id="privilegedContainers">Privileged Containers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running with privileged security context.</span></span></h2>
+<div class="table-container">$collapsiblePrivilegedContainersHtml</div>
+
+<h2 id="hostPidNet">hostPID / hostNetwork Enabled <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span></h2>
+<div class="table-container">$collapsibleHostPidNetHtml</div>
+
+</div>
 <div class="container"><h1 id="kubeevents">Kubernetes Warning Events</h1><h2 id="clusterwarnings">Recent Cluster Warnings <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Recent Warning and Error events from the cluster.</span></span></h2><div class="table-container">$collapsibleEventSummaryHtml</div></div>
 $aksHealthCheck
 <button id="menuFab" title="Open Menu">☰</button>

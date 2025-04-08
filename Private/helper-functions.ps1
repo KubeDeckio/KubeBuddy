@@ -19,7 +19,6 @@ function Generate-K8sTextReport {
     )
     $Global:MakeReport = $true
     
-    # Clear existing report if any
     if (Test-Path $ReportFile) {
         Remove-Item $ReportFile -Force
     }
@@ -28,8 +27,6 @@ function Generate-K8sTextReport {
     Write-ToReport "Timestamp: $(Get-Date)"
     Write-ToReport "---------------------------------"
 
-    $cursorPos = ""
-    # Run each check in report mode
     Write-ToReport "`n[🌐 Cluster Summary]`n"
     Show-ClusterSummary
     Write-Host "`n🤖 Cluster Summary fetched.   " -ForegroundColor Green
@@ -39,11 +36,19 @@ function Generate-K8sTextReport {
     Write-Host "`n🤖 Node Information fetched.   " -ForegroundColor Green
 
     Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-ResourceQuotas -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-NamespaceLimitRanges -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Write-Host "`n🤖 Namespace Information fetched.   " -ForegroundColor Green
 
-    Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData    
+    Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-DeploymentIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-StatefulSetIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-HPAStatus -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-MissingResourceLimits -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-PodDisruptionBudgets -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-MissingHealthProbes -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Write-Host "`n🤖 Workload Information fetched.   " -ForegroundColor Green 
-    
+
     Show-PodsWithHighRestarts -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Show-LongRunningPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Show-FailedPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
@@ -58,11 +63,17 @@ function Generate-K8sTextReport {
 
     Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-IngressHealth -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Write-Host "`n🤖 Service Information fetched.   " -ForegroundColor Green
 
     Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Write-Host "`n🤖 Storage Information fetched.   " -ForegroundColor Green
+
+    # Security Checks
     Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-RBACOverexposure -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-OrphanedRoles -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
+    Check-OrphanedServiceAccounts -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
@@ -70,17 +81,17 @@ function Generate-K8sTextReport {
     Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
     Write-Host "`n🤖 Security Information fetched.   " -ForegroundColor Green
 
-    show-KubeEvents -KubeData:$KubeData
+    Show-KubeEvents -KubeData:$KubeData
     Write-Host "`n🤖 Kube Events fetched.   " -ForegroundColor Green
 
     if ($aks) {
-    Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData:$KubeData
-    Write-Host "`n🤖 AKS Information fetched.   " -ForegroundColor Green
+        Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData:$KubeData
+        Write-Host "`n🤖 AKS Information fetched.   " -ForegroundColor Green
     }
 
-    
     $Global:MakeReport = $false
 }
+
 
 function Get-KubeBuddyThresholds {
     param(

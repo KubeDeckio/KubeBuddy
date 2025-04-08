@@ -163,11 +163,11 @@ function Check-PubliclyAccessibleServices {
         return
     }
 
-    if (-not $services) {
-        Write-Host "`r🤖 ❌ No services found." -ForegroundColor Red
-        if ($Html) { return "<p>❌ No services found.</p>" }
-        return
-    }
+    # if (-not $services) {
+    #     Write-Host "`r🤖 ❌ No services found." -ForegroundColor Red
+    #     if ($Html) { return "<p>❌ No services found.</p>" }
+    #     return
+    # }
 
     if ($ExcludeNamespaces) {
         $services = Exclude-Namespaces -items $services
@@ -284,6 +284,114 @@ function Check-PubliclyAccessibleServices {
 
         $paged = $tableData | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
         $paged | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-Host
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
+function Check-IngressHealth {
+    param(
+        [object]$KubeData,
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$Json,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Html -and -not $Json -and -not $Global:MakeReport) { Clear-Host }
+    Write-Host "`n[🌐 Ingress Health]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Checking Ingresses..." -ForegroundColor Yellow
+
+    $ingresses = if ($KubeData -and $KubeData.Ingresses) {
+        $KubeData.Ingresses
+    } else {
+        kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+    }
+
+    if ($ExcludeNamespaces) {
+        $ingresses = Exclude-Namespaces -items $ingresses
+    }
+
+    $results = @()
+
+    foreach ($i in $ingresses) {
+        $ns = $i.metadata.namespace
+        $name = $i.metadata.name
+        foreach ($rule in $i.spec.rules) {
+            foreach ($path in $rule.http.paths) {
+                $svc = $path.backend.service.name
+                $port = $path.backend.service.port.number
+                $svcCheck = kubectl get svc $svc -n $ns -o json 2>$null | ConvertFrom-Json
+                if (-not $svcCheck) {
+                    $results += [pscustomobject]@{
+                        Namespace = $ns
+                        Ingress   = $name
+                        Host      = $rule.host
+                        Path      = $path.path
+                        Issue     = "❌ Service '$svc' not found"
+                    }
+                }
+            }
+        }
+    }
+
+    $total = $results.Count
+
+    if ($total -eq 0) {
+        Write-Host "`r🤖 ✅ All Ingresses are valid." -ForegroundColor Green
+        if ($Json) { return @{ Total = 0; Items = @() } }
+        if ($Html) { return "<p><strong>✅ All Ingresses are valid.</strong></p>" }
+        if ($Global:MakeReport) {
+            Write-ToReport "`n[🌐 Ingress Health]`n✅ All Ingresses are valid."
+        }
+        return
+    }
+
+    Write-Host "`r🤖 ✅ Ingress scan complete. ($total with issues)" -ForegroundColor Green
+
+    if ($Json) { return @{ Total = $total; Items = $results } }
+
+    if ($Html) {
+        return "<p><strong>⚠️ Ingress Issues: $total</strong></p>" +
+            ($results | Sort-Object Namespace |
+            ConvertTo-Html -Fragment -Property Namespace, Ingress, Host, Path, Issue | Out-String)
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[🌐 Ingress Health]`n⚠️ Total: $total"
+        $results | Format-Table Namespace, Ingress, Host, Path, Issue -AutoSize |
+            Out-String | Write-ToReport
+        return
+    }
+
+    # Paginated CLI display
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($total / $PageSize)
+
+    do {
+        Clear-Host
+        Write-Host "`n[🌐 Ingress Issues - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg @(
+                "🤖 Ingress exposes services to external traffic.",
+                "",
+                "📌 These ingresses refer to missing backend services:",
+                "   - Double-check service names and ports.",
+                "   - Use: kubectl describe ingress <name> -n <ns>",
+                "",
+                "⚠️ Total Ingress Issues: $total"
+            ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $start = $currentPage * $PageSize
+        $slice = $results | Select-Object -Skip $start -First $PageSize
+
+        if ($slice.Count -gt 0) {
+            $slice | Format-Table Namespace, Ingress, Host, Path, Issue -AutoSize | Out-Host
+        }
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }

@@ -165,6 +165,7 @@ function Invoke-KubeBuddy {
 
         Create-jsonReport `
             -outputpath $jsonReportFile `
+            -KubeData $KubeData `
             -aks:$Aks `
             
 
