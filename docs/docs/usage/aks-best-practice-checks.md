@@ -7,7 +7,7 @@ layout: default
 
 # AKS Best Practice Checks
 
-KubeBuddy evaluates various aspects of your **Azure Kubernetes Service (AKS)** setup, highlighting potential issues and confirming best practices.
+KubeBuddy powered by KubeDeck evaluates various aspects of your **Azure Kubernetes Service (AKS)** setup, highlighting potential issues and confirming best practices.
 
 ## 🔍 Checks Overview
 

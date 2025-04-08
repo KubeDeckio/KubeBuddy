@@ -7,11 +7,11 @@ layout: default
 
 # PowerShell Usage
 
-If you're using **KubeBuddy** via PowerShell, this guide will help you monitor and analyze your Kubernetes clusters. Below are detailed instructions and examples for various commands.
+If you're using **KubeBuddy powered by KubeDeck** via PowerShell, this guide will help you monitor and analyze your Kubernetes clusters. Below are detailed instructions and examples for various commands.
 
 ## 🔧 Prerequisites
 
-Before running KubeBuddy, ensure you:
+Before running KubeBuddy powered by KubeDeck, ensure you:
 - Are **connected to a Kubernetes cluster/context**.
 - Have **kubectl** installed and configured.
 - Have **Azure CLI (az cli)** installed if using AKS features.
@@ -19,21 +19,21 @@ Before running KubeBuddy, ensure you:
 
 ## Available Commands
 
-The following table provides a quick reference for KubeBuddy commands:
+The following table provides a quick reference for KubeBuddy powered by KubeDeck commands:
 
 | Action | Command Example |
 |---------------------------|----------------|
-| Run KubeBuddy | `Invoke-KubeBuddy` |
+| Run KubeBuddy powered by KubeDeck | `Invoke-KubeBuddy` |
 | Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
 | Generate a text report | `Invoke-KubeBuddy -txtReport` |
 | Generate reports with custom path | `Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report` |
-| Run a KubeBuddy with an AKS Best Practices Check | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
+| Run a KubeBuddy powered by KubeDeck with an AKS Best Practices Check | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
 | Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 | Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 
-## 1. Running KubeBuddy
+## 1. Running KubeBuddy powered by KubeDeck
 
-To run KubeBuddy on your Kubernetes cluster:
+To run KubeBuddy powered by KubeDeck on your Kubernetes cluster:
 
 ```powershell
 Invoke-KubeBuddy
@@ -41,7 +41,7 @@ Invoke-KubeBuddy
 
 This command provides a detailed menu-driven interface that allows you to navigate through various monitoring options. It analyzes node status, resource usage, workloads, and RBAC security settings.
 
-## 2. Running KubeBuddy with an AKS Best Practices Check
+## 2. Running KubeBuddy powered by KubeDeck with an AKS Best Practices Check
 
 To check best practices for an **Azure Kubernetes Service (AKS)** cluster:
 
@@ -57,7 +57,7 @@ You **must** provide your Azure Subscription ID, the **Resource Group** where yo
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
-![Screenshot of KubeBuddy HTML Report](../../../assets/images/report-examples/html-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../../../assets/images/report-examples/html-report-sample.png)
 
 <a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
@@ -67,7 +67,7 @@ Invoke-KubeBuddy -HtmlReport
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
-![Screenshot of KubeBuddy Text Report](../../../assets/images/report-examples/text-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck Text Report](../../../assets/images/report-examples/text-report-sample.png)
 
 <a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
@@ -123,7 +123,7 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy HTML + AKS Report](../../../assets/images/report-examples/html-aks-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../../../assets/images/report-examples/html-aks-report-sample.png)
 
 <a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
@@ -138,7 +138,7 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy Text Report](../../../assets/images/report-examples/text-aks-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck Text Report](../../../assets/images/report-examples/text-aks-report-sample.png)
 
 <a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
 
@@ -146,7 +146,7 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 
 ## 6. Configuring Thresholds
 
-KubeBuddy supports customizable thresholds via the `kubebuddy-config.yaml` file. You can place this file in `~/.kube/kubebuddy-config.yaml` or specify a custom path. A sample configuration looks like this:
+KubeBuddy powered by KubeDeck supports customizable thresholds via the `kubebuddy-config.yaml` file. You can place this file in `~/.kube/kubebuddy-config.yaml` or specify a custom path. A sample configuration looks like this:
 
 ```yaml
 thresholds:
@@ -166,13 +166,13 @@ thresholds:
   event_warnings_critical: 100
 ```
 
-Adjust these values to fit your environment. If `kubebuddy-config.yaml` is missing, KubeBuddy uses default thresholds.
+Adjust these values to fit your environment. If `kubebuddy-config.yaml` is missing, KubeBuddy powered by KubeDeck uses default thresholds.
 
 ---
 
 ## 7. Excluding System Namespaces (Optional)
 
-Some KubeBuddy checks (like secrets, configmaps, pods, and RBAC) allow you to exclude **system namespaces** using the `-ExcludeSystem` switch.
+Some KubeBuddy powered by KubeDeck checks (like secrets, configmaps, pods, and RBAC) allow you to exclude **system namespaces** using the `-ExcludeSystem` switch.
 
 To customize which namespaces are excluded, define them in your `kubebuddy-config.yaml` file:
 
@@ -186,7 +186,7 @@ excluded_namespaces:
   - calico-system
 ```
 
-If `excluded_namespaces` is not defined, KubeBuddy falls back to a default set.
+If `excluded_namespaces` is not defined, KubeBuddy powered by KubeDeck falls back to a default set.
 
 To apply the exclusion in any CLI command:
 

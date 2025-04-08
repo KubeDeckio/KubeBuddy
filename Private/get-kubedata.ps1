@@ -22,6 +22,8 @@ function Get-KubeData {
         @{ Name = "DaemonSets"; Cmd = { kubectl get daemonsets --all-namespaces -o json }; Key = "DaemonSets"; Items = $true },
         @{ Name = "StatefulSets"; Cmd = { kubectl get statefulsets --all-namespaces -o json }; Key = "StatefulSets"; Items = $true },
         @{ Name = "Deployments"; Cmd = { kubectl get deployments --all-namespaces -o json }; Key = "Deployments"; Items = $true },
+        @{ Name = "PodDisruptionBudgets"; Cmd = { kubectl get pdb --all-namespaces -o json }; Key = "PodDisruptionBudgets"; Items = $true },
+        @{ Name = "HorizontalPodAutoscalers"; Cmd = { kubectl get hpa --all-namespaces -o json }; Key = "HorizontalPodAutoscalers"; Items = $true },
         @{ Name = "Services"; Cmd = { kubectl get svc --all-namespaces -o json }; Key = "Services"; Items = $false },
         @{ Name = "Ingresses"; Cmd = { kubectl get ingress --all-namespaces -o json }; Key = "Ingresses"; Items = $true },
         @{ Name = "Endpoints"; Cmd = { kubectl get endpoints --all-namespaces -o json }; Key = "Endpoints"; Items = $false },
@@ -61,15 +63,18 @@ function Get-KubeData {
             if ($null -ne $result) {
                 if ($res.Raw) {
                     $output.Value = @($result -split "`n" | Where-Object { $_ })
-                } else {
+                }
+                else {
                     $jsonResult = $result | ConvertFrom-Json
                     # Apply .items based on resource definition
                     $output.Value = if ($res.Items) { $jsonResult.items } else { $jsonResult }
                 }
-            } else {
+            }
+            else {
                 $output.Value = @()
             }
-        } catch {
+        }
+        catch {
             $output.Success = $false
             $output.Error = $_.Exception.Message
         }
@@ -82,8 +87,8 @@ function Get-KubeData {
     $completed = $results.Count
     $percentComplete = ([int]($completed / $totalResources * 100))
     Write-Progress -Activity "Gathering Kubernetes Resources" `
-                  -Status "$completed/$totalResources ($percentComplete%)" `
-                  -PercentComplete $percentComplete
+        -Status "$completed/$totalResources ($percentComplete%)" `
+        -PercentComplete $percentComplete
     Write-Progress -Activity "Gathering Kubernetes Resources" -Completed
 
     Write-Host "`n[📋 Results]" -ForegroundColor Cyan
@@ -91,7 +96,8 @@ function Get-KubeData {
         if ($r.Success) {
             Write-Host "✅ $($r.Label)" -ForegroundColor Green
             $data[$r.Key] = $r.Value
-        } else {
+        }
+        else {
             Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
             break
         }
@@ -114,10 +120,12 @@ function Get-KubeData {
             try {
                 $items = kubectl get $plural --all-namespaces -o json --api-version=$apiversion 2>$null | ConvertFrom-Json
                 $data.CustomResourcesByKind[$kind] = $items.items
-            } catch {}
+            }
+            catch {}
         }
         Write-Host "`r✅ Custom Resource Instances fetched.   " -ForegroundColor Green
-    } catch {
+    }
+    catch {
         Write-Host "`r❌ Failed to fetch CRDs or CR Instances" -ForegroundColor Red
     }
 
@@ -132,7 +140,8 @@ function Get-KubeData {
             $data.ConstraintTemplates = @( (kubectl get constrainttemplates -o json | ConvertFrom-Json).items )
             $data.Constraints = @( (kubectl get constraints -A -o json | ConvertFrom-Json).items )
             Write-Host "`r✅ Constraints fetched.   " -ForegroundColor Green
-        } catch {
+        }
+        catch {
             Write-Host "`r❌ Failed to fetch AKS Metadata or Constraints" -ForegroundColor Red
         }
     }
@@ -141,11 +150,11 @@ function Get-KubeData {
     if ($ExcludeNamespaces) {
         Write-Host "`n🤖 🚫 Excluding selected namespaces..." -ForegroundColor Yellow
         foreach ($key in @(
-            'Pods', 'Jobs', 'Deployments', 'Services',
-            'DaemonSets', 'StatefulSets', 'PersistentVolumeClaims',
-            'Events', 'NetworkPolicies', 'Roles', 'RoleBindings',
-            'Constraints'
-        )) {
+                'Pods', 'Jobs', 'Deployments', 'Services',
+                'DaemonSets', 'StatefulSets', 'PersistentVolumeClaims',
+                'Events', 'NetworkPolicies', 'Roles', 'RoleBindings',
+                'Constraints'
+            )) {
             if ($data.ContainsKey($key)) {
                 $data[$key] = Exclude-Namespaces -items $data[$key]
             }

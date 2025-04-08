@@ -4,7 +4,7 @@ nav_order: 1
 layout: home
 ---
 
-# 🌀 KubeBuddy – Kubernetes Monitoring & Reporting
+# 🌀 KubeBuddy powered by KubeDeck – Kubernetes Monitoring & Reporting
 
 ## **PowerShell-Based Kubernetes Insights for Cluster Health & Security**
 
@@ -12,9 +12,9 @@ layout: home
 <img id="logo" src="assets/images/KubeBuddyDark.png" />
 </p>
 
-Welcome to **KubeBuddy** – the **PowerShell-powered** tool that helps you monitor, analyze, and report on your Kubernetes environments with ease.
+Welcome to **KubeBuddy powered by KubeDeck** – the **PowerShell-powered** tool that helps you monitor, analyze, and report on your Kubernetes environments with ease.
 
-Whether you're an administrator managing production clusters or a developer troubleshooting workloads, **KubeBuddy** simplifies Kubernetes monitoring with automated health checks, security insights, and structured reporting.
+Whether you're an administrator managing production clusters or a developer troubleshooting workloads, **KubeBuddy powered by KubeDeck** simplifies Kubernetes monitoring with automated health checks, security insights, and structured reporting.
 
 ## ✨ Key Features
 
@@ -30,7 +30,7 @@ Whether you're an administrator managing production clusters or a developer trou
 ## 🚀 Get Started
 
 📌 **[Installation Guide](docs/installation)** – Step-by-step setup instructions.  
-📌 **[Usage Documentation](docs/usage)** – Learn how to use KubeBuddy effectively.  
+📌 **[Usage Documentation](docs/usage)** – Learn how to use KubeBuddy powered by KubeDeck effectively.  
 📌 **[GitHub Repository](https://github.com/KubeDeckio/KubeBuddy)** – Contribute and follow the latest updates.  
 
 ---
@@ -39,5 +39,5 @@ Whether you're an administrator managing production clusters or a developer trou
 <img id="logo" src="assets/images/KubeBuddyDark.png" width="200px" />
 </p>
 
-💡 **Monitor and analyze your Kubernetes clusters effortlessly with KubeBuddy – Powered by PowerShell!**
+💡 **Monitor and analyze your Kubernetes clusters effortlessly with KubeBuddy powered by KubeDeck – Built with PowerShell!**
 

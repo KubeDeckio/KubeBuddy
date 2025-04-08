@@ -162,3 +162,251 @@ function Show-EmptyNamespaces {
         $currentPage = $newPage
     } while ($true)
 }
+
+function Check-ResourceQuotas {
+    param(
+        [object]$KubeData,
+        [string]$Namespace = "",
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$Json,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    Write-Host "`n[📊 Missing or Weak ResourceQuotas]" -ForegroundColor Cyan
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        Write-Host -NoNewline "`n🤖 Fetching ResourceQuota data..." -ForegroundColor Yellow
+    }
+
+    try {
+        $quotas = if ($KubeData -and $KubeData.ResourceQuotas) {
+            $KubeData.ResourceQuotas
+        } else {
+            $raw = if ($Namespace) {
+                kubectl get resourcequotas -n $Namespace -o json 2>&1
+            } else {
+                kubectl get resourcequotas --all-namespaces -o json 2>&1
+            }
+            if ($raw -match "No resources found") {
+                $quotas = @()
+            } else {
+                ($raw | ConvertFrom-Json).items
+            }
+        }
+
+        $namespaces = if ($KubeData -and $KubeData.Namespaces) {
+            $KubeData.Namespaces
+        } else {
+            kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+        }
+    } catch {
+        Write-Host "`r🤖 ❌ Error retrieving ResourceQuota data: $_" -ForegroundColor Red
+        if ($Html) { return "<p><strong>❌ Error retrieving ResourceQuota data.</strong></p>" }
+        if ($Json) { return @{ Error = "$_" } }
+        return
+    }
+
+    if ($ExcludeNamespaces) {
+        $namespaces = Exclude-Namespaces -items $namespaces
+        $quotas = Exclude-Namespaces -items $quotas
+    }
+
+    $results = @()
+    foreach ($ns in $namespaces) {
+        $nsName = $ns.metadata.name
+        $nsQuotas = $quotas | Where-Object { $_.metadata.namespace -eq $nsName }
+
+        if (-not $nsQuotas) {
+            $results += [PSCustomObject]@{
+                Namespace = $nsName
+                Issue     = "❌ No ResourceQuota defined"
+            }
+        } else {
+            $hasCPU = $false
+            $hasMemory = $false
+            $hasPods = $false
+
+            foreach ($quota in $nsQuotas) {
+                $scopes = $quota.status.hard.PSObject.Properties.Name
+                if ($scopes -contains "requests.cpu" -or $scopes -contains "limits.cpu") { $hasCPU = $true }
+                if ($scopes -contains "requests.memory" -or $scopes -contains "limits.memory") { $hasMemory = $true }
+                if ($scopes -contains "pods") { $hasPods = $true }
+            }
+
+            if (-not ($hasCPU -and $hasMemory -and $hasPods)) {
+                $missing = @()
+                if (-not $hasCPU) { $missing += "CPU" }
+                if (-not $hasMemory) { $missing += "Memory" }
+                if (-not $hasPods) { $missing += "Pods" }
+                $results += [PSCustomObject]@{
+                    Namespace = $nsName
+                    Issue     = "⚠️ Missing: $($missing -join ', ')"
+                }
+            }
+        }
+    }
+
+    $total = $results.Count
+    if ($total -eq 0) {
+        if ($Html) { return "<p><strong>✅ All namespaces have strong ResourceQuotas.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
+        Write-Host "`r🤖 ✅ All namespaces have strong ResourceQuotas." -ForegroundColor Green
+        return
+    }
+
+    Write-Host "`r🤖 ✅ ResourceQuota issues found. ($total affected namespaces)" -ForegroundColor Green
+
+    if ($Json) { return @{ Total = $total; Items = $results } }
+
+    if ($Html) {
+        $htmlTable = $results | Sort-Object Namespace |
+            ConvertTo-Html -Fragment -Property Namespace, Issue | Out-String
+        return "<p><strong>⚠️ Namespaces with ResourceQuota issues:</strong> $total</p>" + $htmlTable
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[📊 Missing or Weak ResourceQuotas]`n"
+        Write-ToReport "⚠️ Total Issues: $total"
+        $tableString = $results | Format-Table Namespace, Issue -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
+
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($total / $PageSize)
+    do {
+        Clear-Host
+        Write-Host "`n[📊 ResourceQuota Issues - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg @(
+                "🤖 These namespaces lack full ResourceQuota enforcement.",
+                "",
+                "📌 Why this matters:",
+                "   - Quotas protect the cluster from resource abuse.",
+                "   - Helps prevent noisy neighbor issues.",
+                "",
+                "⚠️ Total Issues: $total"
+            ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $paged = $results | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
+        if ($paged) {
+            $paged | Format-Table Namespace, Issue -AutoSize | Out-Host
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}
+
+function Check-NamespaceLimitRanges {
+    param(
+        [object]$KubeData,
+        [int]$PageSize = 10,
+        [switch]$Html,
+        [switch]$Json,
+        [switch]$ExcludeNamespaces
+    )
+
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    Write-Host "`n[📐 Missing LimitRanges]" -ForegroundColor Cyan
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        Write-Host -NoNewline "`n🤖 Fetching LimitRange data..." -ForegroundColor Yellow
+    }
+
+    try {
+        $limitRanges = if ($KubeData -and $KubeData.LimitRanges) {
+            $KubeData.LimitRanges
+        } else {
+            kubectl get limitranges --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+        }
+
+        $namespaces = if ($KubeData -and $KubeData.Namespaces) {
+            $KubeData.Namespaces
+        } else {
+            kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+        }
+    } catch {
+        Write-Host "`r🤖 ❌ Error fetching LimitRanges: $_" -ForegroundColor Red
+        if ($Html) { return "<p><strong>❌ Error retrieving LimitRange data.</strong></p>" }
+        if ($Json) { return @{ Error = "$_" } }
+        return
+    }
+
+    if ($ExcludeNamespaces) {
+        $namespaces = Exclude-Namespaces -items $namespaces
+        $limitRanges = Exclude-Namespaces -items $limitRanges
+    }
+
+    $results = @()
+
+    foreach ($ns in $namespaces) {
+        $nsName = $ns.metadata.name
+        $hasLimitRange = $limitRanges | Where-Object { $_.metadata.namespace -eq $nsName }
+
+        if (-not $hasLimitRange) {
+            $results += [PSCustomObject]@{
+                Namespace = $nsName
+                Issue     = "❌ No LimitRange defined"
+            }
+        }
+    }
+
+    $total = $results.Count
+    if ($total -eq 0) {
+        if ($Html) { return "<p><strong>✅ All namespaces have a LimitRange.</strong></p>" }
+        if ($Json) { return @{ Total = 0; Items = @() } }
+        Write-Host "`r🤖 ✅ All namespaces have a LimitRange." -ForegroundColor Green
+        return
+    }
+
+    Write-Host "`r🤖 ✅ LimitRange issues found. ($total namespaces affected)" -ForegroundColor Green
+
+    if ($Json) {
+        return @{ Total = $total; Items = $results }
+    }
+
+    if ($Html) {
+        $htmlTable = $results | Sort-Object Namespace |
+            ConvertTo-Html -Fragment -Property Namespace, Issue | Out-String
+        return "<p><strong>⚠️ Namespaces missing LimitRanges:</strong> $total</p>" + $htmlTable
+    }
+
+    if ($Global:MakeReport) {
+        Write-ToReport "`n[📐 Missing LimitRanges]`n⚠️ Total: $total"
+        $tableString = $results | Format-Table Namespace, Issue -AutoSize | Out-String
+        Write-ToReport $tableString
+        return
+    }
+
+    $currentPage = 0
+    $totalPages = [math]::Ceiling($total / $PageSize)
+    do {
+        Clear-Host
+        Write-Host "`n[📐 LimitRange Issues - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+
+        if ($currentPage -eq 0) {
+            Write-SpeechBubble -msg @(
+                "🤖 LimitRanges define default and max CPU/memory limits for containers.",
+                "",
+                "📌 Why this matters:",
+                "   - Prevents runaway pods from consuming unbounded resources.",
+                "   - Sets defaults if workloads don’t define them explicitly.",
+                "",
+                "⚠️ Total affected namespaces: $total"
+            ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+        }
+
+        $paged = $results | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
+        if ($paged) {
+            $paged | Format-Table Namespace, Issue -AutoSize | Out-Host
+        }
+
+        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+        if ($newPage -eq -1) { break }
+        $currentPage = $newPage
+    } while ($true)
+}

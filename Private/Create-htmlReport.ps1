@@ -1,23 +1,23 @@
 function Generate-K8sHTMLReport {
-  param (
-      [string]$outputPath,
-      [string]$version = "v0.0.1",
-      [string]$SubscriptionId,
-      [string]$ResourceGroup,
-      [string]$ClusterName,
-      [switch]$aks,
-      [switch]$ExcludeNamespaces,
-      [object]$KubeData
-  )
+    param (
+        [string]$outputPath,
+        [string]$version = "v0.0.1",
+        [string]$SubscriptionId,
+        [string]$ResourceGroup,
+        [string]$ClusterName,
+        [switch]$aks,
+        [switch]$ExcludeNamespaces,
+        [object]$KubeData
+    )
 
-  function ConvertToCollapsible {
-      param(
-          [string]$Id,
-          [string]$defaultText,
-          [string]$content
-      )
+    function ConvertToCollapsible {
+        param(
+            [string]$Id,
+            [string]$defaultText,
+            [string]$content
+        )
       
-      @"
+        @"
 <div class="collapsible-container" id='$Id'>
 <details style='margin:10px 0;'>
 <summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>
@@ -27,41 +27,41 @@ function Generate-K8sHTMLReport {
 </details>
 </div>
 "@
-  }
+    }
 
-  if (Test-Path $outputPath) {
-      Remove-Item $outputPath -Force
-  }
+    if (Test-Path $outputPath) {
+        Remove-Item $outputPath -Force
+    }
 
-  Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
-  Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
-  $clusterSummaryRaw = Show-ClusterSummary -Html -KubeData:$KubeData *>&1
-  Write-Host "`r🤖 Cluster Information fetched.   " -ForegroundColor Green
+    Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
+    Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
+    $clusterSummaryRaw = Show-ClusterSummary -Html -KubeData:$KubeData *>&1
+    Write-Host "`r🤖 Cluster Information fetched.   " -ForegroundColor Green
 
-  if ($aks) {
-      Write-Host -NoNewline "`n🤖 Running AKS Best Practices Checklist..." -ForegroundColor Cyan
-      $aksBestPractices = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Html -KubeData:$KubeData
-      Write-Host "`r🤖 AKS Check Results fetched.          " -ForegroundColor Green
+    if ($aks) {
+        Write-Host -NoNewline "`n🤖 Running AKS Best Practices Checklist..." -ForegroundColor Cyan
+        $aksBestPractices = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Html -KubeData:$KubeData
+        Write-Host "`r🤖 AKS Check Results fetched.          " -ForegroundColor Green
 
-      $aksPass = $aksBestPractices.Passed
-      $aksFail = $aksBestPractices.Failed
-      $aksTotal = $aksBestPractices.Total
-      $aksScore = $aksBestPractices.Score
-      $aksRating = $aksBestPractices.Rating
-      $aksReportData = $aksBestPractices.Data
+        $aksPass = $aksBestPractices.Passed
+        $aksFail = $aksBestPractices.Failed
+        $aksTotal = $aksBestPractices.Total
+        $aksScore = $aksBestPractices.Score
+        $aksRating = $aksBestPractices.Rating
+        $aksReportData = $aksBestPractices.Data
 
-      $collapsibleAKSHtml = ConvertToCollapsible -Id "aksSummary" -defaultText "Show Findings" -content $aksReportData
+        $collapsibleAKSHtml = ConvertToCollapsible -Id "aksSummary" -defaultText "Show Findings" -content $aksReportData
 
-      $ratingColorClass = switch ($aksRating) {
-          "A" { "normal" }
-          "B" { "warning" }
-          "C" { "warning" }
-          "D" { "critical" }
-          "F" { "critical" }
-          default { "unknown" }
-      }
+        $ratingColorClass = switch ($aksRating) {
+            "A" { "normal" }
+            "B" { "warning" }
+            "C" { "warning" }
+            "D" { "critical" }
+            "F" { "critical" }
+            default { "unknown" }
+        }
 
-      $heroRatingHtml = @"
+        $heroRatingHtml = @"
 <h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
 <div class="metric-card normal">✅ Passed: <strong>$aksPass</strong></div>
@@ -72,7 +72,7 @@ function Generate-K8sHTMLReport {
 </div>
 "@
 
-      $aksHealthCheck = @"
+        $aksHealthCheck = @"
 <div class="container">
 <h1 id="aks">AKS Best Practices Details</h1>
 $heroRatingHtml
@@ -83,78 +83,86 @@ $collapsibleAKSHtml
 </div>
 "@
 
-      $aksMenuItem = @"
+        $aksMenuItem = @"
 <li class="nav-item"><a href="#aks"><span class="material-icons">verified</span> AKS Best Practices</a></li>
 "@
-  }
+    }
 
-  $checks = @(
-      @{ Id = "nodeConditions"; Cmd = { Show-NodeConditions -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "nodeResources"; Cmd = { Show-NodeResourceUsage -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "emptyNamespace"; Cmd = { Show-EmptyNamespaces -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "daemonSetIssues"; Cmd = { Show-DaemonSetIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "podsRestart"; Cmd = { Show-PodsWithHighRestarts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "podLongRunning"; Cmd = { Show-LongRunningPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "podFail"; Cmd = { Show-FailedPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "podPending"; Cmd = { Show-PendingPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "crashloop"; Cmd = { Show-CrashLoopBackOffPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "leftoverDebug"; Cmd = { Show-LeftoverDebugPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "stuckJobs"; Cmd = { Show-StuckJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "jobFail"; Cmd = { Show-FailedJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "servicesWithoutEndpoints"; Cmd = { Show-ServicesWithoutEndpoints -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "publicServices"; Cmd = { Check-PubliclyAccessibleServices -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "unmountedPV"; Cmd = { Show-UnusedPVCs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "rbacMisconfig"; Cmd = { Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "rbacOverexposure"; Cmd = { Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "orphanedConfigMaps"; Cmd = { Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "orphanedSecrets"; Cmd = { Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "podsRoot"; Cmd = { Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "privilegedContainers"; Cmd = { Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "hostPidNet"; Cmd = { Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-      @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -KubeData:$KubeData } }
-  )
+    $checks = @(
+        @{ Id = "nodeConditions"; Cmd = { Show-NodeConditions -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "nodeResources"; Cmd = { Show-NodeResourceUsage -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "emptyNamespace"; Cmd = { Show-EmptyNamespaces -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "daemonSetIssues"; Cmd = { Show-DaemonSetIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "HPA"; Cmd = { Check-HPAStatus -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "missingResourceLimits"; Cmd = { Check-MissingResourceLimits -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "PDB"; Cmd = { Check-PodDisruptionBudgets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "missingProbes"; Cmd = { Check-MissingHealthProbes -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "podsRestart"; Cmd = { Show-PodsWithHighRestarts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "podLongRunning"; Cmd = { Show-LongRunningPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "podFail"; Cmd = { Show-FailedPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "podPending"; Cmd = { Show-PendingPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "crashloop"; Cmd = { Show-CrashLoopBackOffPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "leftoverDebug"; Cmd = { Show-LeftoverDebugPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "stuckJobs"; Cmd = { Show-StuckJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "jobFail"; Cmd = { Show-FailedJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "servicesWithoutEndpoints"; Cmd = { Show-ServicesWithoutEndpoints -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "publicServices"; Cmd = { Check-PubliclyAccessibleServices -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "unmountedPV"; Cmd = { Show-UnusedPVCs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "rbacMisconfig"; Cmd = { Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "rbacOverexposure"; Cmd = { Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "orphanedConfigMaps"; Cmd = { Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "orphanedSecrets"; Cmd = { Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "podsRoot"; Cmd = { Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "privilegedContainers"; Cmd = { Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "hostPidNet"; Cmd = { Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+        @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -KubeData:$KubeData } }
+    )
 
-  foreach ($check in $checks) {
-      $html = & $check.Cmd
-      if (-not $html) {
-          $html = "<p>No data available for $($check.Id).</p>"
-      }
+    foreach ($check in $checks) {
+        $html = & $check.Cmd
+        if (-not $html) {
+            $html = "<p>No data available for $($check.Id).</p>"
+        }
 
-      $pre = ""
-      if ($html -match '^\s*<p>.*?</p>') {
-          $pre = $matches[0]
-          $html = $html -replace [regex]::Escape($pre), ""
-      } elseif ($html -match '^\s*[^<]+$') {
-          $lines = $html -split "`n", 2
-          $pre = "<p>$($lines[0].Trim())</p>"
-          $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
-      } else {
-          $pre = "<p>⚠️ $($check.Id) Report</p>"
-      }
+        $pre = ""
+        if ($html -match '^\s*<p>.*?</p>') {
+            $pre = $matches[0]
+            $html = $html -replace [regex]::Escape($pre), ""
+        }
+        elseif ($html -match '^\s*[^<]+$') {
+            $lines = $html -split "`n", 2
+            $pre = "<p>$($lines[0].Trim())</p>"
+            $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
+        }
+        else {
+            $pre = "<p>⚠️ $($check.Id) Report</p>"
+        }
 
-      $hasIssues = $html -match '<tr>.*?<td>.*?</td>.*?</tr>' -and $html -notmatch 'No data available'
-      $recommendation = ""
+        $hasIssues = $html -match '<tr>.*?<td>.*?</td>.*?</tr>' -and $html -notmatch 'No data available'
+        $recommendation = ""
 
-      $noFindings = $pre -match '✅'
+        $noFindings = $pre -match '✅'
 
-      if ($check.Id -in @("nodeConditions", "nodeResources")) {
-          $warningsCount = 0
-          if ($check.Id -eq "nodeConditions" -and $pre -match "Total Not Ready Nodes: (\d+)") {
-              $warningsCount = [int]$matches[1]
-          } elseif ($check.Id -eq "nodeResources" -and $pre -match "Total Resource Warnings Across All Nodes: (\d+)") {
-              $warningsCount = [int]$matches[1]
-          }
-          $hasIssues = $warningsCount -ge 1
-          $noFindings = $warningsCount -eq 0
-          # Override noFindings for nodeConditions and nodeResources to always show the table
-          if ($check.Id -in @("nodeConditions", "nodeResources")) {
-              $noFindings = $false
-          }
-      }
+        if ($check.Id -in @("nodeConditions", "nodeResources")) {
+            $warningsCount = 0
+            if ($check.Id -eq "nodeConditions" -and $pre -match "Total Not Ready Nodes: (\d+)") {
+                $warningsCount = [int]$matches[1]
+            }
+            elseif ($check.Id -eq "nodeResources" -and $pre -match "Total Resource Warnings Across All Nodes: (\d+)") {
+                $warningsCount = [int]$matches[1]
+            }
+            $hasIssues = $warningsCount -ge 1
+            $noFindings = $warningsCount -eq 0
+            # Override noFindings for nodeConditions and nodeResources to always show the table
+            if ($check.Id -in @("nodeConditions", "nodeResources")) {
+                $noFindings = $false
+            }
+        }
 
-      if ($hasIssues) {
-          $recommendationText = switch ($check.Id) {
-              "nodeConditions" { @"
+        if ($hasIssues) {
+            $recommendationText = switch ($check.Id) {
+                "nodeConditions" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Fix Node Issues</h4>
   <ul>
@@ -165,8 +173,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "nodeResources" { @"
+                }
+                "nodeResources" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Optimize Resource Usage</h4>
   <ul>
@@ -178,8 +187,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "emptyNamespace" { @"
+                }
+                "emptyNamespace" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Clean Up Empty Namespaces</h4>
   <ul>
@@ -190,8 +200,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "daemonSetIssues" { @"
+                }
+                "daemonSetIssues" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Resolve DaemonSet Issues</h4>
   <ul>
@@ -202,8 +213,66 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "podsRestart" { @"
+                }
+                "HPA" { @"
+<div class='recommendation-content'>
+  <h4>🛠️ Configure Horizontal Pod Autoscalers</h4>
+  <ul>
+    <li><strong>Enable Scaling:</strong> Apply HPA to workloads using <code>kubectl autoscale deploy <name> --min=1 --max=5 --cpu-percent=80</code>.</li>
+    <li><strong>CPU/Memory Metrics:</strong> Ensure the metrics server is deployed and working correctly.</li>
+    <li><strong>Custom Metrics:</strong> Use <code>external.metrics.k8s.io</code> or <code>custom.metrics.k8s.io</code> for advanced autoscaling logic.</li>
+    <li><strong>Validation:</strong> Monitor scaling events with <code>kubectl describe hpa <name></code>.</li>
+  </ul>
+</div>
+"@ 
+                }
+                "missingResourceLimits" { @"
+<div class='recommendation-content'>
+  <h4>🛠️ Add Resource Requests and Limits</h4>
+  <ul>
+    <li><strong>Define Requests:</strong> Use <code>resources.requests</code> for <code>cpu</code> and <code>memory</code> to guarantee minimum resources.</li>
+    <li><strong>Define Limits:</strong> Use <code>resources.limits</code> to cap maximum usage for <code>cpu</code> and <code>memory</code>.</li>
+    <li><strong>Example:</strong> 
+      <pre><code>resources:
+  requests:
+    cpu: "250m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"</code></pre>
+    </li>
+    <li><strong>Why:</strong> Avoids resource contention, supports fair scheduling, and prevents overcommitment.</li>
+    <li><strong>Policy Tips:</strong> Use <code>LimitRanges</code> and admission policies to apply defaults or enforce constraints.</li>
+  </ul>
+</div>
+"@
+                }
+                "PDB" { @"
+<div class='recommendation-content'>
+  <h4>🛠️ Improve PDB Coverage</h4>
+  <ul>
+    <li><strong>Apply PDBs:</strong> Create PDBs for all critical workloads to control voluntary disruptions.</li>
+    <li><strong>Avoid Weak PDBs:</strong> Don't set <code>minAvailable: 0</code> or <code>maxUnavailable: 100%</code>—they offer no protection.</li>
+    <li><strong>Label Matching:</strong> Verify selectors actually match pods (<code>spec.selector.matchLabels</code>).</li>
+    <li><strong>Dry Run:</strong> Use <code>kubectl get pdb -o wide</code> to confirm expected pod count.</li>
+  </ul>
+</div>
+"@ 
+                }
+                "missingProbes" { @"
+<div class='recommendation-content'>
+  <h4>🛠️ Add Health Probes</h4>
+  <ul>
+    <li><strong>Readiness Probes:</strong> Signal when the container is ready to serve traffic.</li>
+    <li><strong>Liveness Probes:</strong> Detect deadlocked or crashed apps. Example: <code>httpGet</code> or <code>exec</code>.</li>
+    <li><strong>Startup Probes:</strong> Useful for slow-starting apps to avoid premature kills.</li>
+    <li><strong>Validation:</strong> Test probe behavior with <code>kubectl describe pod <name></code>.</li>
+  </ul>
+</div>
+"@ 
+                }
+                "podsRestart" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Fix High Restart Pods</h4>
   <ul>
@@ -214,8 +283,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "podLongRunning" { @"
+                }
+                "podLongRunning" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Handle Long-Running Pods</h4>
   <ul>
@@ -226,8 +296,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "podFail" { @"
+                }
+                "podFail" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Resolve Failed Pods</h4>
   <ul>
@@ -238,8 +309,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "podPending" { @"
+                }
+                "podPending" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Fix Pending Pods</h4>
   <ul>
@@ -250,8 +322,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "crashloop" { @"
+                }
+                "crashloop" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Fix CrashLoopBackOff Pods</h4>
   <ul>
@@ -262,8 +335,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "leftoverDebug" { @"
+                }
+                "leftoverDebug" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Remove Debug Pods</h4>
   <ul>
@@ -274,8 +348,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "stuckJobs" { @"
+                }
+                "stuckJobs" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Resolve Stuck Jobs</h4>
   <ul>
@@ -286,8 +361,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "jobFail" { @"
+                }
+                "jobFail" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Fix Failed Jobs</h4>
   <ul>
@@ -298,8 +374,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "servicesWithoutEndpoints" { @"
+                }
+                "servicesWithoutEndpoints" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Fix Services Without Endpoints</h4>
   <ul>
@@ -310,8 +387,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "publicServices" { @"
+                }
+                "publicServices" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Secure Public Services</h4>
   <ul>
@@ -322,8 +400,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "unmountedPV" { @"
+                }
+                "unmountedPV" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Handle Unmounted PVs</h4>
   <ul>
@@ -334,8 +413,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "rbacMisconfig" { @"
+                }
+                "rbacMisconfig" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Fix RBAC Misconfigurations</h4>
   <ul>
@@ -346,8 +426,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "rbacOverexposure" { @"
+                }
+                "rbacOverexposure" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Reduce RBAC Overexposure</h4>
   <ul>
@@ -358,8 +439,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "orphanedConfigMaps" { @"
+                }
+                "orphanedConfigMaps" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Clean Up Orphaned ConfigMaps</h4>
   <ul>
@@ -370,8 +452,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "orphanedSecrets" { @"
+                }
+                "orphanedSecrets" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Handle Orphaned Secrets</h4>
   <ul>
@@ -382,8 +465,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "podsRoot" { @"
+                }
+                "podsRoot" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Secure Root Pods</h4>
   <ul>
@@ -394,8 +478,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "privilegedContainers" { @"
+                }
+                "privilegedContainers" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Remove Privileged Containers</h4>
   <ul>
@@ -406,8 +491,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "hostPidNet" { @"
+                }
+                "hostPidNet" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Disable Host PID/Network</h4>
   <ul>
@@ -418,8 +504,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              "eventSummary" { @"
+                }
+                "eventSummary" {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Address Cluster Events</h4>
   <ul>
@@ -430,8 +517,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-              default { @"
+                }
+                default {
+                    @"
 <div class="recommendation-content">
   <h4>🛠️ Generic Fix</h4>
   <ul>
@@ -442,9 +530,9 @@ $collapsibleAKSHtml
   </ul>
 </div>
 "@
-              }
-          }
-          $recommendation = @"
+                }
+            }
+            $recommendation = @"
 <div class="recommendation-card">
   <details style='margin-bottom: 10px;'>
       <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
@@ -453,77 +541,79 @@ $collapsibleAKSHtml
 </div>
 <div style='height: 15px;'></div>
 "@
-      }
+        }
 
-      $defaultText = if ($check.Id -eq "eventSummary") { "Show Event Findings" } else { "Show Findings" }
-      $content = if ($noFindings) {
-          "$pre`n"
-      } else {
-          "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText $defaultText -content "$recommendation`n$html")
-      }
+        $defaultText = if ($check.Id -eq "eventSummary") { "Show Event Findings" } else { "Show Findings" }
+        $content = if ($noFindings) {
+            "$pre`n"
+        }
+        else {
+            "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText $defaultText -content "$recommendation`n$html")
+        }
 
-      Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
-  }
+        Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
+    }
 
-  $clusterSummaryText = $clusterSummaryRaw -join "`n"
-  function Extract-Metric($label, $data) {
-      if ($data -match "$label\s*:\s*([\d]+)") { [int]$matches[1] } else { "0" }
-  }
-  $clusterName = "Unknown"
-  $k8sVersion = "Unknown"
-  for ($i = 0; $i -lt $clusterSummaryRaw.Count; $i++) {
-      $line = [string]$clusterSummaryRaw[$i] -replace "`r", "" -replace "`n", ""
-      if ($line -match "Cluster Name\s*$") { $clusterName = [string]$clusterSummaryRaw[$i + 2] -replace "`r", "" -replace "`n", "" }
-      if ($line -match "Kubernetes Version\s*$") { $k8sVersion = [string]$clusterSummaryRaw[$i + 2] -replace "`r", "" -replace "`n", "" }
-  }
-  $compatibilityCheck = if ($clusterSummaryText -match "⚠️\s+(Cluster is running an outdated version:[^\n]+)") { $matches[1].Trim(); $compatibilityClass = "warning" }
-  elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") { "✅ Cluster is up to date ($matches[1])"; $compatibilityClass = "healthy" }
-  else { "Unknown"; $compatibilityClass = "unknown" }
-  $totalNodes = Extract-Metric "🚀 Nodes" $clusterSummaryText
-  $healthyNodes = Extract-Metric "🟩 Healthy" $clusterSummaryText
-  $issueNodes = Extract-Metric "🟥 Issues" $clusterSummaryText
-  $totalPods = Extract-Metric "📦 Pods" $clusterSummaryText
-  $runningPods = Extract-Metric "🟩 Running" $clusterSummaryText
-  $failedPods = Extract-Metric "🟥 Failed" $clusterSummaryText
-  $totalRestarts = Extract-Metric "🔄 Restarts" $clusterSummaryText
-  $warnings = Extract-Metric "🟨 Warnings" $clusterSummaryText
-  $critical = Extract-Metric "🟥 Critical" $clusterSummaryText
-  $pendingPods = Extract-Metric "⏳ Pending Pods" $clusterSummaryText
-  $stuckPods = Extract-Metric "⚠️ Stuck Pods" $clusterSummaryText
-  $jobFailures = Extract-Metric "📉 Job Failures" $clusterSummaryText
-  $eventWarnings = Extract-Metric "⚠️ Warnings" $clusterSummaryText
-  $eventErrors = Extract-Metric "❌ Errors" $clusterSummaryText
-  $podAvg = if ($clusterSummaryText -match "📊 Pod Distribution: Avg: ([\d.]+)") { $matches[1] } else { "0" }
-  $podMax = if ($clusterSummaryText -match "Max: ([\d.]+)") { $matches[1] } else { "0" }
-  $podMin = if ($clusterSummaryText -match "Min: ([\d.]+)") { $matches[1] } else { "0" }
-  $podTotalNodes = if ($clusterSummaryText -match "Total Nodes: ([\d]+)") { $matches[1] } else { "0" }
-  $cpuUsage = if ($clusterSummaryText -match "🖥  CPU Usage:\s*([\d.]+)%") { [double]$matches[1] } else { 0 }
-  $cpuStatus = if ($clusterSummaryText -match "🖥  CPU Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
-  $memUsage = if ($clusterSummaryText -match "💾 Memory Usage:\s*([\d.]+)%") { [double]$matches[1] } else { 0 }
-  $memStatus = if ($clusterSummaryText -match "💾 Memory Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
+    $clusterSummaryText = $clusterSummaryRaw -join "`n"
+    function Extract-Metric($label, $data) {
+        if ($data -match "$label\s*:\s*([\d]+)") { [int]$matches[1] } else { "0" }
+    }
+    $clusterName = "Unknown"
+    $k8sVersion = "Unknown"
+    for ($i = 0; $i -lt $clusterSummaryRaw.Count; $i++) {
+        $line = [string]$clusterSummaryRaw[$i] -replace "`r", "" -replace "`n", ""
+        if ($line -match "Cluster Name\s*$") { $clusterName = [string]$clusterSummaryRaw[$i + 2] -replace "`r", "" -replace "`n", "" }
+        if ($line -match "Kubernetes Version\s*$") { $k8sVersion = [string]$clusterSummaryRaw[$i + 2] -replace "`r", "" -replace "`n", "" }
+    }
+    $compatibilityCheck = if ($clusterSummaryText -match "⚠️\s+(Cluster is running an outdated version:[^\n]+)") { $matches[1].Trim(); $compatibilityClass = "warning" }
+    elseif ($clusterSummaryText -match "✅ Cluster is up to date \((.*?)\)") { "✅ Cluster is up to date ($matches[1])"; $compatibilityClass = "healthy" }
+    else { "Unknown"; $compatibilityClass = "unknown" }
+    $totalNodes = Extract-Metric "🚀 Nodes" $clusterSummaryText
+    $healthyNodes = Extract-Metric "🟩 Healthy" $clusterSummaryText
+    $issueNodes = Extract-Metric "🟥 Issues" $clusterSummaryText
+    $totalPods = Extract-Metric "📦 Pods" $clusterSummaryText
+    $runningPods = Extract-Metric "🟩 Running" $clusterSummaryText
+    $failedPods = Extract-Metric "🟥 Failed" $clusterSummaryText
+    $totalRestarts = Extract-Metric "🔄 Restarts" $clusterSummaryText
+    $warnings = Extract-Metric "🟨 Warnings" $clusterSummaryText
+    $critical = Extract-Metric "🟥 Critical" $clusterSummaryText
+    $pendingPods = Extract-Metric "⏳ Pending Pods" $clusterSummaryText
+    $stuckPods = Extract-Metric "⚠️ Stuck Pods" $clusterSummaryText
+    $jobFailures = Extract-Metric "📉 Job Failures" $clusterSummaryText
+    $eventWarnings = Extract-Metric "⚠️ Warnings" $clusterSummaryText
+    $eventErrors = Extract-Metric "❌ Errors" $clusterSummaryText
+    $podAvg = if ($clusterSummaryText -match "📊 Pod Distribution: Avg: ([\d.]+)") { $matches[1] } else { "0" }
+    $podMax = if ($clusterSummaryText -match "Max: ([\d.]+)") { $matches[1] } else { "0" }
+    $podMin = if ($clusterSummaryText -match "Min: ([\d.]+)") { $matches[1] } else { "0" }
+    $podTotalNodes = if ($clusterSummaryText -match "Total Nodes: ([\d]+)") { $matches[1] } else { "0" }
+    $cpuUsage = if ($clusterSummaryText -match "🖥  CPU Usage:\s*([\d.]+)%") { [double]$matches[1] } else { 0 }
+    $cpuStatus = if ($clusterSummaryText -match "🖥  CPU Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
+    $memUsage = if ($clusterSummaryText -match "💾 Memory Usage:\s*([\d.]+)%") { [double]$matches[1] } else { 0 }
+    $memStatus = if ($clusterSummaryText -match "💾 Memory Usage:.*(🟩 Normal|🟡 Warning|🔴 Critical)") { $matches[1] } else { "Unknown" }
 
-  $today = (Get-Date).ToUniversalTime().ToString("MMMM dd, yyyy HH:mm:ss 'UTC'")
-  $year = (Get-Date).ToUniversalTime().ToString("yyyy")
-  $thresholds = Get-KubeBuddyThresholds -Silent
-  $excludedNamespaces = Get-ExcludedNamespaces -Silent
-  $errorClass = if ($eventErrors -ge $thresholds.event_errors_critical) { "critical" } elseif ($eventErrors -ge $thresholds.event_errors_warning) { "warning" } else { "normal" }
-  $warningClass = if ($eventWarnings -ge $thresholds.event_warnings_critical) { "critical" } elseif ($eventWarnings -ge $thresholds.event_warnings_warning) { "warning" } else { "normal" }
-  $cpuClass = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
-  $memClass = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } else { "normal" }
+    $today = (Get-Date).ToUniversalTime().ToString("MMMM dd, yyyy HH:mm:ss 'UTC'")
+    $year = (Get-Date).ToUniversalTime().ToString("yyyy")
+    $thresholds = Get-KubeBuddyThresholds -Silent
+    $excludedNamespaces = Get-ExcludedNamespaces -Silent
+    $errorClass = if ($eventErrors -ge $thresholds.event_errors_critical) { "critical" } elseif ($eventErrors -ge $thresholds.event_errors_warning) { "warning" } else { "normal" }
+    $warningClass = if ($eventWarnings -ge $thresholds.event_warnings_critical) { "critical" } elseif ($eventWarnings -ge $thresholds.event_warnings_warning) { "warning" } else { "normal" }
+    $cpuClass = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
+    $memClass = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } else { "normal" }
 
-  if ($ExcludeNamespaces) {
-      $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
-      $excludedNamespacesHtml = @"
+    if ($ExcludeNamespaces) {
+        $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
+        $excludedNamespacesHtml = @"
 <h2>Excluded Namespaces
 <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">These namespaces are excluded from analysis and reporting.</span></span>
 </h2>
 <p>$excludedList</p>
 "@
-  } else {
-      $excludedNamespacesHtml = ""
-  }
+    }
+    else {
+        $excludedNamespacesHtml = ""
+    }
 
-  $htmlTemplate = @"
+    $htmlTemplate = @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -773,7 +863,19 @@ $collapsibleAKSHtml
 </div>
 <div class="container"><h1>Node Conditions & Resources</h1><h2 id="nodecon">Node Conditions <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Displays node readiness, taints, and schedulability.</span></span></h2><div class="table-container">$collapsibleNodeConditionsHtml</div><h2 id="noderesource">Node Resources <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Shows CPU and memory usage across nodes.</span></span></h2><div class="table-container">$collapsibleNodeResourcesHtml</div></div>
 <div class="container"><h1 id="namespaces">Namespaces</h1><h2>Empty Namespaces <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span></h2><div class="table-container">$collapsibleEmptyNamespaceHtml</div></div>
-<div class="container"><h1 id="workloads">Workloads</h1><h2 id="daemonsets">DaemonSets Not Fully Running <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with unavailable pods or rollout issues.</span></span></h2><div class="table-container">$collapsibleDaemonSetIssuesHtml</div></div>
+<div class="container"><h1 id="workloads">Workloads</h1><h2 id="daemonsets">DaemonSets Not Fully Running <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with unavailable pods or rollout issues.</span></span></h2><div class="table-container">$collapsibleDaemonSetIssuesHtml</div>
+  <h2 id="HPA">Horizontal Pod Autoscalers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Checks HPA presence and effectiveness.</span></span></h2>
+  <div class="table-container">$collapsibleHPAHtml</div>
+
+  <h2 id="missingResourceLimits">Missing Resource Requests & Limits <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Finds containers without memory/CPU requests or limits.</span></span></h2>
+  <div class="table-container">$collapsibleMissingResourceLimitsHtml</div>
+
+  <h2 id="PDB">PodDisruptionBudgets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects missing or ineffective PDBs.</span></span></h2>
+  <div class="table-container">$collapsiblePDBHtml</div>
+
+  <h2 id="missingProbes">Missing Health Probes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Reports containers missing readiness/liveness/startup probes.</span></span></h2>
+  <div class="table-container">$collapsibleMissingProbesHtml</div>
+</div>
 <div class="container"><h1 id="pods">Pods</h1><h2 id="podrestarts">Pods with High Restarts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods with restarts above the configured threshold.</span></span></h2><div class="table-container">$collapsiblePodsRestartHtml</div><h2 id="podlong">Long Running Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods running beyond expected duration (e.g. stuck Jobs).</span></span></h2><div class="table-container">$collapsiblePodLongRunningHtml</div><h2 id="podfail">Failed Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods that exited with a non-zero status.</span></span></h2><div class="table-container">$collapsiblePodFailHtml</div><h2 id="podpend">Pending Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods pending scheduling or resource allocation.</span></span></h2><div class="table-container">$collapsiblePodPendingHtml</div><h2 id="crashloop">CrashLoopBackOff Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods continuously crashing and restarting.</span></span></h2><div class="table-container">$collapsibleCrashloopHtml</div><h2 id="debugpods">Running Debug Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ephemeral containers or debug pods left running.</span></span></h2><div class="table-container">$collapsibleLeftoverdebugHtml</div></div>
 <div class="container"><h1 id="jobs">Jobs</h1><h2 id="stuckjobs">Stuck Jobs <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that haven't progressed or completed as expected.</span></span></h2><div class="table-container">$collapsibleStuckJobsHtml</div><h2 id="failedjobs">Job Failures <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that exceeded retries or failed execution.</span></span></h2><div class="table-container">$collapsibleJobFailHtml</div></div>
 <div class="container"><h1 id="networking">Networking</h1><h2 id="servicenoendpoints">Services without Endpoints <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services that have no active pods backing them.</span></span></h2><div class="table-container">$collapsibleServicesWithoutEndpointsHtml</div><h2 id="publicServices">Publicly Accessible Services <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed via LoadBalancer or external IPs.</span></span></h2><div class="table-container">$collapsiblePublicServicesHtml</div></div>
@@ -1018,5 +1120,5 @@ $aksHealthCheck
 </html>
 "@
 
-  $htmlTemplate | Set-Content $outputPath
+    $htmlTemplate | Set-Content $outputPath
 }

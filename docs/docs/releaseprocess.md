@@ -5,9 +5,9 @@ nav_order: 4
 layout: default
 ---
 
-# 🚀 KubeBuddy Release Process
+# 🚀 KubeBuddy powered by KubeDeck Release Process
 
-This page outlines the steps required to release **KubeBuddy** using GitHub Actions to automate publishing to the **PowerShell Gallery**, **Krew plugin repository**, and **documentation updates**.
+This page outlines the steps required to release **KubeBuddy powered by KubeDeck** using GitHub Actions to automate publishing to the **PowerShell Gallery**, **Krew plugin repository**, and **documentation updates**.
 
 ---
 

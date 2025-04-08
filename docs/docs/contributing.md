@@ -5,9 +5,9 @@ nav_order: 3
 layout: default
 ---
 
-# 🤝 Contributing to KubeBuddy
+# 🤝 Contributing to KubeBuddy powered by KubeDeck
 
-🎉 Thank you for considering contributing to **KubeBuddy**! 🎉
+🎉 Thank you for considering contributing to **KubeBuddy powered by KubeDeck**! 🎉
 
 We welcome all contributions, whether it’s reporting bugs, suggesting improvements, updating documentation, or submitting code. This guide will help you contribute effectively.
 
@@ -51,7 +51,7 @@ If you find a bug, please **open an issue** with:
 
 ### 📌 Suggesting Features
 
-Have an idea to improve **KubeBuddy**? We’d love to hear it! Open an issue and provide:
+Have an idea to improve **KubeBuddy powered by KubeDeck**? We’d love to hear it! Open an issue and provide:
 - A clear description of the feature.
 - Specific use cases where it would be helpful.
 
@@ -101,5 +101,5 @@ We follow a [Code of Conduct](https://github.com/KubeDeckio/KubeBuddy/blob/main/
 
 ## 🎉 Thank You!
 
-Your contributions help make **KubeBuddy** better! We appreciate your support in improving the project. 🚀
+Your contributions help make **KubeBuddy powered by KubeDeck** better! We appreciate your support in improving the project. 🚀
 

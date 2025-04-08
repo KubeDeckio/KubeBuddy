@@ -65,6 +65,10 @@ function Show-WorkloadMenu {
             "[2] Check Deployment Issues 🚀"
             "[3] Check StatefulSet Issues 🏗️"
             "[4] Check ReplicaSet Health 📈"
+            "[5] Check HPA Status ⚖️"
+            "[6] Check Missing Resources & Limits 🛟"
+            "[7] Check missing or weak PodDisruptionBudgets 🛡️"
+            "[8] Check containers missing health probes 🔎"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -113,7 +117,18 @@ function Show-WorkloadMenu {
 
                 Read-Host "🤖 Press Enter to return to the menu"
             }
-
+            "5" {
+                Check-HPAStatus -ExcludeNamespaces:$ExcludeNamespaces
+            }
+            "6" {
+                Check-MissingResourceLimits -ExcludeNamespaces:$ExcludeNamespaces
+            }
+            "7" {
+                Check-PodDisruptionBudgets -ExcludeNamespaces:$ExcludeNamespaces
+            }
+            "8" {
+                Check-MissingHealthProbes -ExcludeNamespaces:$ExcludeNamespaces
+            }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
@@ -170,6 +185,8 @@ function show-NamespaceMenu {
 
         $namespaceOptions = @(
             "[1]  Show empty namespaces"
+            "[2]  Check ResourceQuotas"
+            "[3]  Check LimitRanges"
             "🔙  Back (B) | ❌ Exit (Q)"
         )
 
@@ -181,6 +198,12 @@ function show-NamespaceMenu {
         switch ($namespaceChoice) {
             "1" { 
                 Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces
+            }
+            "2" { 
+                Check-ResourceQuotas -ExcludeNamespaces:$ExcludeNamespaces
+            }
+            "3" { 
+                Check-NamespaceLimitRanges -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
@@ -359,11 +382,13 @@ function Show-RBACMenu {
         $rbacOptions = @(
             "[1]  Check RBAC misconfigurations"
             "[2]  Check RBAC overexposure"
-            "[3]  Show orphaned ConfigMaps"
-            "[4]  Show orphaned Secrets"
-            "[5]  Check Pods running as root"
-            "[6]  Check privileged containers"
-            "[7]  Check hostPID / hostNetwork usage"
+            "[3]  Check orphaned Service Accounts"
+            "[4]  Show unused Roles & ClusterRoles"
+            "[5]  Show orphaned ConfigMaps"
+            "[6]  Show orphaned Secrets"
+            "[7]  Check Pods running as root"
+            "[8]  Check privileged containers"
+            "[9]  Check hostPID / hostNetwork usage"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -375,11 +400,13 @@ function Show-RBACMenu {
         switch ($rbacChoice) {
             "1" { Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces }
             "2" { Check-RBACOverexposure -ExcludeNamespaces:$ExcludeNamespaces }
-            "3" { Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces }
-            "4" { Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces }
-            "5" { Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces }
-            "6" { Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces }
-            "7" { Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces }
+            "3" { Check-OrphanedServiceAccounts -ExcludeNamespaces:$ExcludeNamespaces }
+            "4" { Check-OrphanedRoles -ExcludeNamespaces:$ExcludeNamespaces }
+            "5" { Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces }
+            "6" { Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces }
+            "7" { Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces }
+            "8" { Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces }
+            "9" { Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }

@@ -4,11 +4,11 @@ nav_order: 2
 layout: default
 ---
 
-# 📖 KubeBuddy Documentation
+# 📖 KubeBuddy powered by KubeDeck Documentation
 
-Welcome to the **KubeBuddy** documentation! This is your complete guide to installing, using, and contributing to KubeBuddy. Whether you're just getting started or an advanced user, you'll find everything you need here to monitor and analyze your Kubernetes clusters efficiently.
+Welcome to the **KubeBuddy powered by KubeDeck** documentation! This is your complete guide to installing, using, and contributing to KubeBuddy powered by KubeDeck. Whether you're just getting started or an advanced user, you'll find everything you need here to monitor and analyze your Kubernetes clusters efficiently.
 
-## ✨ Why Use KubeBuddy?
+## ✨ Why Use KubeBuddy powered by KubeDeck?
 
 🚀 **Built with PowerShell** – Cross-platform support for Windows, Linux, and macOS.  
 📊 **Cluster Health Monitoring** – Check node status, resource usage, and pod conditions.  
@@ -21,7 +21,7 @@ Welcome to the **KubeBuddy** documentation! This is your complete guide to insta
 Jump into the key sections below:
 
 ### 🔹 [Installation Guide](./installation)
-Learn how to install KubeBuddy and configure it for your environment.
+Learn how to install KubeBuddy powered by KubeDeck and configure it for your environment.
 
 ### 🔹 [Usage Guide](./usage)
 Step-by-step instructions to monitor and analyze your Kubernetes clusters.
@@ -32,5 +32,5 @@ Understand detailed logging, error messages, and debugging techniques.
 ### 🔹 [Contributing](./contributing)
 Want to contribute? Check out the developer and contributor guidelines.
 
-Stay updated as we continue to enhance KubeBuddy with new features and improvements!
+Stay updated as we continue to enhance KubeBuddy powered by KubeDeck with new features and improvements!
 

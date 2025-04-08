@@ -5,23 +5,23 @@ nav_order: 1
 layout: default
 ---
 
-# ⚡ Installing KubeBuddy
+# ⚡ Installing KubeBuddy powered by KubeDeck
 
-KubeBuddy can be installed on **Windows, Linux, and macOS** via the **PowerShell Gallery**.
+KubeBuddy powered by KubeDeck can be installed on **Windows, Linux, and macOS** via the **PowerShell Gallery**.
 
 ---
 
 ## 🖥️ Installing via PowerShell Gallery
 
-For PowerShell users, install **KubeBuddy** directly from the PowerShell Gallery:
+For PowerShell users, install **KubeBuddy powered by KubeDeck** directly from the PowerShell Gallery:
 
 ```powershell
 Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
 ```
 
-### 🔄 Updating KubeBuddy
+### 🔄 Updating KubeBuddy powered by KubeDeck
 
-To update **KubeBuddy** to the latest version:
+To update **KubeBuddy powered by KubeDeck** to the latest version:
 
 ```powershell
 Update-Module -Name KubeBuddy
@@ -35,5 +35,5 @@ Update-Module -Name KubeBuddy
 
 ---
 
-✅ **Next Steps:** Now that KubeBuddy is installed, check out the [Usage Guide](/docs/usage) to start monitoring your Kubernetes clusters! 🚀
+✅ **Next Steps:** Now that KubeBuddy powered by KubeDeck is installed, check out the [Usage Guide](/docs/usage) to start monitoring your Kubernetes clusters! 🚀
 
