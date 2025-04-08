@@ -33,6 +33,17 @@ function Generate-K8sHTMLReport {
         Remove-Item $outputPath -Force
     }
 
+     # Path to report-scripts.js in the module directory
+     $jsPath = Join-Path $PSScriptRoot "html/report-scripts.js"
+
+     # Read the JavaScript content
+     if (Test-Path $jsPath) {
+         $jsContent = Get-Content -Path $jsPath -Raw
+     } else {
+         $jsContent = "// Error: report-scripts.js not found at $jsPath"
+         Write-Warning "report-scripts.js not found at $jsPath. HTML features may not work."
+     }
+
     Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
     $clusterSummaryRaw = Show-ClusterSummary -Html -KubeData:$KubeData *>&1
@@ -649,7 +660,30 @@ $collapsibleAKSHtml
   #printContainer button:hover { background: #005ad1; }
   #savePdfBtn { background: #0071FF; color: white; padding: 8px 12px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; border-radius: 8px; margin-top: 10px; transition: background 0.3s; }
   #savePdfBtn:hover { background: #005ad1; }
-  @media print { #savePdfBtn, #printContainer, .pagination { display: none; } details { display: block; } table { width: 100%; table-layout: fixed; border-collapse: collapse; } th, td { white-space: normal !important; overflow: visible !important; word-wrap: break-word; padding: 8px; border: 1px solid #ddd; } .table-container { overflow: visible !important; height: auto !important; } }
+@media print {
+    #savePdfBtn, #printContainer, .table-pagination, #menuFab {
+        display: none !important; /* Add !important to override any inline styles */
+    }
+    details {
+        display: block;
+    }
+    table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
+    th, td {
+        white-space: normal !important;
+        overflow: visible !important;
+        word-wrap: break-word;
+        padding: 8px;
+        border: 1px solid #ddd;
+    }
+    .table-container {
+        overflow: visible !important;
+        height: auto !important;
+    }
+}
   .excluded-ns { padding: 2px 6px; background-color: #eee; border-radius: 4px; margin-right: 4px; display: inline-block; }
   .nav-drawer { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: linear-gradient(135deg, #f5f7fa, #ffffff); box-shadow: 4px 0 12px rgba(0,0,0,0.2); transition: left 0.3s ease-in-out; z-index: 2000; overflow-y: auto; }
   .nav-drawer.open { left: 0; }
@@ -701,11 +735,30 @@ $collapsibleAKSHtml
   .recommendation-content ul { padding-left: 20px; margin: 0; }
   .recommendation-content li { margin-bottom: 10px; }
   .recommendation-content code { background: #e0e0e0; padding: 2px 4px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; }
-  .pagination { margin-top: 10px; text-align: center; }
-  .pagination button { background: #0071FF; color: white; border: none; padding: 6px 12px; margin: 0 5px; border-radius: 6px; cursor: pointer; transition: background 0.3s; }
-  .pagination button:disabled { background: #9E9E9E; cursor: not-allowed; }
-  .pagination button:hover:not(:disabled) { background: #005ad1; }
-  .pagination select { padding: 6px; border-radius: 6px; }
+.table-pagination {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.table-pagination select,
+.table-pagination button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #f7f7f7;
+  cursor: pointer;
+}
+.table-pagination button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.table-pagination .active {
+  font-weight: bold;
+  background: #0071FF;
+  color: white;
+}
   #menuFab {
   position: fixed;
   bottom: 20px;
@@ -891,231 +944,9 @@ $aksHealthCheck
   <p><em>This report is a snapshot of the cluster state at the time of generation. It may not reflect real-time changes. Always verify configurations before making critical decisions.</em></p>
 </footer>
 <a href="#top" id="backToTop">Back to Top</a>
-<script>
-  // Back to Top
-  window.addEventListener('scroll', function() {
-      const button = document.getElementById('backToTop');
-      if (button) {
-          button.style.display = window.scrollY > 200 ? 'block' : 'none';
-      }
-  });
-
-  // Navigation Drawer
-  document.addEventListener('DOMContentLoaded', function() {
-      try {
-          const navDrawer = document.getElementById('navDrawer');
-          const navToggle = document.getElementById('menuFab'); // was: navToggle
-          const navClose = document.getElementById('navClose');
-          const navScrim = document.getElementById('navScrim');
-
-          if (!navDrawer || !navToggle || !navClose || !navScrim) {
-              console.error('Navigation drawer elements missing');
-              return;
-          }
-
-          function toggleDrawer() {
-              const isOpen = navDrawer.classList.contains('open');
-              navDrawer.classList.toggle('open');
-              navScrim.classList.toggle('open');
-              if (window.innerWidth <= 800) {
-                  document.body.style.overflow = isOpen ? '' : 'hidden';
-              }
-          }
-
-          navToggle.addEventListener('click', toggleDrawer);
-          navClose.addEventListener('click', toggleDrawer);
-          navScrim.addEventListener('click', toggleDrawer);
-
-          // Ripple effect on nav items
-          document.querySelectorAll('.nav-item a, .nav-item summary').forEach(item => {
-              item.addEventListener('click', function(e) {
-                  const rect = this.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const y = e.clientY - rect.top;
-                  const ripple = document.createElement('span');
-                  ripple.classList.add('ripple');
-                  ripple.style.left = x + 'px';
-                  ripple.style.top = y + 'px';
-                  this.appendChild(ripple);
-                  setTimeout(() => ripple.remove(), 600);
-              });
-          });
-
-          // Auto-collapse on scroll
-          let lastScrollY = window.scrollY;
-          window.addEventListener('scroll', function() {
-              if (Math.abs(window.scrollY - lastScrollY) > 50) {
-                  if (navDrawer.classList.contains('open')) {
-                      toggleDrawer();
-                  }
-              }
-              lastScrollY = window.scrollY;
-          });
-      } catch (e) {
-          console.error('Navigation Drawer Error:', e);
-      }
-
-      // Save as PDF
-      try {
-          const savePdfBtn = document.getElementById('savePdfBtn');
-          if (!savePdfBtn) {
-              console.error('Save PDF button not found');
-              return;
-          }
-
-          savePdfBtn.addEventListener('click', function() {
-              const detailsElements = document.querySelectorAll('details');
-              const detailsStates = new Map();
-              detailsElements.forEach(detail => {
-                  detailsStates.set(detail, detail.open);
-                  detail.open = true;
-              });
-
-              const tableContainers = document.querySelectorAll('.table-container');
-              const tables = document.querySelectorAll('table');
-              const originalStyles = [];
-              tableContainers.forEach((container, index) => {
-                  originalStyles[index] = { overflow: container.style.overflow, height: container.style.height };
-                  container.style.overflow = 'visible';
-                  container.style.height = 'auto';
-              });
-              tables.forEach(table => {
-                  table.style.width = '100%';
-                  table.style.tableLayout = 'fixed';
-              });
-
-              setTimeout(() => {
-                  window.print();
-              }, 500);
-
-              window.onafterprint = function() {
-                  detailsElements.forEach(detail => {
-                      detail.open = detailsStates.get(detail);
-                  });
-                  tableContainers.forEach((container, index) => {
-                      container.style.overflow = originalStyles[index].overflow;
-                      container.style.height = originalStyles[index].height;
-                  });
-                  tables.forEach(table => {
-                      table.style.tableLayout = '';
-                  });
-              };
-          });
-      } catch (e) {
-          console.error('PDF Error:', e);
-      }
-
-      // Collapsible Toggle and Pagination
-      try {
-          document.addEventListener('DOMContentLoaded', function() {
-              const containers = document.querySelectorAll('.container');
-              if (containers.length === 0) {
-                  console.warn('No .container elements found in the DOM.');
-                  return;
-              }
-
-              containers.forEach(container => {
-                  const details = container.querySelectorAll('details');
-                  details.forEach(detail => {
-                      const id = detail.id;
-                      const sum = detail.querySelector('summary');
-                      const defaultText = sum.textContent;
-
-                      detail.addEventListener('toggle', () => {
-                          sum.textContent = detail.open ? 'Hide Findings' : defaultText;
-                      });
-
-                      const table = detail.querySelector('table');
-                      if (table) {
-                          const rows = table.querySelectorAll('tr');
-                          if (rows.length > 11) {
-                              paginateTable(id);
-                          }
-                      }
-                  });
-              });
-          });
-      } catch (e) {
-          console.error('Collapsible/Pagination Error:', e);
-      }
-  });
-
-  function paginateTable(containerId) {
-      try {
-          const container = document.getElementById(containerId);
-          if (!container) {
-              console.error('Container not found for ID:', containerId);
-              return;
-          }
-          const table = container.querySelector('table');
-          if (!table) {
-              console.error('Table not found in container:', containerId);
-              return;
-          }
-          const tbody = table.querySelector('tbody') || table;
-          const rows = Array.from(tbody.getElementsByTagName('tr')).slice(1);
-          let pageSize = 10;
-          let currentPage = 1;
-          let totalPages = Math.ceil(rows.length / pageSize);
-
-          function showPage(page) {
-              const start = (page - 1) * pageSize;
-              const end = start + pageSize;
-              rows.forEach((row, index) => {
-                  row.style.display = (index >= start && index < end) ? '' : 'none';
-              });
-              updatePaginationControls();
-          }
-
-          function updatePaginationControls() {
-              let pagination = container.querySelector('.pagination');
-              if (!pagination) {
-                  pagination = document.createElement('div');
-                  pagination.className = 'pagination';
-                  container.appendChild(pagination);
-              }
-              pagination.innerHTML = ''
-                + '<button onclick="window.prevPage(\'' + containerId + '\')">Previous</button>'
-                + '<span>Page ' + currentPage + ' of ' + totalPages + '</span>'
-                + '<button onclick="window.nextPage(\'' + containerId + '\')">Next</button>'
-                + '<select onchange="window.changePageSize(\'' + containerId + '\', this.value)">'
-                + '<option value="10"' + (pageSize === 10 ? ' selected' : '') + '>10</option>'
-                + '<option value="25"' + (pageSize === 25 ? ' selected' : '') + '>25</option>'
-                + '<option value="50"' + (pageSize === 50 ? ' selected' : '') + '>50</option>'
-                + '</select>';
-              const prevButton = pagination.querySelector('button:first-child');
-              const nextButton = pagination.querySelector('button:last-of-type');
-              prevButton.disabled = currentPage === 1;
-              nextButton.disabled = currentPage === totalPages;
-          }
-
-          window.prevPage = function(id) {
-              if (currentPage > 1) {
-                  currentPage--;
-                  showPage(currentPage);
-              }
-          };
-
-          window.nextPage = function(id) {
-              if (currentPage < totalPages) {
-                  currentPage++;
-                  showPage(currentPage);
-              }
-          };
-
-          window.changePageSize = function(id, size) {
-              pageSize = parseInt(size);
-              currentPage = 1;
-              totalPages = Math.ceil(rows.length / pageSize);
-              showPage(currentPage);
-          };
-
-          showPage(currentPage);
-      } catch (e) {
-          console.error('Pagination Error:', e);
-      }
-  }
-</script>
+      <script>
+      $jsContent
+      </script>
 </body>
 </html>
 "@
