@@ -442,16 +442,16 @@ function Check-IngressHealth {
             }
 
             foreach ($rule in $i.spec.rules) {
-                $host = $rule.host ?? "N/A"
+                $hostName = $rule.host ?? "N/A"
 
                 # Check 4: Duplicate Host/Path Detection
                 foreach ($path in $rule.http.paths) {
-                    $pathKey = "$ns|$host|$($path.path)"
+                    $pathKey = "$ns|$hostName|$($path.path)"
                     if ($hostPathMap.ContainsKey($pathKey)) {
                         $results += [PSCustomObject]@{
                             Namespace = $ns
                             Ingress   = $name
-                            Host      = $host
+                            Host      = $hostName
                             Path      = $path.path
                             Issue     = "⚠️ Duplicate host/path combination (conflicts with Ingress '$($hostPathMap[$pathKey])')"
                         }
@@ -465,7 +465,7 @@ function Check-IngressHealth {
                         $results += [PSCustomObject]@{
                             Namespace = $ns
                             Ingress   = $name
-                            Host      = $host
+                            Host      = $hostName
                             Path      = $path.path
                             Issue     = "⚠️ Invalid pathType '$pathType' (must be Exact, Prefix, or ImplementationSpecific)"
                         }
@@ -487,7 +487,7 @@ function Check-IngressHealth {
                         $results += [PSCustomObject]@{
                             Namespace = $ns
                             Ingress   = $name
-                            Host      = $host
+                            Host      = $hostName
                             Path      = $path.path
                             Issue     = "❌ Service '$svc' not found"
                         }
@@ -499,7 +499,7 @@ function Check-IngressHealth {
                                 $results += [PSCustomObject]@{
                                     Namespace = $ns
                                     Ingress   = $name
-                                    Host      = $host
+                                    Host      = $hostName
                                     Path      = $path.path
                                     Issue     = "⚠️ Service '$svc' does not have port '$port'"
                                 }
