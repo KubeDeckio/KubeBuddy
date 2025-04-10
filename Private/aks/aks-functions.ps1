@@ -14,7 +14,17 @@ function Invoke-AKSBestPractices {
         if ($KubeData) { return $true | Out-Null }
 
         $currentContext = kubectl config current-context
-        $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv --only-show-errors
+        try {
+            $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv --only-show-errors 2>&1
+            if ($LASTEXITCODE -ne 0 -or -not $aksContext) {
+                throw "Failed to retrieve AKS context. Please verify the resource group and cluster name."
+            }
+        }
+        catch {
+            Write-Error "❌ Error fetching AKS context: $_"
+            throw "Critical error: Unable to continue without AKS context."
+        }
+        
 
         if ($Global:MakeReport) {
             Write-Host "🔄 Checking Kubernetes context..." -ForegroundColor Cyan

@@ -82,7 +82,8 @@ function Invoke-KubeBuddy {
     # Confirm before proceeding
     if ($yes) {
         Write-Host "`n🤖 Skipping context confirmation." -ForegroundColor Red
-    } else {
+    }
+    else {
         $confirmation = Read-Host "🤖 Is this the correct context? (y/n)"
         if ($confirmation.Trim().ToLower() -ne 'y') {
             Write-Host "🤖 Exiting. Please switch context and try again." -ForegroundColor Yellow
@@ -92,16 +93,20 @@ function Invoke-KubeBuddy {
 
     if ($Aks) {
         Write-Host -NoNewline "`n🤖 Validating AKS cluster access..." -ForegroundColor Yellow
-        try {
-            $aksInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --only-show-errors | ConvertFrom-Json
-        }
-        catch {
-            Write-Host "🤖 ❌ Failed to access AKS cluster '$ClusterName' in '$ResourceGroup'" -ForegroundColor Red
+
+        # Run az aks show and capture both stdout and stderr
+        $aksOutput = az aks show --resource-group $ResourceGroup --name $ClusterName --only-show-errors 2>&1
+        
+        if ($LASTEXITCODE -ne 0 -or -not $aksOutput) {
+            Write-Host "`r🤖 ❌ Failed to access AKS cluster '$ClusterName' in '$ResourceGroup'" -ForegroundColor Red
             Write-Host "🤖 Check that you're logged in to Azure and that the cluster exists." -ForegroundColor Red
+            Write-Host "🧾 Error: $aksOutput" -ForegroundColor DarkGray
             return
         }
-    
-        Write-Host "`r🤖 ✅ Connected to AKS Cluster: $($aksInfo.name) in $($aksInfo.location)`n" -ForegroundColor Green
+        
+        # If successful, parse and display result
+        $aksInfo = $aksOutput | ConvertFrom-Json
+        Write-Host "`r🤖 ✅ Connected to AKS Cluster: $($aksInfo.name) in $($aksInfo.location)`n" -ForegroundColor Green        
     }
 
     # ========== REPORT MODES ==========
@@ -115,6 +120,10 @@ function Invoke-KubeBuddy {
         }
 
         $KubeData = Get-KubeData -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks
+        if ($KubeData -eq $false) {
+            Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
+            return
+        }
 
         Generate-K8sHTMLReport `
             -version $moduleVersion `
@@ -140,6 +149,12 @@ function Invoke-KubeBuddy {
 
         $KubeData = Get-KubeData -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks
 
+        if ($KubeData -eq $false) {
+            Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
+            return
+        }
+
+
         Generate-K8sTextReport `
             -ReportFile $txtReportFile `
             -ExcludeNamespaces:$ExcludeNamespaces `
@@ -162,6 +177,10 @@ function Invoke-KubeBuddy {
         }
 
         $KubeData = Get-KubeData -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks
+        if ($KubeData -eq $false) {
+            Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
+            return
+        }
 
         Create-jsonReport `
             -outputpath $jsonReportFile `

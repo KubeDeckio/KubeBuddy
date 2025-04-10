@@ -7,15 +7,32 @@ function Get-KubeData {
     )
 
     # Ensure kubectl is available and functional
+    # 1. Check if kubectl is installed
     if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
-        throw "kubectl is not installed or not in PATH. Please install kubectl and ensure it’s accessible."
+        Write-Host "❌ kubectl is not installed or not in PATH. Please install kubectl and ensure it's accessible." -ForegroundColor Red
+        return
+        return $false  # return error flag
     }
-    try {
-        kubectl version --client | Out-Null
+
+    # 2. Check kubectl version (client only)
+    $kubectlVersionOutput = kubectl version --client 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ kubectl is installed but not functioning correctly." -ForegroundColor Red
+        Write-Host "🧾 Error: $kubectlVersionOutput" -ForegroundColor DarkGray
+        return $false  # return error flag
+        return
     }
-    catch {
-        throw "kubectl is not functional: $($_.Exception.Message). Please verify kubectl configuration and try again."
+
+    # 3. Verify cluster communication
+    $kubectlClusterCheck = kubectl get namespaces --no-headers -o custom-columns=NAME:.metadata.name 2>&1
+    if ($LASTEXITCODE -ne 0 -or -not $kubectlClusterCheck) {
+        Write-Host "❌ kubectl cannot communicate with the Kubernetes cluster." -ForegroundColor Red
+        Write-Host "🧾 Error: $kubectlClusterCheck" -ForegroundColor DarkGray
+        return $false  # return error flag
+        return
     }
+
+    Write-Host "✅ kubectl is available and connected to the cluster." -ForegroundColor Green
 
     $data = @{}
     $resources = @(
@@ -85,7 +102,7 @@ function Get-KubeData {
 
         Write-Host "✔️ Finished $($res.Name)" -ForegroundColor Cyan
         return $output
-    } -ThrottleLimit 8
+    } -ThrottleLimit 8 
 
     # Show progress based on completed results
     $completed = $results.Count
@@ -104,6 +121,7 @@ function Get-KubeData {
         else {
             Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
             throw "Critical error: Stopping execution due to failure in $($r.Label) - $($r.Error)"
+            exit 1
         }
     }
 
