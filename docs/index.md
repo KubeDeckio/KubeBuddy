@@ -47,6 +47,8 @@ Most tools give you metrics. **KubeBuddy powered by KubeDeck** gives you answers
 
 ```powershell
 Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
+```
+
 KubeBuddy
 
 Runs on macOS, Linux, and Windows with PowerShell 7+.
