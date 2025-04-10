@@ -17,6 +17,22 @@ function Get-KubeData {
         throw "kubectl is not functional: $($_.Exception.Message). Please verify kubectl configuration and try again."
     }
 
+    # Early authentication check
+    Write-Host "`n[🔑 Verifying cluster access...]" -ForegroundColor Yellow
+    try {
+        kubectl cluster-info | Out-Null
+        Write-Host "✅ Cluster access verified." -ForegroundColor Green
+    }
+    catch {
+        $errorMsg = $_.Exception.Message
+        if ($errorMsg -match "Unauthorized" -or $errorMsg -match "provide credentials") {
+            throw "Authentication failure: Unable to access the cluster. Please log in to the server (e.g., 'kubectl config set-credentials' or 'az aks get-credentials'). Error: $errorMsg"
+        }
+        else {
+            throw "Failed to verify cluster access: $errorMsg"
+        }
+    }
+
     $data = @{}
     $resources = @(
         @{ Name = "Pods"; Cmd = { kubectl get pods --all-namespaces -o json }; Key = "Pods"; Items = $false },
@@ -81,6 +97,9 @@ function Get-KubeData {
         catch {
             $output.Success = $false
             $output.Error = $_.Exception.Message
+            if ($output.Error -match "Unauthorized" -or $output.Error -match "provide credentials") {
+                throw "Authentication error detected in $($res.Name): $($output.Error). Please log in to the server."
+            }
         }
 
         Write-Host "✔️ Finished $($res.Name)" -ForegroundColor Cyan
