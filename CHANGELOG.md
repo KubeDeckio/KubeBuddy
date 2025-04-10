@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.14] - 2025-04-10
+
+### Added
+- **Added cluster health checks and scoring:**
+  - Pod health evaluation based on Running and Ready conditions.
+  - Node health assessment using Ready condition status.
+  - Resource utilization scoring from `kubectl top nodes` data.
+  - Comprehensive health report with total score and detected issues.
+- **Added event analysis for cluster health:**
+  - Analyzes Kubernetes events to identify critical errors and warnings.
+  - Reports significant issues (e.g., pod failures, scheduling issues) in the health summary.
+- **Improved cluster validation:**
+  - Introduced robust validation for `kubectl` availability and connectivity to the current Kubernetes context.
+  - Added AKS connectivity checks using `az aks show`, ensuring the cluster exists and the user is authenticated.
+- **Enhanced error handling:**
+  - Clearer user feedback on failed or unauthorized cluster access with user-friendly `Write-Host` messages instead of raw exceptions.
+  - Fail-fast logic now halts script execution gracefully if core checks fail.
+- **New `Get-KubeData` logic:**
+  - Now verifies communication with the Kubernetes API server before fetching resources.
+  - Graceful fallback if kubectl is present but cluster access is misconfigured.
+- **Added support for silent script termination without full exception stack traces using `Write-Host` and `return`.**
+
+### Changed
+- Replaced all direct `throw` calls in nested modules with friendly error messages and early exit patterns to improve UX.
+- Reorganized cluster validation into a single pre-check block within `Get-KubeData` for clarity and maintainability.
+
+### Fixed
+- Fixed inconsistent behavior where failed parallel resource fetches did not always halt script execution as expected.
+- Corrected exit behavior from AKS metadata fetch section to avoid crashing on partial failure.
+- **Fixed `Check-IngressHealth` function to reliably detect and report ingress issues:**
+  - Corrected ingress fetching logic to work consistently with or without pre-fetched `KubeData`.
+  - Added checks for missing ingress class, TLS secret validation, duplicate host/path detection, and invalid path types, beyond just service existence.
+
 ## [0.0.13] - 2025-04-08
 
 ### Added
