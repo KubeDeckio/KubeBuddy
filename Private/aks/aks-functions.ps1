@@ -5,6 +5,7 @@ function Invoke-AKSBestPractices {
         [string]$ClusterName,
         [switch]$FailedOnly,
         [switch]$Html,
+        [switch]$json,
         [object]$KubeData
     )
 
@@ -189,7 +190,7 @@ return $clusterInfo
                 $checks = $checks | Where-Object { $_.Status -eq "❌ FAIL" }
             }
     
-            if ($checks.Count -gt 0 -and -not $Html -and -not $Global:MakeReport) {
+            if ($checks.Count -gt 0 -and -not $Html -and -not $json -and -not $Global:MakeReport) {
                 Write-Host "`n=== $category ===             " -ForegroundColor Cyan
                 $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, URL -AutoSize
     
@@ -245,7 +246,7 @@ return $clusterInfo
         }
     
         # **CLI Output for Summary**
-        if (-not $Html -and -not $Global:MakeReport) {
+        if (-not $Html -and -not $json -and -not $Global:MakeReport) {
             Write-Host "`nSummary & Rating:           " -ForegroundColor Green
     
             $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
@@ -305,13 +306,13 @@ return $clusterInfo
         return Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Html
     } else {
         Display-Results -categories $checkResults -FailedOnly:$FailedOnly
-        if (-not $Global:MakeReport) {
+        if (-not $Global:MakeReport -and -not $json) {
             Write-Host "`nPress Enter to return to the menu..." -ForegroundColor Yellow
             Read-Host
         }
     }
 
     if ($Global:MakeReport) {
-        Write-Host "`n✅ AKS Best Practices Check Completed.`n" -ForegroundColor Green
+        Write-Host "``r✅ AKS Best Practices Check Completed.`n" -ForegroundColor Green
     }
 }

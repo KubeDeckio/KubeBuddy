@@ -2,11 +2,11 @@ function Show-KubeEvents {
     param(
         [int]$PageSize = 10,
         [switch]$Html,
-        [switch]$json,
+        [switch]$Json,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📢 Kubernetes Warnings]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Kubernetes Warnings..." -ForegroundColor Yellow
 
@@ -18,6 +18,9 @@ function Show-KubeEvents {
         }
     } catch {
         Write-Host "`r🤖 ❌ Failed to fetch Kubernetes events." -ForegroundColor Red
+        if ($Json) { return [pscustomobject]@{ TotalWarnings = 0; Summary = @(); Events = @(); Error = $_.ToString() } }
+        if ($Html) { return "<p><strong>❌ Failed to fetch Kubernetes events: $($_.ToString())</strong></p>" }
+        if ($Global:MakeReport) { Write-ToReport "`n[📢 Kubernetes Warnings]`n❌ Failed to fetch Kubernetes events: $($_.ToString())" }
         return
     }
 
@@ -32,8 +35,14 @@ function Show-KubeEvents {
                 Events        = @()
             }
         }
-        if ($Html) { return "<p><strong>✅ No Kubernetes warnings found.</strong></p>" }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if ($Html) {
+            return @{
+                SummaryHtml = "<p><strong>✅ No Kubernetes warnings found.</strong></p>"
+                EventsHtml  = "<p><strong>✅ No Kubernetes warnings found.</strong></p>"
+            }
+        }
+        if ($Global:MakeReport) { Write-ToReport "`n[📢 Kubernetes Warnings]`n✅ No warnings found." }
+        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -67,6 +76,8 @@ function Show-KubeEvents {
         }
     }
 
+    $summaryCount = $summaryGrouped.count
+
     if ($Json) {
         return [pscustomobject]@{
             TotalWarnings = $warningCount
@@ -84,15 +95,10 @@ function Show-KubeEvents {
             ConvertTo-Html -Fragment -Property Timestamp, Type, Namespace, Source, Object, Reason, Message |
             Out-String
 
-        return @"
-<p><strong>⚠️ Total Warnings:</strong> $warningCount</p>
-
-<h3>Warning Summary (Grouped)</h3>
-<div class='table-container'>$summaryHtml</div>
-
-<h3>Full Warning Event Log</h3>
-<div class='table-container'>$detailHtml</div>
-"@
+        return @{
+            SummaryHtml = "<p><strong>⚠️ Total Grouped Warnings:</strong> $summaryCount</p><h3>Warning Summary (Grouped)</h3><div class='table-container'>$summaryHtml</div>"
+            EventsHtml  = "<p><strong>⚠️ Total Warnings:</strong> $warningCount</p><h3>Full Warning Event Log</h3><div class='table-container'>$detailHtml</div>"
+        }
     }
 
     if ($Global:MakeReport) {

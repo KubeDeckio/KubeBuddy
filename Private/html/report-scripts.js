@@ -70,7 +70,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 isPrinting = true;
                 console.log('Preparing for PDF: expanding details and removing pagination');
 
-                // Remove all pagination elements immediately
                 document.querySelectorAll('.table-pagination').forEach(pagination => {
                     console.log(`Pre-print: Removing pagination from ${pagination.parentElement.id}`);
                     pagination.remove();
@@ -96,7 +95,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     table.style.tableLayout = 'fixed';
                 });
 
-                // Show all rows in all tables
                 document.querySelectorAll('.collapsible-container').forEach(container => {
                     const table = container.querySelector('table');
                     if (table) {
@@ -108,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 setTimeout(() => {
                     window.print();
-                }, 1500); // Increased to 1500ms to ensure DOM updates
+                }, 1500);
 
                 window.onafterprint = function () {
                     console.log('PDF print complete, restoring original state');
@@ -120,7 +118,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                     tables.forEach(table => table.style.tableLayout = '');
 
-                    // Restore pagination for open tables
                     document.querySelectorAll('.collapsible-container').forEach(container => {
                         if (container.querySelector('details').open) {
                             paginateTable(container);
@@ -172,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         console.log(`Toggled open: ${id}, calling paginateTable`);
                         setTimeout(() => paginateTable(collapsibleContainer), 200);
                     } else if (pagination) {
-                        pagination.remove(); // Remove pagination when collapsing
+                        pagination.remove();
                         console.log(`Toggled closed: ${id}, removed pagination`);
                     }
                 });
@@ -188,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Pagination Function
+// Pagination Function with Sliding Window
 function paginateTable(collapsibleContainer) {
     try {
         const id = collapsibleContainer.id;
@@ -213,7 +210,7 @@ function paginateTable(collapsibleContainer) {
         if (isPrinting) {
             console.log(`Printing mode: showing all ${dataRows.length} rows for ${id} (pagination skipped)`);
             allRows.forEach(row => row.style.display = '');
-            return; // Skip pagination entirely during print
+            return;
         }
 
         if (dataRows.length < 10) {
@@ -227,6 +224,7 @@ function paginateTable(collapsibleContainer) {
         let currentPage = 1;
         let pageSize = 10;
         let totalPages = Math.ceil(dataRows.length / pageSize);
+        const maxVisiblePages = 5; // Window of 5 pages
 
         let pagination = collapsibleContainer.querySelector('.table-pagination');
         if (!pagination) {
@@ -261,31 +259,86 @@ function paginateTable(collapsibleContainer) {
             return btn;
         }
 
+        function createEllipsis() {
+            const span = document.createElement('span');
+            span.textContent = '...';
+            span.style.padding = '6px 12px';
+            return span;
+        }
+
         function updatePaginationControls() {
             pagination.innerHTML = '';
-            pagination.appendChild(createButton('«', () => {
+
+            // Previous Button
+            pagination.appendChild(createButton('←', () => {
                 if (currentPage > 1) {
                     currentPage--;
                     update();
                 }
             }, currentPage === 1));
 
-            for (let i = 1; i <= totalPages; i++) {
+            // Calculate the range of pages to display
+            let startPage, endPage;
+            const halfWindow = Math.floor(maxVisiblePages / 2);
+
+            if (totalPages <= maxVisiblePages) {
+                // If total pages are less than or equal to the window size, show all pages
+                startPage = 1;
+                endPage = totalPages;
+            } else {
+                // Center the current page in the window
+                startPage = Math.max(1, currentPage - halfWindow);
+                endPage = startPage + maxVisiblePages - 1;
+
+                // Adjust if the end page exceeds total pages
+                if (endPage > totalPages) {
+                    endPage = totalPages;
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                }
+            }
+
+            // Add ellipsis before if there are pages before startPage
+            if (startPage > 1) {
+                pagination.appendChild(createButton(1, () => {
+                    currentPage = 1;
+                    update();
+                }, false));
+                if (startPage > 2) {
+                    pagination.appendChild(createEllipsis());
+                }
+            }
+
+            // Show the page numbers in the calculated range
+            for (let i = startPage; i <= endPage; i++) {
                 pagination.appendChild(createButton(i, () => {
                     currentPage = i;
                     update();
                 }, false, i === currentPage));
             }
 
-            pagination.appendChild(createButton('»', () => {
+            // Add ellipsis after and last page if there are pages after endPage
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    pagination.appendChild(createEllipsis());
+                }
+                pagination.appendChild(createButton(totalPages, () => {
+                    currentPage = totalPages;
+                    update();
+                }, false, currentPage === totalPages));
+            }
+
+            // Next Button
+            pagination.appendChild(createButton('→', () => {
                 if (currentPage < totalPages) {
                     currentPage++;
                     update();
                 }
             }, currentPage === totalPages));
 
+            // Page Size Selector
             pagination.appendChild(pageSizeSelect);
-            console.log(`Pagination controls updated for ${id}, page ${currentPage}/${totalPages}`);
+
+            console.log(`Pagination controls updated for ${id}, page ${currentPage}/${totalPages}, range ${startPage}-${endPage}`);
         }
 
         function showPage() {

@@ -297,107 +297,279 @@ function Check-IngressHealth {
         [int]$PageSize = 10,
         [switch]$Html,
         [switch]$Json,
-        [switch]$ExcludeNamespaces
+        [switch]$ExcludeNamespaces  # Reverted to [switch]
     )
 
     if (-not $Html -and -not $Json -and -not $Global:MakeReport) { Clear-Host }
     Write-Host "`n[🌐 Ingress Health]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Checking Ingresses..." -ForegroundColor Yellow
 
-    $ingresses = if ($KubeData -and $KubeData.Ingresses) {
-        $KubeData.Ingresses
-    } else {
-        kubectl get ingress --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-    }
+    try {
+        # Fetch ingresses
+        $ingresses = if ($KubeData -and $KubeData.Ingresses) {
+            $KubeData.Ingresses.items
+        } else {
+            $ingresses = kubectl get ingress --all-namespaces -o json --request-timeout=30s 2>&1
+            $ingresses | ConvertFrom-Json | Select-Object -ExpandProperty items
+        }
 
-    if ($ExcludeNamespaces) {
-        $ingresses = Exclude-Namespaces -items $ingresses
-    }
+        # Apply namespace exclusions immediately after fetching ingresses
+        if ($ExcludeNamespaces) {
+            $ingresses = Exclude-Namespaces -items $ingresses
+        }
 
-    $results = @()
+        # Now check if there are any ingresses after exclusions
+        if (-not $ingresses.items) {
+            Write-Host "`r🤖 No ingresses found." -ForegroundColor Yellow
+            if ($Json) { return @{ Total = 0; Items = @() } }
+            if ($Html) { return "<p><strong>✅ No ingresses found in the cluster.</strong></p>" }
+            if ($Global:MakeReport) { Write-ToReport "`n[🌐 Ingress Health]`n✅ No ingresses found in the cluster." }
+            if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Read-Host "🤖 Press Enter to return to the menu" }
+            return
+        }
 
-    foreach ($i in $ingresses) {
-        $ns = $i.metadata.namespace
-        $name = $i.metadata.name
-        foreach ($rule in $i.spec.rules) {
-            foreach ($path in $rule.http.paths) {
-                $svc = $path.backend.service.name
-                $port = $path.backend.service.port.number
-                $svcCheck = kubectl get svc $svc -n $ns -o json 2>$null | ConvertFrom-Json
-                if (-not $svcCheck) {
-                    $results += [pscustomobject]@{
+        # Fetch services if KubeData is provided, otherwise we'll query later
+        $services = if ($KubeData -and $KubeData.Services) {
+            $KubeData.Services.items  # Extract the .items array
+        } else {
+            $null
+        }
+
+        # Fetch secrets for TLS validation
+        $secrets = if ($KubeData -and $KubeData.Secrets) {
+            $KubeData.Secrets
+        } else {
+            $null
+        }
+
+        $results = @()
+        $count = 0
+        # Track host/path combinations to detect duplicates
+        $hostPathMap = @{}
+
+        foreach ($i in $ingresses) {
+            $count++
+            Write-Progress -Activity "Scanning Ingresses" -Status "$count of $($ingresses.Count)" -PercentComplete (($count / $ingresses.Count) * 100)
+            $ns = $i.metadata.namespace
+            $name = $i.metadata.name
+
+            # Check 1: Missing Ingress Class
+            $ingressClassName = $i.spec.ingressClassName
+            $ingressClassAnnotation = $i.metadata.annotations.'kubernetes.io/ingress.class'
+            if (-not $ingressClassName -and -not $ingressClassAnnotation) {
+                $results += [PSCustomObject]@{
+                    Namespace = $ns
+                    Ingress   = $name
+                    Host      = "N/A"
+                    Path      = "N/A"
+                    Issue     = "⚠️ Missing Ingress Class (spec.ingressClassName or kubernetes.io/ingress.class annotation)"
+                }
+            }
+
+            # Check 2: TLS Secret Validation
+            if ($i.spec.tls) {
+                foreach ($tls in $i.spec.tls) {
+                    $secretName = $tls.secretName
+                    if ($secretName) {
+                        $secretExists = if ($secrets) {
+                            $secrets | Where-Object { 
+                                $_.metadata.namespace -eq $ns -and 
+                                $_.metadata.name -eq $secretName 
+                            }
+                        } else {
+                            kubectl get secret $secretName -n $ns -o json 2>$null | ConvertFrom-Json
+                        }
+                        if (-not $secretExists) {
+                            $results += [PSCustomObject]@{
+                                Namespace = $ns
+                                Ingress   = $name
+                                Host      = ($tls.hosts -join ", ") ?? "N/A"
+                                Path      = "N/A"
+                                Issue     = "❌ TLS Secret '$secretName' not found"
+                            }
+                        }
+                    }
+                }
+            }
+
+            # Check 3: Rules and Backend Validation
+            if (-not $i.spec.rules) {
+                # No rules defined, check default backend if present
+                if ($i.spec.defaultBackend) {
+                    $svc = $i.spec.defaultBackend.service.name
+                    $port = $i.spec.defaultBackend.service.port.number
+                    $svcCheck = if ($services) {
+                        $services | Where-Object { 
+                            $_.metadata.namespace -eq $ns -and 
+                            $_.metadata.name -eq $svc 
+                        }
+                    } else {
+                        kubectl get svc $svc -n $ns -o json 2>$null | ConvertFrom-Json
+                    }
+                    if (-not $svcCheck) {
+                        $results += [PSCustomObject]@{
+                            Namespace = $ns
+                            Ingress   = $name
+                            Host      = "Default Backend"
+                            Path      = "N/A"
+                            Issue     = "❌ Default Backend Service '$svc' not found"
+                        }
+                    } elseif ($port) {
+                        # Check 5: Validate Backend Port, but skip if Service is ExternalName
+                        if ($svcCheck.spec.type -ne "ExternalName") {
+                            $portExists = $svcCheck.spec.ports | Where-Object { $_.port -eq $port -or $_.name -eq $port }
+                            if (-not $portExists) {
+                                $results += [PSCustomObject]@{
+                                    Namespace = $ns
+                                    Ingress   = $name
+                                    Host      = "Default Backend"
+                                    Path      = "N/A"
+                                    Issue     = "⚠️ Default Backend Service '$svc' does not have port '$port'"
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    $results += [PSCustomObject]@{
                         Namespace = $ns
                         Ingress   = $name
-                        Host      = $rule.host
-                        Path      = $path.path
-                        Issue     = "❌ Service '$svc' not found"
+                        Host      = "N/A"
+                        Path      = "N/A"
+                        Issue     = "⚠️ No rules or default backend defined"
+                    }
+                }
+                continue
+            }
+
+            foreach ($rule in $i.spec.rules) {
+                $host = $rule.host ?? "N/A"
+
+                # Check 4: Duplicate Host/Path Detection
+                foreach ($path in $rule.http.paths) {
+                    $pathKey = "$ns|$host|$($path.path)"
+                    if ($hostPathMap.ContainsKey($pathKey)) {
+                        $results += [PSCustomObject]@{
+                            Namespace = $ns
+                            Ingress   = $name
+                            Host      = $host
+                            Path      = $path.path
+                            Issue     = "⚠️ Duplicate host/path combination (conflicts with Ingress '$($hostPathMap[$pathKey])')"
+                        }
+                    } else {
+                        $hostPathMap[$pathKey] = $name
+                    }
+
+                    # Check 3: Invalid Path Type
+                    $pathType = $path.pathType
+                    if ($pathType -and $pathType -notin @("Exact", "Prefix", "ImplementationSpecific")) {
+                        $results += [PSCustomObject]@{
+                            Namespace = $ns
+                            Ingress   = $name
+                            Host      = $host
+                            Path      = $path.path
+                            Issue     = "⚠️ Invalid pathType '$pathType' (must be Exact, Prefix, or ImplementationSpecific)"
+                        }
+                    }
+
+                    # Original Check: Backend Service Existence
+                    $svc = $path.backend.service.name
+                    $port = $path.backend.service.port.number
+                    $svcCheck = if ($services) {
+                        $services | Where-Object { 
+                            $_.metadata.namespace -eq $ns -and 
+                            $_.metadata.name -eq $svc 
+                        }
+                    } else {
+                        kubectl get svc $svc -n $ns -o json 2>$null | ConvertFrom-Json
+                    }
+
+                    if (-not $svcCheck) {
+                        $results += [PSCustomObject]@{
+                            Namespace = $ns
+                            Ingress   = $name
+                            Host      = $host
+                            Path      = $path.path
+                            Issue     = "❌ Service '$svc' not found"
+                        }
+                    } elseif ($port) {
+                        # Check 5: Validate Backend Port, but skip if Service is ExternalName
+                        if ($svcCheck.spec.type -ne "ExternalName") {
+                            $portExists = $svcCheck.spec.ports | Where-Object { $_.port -eq $port -or $_.name -eq $port }
+                            if (-not $portExists) {
+                                $results += [PSCustomObject]@{
+                                    Namespace = $ns
+                                    Ingress   = $name
+                                    Host      = $host
+                                    Path      = $path.path
+                                    Issue     = "⚠️ Service '$svc' does not have port '$port'"
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-    }
 
-    $total = $results.Count
+        $total = $results.Count
 
-    if ($total -eq 0) {
-        Write-Host "`r🤖 ✅ All Ingresses are valid." -ForegroundColor Green
-        if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Html) { return "<p><strong>✅ All Ingresses are valid.</strong></p>" }
+        if ($total -eq 0) {
+            Write-Host "`r🤖 ✅ All Ingresses are valid." -ForegroundColor Green
+            if ($Json) { return @{ Total = 0; Items = @() } }
+            if ($Html) { return "<p><strong>✅ All Ingresses are valid.</strong></p>" }
+            if ($Global:MakeReport) { Write-ToReport "`n[🌐 Ingress Health]`n✅ All Ingresses are valid." }
+            if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Read-Host "🤖 Press Enter to return to the menu" }
+            return
+        }
+
+        Write-Host "`r🤖 ✅ Ingress scan complete. ($total with issues)" -ForegroundColor Green
+
+        if ($Json) { return @{ Total = $total; Items = $results } }
+        if ($Html) {
+            return "<p><strong>⚠️ Ingress Issues: $total</strong></p>" +
+                ($results | Sort-Object Namespace | ConvertTo-Html -Fragment -Property Namespace, Ingress, Host, Path, Issue | Out-String)
+        }
         if ($Global:MakeReport) {
-            Write-ToReport "`n[🌐 Ingress Health]`n✅ All Ingresses are valid."
+            Write-ToReport "`n[🌐 Ingress Health]`n⚠️ Total: $total"
+            $results | Format-Table Namespace, Ingress, Host, Path, Issue -AutoSize | Out-String | Write-ToReport
+            return
         }
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
-            Read-Host "🤖 Press Enter to return to the menu"
-        }
-        return
+
+        # Paginated CLI display
+        $currentPage = 0
+        $totalPages = [math]::Ceiling($total / $PageSize)
+        do {
+            Clear-Host
+            Write-Host "`n[🌐 Ingress Issues - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+            if ($currentPage -eq 0) {
+                Write-SpeechBubble -msg @(
+                    "🤖 Ingress exposes services to external traffic.",
+                    "",
+                    "📌 Common issues include:",
+                    "   - Missing backend services or invalid ports",
+                    "   - Missing Ingress Class or TLS secrets",
+                    "   - Duplicate host/path combinations",
+                    "   - Use: kubectl describe ingress <name> -n <ns>",
+                    "",
+                    "⚠️ Total Ingress Issues: $total"
+                ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+            }
+            $start = $currentPage * $PageSize
+            $slice = $results | Select-Object -Skip $start -First $PageSize
+            if ($slice.Count -gt 0) {
+                $slice | Format-Table Namespace, Ingress, Host, Path, Issue -AutoSize | Out-Host
+            }
+            $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+            if ($newPage -eq -1) { break }
+            $currentPage = $newPage
+        } while ($true)
     }
-
-    Write-Host "`r🤖 ✅ Ingress scan complete. ($total with issues)" -ForegroundColor Green
-
-    if ($Json) { return @{ Total = $total; Items = $results } }
-
-    if ($Html) {
-        return "<p><strong>⚠️ Ingress Issues: $total</strong></p>" +
-            ($results | Sort-Object Namespace |
-            ConvertTo-Html -Fragment -Property Namespace, Ingress, Host, Path, Issue | Out-String)
+    catch {
+        Write-Host "❌ Error: $_" -ForegroundColor Red
+        if ($Json) { return @{ Total = 0; Items = @(); Error = $_.ToString() } }
+        if ($Html) { return "<p><strong>❌ Error: $($_.ToString())</strong></p>" }
+        if ($Global:MakeReport) { Write-ToReport "`n[🌐 Ingress Health]`n❌ Error: $($_.ToString())" }
     }
-
-    if ($Global:MakeReport) {
-        Write-ToReport "`n[🌐 Ingress Health]`n⚠️ Total: $total"
-        $results | Format-Table Namespace, Ingress, Host, Path, Issue -AutoSize |
-            Out-String | Write-ToReport
-        return
+    finally {
+        Write-Progress -Activity "Scanning Ingresses" -Completed
     }
-
-    # Paginated CLI display
-    $currentPage = 0
-    $totalPages = [math]::Ceiling($total / $PageSize)
-
-    do {
-        Clear-Host
-        Write-Host "`n[🌐 Ingress Issues - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
-
-        if ($currentPage -eq 0) {
-            Write-SpeechBubble -msg @(
-                "🤖 Ingress exposes services to external traffic.",
-                "",
-                "📌 These ingresses refer to missing backend services:",
-                "   - Double-check service names and ports.",
-                "   - Use: kubectl describe ingress <name> -n <ns>",
-                "",
-                "⚠️ Total Ingress Issues: $total"
-            ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
-        }
-
-        $start = $currentPage * $PageSize
-        $slice = $results | Select-Object -Skip $start -First $PageSize
-
-        if ($slice.Count -gt 0) {
-            $slice | Format-Table Namespace, Ingress, Host, Path, Issue -AutoSize | Out-Host
-        }
-
-        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
-        if ($newPage -eq -1) { break }
-        $currentPage = $newPage
-    } while ($true)
 }

@@ -6,9 +6,15 @@ function Get-KubeData {
         [switch]$AKS
     )
 
-    # Ensure kubectl is available
+    # Ensure kubectl is available and functional
     if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
-        throw "kubectl is not installed or not in PATH"
+        throw "kubectl is not installed or not in PATH. Please install kubectl and ensure it’s accessible."
+    }
+    try {
+        kubectl version --client | Out-Null
+    }
+    catch {
+        throw "kubectl is not functional: $($_.Exception.Message). Please verify kubectl configuration and try again."
     }
 
     $data = @{}
@@ -43,7 +49,6 @@ function Get-KubeData {
     $totalResources = $resources.Count
 
     $results = $resources | ForEach-Object -Parallel {
-        # Import both Write-Host and ConvertFrom-Json
         Import-Module Microsoft.PowerShell.Utility -Cmdlet Write-Host, ConvertFrom-Json
 
         $res = $_
@@ -66,7 +71,6 @@ function Get-KubeData {
                 }
                 else {
                     $jsonResult = $result | ConvertFrom-Json
-                    # Apply .items based on resource definition
                     $output.Value = if ($res.Items) { $jsonResult.items } else { $jsonResult }
                 }
             }
@@ -99,10 +103,9 @@ function Get-KubeData {
         }
         else {
             Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
-            break
+            throw "Critical error: Stopping execution due to failure in $($r.Label) - $($r.Error)"
         }
     }
-
 
     # Custom Resources (run serially)
     Write-Host -NoNewline "`n🤖 Fetching Custom Resource Instances..." -ForegroundColor Yellow
@@ -126,7 +129,8 @@ function Get-KubeData {
         Write-Host "`r✅ Custom Resource Instances fetched.   " -ForegroundColor Green
     }
     catch {
-        Write-Host "`r❌ Failed to fetch CRDs or CR Instances" -ForegroundColor Red
+        Write-Host "`r❌ Failed to fetch CRDs or CR Instances: $($_.Exception.Message)" -ForegroundColor Red
+        throw "Critical error: Stopping execution due to failure in fetching Custom Resources - $($_.Exception.Message)"
     }
 
     # AKS Metadata (only if needed)
@@ -142,7 +146,8 @@ function Get-KubeData {
             Write-Host "`r✅ Constraints fetched.   " -ForegroundColor Green
         }
         catch {
-            Write-Host "`r❌ Failed to fetch AKS Metadata or Constraints" -ForegroundColor Red
+            Write-Host "`r❌ Failed to fetch AKS Metadata or Constraints: $($_.Exception.Message)" -ForegroundColor Red
+            throw "Critical error: Stopping execution due to failure in fetching AKS Metadata or Constraints - $($_.Exception.Message)"
         }
     }
 

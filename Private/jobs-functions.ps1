@@ -52,12 +52,19 @@ function Show-StuckJobs {
     Write-Host -NoNewline "`n🤖 Analyzing Stuck Jobs..." -ForegroundColor Yellow
 
     $stuckJobs = $jobs | Where-Object {
-        $_.status.PSObject.Properties['startTime'] -and
-        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $thresholds.stuck_job_hours) -and
-        (
-            -not $_.status.conditions -or
-            ($_.status.conditions | Where-Object { $_.type -eq "Complete" -and $_.status -eq "True" }) -eq $null
-        )
+        # Skip if status is null
+        if ($null -eq $_.status) { return $false }
+
+        # Check startTime and age
+        $hasStartTime = $_.status.PSObject.Properties.Name -contains 'startTime'
+        $isOldEnough = $hasStartTime -and ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $thresholds.stuck_job_hours)
+
+        # Check if job is not completed
+        $conditions = $_.status.conditions
+        $isNotComplete = -not $conditions -or (-not ($conditions | Where-Object { $_.type -eq "Complete" -and $_.status -eq "True" }))
+
+        # Job is stuck if it’s old enough and not complete
+        $isOldEnough -and $isNotComplete
     }    
 
     if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
@@ -74,10 +81,6 @@ function Show-StuckJobs {
     $totalJobs = $stuckJobs.Count
 
     if ($Json) {
-        if (-not $stuckJobs -or $stuckJobs.Count -eq 0) {
-            return @{ Total = 0; Items = @() }
-        }
-    
         $tableData = $stuckJobs | ForEach-Object {
             [PSCustomObject]@{
                 Namespace = $_.metadata.namespace
@@ -86,7 +89,6 @@ function Show-StuckJobs {
                 Status    = "🟡 Stuck"
             }
         }
-    
         return @{ Total = $tableData.Count; Items = $tableData }
     }
     
@@ -99,17 +101,14 @@ function Show-StuckJobs {
                 Status    = "🟡 Stuck"
             }
         }
-
         $htmlTable = $tableData |
             ConvertTo-Html -Fragment -Property Namespace, Job, Age_Hours, Status |
             Out-String
-
         return "<p><strong>⚠️ Total Stuck Jobs Found:</strong> $totalJobs</p>" + $htmlTable
     }
 
     if ($Global:MakeReport) {
         Write-ToReport "`n[⏳ Stuck Kubernetes Jobs]`n⚠️ Total Stuck Jobs Found: $totalJobs"
-
         $tableData = $stuckJobs | ForEach-Object {
             [PSCustomObject]@{
                 Namespace = $_.metadata.namespace
@@ -118,8 +117,7 @@ function Show-StuckJobs {
                 Status    = "🟡 Stuck"
             }
         }
-
-        $tableString = $tableData | Format-Table Namespace, Job, Age_Hours, Status -AutoSize | Out-Host | Out-String
+        $tableString = $tableData | Format-Table Namespace, Job, Age_Hours, Status -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -223,10 +221,16 @@ function Show-FailedJobs {
     Write-Host -NoNewline "`n🤖 Analyzing Failed Jobs..." -ForegroundColor Yellow
 
     $failedJobs = $jobs | Where-Object {
-        $_.status.PSObject.Properties['failed'] -and $_.status.failed -gt 0 -and
-        (-not $_.status.PSObject.Properties['succeeded'] -or $_.status.succeeded -eq 0) -and
-        $_.status.PSObject.Properties['startTime'] -and
-        ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $thresholds.failed_job_hours)
+        # Ensure $_.status exists before checking properties
+        if ($null -eq $_.status) { return $false }
+        
+        # Check for failed jobs safely
+        $hasFailed = $_.status.PSObject.Properties.Name -contains 'failed' -and $_.status.failed -gt 0
+        $noSuccess = -not ($_.status.PSObject.Properties.Name -contains 'succeeded') -or $_.status.succeeded -eq 0
+        $hasStartTime = $_.status.PSObject.Properties.Name -contains 'startTime'
+        $isOldEnough = $hasStartTime -and ((New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours -gt $thresholds.failed_job_hours)
+
+        $hasFailed -and $noSuccess -and $isOldEnough
     }
 
     if (-not $failedJobs -or $failedJobs.Count -eq 0) {
@@ -290,7 +294,7 @@ function Show-FailedJobs {
             }
         }
 
-        $tableString = $tableData | Format-Table Namespace, Job, Age_Hours, Failures, Status -AutoSize | Out-Host | Out-String
+        $tableString = $tableData | Format-Table Namespace, Job, Age_Hours, Failures, Status -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }

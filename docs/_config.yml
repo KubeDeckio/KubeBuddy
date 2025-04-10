@@ -1,5 +1,5 @@
-title: KubeBuddy
-description: The docs page for KubeBuddy!
+title: KubeBuddy powered by KubeDeck
+description: The docs page for KubeBuddy powered by KubeDeck!
 theme: just-the-docs
 
 url: https://docs.KubeBuddy.io
@@ -68,7 +68,7 @@ liquid:
 back_to_top: true
 back_to_top_text: "Back to top"
 
-footer_content: 'Copyright &copy; 2025 KubeBuddy.'
+footer_content: 'Copyright &copy; 2025 KubeBuddy powered by KubeDeck.'
 
 # Footer last edited timestamp
 last_edit_timestamp: true # show or hide edit time - page must have `last_modified_date` defined in the frontmatter
