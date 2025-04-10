@@ -4,40 +4,65 @@ nav_order: 1
 layout: home
 ---
 
-# 🌀 KubeBuddy powered by KubeDeck – Kubernetes Monitoring & Reporting
+# 🌀 KubeBuddy powered by KubeDeck – Simplify Kubernetes Monitoring with PowerShell
 
-## **PowerShell-Based Kubernetes Insights for Cluster Health & Security**
+## **Effortless Cluster Health Checks & AKS Best Practices in One Tool**
 
 <p align="center">
-<img id="logo" src="assets/images/KubeBuddyDark.png" />
+  <img id="logo" src="assets/images/KubeBuddyDark.png" alt="KubeBuddy Logo" width="200px" />
 </p>
 
-Welcome to **KubeBuddy powered by KubeDeck** – the **PowerShell-powered** tool that helps you monitor, analyze, and report on your Kubernetes environments with ease.
+Welcome to **KubeBuddy powered by KubeDeck** – your lightweight, **PowerShell-based** companion for **Kubernetes cluster diagnostics, reporting, and AKS health auditing**.
 
-Whether you're an administrator managing production clusters or a developer troubleshooting workloads, **KubeBuddy powered by KubeDeck** simplifies Kubernetes monitoring with automated health checks, security insights, and structured reporting.
+Whether you're a platform engineer, a DevOps pro, or a curious developer, **KubeBuddy** streamlines your Kubernetes visibility with actionable insights and shareable reports.
 
-## ✨ Key Features
+---
 
-✅ **Cluster Health Monitoring** – Check node status, resource utilization, and pod conditions.  
-✅ **Workload Analysis** – Detect failing pods, restart loops, and job issues.  
-✅ **Event Reporting** – Summarize Kubernetes events to surface errors and warnings.  
-✅ **RBAC & Security Checks** – Identify excessive permissions and security misconfigurations.  
-✅ **Storage & Networking Insights** – Analyze persistent volumes, services, and network policies.  
-✅ **Customizable Thresholds** – Set warning/critical levels in `kubebuddy-config.yaml`.  
-✅ **HTML & Text Reports** – Generate clean, shareable reports.  
-✅ **Azure AKS Health Check** – Monitor AKS clusters with PowerShell commands.  
+## ✨ **Why Choose KubeBuddy?**
 
-## 🚀 Get Started
+🔍 **Cluster Health Monitoring**  
+Quickly identify unhealthy nodes, pods in crash loops, resource pressure, and more.
 
-📌 **[Installation Guide](docs/installation)** – Step-by-step setup instructions.  
-📌 **[Usage Documentation](docs/usage)** – Learn how to use KubeBuddy powered by KubeDeck effectively.  
-📌 **[GitHub Repository](https://github.com/KubeDeckio/KubeBuddy)** – Contribute and follow the latest updates.  
+📦 **Workload Diagnostics**  
+Spot job failures, container restarts, and misbehaving deployments before they impact users.
+
+📊 **Event Aggregation**  
+Summarizes recent Kubernetes events to expose silent errors and critical warnings.
+
+🔐 **RBAC & Security Audits**  
+Find misconfigured roles, excessive permissions, and security vulnerabilities.
+
+🌐 **Storage & Networking Insights**  
+Check persistent volumes, services, ingress, and network policy configurations.
+
+⚙️ **Customizable Alerting**  
+Define thresholds for warnings and critical states via `kubebuddy-config.yaml`.
+
+📝 **HTML & Plain Text Reports**  
+Generate clean, professional summaries for audits, ops teams, or stakeholders.
+
+☁️ **Built-in AKS Best Practice Checks**  
+Evaluate Azure Kubernetes Service (AKS) configurations directly using PowerShell.
+
+---
+
+## 🚀 **Get Started in Minutes**
+
+📥 **[Installation Guide](docs/installation)**  
+Quick setup instructions to start scanning your clusters.
+
+📘 **[Usage Docs](docs/usage)**  
+Explore the full power of KubeBuddy with practical examples.
+
+🌐 **[GitHub Repository](https://github.com/KubeDeckio/KubeBuddy)**  
+View source, raise issues, or contribute to the project.
 
 ---
 
 <p align="center">
-<img id="logo" src="assets/images/KubeBuddyDark.png" width="200px" />
+  <img src="assets/images/KubeBuddyDark.png" alt="KubeBuddy Logo" width="150px" />
 </p>
 
-💡 **Monitor and analyze your Kubernetes clusters effortlessly with KubeBuddy powered by KubeDeck – Built with PowerShell!**
+💡 **KubeBuddy powered by KubeDeck** is built for speed, simplicity, and clarity – all through PowerShell.
 
+**Start monitoring smarter today.**
