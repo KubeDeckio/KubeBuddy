@@ -15,13 +15,8 @@ Use **KubeBuddy powered by KubeDeck** in Docker to scan your cluster and generat
 - Docker is running.
 - `~/.kube/config` exists and has access.
 - Azure CLI is installed (for AKS).
-- Image is built or pulled: `kubebuddy:0.0.15`.
+- Image is pulled: `ghcr.io/kubedeckio/kubebuddy:v0.0.15`.
 
-### Build the Image
-
-```bash
-docker build -t kubebuddy:0.0.15 .
-```
 
 ## 🌐 Environment Variables
 
@@ -47,7 +42,7 @@ docker run --rm `
   -e HTML_REPORT="true" `
   -v $HOME/.kube/config:/kube/config:ro `
   -v $HOME/kubebuddy-report:/app/Reports `
-  kubebuddy:0.0.15
+  ghcr.io/kubedeckio/kubebuddy:v0.0.15
 ```
 
 ➡️ Output saved to:  
@@ -67,7 +62,7 @@ docker run --rm `
   -e AZURE_TOKEN="$azureToken" `
   -v $HOME/.kube/config:/kube/config:ro `
   -v $HOME/kubebuddy-report:/app/Reports `
-  kubebuddy:0.0.15
+  ghcr.io/kubedeckio/kubebuddy:v0.0.15
 ```
 
 ## ⚙️ 3. Custom Thresholds
@@ -89,7 +84,7 @@ docker run --rm `
   -v $HOME/.kube/config:/kube/config:ro `
   -v $HOME/.kube/kubebuddy-config.yaml:/home/kubeuser/.kube/kubebuddy-config.yaml:ro `
   -v $HOME/kubebuddy-report:/app/Reports `
-  kubebuddy:0.0.15
+  ghcr.io/kubedeckio/kubebuddy:v0.0.15
 ```
 
 ## 🚫 4. Skip System Namespaces
@@ -112,7 +107,7 @@ docker run --rm `
   -e EXCLUDE_NAMESPACES="true" `
   -v $HOME/.kube/config:/kube/config:ro `
   -v $HOME/kubebuddy-report:/app/Reports `
-  kubebuddy:0.0.15
+  ghcr.io/kubedeckio/kubebuddy:v0.0.15
 ```
 
 ## 🔇 5. Suppress TERM Warnings
@@ -124,5 +119,5 @@ docker run --rm `
   -e TERM="xterm" `
   -v ~/.kube/config:/kube/config:ro `
   -v ~/kubebuddy-report:/app/Reports `
-  kubebuddy:0.0.15
+  ghcr.io/kubedeckio/kubebuddy:v0.0.15
 ```
