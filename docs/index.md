@@ -18,7 +18,7 @@ Run **KubeBuddy powered by KubeDeck** and get a full picture of your cluster:
 - **AKS-Specific Checks**: Follow Microsoft’s AKS best practices with one command.
 - **Event Summaries**: Surface recent errors, warnings, and crash loops.
 - **Storage and Networking**: Review PVCs, services, and network policies.
-- **HTML and CLI Reports**: Shareable output for audits and debugging.
+- **HTML, JSON, and CLI Reports**: Shareable output for audits and debugging.
 
 > **All checks run outside the cluster. No setup required inside Kubernetes.**  
 > Works on any Kubernetes cluster. PowerShell 7+ required.

@@ -25,6 +25,7 @@ The following table provides a quick reference for KubeBuddy powered by KubeDeck
 |---------------------------|----------------|
 | Run KubeBuddy powered by KubeDeck | `Invoke-KubeBuddy` |
 | Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
+| Generate an JSON report | `Invoke-KubeBuddy -jsonReport` |
 | Generate a text report | `Invoke-KubeBuddy -txtReport` |
 | Generate reports with custom path | `Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report` |
 | Run a KubeBuddy powered by KubeDeck with an AKS Best Practices Check | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
@@ -62,6 +63,11 @@ Invoke-KubeBuddy -HtmlReport
 <a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
 ---
+### **Generate a JSON Report**
+```powershell
+Invoke-KubeBuddy -jsonReport
+```
+---
 
 ### **Generate a Text Report**
 ```powershell
@@ -86,6 +92,14 @@ Invoke-KubeBuddy -HtmlReport -OutputPath ./reports
 ```
 
 ```powershell
+Invoke-KubeBuddy -jsonReport -OutputPath ./reports
+```
+✔️ Saves the **JSON** report as:
+```
+./reports/kubebuddy-report-YYYYMMDD-HHMMSS.json
+```
+
+```powershell
 Invoke-KubeBuddy -txtReport -OutputPath ./reports
 ```
 ✔️ Saves the **TXT** report as:
@@ -102,6 +116,14 @@ Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report.html
 ✔️ Saves the **HTML** report as:
 ```
 ./custom-report.html
+```
+
+```powershell
+Invoke-KubeBuddy -jsonReport -OutputPath ./custom-report.json
+```
+✔️ Saves the **JSON** report as:
+```
+./custom-report.json
 ```
 
 ```powershell
@@ -126,6 +148,17 @@ Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup
 ![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../../../assets/images/report-examples/html-aks-report-sample.png)
 
 <a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+---
+
+## 5. Running an AKS Health Check alongside the JSON report
+
+To check best practices for an Azure Kubernetes Service (AKS) cluster:
+
+```powershell
+az login
+az account set --subscription <subscription-id>
+Invoke-KubeBuddy -jsonReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+```
 
 ---
 
@@ -205,4 +238,5 @@ Invoke-KubeBuddy -HtmlReport -ExcludeSystem
 | `-ResourceGroup`         | String   | (None)                               | Azure resource group (used with `-Aks`).                                                     |
 | `-ClusterName`           | String   | (None)                               | AKS cluster name (used with `-Aks`).                                                         |
 | `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `-OutputPath`.                                                   |
+| `-JsonReport`            | Switch   | (N/A)                                | Generates a JSON report in `-OutputPath`.                                                    |
 | `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `-OutputPath`.                                                   |
