@@ -58,11 +58,11 @@ jobs:
           name: sbom-${{ steps.meta.outputs.TAG }}
           path: sbom-${{ steps.meta.outputs.TAG }}.json
 
-      - name: Submit SBOM to GitHub Dependency Graph
-        if: success()
-        uses: advanced-security/spdx-dependency-submission-action@v0.1.1
-        with:
-          filePath: sbom-${{ steps.meta.outputs.TAG }}.json
+    #   - name: Submit SBOM to GitHub Dependency Graph
+    #     if: success()
+    #     uses: advanced-security/spdx-dependency-submission-action@v0.1.1
+    #     with:
+    #       filePath: sbom-${{ steps.meta.outputs.TAG }}.json
 
       - name: Push Docker image
         if: success()
