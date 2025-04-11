@@ -8,7 +8,7 @@ $securityChecks = @(
         FailMessage = "Cluster API server is publicly accessible, increasing security risks.";
         Severity    = "High";
         Recommendation = "Configure the cluster as a private cluster to restrict API server access to your virtual network.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/private-clusters";
+        URL         = "https://learn.microsoft.com/azure/aks/private-clusters";
     },
     @{
         ID          = "SEC002";
@@ -19,7 +19,7 @@ $securityChecks = @(
         FailMessage = "Azure Policy add-on is not enabled, which may lead to policy violations and compliance risks.";
         Severity    = "Medium";
         Recommendation = "Enable the Azure Policy add-on to enforce security, governance, and compliance requirements.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/policy-reference";
+        URL         = "https://learn.microsoft.com/azure/aks/policy-reference";
     },
     @{
         ID          = "SEC003";
@@ -30,7 +30,7 @@ $securityChecks = @(
         FailMessage = "Defender for Containers is not enabled, leaving workloads vulnerable to security threats.";
         Severity    = "High";
         Recommendation = "Enable Defender for Containers to monitor and protect containerized workloads in AKS.";
-        URL         = "https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-containers-introduction";
+        URL         = "https://learn.microsoft.com/azure/defender-for-cloud/defender-for-containers-introduction";
     },
     @{
         ID          = "SEC004";
@@ -41,7 +41,7 @@ $securityChecks = @(
         FailMessage = "OIDC issuer is not enabled, which may limit secure authentication options.";
         Severity    = "Medium";
         Recommendation = "Enable the OIDC issuer to enhance security and authentication flexibility for workloads.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/oidc-issuer";
+        URL         = "https://learn.microsoft.com/azure/aks/workload-identity-deploy-cluster";
     },
     @{
         ID          = "SEC005";
@@ -52,7 +52,7 @@ $securityChecks = @(
         FailMessage = "Azure Key Vault integration is not enabled, making secret management less secure.";
         Severity    = "High";
         Recommendation = "Enable Azure Key Vault integration to store and manage Kubernetes secrets securely.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver";
+        URL         = "https://learn.microsoft.com/azure/aks/csi-secrets-store-driver";
     },
     @{
         ID             = "SEC006";
@@ -63,7 +63,7 @@ $securityChecks = @(
         FailMessage    = "Image Cleaner is not enabled. Stale, vulnerable images may accumulate on cluster nodes.";
         Severity       = "Medium";
         Recommendation = "Enable Image Cleaner to automatically remove unused images and reduce security risk.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/image-cleaner";
+        URL            = "https://learn.microsoft.com/azure/aks/image-cleaner";
     },
     @{
         ID             = "SEC007";
@@ -74,6 +74,6 @@ $securityChecks = @(
         FailMessage    = "Kubernetes Dashboard is enabled. It should be disabled to reduce security risks.";
         Severity       = "High";
         Recommendation = "Disable the Kubernetes dashboard using: az aks disable-addons --addons kube-dashboard --resource-group <RG_NAME> --name <CLUSTER_NAME>.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/kubernetes-dashboard";
+        URL            = "https://learn.microsoft.com/azure/aks/kubernetes-dashboard";
     }
 )

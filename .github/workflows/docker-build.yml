@@ -6,9 +6,6 @@ on:
       - 'v*'
   workflow_dispatch:
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
-
 jobs:
   docker-build:
     runs-on: ubuntu-latest
@@ -22,9 +19,14 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set tag version
+      - name: Set lowercase repo and tag
         id: meta
-        run: echo "TAG=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "TAG=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+          echo "REPO_LOWER=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Set image name
+        run: echo "IMAGE_NAME=ghcr.io/${{ steps.meta.outputs.REPO_LOWER }}" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -35,12 +37,12 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }} .
+          docker build -t $IMAGE_NAME:${{ steps.meta.outputs.TAG }} .
 
       - name: Scan image for vulnerabilities (block on CRITICAL)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
+          image-ref: $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
           format: table
           exit-code: 1
           ignore-unfixed: true
@@ -49,7 +51,7 @@ jobs:
       - name: Generate SBOM (SPDX)
         if: success()
         run: |
-          trivy image --format spdx-json --output sbom-${{ steps.meta.outputs.TAG }}.json ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
+          trivy image --format spdx-json --output sbom-${{ steps.meta.outputs.TAG }}.json $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
 
       - name: Upload SBOM as artifact
         if: success()
@@ -67,10 +69,10 @@ jobs:
       - name: Push Docker image
         if: success()
         run: |
-          docker push ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
+          docker push $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
 
       - name: Tag as 'latest' (optional)
         if: success() && startsWith(steps.meta.outputs.TAG, 'v')
         run: |
-          docker tag ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }} ${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.IMAGE_NAME }}:latest
+          docker tag $IMAGE_NAME:${{ steps.meta.outputs.TAG }} $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:latest

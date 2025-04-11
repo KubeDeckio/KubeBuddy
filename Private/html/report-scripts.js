@@ -1,5 +1,3 @@
-// Replace the <script> section in your HTML with this
-
 // Back to Top
 window.addEventListener('scroll', function () {
     const button = document.getElementById('backToTop');
@@ -142,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.error('PDF Error:', e);
     }
 
-    // Collapsible Toggle and Pagination Setup
+    // Collapsible Toggle, Pagination, and Sorting Setup
     try {
         const containers = document.querySelectorAll('.container');
         console.log(`Found ${containers.length} containers`);
@@ -161,6 +159,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 console.log(`Setting up collapsible for ID: ${id}`);
 
+                // Initialize sorting state for this table
+                collapsibleContainer.sortState = {
+                    columnIndex: null,
+                    ascending: true
+                };
+
                 detail.addEventListener('toggle', () => {
                     summary.textContent = detail.open ? 'Hide Findings' : defaultText;
                     const pagination = collapsibleContainer.querySelector('.table-pagination');
@@ -174,6 +178,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
 
+                // Add sorting functionality to table headers
+                const table = collapsibleContainer.querySelector('table');
+                if (table) {
+                    const headers = table.querySelectorAll('th');
+                    headers.forEach((header, index) => {
+                        header.style.cursor = 'pointer'; // Make header clickable
+                        header.addEventListener('click', () => {
+                            sortTable(collapsibleContainer, index);
+                            paginateTable(collapsibleContainer); // Re-paginate after sorting
+                        });
+                    });
+                }
+
                 if (detail.open) {
                     console.log(`Initial open state detected for ${id}`);
                     setTimeout(() => paginateTable(collapsibleContainer), 200);
@@ -181,9 +198,80 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     } catch (e) {
-        console.error('Collapsible/Pagination Setup Error:', e);
+        console.error('Collapsible/Pagination/Sorting Setup Error:', e);
     }
 });
+
+// Sorting Function
+function sortTable(collapsibleContainer, columnIndex) {
+    try {
+        const id = collapsibleContainer.id;
+        console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
+        const table = collapsibleContainer.querySelector('table');
+        if (!table) {
+            console.error(`Table not found in collapsible container: ${id}`);
+            return;
+        }
+
+        const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
+        const headerRow = allRows.find(row => row.querySelector('th')) || null;
+        const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
+
+        // Determine sort direction
+        const sortState = collapsibleContainer.sortState;
+        if (sortState.columnIndex === columnIndex) {
+            sortState.ascending = !sortState.ascending; // Toggle direction
+        } else {
+            sortState.columnIndex = columnIndex;
+            sortState.ascending = true;
+        }
+
+        // Update header to show sort direction
+        const headers = table.querySelectorAll('th');
+        headers.forEach((header, idx) => {
+            header.innerHTML = header.innerHTML.replace(/ (↑|↓)$/, ''); // Remove existing arrows
+            if (idx === columnIndex) {
+                header.innerHTML += sortState.ascending ? ' ↑' : ' ↓'; // Add arrow
+            }
+        });
+
+        // Sort the rows
+        dataRows.sort((rowA, rowB) => {
+            let cellA = rowA.cells[columnIndex].textContent.trim();
+            let cellB = rowB.cells[columnIndex].textContent.trim();
+
+            // Handle special cases for specific columns (e.g., Status, Severity)
+            if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
+                return sortState.ascending ? -1 : 1;
+            } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
+                return sortState.ascending ? 1 : -1;
+            }
+
+            if (columnIndex === 2) { // Severity column
+                const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+                const valA = severityOrder[cellA] || 0;
+                const valB = severityOrder[cellB] || 0;
+                return sortState.ascending ? valA - valB : valB - valA;
+            }
+
+            // Default sorting (alphabetical or numerical)
+            const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
+            if (isNumeric) {
+                return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
+            } else {
+                return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+            }
+        });
+
+        // Rebuild the table body with sorted rows
+        const tbody = table.querySelector('tbody') || table;
+        dataRows.forEach(row => tbody.appendChild(row));
+
+        console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
+    } catch (e) {
+        console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
+    }
+}
 
 // Pagination Function with Sliding Window
 function paginateTable(collapsibleContainer) {
