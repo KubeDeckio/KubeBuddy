@@ -4,7 +4,7 @@ nav_order: 1
 layout: home
 ---
 
-# Kubernetes Says Your Cluster is Healthy. It's Probably Not.
+# Kubernetes Says Your Cluster is Healthy. <br>It's Probably Not.
 
 **KubeBuddy powered by KubeDeck** runs complete health, security, and configuration checks on your Kubernetes cluster from your terminal—no agents, no Helm charts, no guesswork.
 
@@ -49,7 +49,5 @@ Most tools give you metrics. **KubeBuddy powered by KubeDeck** gives you answers
 Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
 ```
 
-KubeBuddy
-
-Runs on macOS, Linux, and Windows with PowerShell 7+.
+KubeBuddy runs on macOS, Linux, and Windows with PowerShell 7+.
 
