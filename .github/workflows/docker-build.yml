@@ -42,7 +42,7 @@ jobs:
       - name: Scan image for vulnerabilities (block on CRITICAL)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
+          image-ref: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
           format: table
           exit-code: 1
           ignore-unfixed: true
@@ -51,7 +51,8 @@ jobs:
       - name: Generate SBOM (SPDX)
         if: success()
         run: |
-          trivy image --format spdx-json --output sbom-${{ steps.meta.outputs.TAG }}.json $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
+          trivy image --format spdx-json --output sbom-${{ steps.meta.outputs.TAG }}.json ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
+        
 
       - name: Upload SBOM as artifact
         if: success()
