@@ -880,7 +880,26 @@ spec:
   .warning { background: #ffeb3b; } .healthy { background: #4CAF50; } .unknown { background: #9E9E9E; }
   .table-container { overflow-x: auto; width: 100%; max-width: 100%; }
   table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 20px 0; font-size: 14px; text-align: left; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; }
-  th { background-color: #0071FF; color: white; padding: 12px; font-weight: 500; }
+  th {
+      background-color: #0071FF;
+      color: white;
+      padding: 12px;
+      font-weight: 500;
+      position: relative;
+      cursor: pointer;
+      white-space: nowrap; /* Prevent text wrapping */
+      overflow: hidden; /* Hide overflow text */
+      text-overflow: ellipsis; /* Add ellipsis for overflow text */
+  }
+  th:hover {
+      background-color: #005ad1; /* Darker blue on hover */
+  }
+  th::after {
+      content: '';
+      display: inline-block;
+      margin-left: 5px;
+      vertical-align: middle;
+  }
   td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: #f5f5f5; transition: background 0.2s; }
@@ -888,6 +907,15 @@ spec:
   th:last-child { border-top-right-radius: 8px; }
   td:first-child { border-left: none; }
   td:last-child { border-right: none; }
+  table a {
+      color: #0071FF;
+      text-decoration: none;
+      font-weight: 500;
+  }
+  table a:hover {
+      text-decoration: underline;
+      color: #005ad1;
+  }
   #backToTop { position: fixed; bottom: 20px; right: 20px; background: #0071FF; color: #fff; padding: 10px 15px; border-radius: 25px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: none; transition: opacity 0.3s ease; }
   #backToTop:hover { background: #005ad1; }
   #printContainer { text-align: right; margin-bottom: 15px; }

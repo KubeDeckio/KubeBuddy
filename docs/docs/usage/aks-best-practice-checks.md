@@ -1,7 +1,7 @@
 ---
 title: AKS Best Practices Checks
 parent: Usage
-nav_order: 2
+nav_order: 3
 layout: default
 ---
 
@@ -69,6 +69,7 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 |-------|-----------------------------------------|----------|
 | RES001| Cluster Autoscaler                     | Medium   |
 | RES002| AKS Built-in Cost Tooling Enabled      | Medium   |
+| RES003| Vertical Pod Autoscaler (VPA) is enabled| Medium   |
 
 ### Security
 

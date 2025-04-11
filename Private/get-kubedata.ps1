@@ -120,8 +120,9 @@ function Get-KubeData {
         }
         else {
             Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
-            throw "Critical error: Stopping execution due to failure in $($r.Label) - $($r.Error)"
-            exit 1
+            Write-Host "Critical error: Stopping execution due to failure in $($r.Label) - $($r.Error)" -ForegroundColor DarkGray
+            return $false  # return error flag
+            return
         }
     }
 

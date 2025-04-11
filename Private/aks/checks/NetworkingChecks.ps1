@@ -8,7 +8,7 @@ $networkingChecks = @(
         FailMessage = "No authorized IP ranges configured. This allows unrestricted access to the API server.";
         Severity    = "High";
         Recommendation = "Define authorized IP ranges to restrict API server access to specific IP addresses or ranges.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes";
+        URL         = "https://learn.microsoft.com/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes";
     },
     @{
         ID          = "NET002";
@@ -19,18 +19,18 @@ $networkingChecks = @(
         FailMessage = "Network policy is not configured. Pods can communicate without restrictions.";
         Severity    = "Medium";
         Recommendation = "Implement network policies to control traffic between pods and enhance security.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/best-practices-network#implement-network-policies";
+        URL         = "https://learn.microsoft.com/azure/aks/operator-best-practices-network#control-traffic-flow-with-network-policies";
     },
     @{
         ID          = "NET003";
         Category    = "Networking";
         Name        = "Web App Routing Enabled";
-        Value       = { ($clusterInfo.addonProfiles.ingressProfile.enabled).enabled };
+        Value       = { ($clusterInfo.ingressProfile.webAppRouting).enabled };
         Expected    = $true;
         FailMessage = "Web App Routing is not enabled, which may limit external access management.";
         Severity    = "Low";
         Recommendation = "Enable Web App Routing to simplify external access management and integrate with Azure DNS.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/web-app-routing";
+        URL         = "https://learn.microsoft.com/azure/aks/web-app-routing";
     },
     @{
         ID          = "NET004";
@@ -41,6 +41,6 @@ $networkingChecks = @(
         FailMessage = "The network plugin is set to 'kubenet', which has limited networking capabilities compared to Azure CNI.";
         Severity    = "Medium";
         Recommendation = "Switch to Azure CNI networking for better integration with existing virtual networks and advanced IP allocation features.";
-        URL         = "https://learn.microsoft.com/en-us/azure/aks/concepts-network#networking-options";
+        URL         = "https://learn.microsoft.com/azure/aks/concepts-network#networking-options";
     }
 )

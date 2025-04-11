@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.15] - xxx-xx-xx
+
+### Added
+- Added new AKS check to see if Vertical Pod Autoscaler (VPA) is enabled as it is now part of Azure Advisor recommendations.
+- Added new RBAC checks to `Check-RBACMisconfigurations`:
+  - Detection of missing `roleRef` in `RoleBindings` and `ClusterRoleBindings`.
+  - Flagging of `RoleBindings` that reference `ClusterRoles`, which can lead to unintended privilege escalation.
+- Added new RBAC checks to `Check-RBACOverexposure`:
+  - Detection of default ServiceAccounts with excessive permissions (e.g., `cluster-admin` or wildcard access).
+  - Identification of roles granting dangerous verbs (e.g., `create`, `update`, `delete`, `*`) on sensitive resources (e.g., `secrets`, `pods/exec`, `roles`, `clusterroles`).
+  - Added detection of built-in Kubernetes roles (e.g., `cluster-admin`, `system:*`) in findings, with a note in the `Risk` and `Recommendation` columns to proceed with caution.
+- Added new RBAC checks to `Check-OrphanedRoles`:
+  - Detection of `RoleBindings` and `ClusterRoleBindings` with no subjects.
+  - Identification of `Roles` and `ClusterRoles` with no rules (zero-effect roles).
+  - Added exclusion of built-in Kubernetes roles (e.g., `cluster-admin`, `system:*`) from being flagged as orphaned.
+- Added `Severity` and `Recommendation` columns to the output of `Check-RBACMisconfigurations`, `Check-RBACOverexposure`, and `Check-OrphanedRoles` to provide actionable insights and prioritize findings.
+- Added container support for KubeBuddy:
+  - Created a multi-stage Dockerfile to build a container image:
+    - Build stage uses `mcr.microsoft.com/powershell:7.5-Ubuntu-22.04` for reliable setup of `kubectl`, `powershell-yaml`, `Azure CLI`, and `KubeBuddy` module.
+    - Runtime stage uses `mcr.microsoft.com/powershell:7.5-Ubuntu-22.04` for a more compatible runtime environment (switched from `mcr.microsoft.com/powershell:7.5-azurelinux-3.0` to avoid dependency issues).
+  - Added `adduser` and `coreutils` to the build stage to support file operations and permissions setup.
+  - Added support for passing Azure token and kubeconfig via environment variables and volume mounts.
+  - Added support for an optional thresholds YAML file, which is mounted at `/home/kubeuser/.kube/kubebuddy-config.yaml` (equivalent to `$HOME/.kube/kubebuddy-config.yaml` for the container user).
+  - Created the `/app/Reports` directory during the build process (instead of copying from the host) to ensure a clean output directory for reports.
+  - Copied the `KubeBuddy` module files (`KubeBuddy.psm1`, `KubeBuddy.psd1`, `Private`, and `Public`) from the Git repository root to `/usr/local/share/powershell/Modules/KubeBuddy/`, preserving the module structure.
+  - Ensured reports are accessible by mounting the `/app/Reports` directory to a local volume.
+  - Added `powershell-yaml` module to the container image to support YAML parsing for thresholds.
+- Added debugging output to `run.ps1` to log all input parameters at the start of the script.
+
+### Fixed
+- Fixed AKS results so URL is a clickable link.
+- Fixed ServiceAccount detection in `Check-RBACMisconfigurations` by correctly handling the `namespace` field in `RoleBinding` and `ClusterRoleBinding` subjects.
+- Fixed Azure CLI installation in the container by switching the runtime stage to Ubuntu 22.04, ensuring compatibility with the Azure CLI and its dependencies.
+- Fixed validation logic in `run.ps1` to correctly handle AKS mode requirements:
+  - Ensured `$ClusterName`, `$ResourceGroup`, and `$SubscriptionId` are only required when AKS mode is enabled.
+  - Added parentheses to group conditions properly in the validation check.
+  - Updated `$Aks` to default to `$false` unless `AKS_MODE` is explicitly set to `"true"`.
+  - Made `$AzureToken` optional when `$Aks` is `$false`, requiring it only when AKS mode is enabled.
+
 ## [0.0.14] - 2025-04-10
 
 ### Added

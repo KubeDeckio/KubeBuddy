@@ -235,12 +235,42 @@ function Check-RBACOverexposure {
     }
 
     $wildcardRoles = @{}
+    $sensitiveResourceRoles = @{}
 
+    # Define built-in roles to identify
+    $builtInClusterRoles = @(
+        "cluster-admin",
+        "admin",
+        "edit",
+        "view",
+        "system:kube-scheduler",
+        "system:kube-controller-manager",
+        "system:node",
+        "system:node-proxier",
+        "system:monitoring",
+        "system:service-account-issuer-discovery",
+        "system:auth-delegator",
+        "system:heapster",
+        "system:kube-dns",
+        "system:metrics-server",
+        "system:public-info-viewer"
+    )
+
+    # Check 1: Wildcard Permissions
     foreach ($cr in $clusterRoles) {
         foreach ($rule in $cr.rules) {
             if ($rule.verbs -contains "*" -and $rule.resources -contains "*" -and $rule.apiGroups -contains "*") {
                 $wildcardRoles[$cr.metadata.name] = "ClusterRole"
                 break
+            }
+            # Check 2: Sensitive Resources
+            $sensitiveResources = @("secrets", "pods/exec", "roles", "clusterroles", "bindings", "clusterrolebindings")
+            $dangerousVerbs = @("*", "create", "update", "delete")
+            if ($rule.resources | Where-Object { $_ -in $sensitiveResources }) {
+                if ($rule.verbs | Where-Object { $_ -in $dangerousVerbs }) {
+                    $sensitiveResourceRoles[$cr.metadata.name] = "ClusterRole"
+                    break
+                }
             }
         }
     }
@@ -252,45 +282,111 @@ function Check-RBACOverexposure {
                 $wildcardRoles[$key] = "Role"
                 break
             }
-        }
-    }
-
-    foreach ($crb in $clusterRoleBindings) {
-        $roleName = $crb.roleRef.name
-        $isClusterAdmin = ($roleName -eq "cluster-admin")
-        $isWildcard = $wildcardRoles.ContainsKey($roleName)
-
-        if ($isClusterAdmin -or $isWildcard) {
-            foreach ($subject in $crb.subjects) {
-                $findings += [PSCustomObject]@{
-                    Namespace = "🌍 Cluster-Wide"
-                    Binding   = $crb.metadata.name
-                    Subject   = "$($subject.kind)/$($subject.name)"
-                    Role      = $roleName
-                    Scope     = "ClusterRoleBinding"
-                    Risk      = if ($isClusterAdmin) { "❗ cluster-admin" } else { "⚠️ wildcard access" }
+            # Check 2: Sensitive Resources
+            $sensitiveResources = @("secrets", "pods/exec", "roles", "clusterroles", "bindings", "clusterrolebindings")
+            $dangerousVerbs = @("*", "create", "update", "delete")
+            if ($rule.resources | Where-Object { $_ -in $sensitiveResources }) {
+                if ($rule.verbs | Where-Object { $_ -in $dangerousVerbs }) {
+                    $key = "$($r.metadata.namespace)/$($r.metadata.name)"
+                    $sensitiveResourceRoles[$key] = "Role"
+                    break
                 }
             }
         }
     }
 
+    # Check 3: ClusterRoleBindings with Overexposure
+    foreach ($crb in $clusterRoleBindings) {
+        $roleName = $crb.roleRef.name
+        $isClusterAdmin = ($roleName -eq "cluster-admin")
+        $isWildcard = $wildcardRoles.ContainsKey($roleName)
+        $isSensitive = $sensitiveResourceRoles.ContainsKey($roleName)
+
+        # Check if the role is built-in
+        $isBuiltIn = $false
+        if ($roleName -like "system:*") {
+            $isBuiltIn = $true
+        }
+        elseif ($roleName -in $builtInClusterRoles) {
+            $isBuiltIn = $true
+        }
+        elseif ($clusterRoles | Where-Object { $_.metadata.name -eq $roleName -and $_.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults' }) {
+            $isBuiltIn = $true
+        }
+
+        if ($isClusterAdmin -or $isWildcard -or $isSensitive) {
+            foreach ($subject in $crb.subjects) {
+                # Check 4: Default ServiceAccount
+                $isDefaultSA = ($subject.kind -eq "ServiceAccount" -and $subject.name -eq "default")
+                $finding = [PSCustomObject]@{
+                    Namespace     = "🌍 Cluster-Wide"
+                    Binding       = $crb.metadata.name
+                    Subject       = "$($subject.kind)/$($subject.name)"
+                    Role          = $roleName
+                    Scope         = "ClusterRoleBinding"
+                    Risk          = if ($isClusterAdmin) { "❗ cluster-admin" } elseif ($isWildcard) { "⚠️ wildcard access" } else { "⚠️ sensitive resource access" }
+                    Severity      = if ($isClusterAdmin -or $isDefaultSA) { "Critical" } else { "High" }
+                    Recommendation = if ($isClusterAdmin) { "Replace with a least-privilege ClusterRole." } elseif ($isWildcard) { "Restrict the ClusterRole to specific verbs, resources, and apiGroups." } else { "Restrict access to sensitive resources like secrets or pods/exec." }
+                }
+                if ($isBuiltIn) {
+                    $finding.Risk += " (built-in role)"
+                    $finding.Recommendation += " This is a built-in Kubernetes role; proceed with caution when modifying."
+                }
+                if ($isDefaultSA) {
+                    $finding.Risk += " (default ServiceAccount)"
+                    $finding.Recommendation += " Consider using a custom ServiceAccount with limited permissions for pods."
+                }
+                $findings += $finding
+            }
+        }
+    }
+
+    # Check 5: RoleBindings with Overexposure
     foreach ($rb in $roleBindings) {
         $roleName = $rb.roleRef.name
         $ns = $rb.metadata.namespace
         $key = "$ns/$roleName"
         $isClusterAdmin = ($roleName -eq "cluster-admin")
         $isWildcard = $wildcardRoles.ContainsKey($key)
+        $isSensitive = $sensitiveResourceRoles.ContainsKey($key)
 
-        if ($isClusterAdmin -or $isWildcard) {
+        # Check if the role is built-in (for RoleBindings, this is less common, but possible if the roleRef is a ClusterRole)
+        $isBuiltIn = $false
+        if ($rb.roleRef.kind -eq "ClusterRole") {
+            if ($roleName -like "system:*") {
+                $isBuiltIn = $true
+            }
+            elseif ($roleName -in $builtInClusterRoles) {
+                $isBuiltIn = $true
+            }
+            elseif ($clusterRoles | Where-Object { $_.metadata.name -eq $roleName -and $_.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults' }) {
+                $isBuiltIn = $true
+            }
+        }
+
+        if ($isClusterAdmin -or $isWildcard -or $isSensitive) {
             foreach ($subject in $rb.subjects) {
-                $findings += [PSCustomObject]@{
-                    Namespace = $ns
-                    Binding   = $rb.metadata.name
-                    Subject   = "$($subject.kind)/$($subject.name)"
-                    Role      = $roleName
-                    Scope     = "RoleBinding"
-                    Risk      = if ($isClusterAdmin) { "❗ cluster-admin" } else { "⚠️ wildcard access" }
+                # Check 4: Default ServiceAccount
+                $isDefaultSA = ($subject.kind -eq "ServiceAccount" -and $subject.name -eq "default")
+                $finding = [PSCustomObject]@{
+                    Namespace     = $ns
+                    Binding       = $rb.metadata.name
+                    Subject       = "$($subject.kind)/$($subject.name)"
+                    Role          = $roleName
+                    Scope         = "RoleBinding"
+                    Risk          = if ($isClusterAdmin) { "❗ cluster-admin" } elseif ($isWildcard) { "⚠️ wildcard access" } else { "⚠️ sensitive resource access" }
+                    Severity      = if ($isClusterAdmin -or $isDefaultSA) { "Critical" } else { "High" }
+                    Recommendation = if ($isClusterAdmin) { "Replace with a least-privilege Role." } elseif ($isWildcard) { "Restrict the Role to specific verbs, resources, and apiGroups." } else { "Restrict access to sensitive resources like secrets or pods/exec." }
                 }
+                if ($isBuiltIn) {
+                    $finding.Risk += " (built-in role)"
+                    $finding.Recommendation += " This is a built-in Kubernetes role; proceed with caution when modifying."
+                }
+                if ($isDefaultSA) {
+                    $finding.Risk += " (default ServiceAccount)"
+                    $finding.Recommendation += " Consider using a custom ServiceAccount with limited permissions for pods."
+                }
+                $findings += $finding
             }
         }
     }
@@ -304,7 +400,7 @@ function Check-RBACOverexposure {
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Global:MakeReport -and -not $Html) {
             Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
-            Write-ToReport "✅ No cluster-admin or wildcard access detected."
+            Write-ToReport "✅ No cluster-admin, wildcard, or sensitive resource access detected."
         }
         if (-not $Global:MakeReport -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
@@ -318,7 +414,7 @@ function Check-RBACOverexposure {
 
     if ($Html) {
         $htmlTable = $findings |
-            ConvertTo-Html -Fragment -Property Namespace, Binding, Subject, Role, Scope, Risk -PreContent "<h2>RBAC Overexposure (cluster-admin or wildcard)</h2>" |
+            ConvertTo-Html -Fragment -Property Namespace, Binding, Subject, Role, Scope, Risk, Severity, Recommendation -PreContent "<h2>RBAC Overexposure (cluster-admin, wildcard, or sensitive resources)</h2>" |
             Out-String
         return "<p><strong>⚠️ Total Overexposed Bindings:</strong> $total</p>$htmlTable"
     }
@@ -326,7 +422,7 @@ function Check-RBACOverexposure {
     if ($Global:MakeReport) {
         Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
         Write-ToReport "⚠️ Total Overexposed Bindings: $total"
-        $tableString = $findings | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize | Out-String
+        $tableString = $findings | Format-Table Namespace, Binding, Subject, Role, Scope, Risk, Severity, Recommendation -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -345,8 +441,11 @@ function Check-RBACOverexposure {
                 "📌 Included:",
                 "   - cluster-admin grants (direct bindings)",
                 "   - Custom Roles with * verbs, * resources, * apiGroups",
+                "   - Access to sensitive resources (e.g., secrets, pods/exec)",
+                "   - Default ServiceAccounts with excessive permissions",
+                "   - Built-in roles are flagged with a note for awareness",
                 "",
-                "⚠️ These bindings may allow full control over your cluster.",
+                "⚠️ These bindings may allow unintended control over your cluster.",
                 "",
                 "⚠️ Total Overexposed Bindings Found: $total"
             )
@@ -354,7 +453,7 @@ function Check-RBACOverexposure {
         }
 
         $paged = $findings | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
-        $paged | Format-Table Namespace, Binding, Subject, Role, Scope, Risk -AutoSize | Out-Host
+        $paged | Format-Table Namespace, Binding, Subject, Role, Scope, Risk, Severity, Recommendation -AutoSize | Out-Host
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
@@ -421,52 +520,92 @@ function Check-RBACMisconfigurations {
     if ($ExcludeNamespaces) {
         $roleBindings = Exclude-Namespaces -items $roleBindings
         $roles = Exclude-Namespaces -items $roles
+        $serviceAccounts = Exclude-Namespaces -items $serviceAccounts
     }
 
-    Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings.`n" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings, $($roles.Count) Roles, $($clusterRoles.Count) ClusterRoles, $($serviceAccounts.Count) ServiceAccounts.`n" -ForegroundColor Green
     Write-Host -NoNewline "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
 
     $invalidRBAC = @()
 
+    # Check 1: Missing RoleRef in Bindings
     foreach ($rb in $roleBindings) {
+        if (-not $rb.roleRef) {
+            $invalidRBAC += [PSCustomObject]@{
+                Namespace     = $rb.metadata.namespace
+                Type          = "🔹 Namespace Role"
+                RoleBinding   = $rb.metadata.name
+                Subject       = "N/A"
+                Issue         = "🚩 Missing roleRef in RoleBinding"
+                Severity      = "High"
+                Recommendation = "Delete the RoleBinding or specify a valid roleRef."
+            }
+            continue
+        }
+
         $rbNamespace = $rb.metadata.namespace
         $namespaceExists = $rbNamespace -in $existingNamespaces
 
+        # Check 2: Missing Role for RoleBinding
         $roleExists = $roles | Where-Object {
             $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $rbNamespace
         }
 
         if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
             $invalidRBAC += [PSCustomObject]@{
-                Namespace   = if ($namespaceExists) { $rbNamespace } else { "🚩 Namespace Missing" }
-                Type        = "🔹 Namespace Role"
-                RoleBinding = $rb.metadata.name
-                Subject     = "N/A"
-                Issue       = "❌ Missing Role: $($rb.roleRef.name)"
+                Namespace     = if ($namespaceExists) { $rbNamespace } else { "🚩 Namespace Missing" }
+                Type          = "🔹 Namespace Role"
+                RoleBinding   = $rb.metadata.name
+                Subject       = "N/A"
+                Issue         = "❌ Missing Role: $($rb.roleRef.name)"
+                Severity      = "High"
+                Recommendation = "Create the missing Role or update the RoleBinding to reference an existing Role."
             }
         }
 
+        # Check 3: RoleBinding Referencing ClusterRole
+        if ($rb.roleRef.kind -eq "ClusterRole") {
+            $clusterRole = $clusterRoles | Where-Object { $_.metadata.name -eq $rb.roleRef.name }
+            if ($clusterRole) {
+                $invalidRBAC += [PSCustomObject]@{
+                    Namespace     = $rbNamespace
+                    Type          = "🔹 Namespace Role"
+                    RoleBinding   = $rb.metadata.name
+                    Subject       = if ($rb.subjects) { ($rb.subjects | ForEach-Object { "$($_.kind)/$($_.name)" }) -join ", " } else { "N/A" }
+                    Issue         = "⚠️ RoleBinding references ClusterRole: $($rb.roleRef.name)"
+                    Severity      = "Medium"
+                    Recommendation = "Consider using a namespace-scoped Role instead of a ClusterRole to limit permissions to the namespace."
+                }
+            }
+        }
+
+        # Check 4: Missing ServiceAccounts and Namespaces
         foreach ($subject in $rb.subjects) {
             if ($subject.kind -eq "ServiceAccount") {
+                $subjectNamespace = if ($subject.namespace) { $subject.namespace } else { $rbNamespace }
                 if (-not $namespaceExists) {
                     $invalidRBAC += [PSCustomObject]@{
-                        Namespace   = "🚩 Namespace Missing"
-                        Type        = "🔹 Namespace Role"
-                        RoleBinding = $rb.metadata.name
-                        Subject     = "$($subject.kind)/$($subject.name)"
-                        Issue       = "🚩 Namespace does not exist"
+                        Namespace     = "🚩 Namespace Missing"
+                        Type          = "🔹 Namespace Role"
+                        RoleBinding   = $rb.metadata.name
+                        Subject       = "$($subject.kind)/$($subject.name)"
+                        Issue         = "🚩 Namespace does not exist"
+                        Severity      = "High"
+                        Recommendation = "Delete the RoleBinding or update the namespace to an existing one."
                     }
                 } else {
                     $exists = $serviceAccounts | Where-Object {
-                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subject.namespace
+                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNamespace
                     }
                     if (-not $exists) {
                         $invalidRBAC += [PSCustomObject]@{
-                            Namespace   = $rbNamespace
-                            Type        = "🔹 Namespace Role"
-                            RoleBinding = $rb.metadata.name
-                            Subject     = "$($subject.kind)/$($subject.name)"
-                            Issue       = "❌ ServiceAccount does not exist"
+                            Namespace     = $rbNamespace
+                            Type          = "🔹 Namespace Role"
+                            RoleBinding   = $rb.metadata.name
+                            Subject       = "$($subject.kind)/$($subject.name)"
+                            Issue         = "❌ ServiceAccount does not exist in namespace $subjectNamespace"
+                            Severity      = "High"
+                            Recommendation = "Create the missing ServiceAccount or update the RoleBinding to reference an existing ServiceAccount."
                         }
                     }
                 }
@@ -475,27 +614,58 @@ function Check-RBACMisconfigurations {
     }
 
     foreach ($crb in $clusterRoleBindings) {
+        # Check 5: Missing RoleRef in ClusterRoleBinding
+        if (-not $crb.roleRef) {
+            $invalidRBAC += [PSCustomObject]@{
+                Namespace     = "🌍 Cluster-Wide"
+                Type          = "🔸 Cluster Role"
+                RoleBinding   = $crb.metadata.name
+                Subject       = "N/A"
+                Issue         = "🚩 Missing roleRef in ClusterRoleBinding"
+                Severity      = "High"
+                Recommendation = "Delete the ClusterRoleBinding or specify a valid roleRef."
+            }
+            continue
+        }
+
+        # Check 6: Missing ServiceAccounts and Namespaces in ClusterRoleBindings
         foreach ($subject in $crb.subjects) {
             if ($subject.kind -eq "ServiceAccount") {
-                if ($subject.namespace -notin $existingNamespaces) {
+                $subjectNamespace = $subject.namespace
+                if (-not $subjectNamespace) {
                     $invalidRBAC += [PSCustomObject]@{
-                        Namespace   = "🚩 Namespace Missing"
-                        Type        = "🔸 Cluster Role"
-                        RoleBinding = $crb.metadata.name
-                        Subject     = "$($subject.kind)/$($subject.name)"
-                        Issue       = "🚩 Namespace does not exist"
+                        Namespace     = "🌍 Cluster-Wide"
+                        Type          = "🔸 Cluster Role"
+                        RoleBinding   = $crb.metadata.name
+                        Subject       = "$($subject.kind)/$($subject.name)"
+                        Issue         = "🚩 Namespace not specified for ServiceAccount"
+                        Severity      = "High"
+                        Recommendation = "Specify a valid namespace for the ServiceAccount in the ClusterRoleBinding."
+                    }
+                }
+                elseif ($subjectNamespace -notin $existingNamespaces) {
+                    $invalidRBAC += [PSCustomObject]@{
+                        Namespace     = "🚩 Namespace Missing"
+                        Type          = "🔸 Cluster Role"
+                        RoleBinding   = $crb.metadata.name
+                        Subject       = "$($subject.kind)/$($subject.name)"
+                        Issue         = "🚩 Namespace does not exist: $subjectNamespace"
+                        Severity      = "High"
+                        Recommendation = "Delete the ClusterRoleBinding or update the namespace to an existing one."
                     }
                 } else {
                     $exists = $serviceAccounts | Where-Object {
-                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subject.namespace
+                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNamespace
                     }
                     if (-not $exists) {
                         $invalidRBAC += [PSCustomObject]@{
-                            Namespace   = "🌍 Cluster-Wide"
-                            Type        = "🔸 Cluster Role"
-                            RoleBinding = $crb.metadata.name
-                            Subject     = "$($subject.kind)/$($subject.name)"
-                            Issue       = "❌ ServiceAccount does not exist"
+                            Namespace     = "🌍 Cluster-Wide"
+                            Type          = "🔸 Cluster Role"
+                            RoleBinding   = $crb.metadata.name
+                            Subject       = "$($subject.kind)/$($subject.name)"
+                            Issue         = "❌ ServiceAccount does not exist in namespace $subjectNamespace"
+                            Severity      = "High"
+                            Recommendation = "Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount."
                         }
                     }
                 }
@@ -525,7 +695,7 @@ function Check-RBACMisconfigurations {
 
     if ($Html) {
         $htmlTable = $invalidRBAC |
-            ConvertTo-Html -Fragment -Property Namespace, Type, RoleBinding, Subject, Issue -PreContent "<h2>RBAC Misconfigurations</h2>" |
+            ConvertTo-Html -Fragment -Property Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -PreContent "<h2>RBAC Misconfigurations</h2>" |
             Out-String
         return "<p><strong>⚠️ Total RBAC Misconfigurations Detected:</strong> $($invalidRBAC.Count)</p>$htmlTable"
     }
@@ -533,7 +703,7 @@ function Check-RBACMisconfigurations {
     if ($Global:MakeReport) {
         Write-ToReport "`n[RBAC Misconfigurations]`n"
         Write-ToReport "⚠️ Total RBAC Misconfigurations Detected: $($invalidRBAC.Count)"
-        $tableString = $invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize | Out-String
+        $tableString = $invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -553,7 +723,7 @@ function Check-RBACMisconfigurations {
                 "📌 This check identifies:",
                 "   - 🔍 Misconfigurations in RoleBindings & ClusterRoleBindings.",
                 "   - ❌ Missing references to ServiceAccounts & Namespaces.",
-                "   - 🔓 Overly permissive roles that may pose security risks.",
+                "   - ⚠️ RoleBindings referencing ClusterRoles.",
                 "",
                 "⚠️ Total RBAC Misconfigurations Detected: $total"
             )
@@ -561,7 +731,7 @@ function Check-RBACMisconfigurations {
         }
 
         $paged = $invalidRBAC | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
-        $paged | Format-Table Namespace, Type, RoleBinding, Subject, Issue -AutoSize | Out-Host
+        $paged | Format-Table Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -AutoSize | Out-Host
 
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
@@ -1120,8 +1290,20 @@ function Check-OrphanedRoles {
     $usedRoleNames = [System.Collections.Generic.HashSet[string]]::new()
     $usedClusterRoleNames = [System.Collections.Generic.HashSet[string]]::new()
 
-    # Populate used roles and cluster roles from all bindings, regardless of namespace
+    $results = @()
+
+    # Check 1: Bindings with No Subjects
     foreach ($rb in $roleBindings) {
+        if (-not $rb.subjects -or $rb.subjects.Count -eq 0) {
+            $results += [PSCustomObject]@{
+                Namespace     = $rb.metadata.namespace
+                Role          = $rb.roleRef.name
+                Type          = "RoleBinding"
+                Issue         = "🚩 No subjects defined"
+                Severity      = "Low"
+                Recommendation = "Delete the RoleBinding as it has no effect."
+            }
+        }
         if ($rb.roleRef.kind -eq "Role") {
             $usedRoleNames.Add("$($rb.metadata.namespace)/$($rb.roleRef.name)") | Out-Null
         }
@@ -1131,12 +1313,39 @@ function Check-OrphanedRoles {
     }
 
     foreach ($crb in $clusterRoleBindings) {
+        if (-not $crb.subjects -or $crb.subjects.Count -eq 0) {
+            $results += [PSCustomObject]@{
+                Namespace     = "🌍 Cluster-Wide"
+                Role          = $crb.roleRef.name
+                Type          = "ClusterRoleBinding"
+                Issue         = "🚩 No subjects defined"
+                Severity      = "Low"
+                Recommendation = "Delete the ClusterRoleBinding as it has no effect."
+            }
+        }
         if ($crb.roleRef.kind -eq "ClusterRole") {
             $usedClusterRoleNames.Add($crb.roleRef.name) | Out-Null
         }
     }
 
-    $results = @()
+    # Define built-in roles to exclude
+    $builtInClusterRoles = @(
+        "cluster-admin",
+        "admin",
+        "edit",
+        "view",
+        "system:kube-scheduler",
+        "system:kube-controller-manager",
+        "system:node",
+        "system:node-proxier",
+        "system:monitoring",
+        "system:service-account-issuer-discovery",
+        "system:auth-delegator",
+        "system:heapster",
+        "system:kube-dns",
+        "system:metrics-server",
+        "system:public-info-viewer"
+    )
 
     # Filter Roles by excluded namespaces, if applicable
     if ($ExcludeNamespaces) {
@@ -1145,38 +1354,90 @@ function Check-OrphanedRoles {
         $roles = $roles | Where-Object { $_.metadata.namespace.ToLowerInvariant() -notin $excludedSet }
     }
 
+    # Check 2: Unused Roles
     foreach ($r in $roles) {
         $key = "$($r.metadata.namespace)/$($r.metadata.name)"
         if (-not $usedRoleNames.Contains($key)) {
-            $results += [PSCustomObject]@{ Namespace = $r.metadata.namespace; Role = $r.metadata.name; Type = "Role" }
+            $results += [PSCustomObject]@{
+                Namespace     = $r.metadata.namespace
+                Role          = $r.metadata.name
+                Type          = "Role"
+                Issue         = "⚠️ Unused Role"
+                Severity      = "Low"
+                Recommendation = "Delete the unused Role to reduce clutter."
+            }
+        }
+        # Check 3: Roles with No Rules (Zero-Effect)
+        if (-not $r.rules -or $r.rules.Count -eq 0) {
+            $results += [PSCustomObject]@{
+                Namespace     = $r.metadata.namespace
+                Role          = $r.metadata.name
+                Type          = "Role"
+                Issue         = "🚩 No rules defined"
+                Severity      = "Low"
+                Recommendation = "Delete the Role or define rules to make it effective."
+            }
         }
     }
 
+    # Check 4: Unused ClusterRoles, excluding built-in roles
     foreach ($cr in $clusterRoles) {
-        if (-not $usedClusterRoleNames.Contains($cr.metadata.name)) {
-            $results += [PSCustomObject]@{ Namespace = "🌍 Cluster-Wide"; Role = $cr.metadata.name; Type = "ClusterRole" }
+        $isBuiltIn = $false
+        # Check for system: prefix
+        if ($cr.metadata.name -like "system:*") {
+            $isBuiltIn = $true
+        }
+        # Check for well-known built-in roles
+        elseif ($cr.metadata.name -in $builtInClusterRoles) {
+            $isBuiltIn = $true
+        }
+        # Check for kubernetes.io/bootstrapping label
+        elseif ($cr.metadata.labels -and $cr.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults') {
+            $isBuiltIn = $true
+        }
+
+        if (-not $isBuiltIn -and -not $usedClusterRoleNames.Contains($cr.metadata.name)) {
+            $results += [PSCustomObject]@{
+                Namespace     = "🌍 Cluster-Wide"
+                Role          = $cr.metadata.name
+                Type          = "ClusterRole"
+                Issue         = "⚠️ Unused ClusterRole"
+                Severity      = "Low"
+                Recommendation = "Delete the unused ClusterRole to reduce clutter."
+            }
+        }
+        # Check 5: ClusterRoles with No Rules (Zero-Effect)
+        if (-not $cr.rules -or $cr.rules.Count -eq 0) {
+            $results += [PSCustomObject]@{
+                Namespace     = "🌍 Cluster-Wide"
+                Role          = $cr.metadata.name
+                Type          = "ClusterRole"
+                Issue         = "🚩 No rules defined"
+                Severity      = "Low"
+                Recommendation = "Delete the ClusterRole or define rules to make it effective."
+            }
         }
     }
 
     $total = $results.Count
-    Write-Host "`r🤖 ✅ RBAC analysis complete. ($total unused roles found)" -ForegroundColor Green
+    Write-Host "`r🤖 ✅ RBAC analysis complete. ($total unused or ineffective roles/bindings found)" -ForegroundColor Green
 
     if ($total -eq 0) {
-        if ($Html) { return "<p><strong>✅ No unused roles or clusterroles found.</strong></p>" }
+        if ($Html) { return "<p><strong>✅ No unused or ineffective roles/bindings found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) { Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n✅ No unused roles." }
+        if ($Global:MakeReport -and -not $Html) { Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n✅ No unused or ineffective roles/bindings." }
         if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
     if ($Json) { return @{ Total = $total; Items = $results } }
     if ($Html) {
-        $htmlOutput = $results | ConvertTo-Html -Fragment -Property Namespace, Role, Type | Out-String
-        return "<p><strong>⚠️ Unused Roles:</strong> $total</p>" + $htmlOutput
+        $htmlOutput = $results | ConvertTo-Html -Fragment -Property Namespace, Role, Type, Issue, Severity, Recommendation | Out-String
+        return "<p><strong>⚠️ Unused or Ineffective Roles/Bindings:</strong> $total</p>" + $htmlOutput
     }
     if ($Global:MakeReport) {
         Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n⚠️ Total: $total"
-        $tableString = $results | Format-Table Namespace, Role, Type -AutoSize | Out-String
+        $tableString = $results | Format-Table Namespace, Role, Type, Issue, Severity, Recommendation -AutoSize | Out-String
         Write-ToReport $tableString
         return
     }
@@ -1188,17 +1449,19 @@ function Check-OrphanedRoles {
         Write-Host "`n[🗂️ Unused Roles - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
         if ($currentPage -eq 0) {
             Write-SpeechBubble -msg @(
-                "🤖 These Roles and ClusterRoles are not referenced by any bindings.",
+                "🤖 These Roles, ClusterRoles, and Bindings are unused or ineffective.",
                 "",
                 "📌 Why this matters:",
-                "   - Unused roles add clutter and confusion.",
+                "   - Unused roles/bindings add clutter and confusion.",
                 "   - May be leftovers from uninstalled apps.",
+                "   - Bindings with no subjects or roles with no rules have no effect.",
+                "   - Built-in Kubernetes roles (e.g., system:*, cluster-admin) are excluded.",
                 "",
-                "⚠️ Total unused roles: $total"
+                "⚠️ Total unused or ineffective roles/bindings: $total"
             ) -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
         }
         $paged = $results | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
-        $paged | Format-Table Namespace, Role, Type -AutoSize | Out-Host
+        $paged | Format-Table Namespace, Role, Type, Issue, Severity, Recommendation -AutoSize | Out-Host
         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
         if ($newPage -eq -1) { break }
         $currentPage = $newPage

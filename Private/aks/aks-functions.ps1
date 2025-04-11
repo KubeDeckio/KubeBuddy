@@ -191,10 +191,9 @@ return $clusterInfo
     
         $passCount = 0
         $failCount = 0
-        $reportData = @()  # ✅ Initialize empty array to prevent null reference
+        $reportData = @()
     
         foreach ($category in $categories.Keys) {
-            # Filter checks if -FailedOnly is specified
             $checks = $categories[$category]
             if ($FailedOnly) {
                 $checks = $checks | Where-Object { $_.Status -eq "❌ FAIL" }
@@ -202,50 +201,42 @@ return $clusterInfo
     
             if ($checks.Count -gt 0 -and -not $Html -and -not $json -and -not $Global:MakeReport) {
                 Write-Host "`n=== $category ===             " -ForegroundColor Cyan
-                $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, URL -AutoSize
+                $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, @{Label="URL";Expression={$_."URL"}} -AutoSize
     
-                # ✅ Show "Press any key to continue..." message
                 Write-Host "`nPress any key to continue..." -ForegroundColor Magenta -NoNewline
-    
-                # ✅ Wait for keypress
                 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     
-                # ✅ Move cursor up one line and clear it
                 if ($Host.Name -match "ConsoleHost") {
-                    # Windows Terminal / Standard PowerShell console
                     [Console]::SetCursorPosition(0, [Console]::CursorTop - 1)
                     Write-Host (" " * 50) -NoNewline
                     [Console]::SetCursorPosition(0, [Console]::CursorTop)
                 }
                 else {
-                    # ANSI escape codes for clearing a line (Linux/macOS)
                     Write-Host "`e[1A`e[2K" -NoNewline
                 }
             }
             else {
-                # ✅ Append check results to $reportData
-                $reportData += $checks | Select-Object ID, Check, Severity, Category, Status, Recommendation, URL
+                # Format URL as hyperlink for HTML output
+                $reportData += $checks | Select-Object ID, Check, Severity, Category, Status, Recommendation, @{
+                    Name = 'URL';
+                    Expression = { if ($_.URL) { "<a href='$($_.URL)' target='_blank'>Learn More</a>" } else { "" } }
+                }
             }
     
-            # Count passed and failed checks
             $passCount += ($categories[$category] | Where-Object { $_.Status -eq "✅ PASS" }).Count
             $failCount += ($categories[$category] | Where-Object { $_.Status -eq "❌ FAIL" }).Count
         }
     
-        # **Summary Calculation**
         $total = $passCount + $failCount
         $score = if ($total -eq 0) { 0 } else { [math]::Round(($passCount / $total) * 100, 2) }
-    
-        # **Fix: Pick only the first rating letter**
         $rating = @(switch ($score) {
                 { $_ -ge 90 } { "A" }
                 { $_ -ge 80 } { "B" }
                 { $_ -ge 70 } { "C" }
                 { $_ -ge 60 } { "D" }
                 default { "F" }
-            })[0]  # Picks only the FIRST rating letter
+            })[0]
     
-        # **Assign Color for Rating**
         $ratingColor = switch ($rating) {
             "A" { "Green" }
             "B" { "Yellow" }
@@ -255,7 +246,6 @@ return $clusterInfo
             default { "Gray" }
         }
     
-        # **CLI Output for Summary**
         if (-not $Html -and -not $json -and -not $Global:MakeReport) {
             Write-Host "`nSummary & Rating:           " -ForegroundColor Green
     
@@ -266,27 +256,36 @@ return $clusterInfo
             Write-Host $header -ForegroundColor Cyan
             Write-Host $separator -ForegroundColor Cyan
             Write-Host "$row " -NoNewline
-            Write-Host "$rating" -ForegroundColor $ratingColor # Rating is colored correctly
+            Write-Host "$rating" -ForegroundColor $ratingColor
         }
-
-        if ($global:MakeReport) {
-            Write-ToReport "`nSummary & Rating:           " -ForegroundColor Green
     
+        if ($Global:MakeReport) {
+            Write-ToReport "`nSummary & Rating:           "
             $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
             $separator = "============================================================"
             $row = "{0,-12} {1,-12} {2,-12} {3,-12}" -f "✅ $passCount", "❌ $failCount", "$total", "$score"
-    
             Write-ToReport $header
             Write-ToReport $separator
             Write-ToReport "$row " -NoNewline
             Write-ToReport "$rating"
         }
     
-        # ✅ **HTML Output: Return Key Values**
         if ($Html) {
             $htmlTable = if ($reportData.Count -gt 0) {
                 $sortedReportData = $reportData | Sort-Object @{Expression = { $_.Status -eq "❌ FAIL" } ; Descending = $true }, Category
-                $sortedReportData | ConvertTo-Html -Fragment -Property ID, Check, Severity, Category, Status, Recommendation, URL | Out-String
+                # Generate HTML table manually to prevent escaping of HTML in the URL column
+                $htmlRows = $sortedReportData | ForEach-Object {
+                    $id = $_.ID
+                    $check = $_.Check
+                    $severity = $_.Severity
+                    $category = $_.Category
+                    $status = $_.Status
+                    $recommendation = $_.Recommendation
+                    $url = $_.URL  # This is already an HTML anchor tag, do not escape
+                    "<tr><td>$id</td><td>$check</td><td>$severity</td><td>$category</td><td>$status</td><td>$recommendation</td><td>$url</td></tr>"
+                }
+                $htmlTableContent = "<table>`n<thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Recommendation</th><th>URL</th></tr></thead>`n<tbody>`n" + ($htmlRows -join "`n") + "`n</tbody>`n</table>"
+                $htmlTableContent
             }
             else {
                 "<p><strong>No best practice violations detected.</strong></p>"
