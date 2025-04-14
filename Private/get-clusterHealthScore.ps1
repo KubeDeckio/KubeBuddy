@@ -38,13 +38,14 @@ function Get-ClusterHealthScore {
         "deploymentIssues"         = 3
         "statefulSetIssues"        = 2
         "ingressHealth"            = 2
+        "AKSBestPractices"         = 0
     }
 
     $score = 100
 
     foreach ($checkName in $Checks.Keys) {
         if (-not $weights.ContainsKey($checkName)) { 
-            Write-Host "Skipping $checkName (no weight defined)" -ForegroundColor Yellow
+            # Write-Host "`rSkipping $checkName (no weight defined)" -ForegroundColor Yellow
             continue 
         }
         $weight = $weights[$checkName]

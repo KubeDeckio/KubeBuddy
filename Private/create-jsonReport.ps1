@@ -1,8 +1,11 @@
 function Create-JsonReport {
     param (
-        [string]$OutputPath,
+        [string]$outputpath,
         [object]$KubeData,
-        [switch]$aks
+        [switch]$aks,
+        [string]$SubscriptionId,
+        [string]$ResourceGroup,
+        [string]$ClusterName
     )
 
     $clusterName = (kubectl config current-context)

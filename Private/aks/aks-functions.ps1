@@ -86,36 +86,44 @@ function Invoke-AKSBestPractices {
             [string]$ClusterName,
             [object]$KubeData
         )
-
+    
         Write-Host -NoNewline "`n🤖 Fetching AKS cluster details..." -ForegroundColor Cyan
-
+    
         $clusterInfo = $null
-    $constraints = @()
-
-    try {
-        if ($KubeData -and $KubeData.AksCluster -and $KubeData.Constraints) {
-            $clusterInfo = $KubeData.AksCluster
-            $constraints = $KubeData.Constraints
-            Write-Host "`r🤖 Using cached AKS cluster data. " -ForegroundColor Green
-        } else {
-            $clusterInfo = az aks show --resource-group $ResourceGroup --name $ClusterName --output json --only-show-errors | ConvertFrom-Json
-            Write-Host "`r🤖 Live cluster data fetched.    " -ForegroundColor Green
-
-            Write-Host -NoNewline "`n🤖 Fetching Kubernetes constraints..." -ForegroundColor Cyan
-            $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-            Write-Host "`r🤖 Constraints fetched." -ForegroundColor Green
+        $constraints = @()
+    
+        try {
+            if ($KubeData -and $KubeData.AksCluster -and $KubeData.Constraints) {
+                $clusterInfo = $KubeData.AksCluster
+                $constraints = $KubeData.Constraints
+                Write-Host "`r🤖 Using cached AKS cluster data. " -ForegroundColor Green
+            } else {
+                # Use Azure CLI to get an access token
+                $accessToken = az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv
+                if (-not $accessToken) { throw "Access token not retrieved." }
+    
+                $headers = @{ Authorization = "Bearer $accessToken" }
+                $apiVersion = "2025-01-01"
+                $uri = "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.ContainerService/managedClusters/${ClusterName}?api-version=${apiVersion}"
+    
+                $clusterInfo = Invoke-RestMethod -Uri $uri -Headers $headers -UseBasicParsing
+                Write-Host "`r🤖 Live cluster data fetched.     " -ForegroundColor Green
+    
+                Write-Host -NoNewline "`n🤖 Fetching Kubernetes constraints..." -ForegroundColor Cyan
+                $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+                Write-Host "`r🤖 Constraints fetched." -ForegroundColor Green
+            }
+    
+            # Attach constraints regardless of source
+            $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints }
+    
+            return $clusterInfo
         }
-    }
-    catch {
-        Write-Host "`r❌ Error retrieving AKS or constraint data: $_" -ForegroundColor Red
-        return $null
-    }
-
-# Attach constraints regardless of source
-$clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints }
-
-return $clusterInfo
-    }
+        catch {
+            Write-Host "`r❌ Error retrieving AKS or constraint data: $($_.Exception.Message)" -ForegroundColor Red
+            return $null
+        }
+    }    
 
     # Collect all checks
     $checks = @()
@@ -126,7 +134,7 @@ return $clusterInfo
 
     function Run-Checks {
         param ($clusterInfo)
-        if (-not $HtmlReport){
+        if (-not $HtmlReport -and -not $jsonReport -and -not $Global:MakeReport){
         Write-Host -NoNewline "`n🤖 Running best practice checks..." -ForegroundColor Cyan
         }
         if ($Global:MakeReport) {
@@ -148,15 +156,21 @@ return $clusterInfo
         foreach ($check in $checks) {
             try {
                 $value = if ($check.Value -is [scriptblock]) {
-                    & $check.Value
+                    $vars = [System.Collections.Generic.List[System.Management.Automation.PSVariable]]::new()
+                    $vars.Add([System.Management.Automation.PSVariable]::new('clusterInfo', $clusterInfo))
+                    $check.Value.InvokeWithContext($null, $vars)
                 } elseif ($check.Value -match "^(True|False|[0-9]+)$") {
                     [bool]([System.Convert]::ChangeType($check.Value, [boolean]))
                 } else {
                     Invoke-Expression ($check.Value -replace '\$clusterInfo', '$clusterInfo')
                 }
-
+        
                 $result = if ($value -eq $check.Expected) { "✅ PASS" } else { "❌ FAIL" }
-
+        
+                if (-not $categories.ContainsKey($check.Category)) {
+                    $categories[$check.Category] = @()
+                }
+        
                 $categories[$check.Category] += [PSCustomObject]@{
                     ID             = $check.ID;
                     Check          = $check.Name;
@@ -186,12 +200,14 @@ return $clusterInfo
         param (
             [hashtable]$categories,
             [switch]$FailedOnly,
-            [switch]$Html
+            [switch]$Html,
+            [switch]$json
         )
     
         $passCount = 0
         $failCount = 0
         $reportData = @()
+        
     
         foreach ($category in $categories.Keys) {
             $checks = $categories[$category]
@@ -199,9 +215,9 @@ return $clusterInfo
                 $checks = $checks | Where-Object { $_.Status -eq "❌ FAIL" }
             }
     
-            if ($checks.Count -gt 0 -and -not $Html -and -not $json -and -not $Global:MakeReport) {
-                Write-Host "`n=== $category ===             " -ForegroundColor Cyan
-                $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, @{Label="URL";Expression={$_."URL"}} -AutoSize
+            if ($checks.Count -gt 0 -and -not $Html -and -not $jsonReport -and -not $Global:MakeReport) {
+                Write-Host "`n=== $category ===             " -ForegroundColor Cyan              
+                $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, @{Label="URL";Expression={$_."URL"}} -AutoSize | out-string | write-host
     
                 Write-Host "`nPress any key to continue..." -ForegroundColor Magenta -NoNewline
                 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -246,7 +262,7 @@ return $clusterInfo
             default { "Gray" }
         }
     
-        if (-not $Html -and -not $json -and -not $Global:MakeReport) {
+        if (-not $Html -and -not $jsonReport -and -not $Global:MakeReport) {
             Write-Host "`nSummary & Rating:           " -ForegroundColor Green
     
             $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
@@ -304,12 +320,14 @@ return $clusterInfo
 
     # Main Execution Flow
     if ($Global:MakeReport) {
-        Write-Host "`n🤖 Starting AKS Best Practices Check...`n" -ForegroundColor Green
+        Write-Host -NoNewline "`n🤖 Starting AKS Best Practices Check...`n" -ForegroundColor Cyan
     }
 
     Validate-Context -ResourceGroup $ResourceGroup -ClusterName $ClusterName
     $clusterInfo = Get-AKSClusterInfo -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData $KubeData
+
     $checkResults = Run-Checks -clusterInfo $clusterInfo
+
 
     if ($Html) {
         return Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Html
@@ -322,6 +340,6 @@ return $clusterInfo
     }
 
     if ($Global:MakeReport) {
-        Write-Host "``r✅ AKS Best Practices Check Completed.`n" -ForegroundColor Green
+        Write-Host "``r✅ AKS Best Practices Check Completed." -ForegroundColor Green
     }
 }

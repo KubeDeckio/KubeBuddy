@@ -1,9 +1,11 @@
-Import-Module KubeBuddy
+# Ensure KubeBuddy module is loaded
+Import-Module KubeBuddy -ErrorAction Stop
 
 # Required values
-$KubeConfigPath = $env:KUBECONFIG_PATH
-$OutputPath     = "/app/Reports"
-$Yes            = $true  # Always true, required for script logic
+$KubeConfigPath = $env:KUBECONFIG
+$OriginalKubeConfigPath = "/tmp/kubeconfig-original"
+$OutputPath = "/app/Reports"
+$Yes = $true
 
 # Optional values
 $ClusterName    = $env:CLUSTER_NAME
@@ -13,9 +15,11 @@ $ExcludeNS      = $env:EXCLUDE_NAMESPACES -eq "true"
 $HtmlReport     = $env:HTML_REPORT -eq "true"
 $txtReport      = $env:TXT_REPORT -eq "true"
 $jsonReport     = $env:JSON_REPORT -eq "true"
-# Default AKS to false unless explicitly set to "true"
-$Aks            = if ($env:AKS_MODE -eq "true") { $true } else { $false }
-$AzureToken     = $env:AZURE_TOKEN
+$Aks            = $env:AKS_MODE -eq "true"
+$ClientId       = $env:AZURE_CLIENT_ID
+$ClientSecret   = $env:AZURE_CLIENT_SECRET
+$TenantId       = $env:AZURE_TENANT_ID
+$UseAksRestApi  = $env:USE_AKS_REST_API -eq "true"
 
 # Require at least one report format
 if (-not ($HtmlReport -or $txtReport -or $jsonReport)) {
@@ -23,37 +27,66 @@ if (-not ($HtmlReport -or $txtReport -or $jsonReport)) {
     exit 1
 }
 
-# Validate kubeconfig (required in all cases)
-if (-not $KubeConfigPath -or -not (Test-Path $KubeConfigPath)) {
-    Write-Error "Kubeconfig not found at $KubeConfigPath. Please provide a valid KUBECONFIG_PATH."
+# Validate KUBECONFIG is set
+if (-not $KubeConfigPath) {
+    Write-Error "KUBECONFIG environment variable not set."
     exit 1
 }
 
-# Validate AKS-specific parameters (required only if AKS mode is enabled)
+# Validate mounted kubeconfig file exists
+if (-not (Test-Path $OriginalKubeConfigPath)) {
+    Write-Error "Original kubeconfig not found at $OriginalKubeConfigPath. Please mount the kubeconfig file to /tmp/kubeconfig-original."
+    exit 1
+}
+
+# Copy the original kubeconfig to a writable location
+Write-Host "📘 Copying kubeconfig from $OriginalKubeConfigPath to $KubeConfigPath..." -ForegroundColor Cyan
+try {
+    $KubeConfigDir = Split-Path $KubeConfigPath -Parent
+    New-Item -ItemType Directory -Path $KubeConfigDir -Force | Out-Null
+    Copy-Item -Path $OriginalKubeConfigPath -Destination $KubeConfigPath -Force
+    chmod 600 $KubeConfigPath
+}
+catch {
+    Write-Error "Failed to prepare kubeconfig: $_"
+    exit 1
+}
+
+# Set KUBECONFIG
+$env:KUBECONFIG = $KubeConfigPath
+Write-Host "📘 Using kubeconfig: $KubeConfigPath" -ForegroundColor Cyan
+
+# Validate AKS-specific input
 if ($Aks) {
     if (-not $ClusterName -or -not $ResourceGroup -or -not $SubscriptionId) {
-        Write-Error "AKS mode is enabled but missing required environment variables: CLUSTER_NAME, RESOURCE_GROUP, SUBSCRIPTION_ID"
+        Write-Error "AKS mode is enabled but missing: CLUSTER_NAME, RESOURCE_GROUP or SUBSCRIPTION_ID"
         exit 1
     }
-    if (-not $AzureToken) {
-        Write-Error "AKS mode is enabled but missing required environment variable: AZURE_TOKEN"
+    if (-not $ClientId -or -not $ClientSecret -or -not $TenantId) {
+        Write-Error "AKS mode is enabled but missing SPN credentials: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID"
         exit 1
     }
-    # Set Azure access token only if AKS mode is enabled
-    $env:AZURE_ACCESS_TOKEN = $AzureToken
+
+    # Convert kubeconfig using SPN
+    Write-Host "🔐 Converting kubeconfig to use Service Principal credentials..." -ForegroundColor Cyan
+    try {
+        kubelogin convert-kubeconfig `
+            -l spn `
+            --client-id $ClientId `
+            --client-secret $ClientSecret `
+            --tenant-id $TenantId
+        if ($LASTEXITCODE -ne 0) {
+            throw "kubelogin failed with exit code $LASTEXITCODE"
+        }
+        Write-Host "✅ Kubeconfig converted for SPN." -ForegroundColor Green
+    }
+    catch {
+        Write-Error "kubelogin SPN conversion failed: $_"
+        exit 1
+    }
 }
 
-# Setup kubectl to use the kubeconfig
-$env:KUBECONFIG = $KubeConfigPath
-
-# Log the start of the script
-if ($Aks) {
-    Write-Host "Starting KubeBuddy analysis for cluster: $ClusterName in resource group: $ResourceGroup (AKS mode)" -ForegroundColor Green
-} else {
-    Write-Host "Starting KubeBuddy analysis (non-AKS mode)" -ForegroundColor Green
-}
-
-# Call the main function with the provided parameters
+# Run KubeBuddy
 $parameters = @{
     ClusterName       = $ClusterName
     ResourceGroup     = $ResourceGroup
@@ -65,17 +98,24 @@ $parameters = @{
     Aks               = $Aks
     outputpath        = $OutputPath
     yes               = $Yes
+    UseAksRestApi     = $UseAksRestApi
 }
 
 try {
-    Invoke-KubeBuddy @parameters
+    # Run Invoke-KubeBuddy with parameters
+    $null = Invoke-KubeBuddy @parameters
 
-    # Show resolved full output path
-    $fullPath = Resolve-Path $OutputPath
-    Write-Host "KubeBuddy analysis completed successfully." -ForegroundColor Green
-    Write-Host "`nReport saved in the folder you mounted (e.g. -v ~/myfolder:/app/Reports) on your host." -ForegroundColor Green
+    # Check if the output file exists
+    $fullPath = Resolve-Path $OutputPath -ErrorAction SilentlyContinue
+    if ($fullPath) {
+        Write-Host "`n🤖 KubeBuddy analysis completed successfully." -ForegroundColor Green
+        Write-Host "`n🤖 Thank you for Using KubeBuddy. Have a nice day!" -ForegroundColor Green
+    } else {
+        Write-Host "`n❌ No report generated. Check for errors above." -ForegroundColor Red
+        exit 1
+    }
 }
 catch {
-    Write-Error "KubeBuddy analysis failed: $_"
+    Write-Host "`n❌ KubeBuddy analysis failed: $_" -ForegroundColor Red
     exit 1
 }

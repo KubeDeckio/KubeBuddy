@@ -17,14 +17,12 @@ function Build-ChecksFromReport {
     $notReadyLine = $reportLines | Where-Object { $_ -match 'Not Ready Nodes.*:\s*(\d+)' }
     if ($notReadyLine -match '(\d+)') {
         $checks["nodeConditions"] = @{ Total = 4; NotReady = [int]$matches[1] }
-        Write-Host "Parsed nodeConditions: NotReady=$($checks["nodeConditions"].NotReady)" -ForegroundColor Magenta
     }
 
     # Parse NodeResourceUsage
     $resourceWarningLine = $reportLines | Where-Object { $_ -match 'Total Resource Warnings.*:\s*(\d+)' }
     if ($resourceWarningLine -match '(\d+)') {
         $checks["nodeResources"] = @{ Total = 4; Warnings = [int]$matches[1] }
-        Write-Host "Parsed nodeResources: Warnings=$($checks["nodeResources"].Warnings)" -ForegroundColor Magenta
     }
 
     $sectionPatterns = @{
@@ -295,4 +293,22 @@ function Show-Pagination {
     if ($paginationInput -match "^[Nn]$") { return $currentPage + 1 }
     elseif ($paginationInput -match "^[Pp]$") { return $currentPage - 1 }
     elseif ($paginationInput -match "^[Cc]$") { return -1 }  # Exit pagination
+}
+
+# Function to detect if running in any container
+function Test-IsContainer {
+    if ((Test-Path "/.dockerenv") -or (Test-Path "/run/.containerenv")) {
+        return $true
+    }
+
+    try {
+        $cgroup = Get-Content "/proc/1/cgroup" -ErrorAction SilentlyContinue
+        if ($cgroup -match "docker|kubepods|crio|containerd") {
+            return $true
+        }
+    } catch {}
+
+    if ($env:container) { return $true }
+
+    return $false
 }
