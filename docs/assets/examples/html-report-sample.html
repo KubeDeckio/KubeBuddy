@@ -1,410 +1,306 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kubernetes Cluster Report</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes Cluster Report</title>
+  <link rel="icon" href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/assets/images/favicon.ico" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
-
-    html {
-      scroll-behavior: smooth; /* optional smooth scrolling */
-    }
-    body { 
-        font-family: 'Roboto', sans-serif;
-        margin: 0; 
-        padding: 0; 
-        background: #eceff1; 
-        color: #37474f; 
-    }
-    .header { 
-        background-color: #0071FF; 
-        color: white; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: flex-start; 
-        padding: 20px;
-        font-weight: bold;
-        font-size: 24px;
-    }
-    .container { 
-        max-width: 1350px; 
-        margin: 20px auto; 
-        background: white; 
-        padding: 20px; 
-        border-radius: 8px; 
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); 
-    }
-    .compatibility {
-        padding: 12px;
-        border-radius: 5px;
-        font-weight: bold;
-        text-align: center;
-        color: #ffffff;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Colors based on cluster status */
-    .warning { background: #ffeb3b; } /* Yellow */
-    .healthy { background: #4CAF50; } /* Green */
-    .unknown { background: #9E9E9E; } /* Gray */
-    .table-container {
-    overflow-x: auto; /* Enables horizontal scrolling */
-    width: 100%;
-    max-width: 100%;
-    }
-    table { 
-        width: 100%; 
-        border-collapse: collapse; 
-        margin: 20px 0; 
-        font-size: 14px; 
-        text-align: left; 
-    }
-    table, th, td { 
-        white-space: nowrap; /* Prevents text from wrapping */
-        border: 1px solid #cfd8dc; 
-        padding: 12px; 
-        text-align: left;
-    }
-    th { 
-        background-color: #0071FF; 
-        color: white; 
-    }
-        /* “Back to Top” button style */
-    #backToTop {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; background: #eceff1; color: #37474f; }
+  .header { background: linear-gradient(90deg, #005ad1, #0071FF); color: white; display: flex; justify-content: space-between; align-items: center; padding: 10px 24px; font-weight: bold; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); position: relative; top: auto; z-index: auto; }
+  .header .nav-toggle { cursor: pointer; font-size: 28px; color: #fff; }
+  .header .logo { height: 44px; margin-right: 12px; }
+  .container { max-width: 1350px; margin: 20px auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1); }
+  .compatibility { padding: 12px; border-radius: 8px; font-weight: bold; text-align: center; color: #ffffff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
+  .warning { background: #ffeb3b; } .healthy { background: #4CAF50; } .unknown { background: #9E9E9E; }
+  .table-container { overflow-x: auto; width: 100%; max-width: 100%; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 20px 0; font-size: 14px; text-align: left; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; }
+  th {
       background-color: #0071FF;
-      color: #fff;
-      padding: 10px 15px;
-      border-radius: 5px;
+      color: white;
+      padding: 12px;
+      font-weight: 500;
+      position: relative;
+      cursor: pointer;
+      white-space: nowrap; /* Prevent text wrapping */
+      overflow: hidden; /* Hide overflow text */
+      text-overflow: ellipsis; /* Add ellipsis for overflow text */
+  }
+  th:hover {
+      background-color: #005ad1; /* Darker blue on hover */
+  }
+  th::after {
+      content: '';
+      display: inline-block;
+      margin-left: 5px;
+      vertical-align: middle;
+  }
+  td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f5f5f5; transition: background 0.2s; }
+  th:first-child { border-top-left-radius: 8px; }
+  th:last-child { border-top-right-radius: 8px; }
+  td:first-child { border-left: none; }
+  td:last-child { border-right: none; }
+  table a {
+      color: #0071FF;
       text-decoration: none;
-      font-size: 14px;
-      font-weight: bold;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      display: none; /* hide by default */
-      transition: opacity 0.3s ease;
+      font-weight: 500;
+  }
+  table a:hover {
+      text-decoration: underline;
+      color: #005ad1;
+  }
+  #backToTop { position: fixed; bottom: 20px; right: 20px; background: #0071FF; color: #fff; padding: 10px 15px; border-radius: 25px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: none; transition: opacity 0.3s ease; }
+  #backToTop:hover { background: #005ad1; }
+  #printContainer { text-align: right; margin-bottom: 15px; }
+  #printContainer button { background: #0071FF; color: white; padding: 10px 15px; border: none; cursor: pointer; font-size: 16px; border-radius: 8px; transition: background 0.3s; }
+  #printContainer button:hover { background: #005ad1; }
+  #savePdfBtn { background: #0071FF; color: white; padding: 8px 12px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; border-radius: 8px; margin-top: 10px; transition: background 0.3s; }
+  #savePdfBtn:hover { background: #005ad1; }
+@media print {
+    #savePdfBtn, #printContainer, .table-pagination, #menuFab {
+        display: none !important; /* Add !important to override any inline styles */
     }
-    #backToTop:hover {
-      background-color: #005ad1;
-    }
-
-    #printContainer {
-        text-align: right;
-        margin-bottom: 15px;
-    }
-    #printContainer button {
-        background-color: #0071FF;
-        color: white;
-        padding: 10px 15px;
-        border: none;
-        cursor: pointer;
-        font-size: 16px;
-        border-radius: 5px;
-    }
-    #printContainer button:hover {
-        background-color: #005ad1;
-    }
-    #savePdfBtn {
-        background-color: #0071FF;
-        color: white;
-        padding: 8px 12px;
-        font-size: 14px;
-        font-weight: bold;
-        border: none;
-        cursor: pointer;
-        border-radius: 5px;
-        margin-top: 10px;
-    }
-    #savePdfBtn:hover {
-        background-color: #005ad1;
-    }
-    @media print {
-        #savePdfBtn { display: none; } /* Hide button in PDF */
-        table {
-            width: 100%;
-            table-layout: fixed;
-            border-collapse: collapse;
-        }
-    
-        th, td {
-            white-space: normal !important;
-            overflow: visible !important;
-            word-wrap: break-word;
-            padding: 8px;
-            border: 1px solid #ddd;
-        }
-    
-        .table-container {
-            overflow: visible !important;
-            height: auto !important;
-        }
-    }
-    
-    /* Hide button when printing */
-    @media print {
-        #printContainer { display: none; }
-        details { display: block; } /* Expand all details on print */
-    }
-
-
-    /* Floating TOC (Initially Collapsed) */
-    #toc {
-        position: fixed;
-        top: 50%;
-        left: 0;
-        transform: translateY(-50%);
-        background-color: #0071FF; /* Fully blue when collapsed */
-        border: none;
-        border-radius: 0 8px 8px 0;
-        box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
-        width: 40px; /* Small when collapsed */
-        height: 100px; /* Ensures the blue part covers the visible section */
-        transition: all 0.3s ease-in-out;
-        overflow: hidden;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    /* Menu Button (Always Visible in Collapsed State) */
-    #toc-toggle {
-        color: white;
-        padding: 15px 5px;
-        writing-mode: vertical-rl;
-        text-align: center;
-        font-weight: bold;
-        cursor: pointer;
-        user-select: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%; /* Takes full width when collapsed */
-    }
-
-    /* Expanded TOC */
-    #toc.open {
-        background-color: white;
-        width: 200px; /* Expanded width */
-        height: auto;
-        padding: 10px;
-    }
-    
-    /* Hide the blue when expanded */
-    #toc.open #toc-toggle {
-        display: none;
-    }
-    
-    /* TOC Content (Initially Hidden) */
-    #toc-content {
-        display: none;
-        padding: 10px;
-    }
-    
-    /* Show TOC Content When Open */
-    #toc.open #toc-content {
+    details {
         display: block;
     }
-    
-    /* Close Button */
-    #toc-close {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        background: none;
-        border: none;
-        color: #37474f;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
+    table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
     }
-    
-    /* TOC Links Styling */
-    #toc ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
+    th, td {
+        white-space: normal !important;
+        overflow: visible !important;
+        word-wrap: break-word;
+        padding: 8px;
+        border: 1px solid #ddd;
     }
-    
-    #toc ul li {
-        margin: 8px 0;
+    .table-container {
+        overflow: visible !important;
+        height: auto !important;
     }
-    
-    #toc ul li a {
-        display: block;
-        color: #37474f;
-        text-decoration: none;
-        font-size: 14px;
-        padding: 5px 0;
-        transition: color 0.2s ease-in-out;
-    }
-    
-    #toc ul li a:hover {
-        color: #0071FF;
-    }
-    
-    /* Nested Lists (Indentation) */
-    #toc ul li details ul {
-        padding-left: 15px;
-    }
-    
-    /* Auto-close menu on small screens */
-    @media(max-width: 800px) {
-        #toc {
-            display: none;
-        }
-    }
-
-    details ul {
-      margin-left: 1.5em;
-    }
-    .hero-metrics {
-        display: flex;
-        justify-content: space-around;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-    }
-    .metric-card {
-        text-align: center;
-        padding: 20px;
-        border-radius: 8px;
-        color: white;
-        font-size: 20px;
-        font-weight: bold;
-        min-width: 150px;
-        flex: 1;
-        margin: 10px;
-        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Dynamic Colors */
-    .normal { background-color: #388e3c; } /* Green (Healthy) */
-    .warning { background-color: #ffa000; } /* Orange (Warning) */
-    .critical { background-color: #B71C1C; } /* Red (Critical) */
-    .default { background-color: #0071FF; }
-    
-    /* Responsive Adjustments */
-    @media (max-width: 600px) {
-        .hero-metrics {
-            flex-direction: column;
-            align-items: center;
-        }
-        .metric-card {
-            width: 80%;
-        }
-    }
-
-    .footer {
-    background-color: #263238;
-    color: white;
-    text-align: center;
-    padding: 15px 20px;
-    font-size: 14px;
-    position: relative; /* This allows the footer to stay below content */
-    }
-    .footer a {
-        color: #80cbc4;
-        text-decoration: none;
-    }
-    .footer a:hover {
-        text-decoration: underline;
-    }
+}
+  .excluded-ns { padding: 2px 6px; background-color: #eee; border-radius: 4px; margin-right: 4px; display: inline-block; }
+  .nav-drawer { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: linear-gradient(135deg, #f5f7fa, #ffffff); box-shadow: 4px 0 12px rgba(0,0,0,0.2); transition: left 0.3s ease-in-out; z-index: 2000; overflow-y: auto; }
+  .nav-drawer.open { left: 0; }
+  .nav-scrim { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 1999; display: none; }
+  .nav-scrim.open { display: block; }
+  .nav-content { padding: 20px; }
+  .nav-header { padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; background: #0071FF; color: #fff; }
+  .nav-header h3 { margin: 0; font-size: 24px; font-weight: 700; }
+  .nav-close { background: none; border: none; cursor: pointer; font-size: 28px; color: #fff; transition: color 0.3s; }
+  .nav-close:hover { color: #BBDEFB; }
+  .nav-items { list-style: none; padding: 0; margin: 0; }
+  .nav-item { position: relative; }
+  .nav-item a { display: flex; align-items: center; padding: 12px 20px; color: #37474f; text-decoration: none; font-size: 16px; font-weight: 400; transition: background-color 0.3s, color 0.3s; border-radius: 6px; }
+  .nav-item a:hover { background: #E3F2FD; color: #005ad1; }
+  .nav-item .material-icons { margin-right: 16px; font-size: 22px; color: #0071FF; }
+  .nav-item details { margin: 5px 0; }
+  .nav-item details summary { display: flex; align-items: center; padding: 12px 20px; color: #37474f; font-size: 16px; font-weight: 500; cursor: pointer; transition: background-color 0.3s, color 0.3s; border-radius: 6px; }
+  .nav-item details summary:hover { background: #E3F2FD; color: #005ad1; }
+  .nav-item details summary .material-icons { margin-right: 16px; font-size: 22px; color: #0071FF; }
+  .nav-item details ul { padding-left: 48px; list-style: none; }
+  .nav-item details ul li a { padding: 8px 20px; font-size: 14px; font-weight: 400; color: #455A64; border-radius: 6px; }
+  .nav-item details ul li a:hover { background: #f0f4f8; color: #0071FF; }
+  .ripple { position: absolute; border-radius: 50%; background: rgba(0,113,255,0.3); transform: scale(0); animation: ripple 0.6s linear; pointer-events: none; }
+  @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+  @media (max-width: 800px) {
+      .nav-drawer { width: 240px; left: -240px; }
+      .nav-drawer.open { left: 0; }
+  }
+  details ul { margin-left: 1.5em; }
+  .hero-metrics { display: flex; justify-content: space-around; margin-bottom: 20px; flex-wrap: wrap; }
+  .metric-card { text-align: center; padding: 20px; border-radius: 10px; color: white; font-size: 20px; font-weight: bold; min-width: 150px; flex: 1; margin: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+  .normal { background-color: #388e3c; } .warning { background-color: #ffa000; } .critical { background-color: #B71C1C; } .default { background-color: #0071FF; }
+  @media (max-width: 600px) { .hero-metrics { flex-direction: column; align-items: center; } .metric-card { width: 80%; } }
+  .tooltip { display: inline-block; position: relative; cursor: pointer; margin-left: 8px; color: #0071FF; font-weight: bold; }
+  .tooltip .tooltip-text { visibility: hidden; width: 260px; background-color: #0071FF; color: #fff; text-align: left; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -130px; opacity: 0; transition: opacity 0.3s; font-size: 13px; }
+  .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+  .tooltip .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: #0071FF transparent transparent transparent; }
+  .info-icon { font-size: 14px; border: 1px solid #0071FF; border-radius: 50%; padding: 0 5px; line-height: 1; display: inline-block; background-color: white; vertical-align: middle; position: relative; top: -2px; }
+  .footer { background: linear-gradient(90deg, #263238, #37474f); color: white; text-align: center; padding: 20px; font-size: 14px; position: relative; }
+  .footer a { color: #80cbc4; text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+  .footer .logo { height: 30px; margin-bottom: 10px; }
+  .recommendation-card { margin-bottom: 10px; }
+  .recommendation-card details { background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .recommendation-card summary { padding: 12px; background: #E3F2FD; border-radius: 8px 8px 0 0; }
+  .recommendation-card summary:hover { background: #BBDEFB; }
+  .recommendation-content { padding: 15px; background: #f9f9f9; border: 1px solid #BBDEFB; border-top: none; border-radius: 0 0 8px 8px; color: #37474f; line-height: 1.6; }
+  .recommendation-content h4 { margin: 0 0 10px 0; font-size: 16px; color: #0071FF; }
+  .recommendation-content ul { padding-left: 20px; margin: 0; }
+  .recommendation-content li { margin-bottom: 10px; }
+  .recommendation-content code { background: #e0e0e0; padding: 2px 4px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; }
+.table-pagination {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.table-pagination select,
+.table-pagination button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #f7f7f7;
+  cursor: pointer;
+}
+.table-pagination button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.table-pagination .active {
+  font-weight: bold;
+  background: #0071FF;
+  color: white;
+}
+  #menuFab {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 52px;
+  height: 52px;
+  background-color: #0071FF;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  z-index: 2001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+#menuFab:hover {
+  background-color: #005ad1;
+}
 </style>
 </head>
 <body>
-<div id="toc">
-    <div id="toc-toggle">MENU</div> <!-- Collapsed button -->
-    <div id="toc-content">
-        <button id="toc-close">✖</button> <!-- Close Button -->
-  <h3>Sections</h3>
-<ul>
-  <li><a href="#summary">Cluster Summary</a></li>
-
-  <!-- Collapsible "Nodes" section -->
-  <li>
-    <details>
-      <summary>Nodes</summary>
-      <ul>
-        <li><a href="#nodecon">Node Conditions</a></li>
-        <li><a href="#noderesource">Node Resources</a></li>
-      </ul>
-    </details>
-  </li>
-
-  <li><a href="#namespaces">Namespaces</a></li>
-
-  <!-- Collapsible "Workloads" section -->
-    <li>
-    <details>
-      <summary>Workloads</summary>
-      <ul>
-        <li><a href="#daemonsets">DaemonSets</a></li>
+<div class="nav-drawer" id="navDrawer">
+  <div class="nav-header">
+      <h3>Navigation</h3>
+      <button class="nav-close" id="navClose">✖</button>
+  </div>
+  <div class="nav-content">
+      <ul class="nav-items">
+          <li class="nav-item"><a href="#summary"><span class="material-icons">dashboard</span> Cluster Summary</a></li>
+          <li class="nav-item">
+              <details>
+                  <summary><span class="material-icons">computer</span> Nodes</summary>
+                  <ul>
+                      <li><a href="#nodecon">Node Conditions</a></li>
+                      <li><a href="#noderesource">Node Resources</a></li>
+                  </ul>
+              </details>
+          </li>
+          <li class="nav-item">
+            <details>
+              <summary><span class="material-icons">folder</span> Namespaces</summary>
+              <ul>
+                <li><a href="#namespaces">Empty Namespaces</a></li>
+                <li><a href="#resourceQuotas">ResourceQuotas</a></li>
+                <li><a href="#namespaceLimitRanges">LimitRanges</a></li>
               </ul>
-    </details>
-  </li>
-
-  <!-- Collapsible "Pods" section -->
-  <li>
-    <details>
-      <summary>Pods</summary>
-      <ul>
-        <li><a href="#podrestarts">Pods with High Restarts</a></li>
-        <li><a href="#podlong">Long Running Pods</a></li>
-        <li><a href="#podfail">Failed Pods</a></li>
-        <li><a href="#podpend">Pending Pods</a></li>
-        <li><a href="#crashloop">Pods in Crashloop</a></li>
-        <li><a href="#debugpods">Running Debug Pods</a></li>
-      </ul>
-    </details>
-  </li>
-
-  <!-- Collapsible "Jobs" section -->
-    <li>
-    <details>
-      <summary>Jobs</summary>
-      <ul>
-        <li><a href="#stuckjobs">Stuck Jobs</a></li>
-        <li><a href="#failedjobs">Job Failures</a></li>
+            </details>
+          </li>
+          <li class="nav-item">
+            <details>
+              <summary><span class="material-icons">build</span> Workloads</summary>
+              <ul>
+                <li><a href="#daemonsets">DaemonSets</a></li>
+                <li><a href="#deploymentIssues">Deployment Issues</a></li>
+                <li><a href="#statefulSetIssues">StatefulSet Issues</a></li>
+                <li><a href="#HPA">Horizontal Pod Autoscalers</a></li>
+                <li><a href="#missingResourceLimits">Missing Resource Limits</a></li>
+                <li><a href="#PDB">PodDisruptionBudgets</a></li>
+                <li><a href="#missingProbes">Missing Health Probes</a></li>
               </ul>
-    </details>
-  </li>
-
-  <!-- Collapsible "Networking" section -->
-    <li>
-    <details>
-      <summary>Networking</summary>
-      <ul>
-        <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
+            </details>
+          </li>
+          <li class="nav-item">
+              <details>
+                  <summary><span class="material-icons">hexagon</span> Pods</summary>
+                  <ul>
+                      <li><a href="#podrestarts">Pods with High Restarts</a></li>
+                      <li><a href="#podlong">Long Running Pods</a></li>
+                      <li><a href="#podfail">Failed Pods</a></li>
+                      <li><a href="#podpend">Pending Pods</a></li>
+                      <li><a href="#crashloop">Pods in Crashloop</a></li>
+                      <li><a href="#debugpods">Running Debug Pods</a></li>
+                  </ul>
+              </details>
+          </li>
+          <li class="nav-item">
+              <details>
+                  <summary><span class="material-icons">work</span> Jobs</summary>
+                  <ul>
+                      <li><a href="#stuckjobs">Stuck Jobs</a></li>
+                      <li><a href="#failedjobs">Job Failures</a></li>
+                  </ul>
+              </details>
+          </li>
+          <li class="nav-item">
+              <details>
+                  <summary><span class="material-icons">network_check</span> Networking</summary>
+                  <ul>
+                      <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
+                      <li><a href="#publicServices">Public Services</a></li>
+                      <li><a href="#ingressHealth">Ingress Health</a></li>
+                  </ul>
+              </details>
+          </li>
+          <li class="nav-item">
+              <details>
+                  <summary><span class="material-icons">storage</span> Storage</summary>
+                  <ul>
+                      <li><a href="#unmountedpv">Unmounted Persistent Volumes</a></li>
+                  </ul>
+              </details>
+          </li>
+          <li class="nav-item">
+            <details>
+              <summary><span class="material-icons">security</span> Security</summary>
+              <ul>
+                <!-- RBAC -->
+                <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
+                <li><a href="#rbacOverexposure">RBAC Overexposure</a></li>
+                <li><a href="#orphanedRoles">Unused Roles</a></li>
+                <li><a href="#orphanedServiceAccounts">Orphaned ServiceAccounts</a></li>
+          
+                <!-- Orphaned resources -->
+                <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
+                <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
+          
+                <!-- Pod/container security -->
+                <li><a href="#podsRoot">Pods Running as Root</a></li>
+                <li><a href="#privilegedContainers">Privileged Containers</a></li>
+                <li><a href="#hostPidNet">hostPID / hostNetwork</a></li>
               </ul>
-    </details>
-  </li>
-
-    <!-- Collapsible "Storage" section -->
-        <li>
-        <details>
-        <summary>Storage</summary>
+            </details>
+          </li>
+          <li class="nav-item">
+    <details>
+        <summary><span class="material-icons">warning</span> Kubernetes Events</summary>
         <ul>
-            <li><a href="#unmountedpv">Unmounted Persistent Volumes</a></li>
-                </ul>
-        </details>
-
-    <!-- Collapsible "Security" section -->
-        <li>
-        <details>
-        <summary>Security</summary>
-        <ul>
-            <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
-            <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
-            <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
-                </ul>
-        </details>
-    <li><a href="#clusterwarnings">Kubernetes Events</a></li>
-    <li><a href="#aks">AKS Best Practices</a></li>
-</ul>
+            <li><a href="#clusterwarnings">Warning Summary</a></li>
+            <li><a href="#fulleventlog">Full Warning Event Log</a></li>
+        </ul>
+    </details>
+</li>
+<li class="nav-item"><a href="#aks"><span class="material-icons">verified</span> AKS Best Practices</a></li>
+      </ul>
+  </div>
 </div>
-</div>
+<div class="nav-scrim" id="navScrim"></div>
 <div id="top"></div>
 <div class="header">
   <div style="display: flex; flex-direction: column;">
@@ -416,741 +312,1740 @@
            style="height: 70px; vertical-align: middle;">
     </span>
   </div>
+  <div style="text-align: right; font-size: 13px; line-height: 1.4;">
+      <div>Generated on: <strong>April 14, 2025 14:09:11 UTC</strong></div>
 
-  <!-- Right side: date & "Created by" under a line -->
-  <div style="text-align: right;">
-    <p style="margin: 0; font-size: 14px;">
-      Generated on: <strong>March 19, 2025 11:35:57 UTC</strong>
-    </p>
-
-    <hr style="border: 0; border-top: 1px solid #fff; margin: 6px 0;" />
-
-    <p style="margin: 0; font-size: 14px;">
-      Created by:
-      <a href="https://kubedeck.io" target="_blank" style="color: #fff; text-decoration: none;">
-        🌐 kubedeck.io
-      </a>
-    </p>
-
-    <!-- Save as PDF Button -->
-    <div id="printContainer">
-      <button id="savePdfBtn">📄 Save as PDF</button>
-    </div>
-  </div>
+      <div>Created by <a href="https://kubedeck.io" target="_blank" style="color: #ffffff; text-decoration: underline;">🌐 KubeDeck.io</a></div>
+      <div style="margin-top: 4px;" id="printContainer"><button id="savePdfBtn">📄 Save as PDF</button></div>
   </div>
 </div>
-
-
 <div class="container">
-    <h1 id="summary">Cluster Summary</h1>
-    <p><strong>Cluster Name:</strong> aks-0402-dev-uks</p>
-    <p><strong>Kubernetes Version:</strong> v1.30.9</p>
-    <div class="compatibility warning"><strong>Cluster is running an outdated version: v1.30.9 (Latest: v1.32.3)</strong></div>
-
-    <h2>Cluster Metrics Summary</h2>
-    <table>
-        <tr>
-            <td>🚀 Nodes: 5</td>
-            <td>🟩 Healthy: 5</td>
-            <td>🟥 Issues: 0</td>
-        </tr>
-        <tr>
-            <td>📦 Pods: 80</td>
-            <td>🟩 Running: 77</td>
-            <td>🟥 Failed: 0</td>
-        </tr>
-        <tr>
-            <td>🔄 Restarts: 2</td>
-            <td>🟨 Warnings: 0</td>
-            <td>🟥 Critical: 0</td>
-        </tr>
-        <tr>
-            <td>⏳ Pending Pods: 0</td>
-            <td>🟡 Waiting: 0</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>⚠️ Stuck Pods: 0</td>
-            <td>❌ Stuck: 0</td>
-            <td></td>
-        </tr>
-        <tr>
-            <td>📉 Job Failures: 0</td>
-            <td>🔴 Failed: 0</td>
-            <td></td>
-        </tr>
-    </table>
-
-    <h2>Pod Distribution</h2>
-    <table>
-        <tr>
-            <td>Avg: <strong>16</strong></td>
-            <td>Max: <strong>24</strong></td>
-            <td>Min: <strong>6</strong></td>
-            <td>Total Nodes: <strong>5</strong></td>
-        </tr>
-    </table>
-
-        <h2>Resource Usage</h2>
-    <div class="hero-metrics">
-        <div class="metric-card normal">🖥 CPU: <strong>10.7%</strong> <br><span>🟩 Normal</span></div>
-        <div class="metric-card normal">💾 Memory: <strong>4.06%</strong> <br><span>🟩 Normal</span></div>
+  <h1 style="margin-top: 0;">Cluster Health Score</h1>
+  <div style="margin: 20px 0;">
+    <div style="font-size: 18px; margin-bottom: 6px;">
+      Score: <strong>54.6 / 100</strong>
     </div>
-        <!-- Hero Metrics Section -->
-    <h2>Cluster Events</h2>
-    <div class="hero-metrics">
-        <div class="metric-card normal">❌ Errors: <strong>0</strong></div>
-        <div class="metric-card normal">⚠️ Warnings: <strong>0</strong></div>
+    <div style="background-color: #e0e0e0; border-radius: 8px; height: 26px; width: 100%;">
+      <div style="height: 100%; width: 54.6%; background-color: #FF9800; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+        54.6%
+      </div>
     </div>
-    </div>
+    <p style="margin-top: 10px; font-size: 16px; color: #555;">
+      This score is calculated from key checks across nodes, workloads, security, and configuration best practices.
+      <br>
+      A higher score means fewer issues and better adherence to Kubernetes standards.
+    </p>
+  </div>
 </div>
-<!-- Node Conditions Container -->
 <div class="container">
-<h1>Node Conditions & Resources</h1>
-  <h2 id="nodecon">Node Conditions</h2>
-  <div class="table-container">
-  <details id='nodeConditions' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>⚠️ Total Not Ready Nodes:</strong> 0</p><table>
+  <h1 id="summary">Cluster Summary</h1>
+  <p><strong>Cluster Name:</strong> aks-0402-dev-uks</p>
+  <p><strong>Kubernetes Version:</strong> v1.30.11</p>
+  <div class="compatibility warning"><strong>Cluster is running an outdated version: v1.30.11 (Latest: v1.32.3)</strong></div>
+  <h2>Cluster Metrics Summary <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of node and pod counts including warnings, restarts, and issues.</span></span></h2>
+  <table>
+      <tr><td>🚀 Nodes: 6</td><td>🟩 Healthy: 6</td><td>🟥 Issues: 0</td></tr>
+      <tr><td>📦 Pods: 140</td><td>🟩 Running: 136</td><td>🟥 Failed: 1</td></tr>
+      <tr><td>🔄 Restarts: 3</td><td>🟨 Warnings: 0</td><td>🟥 Critical: 0</td></tr>
+      <tr><td>⏳ Pending Pods: 0</td><td>🟡 Waiting: 0</td><td></td></tr>
+      <tr><td>⚠️ Stuck Pods: 0</td><td>❌ Stuck: 0</td><td></td></tr>
+      <tr><td>📉 Job Failures: 0</td><td>🔴 Failed: 0</td><td></td></tr>
+  </table>
+  <h2>Pod Distribution <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Average, min, and max pods per node, and total node count.</span></span></h2>
+  <table><tr><td>Avg: <strong>23.3</strong></td><td>Max: <strong>39</strong></td><td>Min: <strong>12</strong></td><td>Total Nodes: <strong>6</strong></td></tr></table>
+  <h2>Resource Usage <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Cluster-wide CPU and memory usage.</span></span></h2>
+  <div class="hero-metrics">
+      <div class="metric-card normal">🖥 CPU: <strong>15.35%</strong> <br><span>🟩 Normal</span></div>
+      <div class="metric-card normal">💾 Memory: <strong>4.27%</strong> <br><span>🟩 Normal</span></div>
+  </div>
+  <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Recent warning and error events from the cluster.</span></span></h2>
+  <div class="hero-metrics">
+      <div class="metric-card normal">❌ Errors: <strong>0</strong></div>
+      <div class="metric-card normal">⚠️ Warnings: <strong>0</strong></div>
+  </div>
+  
+</div>
+<div class="container"><h1>Node Conditions & Resources</h1><h2 id="nodecon">Node Conditions <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Displays node readiness, taints, and schedulability.</span></span></h2><div class="table-container"><p><strong>⚠️ Total Not Ready Nodes:</strong> 0</p>
+<div class="collapsible-container" id='nodeConditions'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  
+<table>
 <colgroup><col/><col/><col/></colgroup>
 <tr><th>Node</th><th>Status</th><th>Issues</th></tr>
-<tr><td>aks-systempool-19995743-vmss00000c</td><td>✅ Healthy</td><td>None</td></tr>
-<tr><td>aks-systempool-19995743-vmss00000d</td><td>✅ Healthy</td><td>None</td></tr>
-<tr><td>aks-systempool-19995743-vmss00000e</td><td>✅ Healthy</td><td>None</td></tr>
-<tr><td>aks-workloadpool-10479701-vmss000004</td><td>✅ Healthy</td><td>None</td></tr>
-<tr><td>akswinnp000001</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000m</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000n</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000o</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss00000e</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss00000f</td><td>✅ Healthy</td><td>None</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss00000g</td><td>✅ Healthy</td><td>None</td></tr>
 </table>
 
+</div>
 </details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('nodeConditions');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="noderesource">Node Resources</h2>
-  <div class="table-container">
-  <details id='nodeResources' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>⚠️ Total Resource Warnings Across All Nodes:</strong> 2</p><h2>Node Resource Usage</h2>
+</div></div><h2 id="noderesource">Node Resources <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Shows CPU and memory usage across nodes.</span></span></h2><div class="table-container"><p><strong>⚠️ Total Resource Warnings Across All Nodes:</strong> 1</p>
+<div class="collapsible-container" id='nodeResources'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  
+<h2>Node Resource Usage</h2>
 <table>
 <colgroup><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/></colgroup>
 <tr><th>Node</th><th>CPU Status</th><th>CPU %</th><th>CPU Used</th><th>CPU Total</th><th>Mem Status</th><th>Mem %</th><th>Mem Used</th><th>Mem Total</th><th>Disk %</th><th>Disk Status</th></tr>
-<tr><td>aks-systempool-19995743-vmss00000c</td><td>✅ Normal</td><td>7.47%</td><td>142 mC</td><td>1900 mC</td><td>&#128993; Warning</td><td>52.78%</td><td>3448 Mi</td><td>6533 Mi</td><td>52%</td><td>✅ Normal</td></tr>
-<tr><td>aks-systempool-19995743-vmss00000d</td><td>✅ Normal</td><td>7.05%</td><td>134 mC</td><td>1900 mC</td><td>&#128993; Warning</td><td>52.95%</td><td>3459 Mi</td><td>6533 Mi</td><td>52%</td><td>✅ Normal</td></tr>
-<tr><td>aks-systempool-19995743-vmss00000e</td><td>✅ Normal</td><td>7.26%</td><td>138 mC</td><td>1900 mC</td><td>✅ Normal</td><td>46.21%</td><td>3019 Mi</td><td>6533 Mi</td><td>46%</td><td>✅ Normal</td></tr>
-<tr><td>aks-workloadpool-10479701-vmss000004</td><td>✅ Normal</td><td>2.93%</td><td>113 mC</td><td>3860 mC</td><td>✅ Normal</td><td>12.05%</td><td>1758 Mi</td><td>14584 Mi</td><td>12%</td><td>✅ Normal</td></tr>
-<tr><td>akswinnp000001</td><td>✅ Normal</td><td>0.42%</td><td>8 mC</td><td>1900 mC</td><td>✅ Normal</td><td>29.61%</td><td>1627 Mi</td><td>5494 Mi</td><td>29%</td><td>✅ Normal</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000o</td><td>✅ Normal</td><td>6.84%</td><td>130 mC</td><td>1900 mC</td><td>&#128993; Warning</td><td>50.25%</td><td>3283 Mi</td><td>6533 Mi</td><td>50%</td><td>✅ Normal</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000m</td><td>✅ Normal</td><td>9.11%</td><td>173 mC</td><td>1900 mC</td><td>✅ Normal</td><td>48.89%</td><td>3194 Mi</td><td>6533 Mi</td><td>48%</td><td>✅ Normal</td></tr>
+<tr><td>aks-systempool-19995743-vmss00000n</td><td>✅ Normal</td><td>8.95%</td><td>170 mC</td><td>1900 mC</td><td>✅ Normal</td><td>43.38%</td><td>2834 Mi</td><td>6533 Mi</td><td>43%</td><td>✅ Normal</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss00000e</td><td>✅ Normal</td><td>4.95%</td><td>191 mC</td><td>3860 mC</td><td>✅ Normal</td><td>25.10%</td><td>3660 Mi</td><td>14584 Mi</td><td>25%</td><td>✅ Normal</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss00000f</td><td>✅ Normal</td><td>3.45%</td><td>133 mC</td><td>3860 mC</td><td>✅ Normal</td><td>13.89%</td><td>2026 Mi</td><td>14584 Mi</td><td>13%</td><td>✅ Normal</td></tr>
+<tr><td>aks-workloadpool-10479701-vmss00000g</td><td>✅ Normal</td><td>3.21%</td><td>124 mC</td><td>3860 mC</td><td>✅ Normal</td><td>12.28%</td><td>1791 Mi</td><td>14584 Mi</td><td>12%</td><td>✅ Normal</td></tr>
 </table>
 
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('nodeResources');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
 </div>
-<!-- Namespace Container -->
-<div class="container">
-<h1 id="namespaces">Namespaces</h1>
-  <h2>Empty Namespaces</h2>
-  <div class="table-container">
-  <details id='emptyNamespace' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>⚠️ Total Empty Namespaces:</strong> 3</p><table>
+</details>
+</div></div></div>
+<div class="container"><h1 id="namespaces">Namespaces</h1><h2>Empty Namespaces <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span></h2><div class="table-container"><p><strong>⚠️ Total Empty Namespaces:</strong> 14</p>
+<div class="collapsible-container" id='emptyNamespace'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Clean Up Empty Namespaces</h4>
+  <ul>
+      <li><strong>Verify Usage:</strong> Check if namespaces are truly unused with <code>kubectl get all -n <namespace></code>.</li>
+      <li><strong>Delete:</strong> Remove empty namespaces with <code>kubectl delete ns <namespace></code> to reduce clutter.</li>
+      <li><strong>Documentation:</strong> If retained, document their purpose in a ConfigMap or team wiki to avoid confusion.</li>
+      <li><strong>Automation:</strong> Consider a cronjob to periodically clean up unused namespaces.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<table>
 <colgroup><col/></colgroup>
 <tr><th>Namespace</th></tr>
+<tr><td>1</td></tr>
+<tr><td>10</td></tr>
+<tr><td>2</td></tr>
+<tr><td>3</td></tr>
+<tr><td>4</td></tr>
+<tr><td>5</td></tr>
+<tr><td>6</td></tr>
+<tr><td>7</td></tr>
+<tr><td>8</td></tr>
+<tr><td>9</td></tr>
+<tr><td>aks-istio-egress</td></tr>
 <tr><td>default</td></tr>
 <tr><td>kube-node-lease</td></tr>
 <tr><td>kube-public</td></tr>
 </table>
 
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('emptyNamespace');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
 </div>
-<!-- Workload Container -->
-<div class="container">
-<h1 id="workloads">Workloads</h1>
-  <h2 id=daemonsets>DaemonSets Not Fully Running</h2>
-  <div class="table-container">
-  <details id='daemonSetIssues' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ All DaemonSets are fully running.</strong></p>
 </details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('daemonSetIssues');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
+</div></div>
+<h2 id="resourceQuotas">ResourceQuota Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces lacking or missing quota definitions.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Namespaces with ResourceQuota issues:</strong> 32</p>
+<div class="collapsible-container" id='resourceQuotas'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Set ResourceQuotas</h4>
+  <ul>
+      <li><strong>Define:</strong> Create ResourceQuota objects with limits on CPU, memory, and pods per namespace.</li>
+      <li><strong>Example:</strong> 
+<pre><code>apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resources
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+</code></pre></li>
+      <li><strong>Scope:</strong> Apply different quotas per environment (e.g., dev vs prod).</li>
+      <li><strong>Monitor:</strong> Use <code>kubectl describe quota -n <namespace></code> to see usage.</li>
+  </ul>
 </div>
-<!-- Pods Container -->
-<div class="container">
-<h1 id="pods">Pods</h1>
-  <h2 id="podrestarts">Pods with High Restarts</h2>
-  <div class="table-container">
-  <details id='podsRestart' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No pods with excessive restarts detected.</strong></p>
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('podsRestart');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="podlong">Long Running Pods</h2>
-  <div class="table-container">
-  <details id='podLongRunning' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No long-running pods detected.</strong></p>
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('podLongRunning');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="podfail">Failed Pods</h2>
-  <div class="table-container">
-  <details id='podFail' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No failed pods found.</strong></p>
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('podFail');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="podpending">Pending Pods</h2>
-  <div class="table-container">
-  <details id='podPending' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No pending pods found.</strong></p>
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('podPending');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="crashloop">CrashLoopBackOff Pods</h2>
-  <div class="table-container">
-  <details id='crashloop' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No CrashLoopBackOff pods found.</strong></p>
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('crashloop');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-    <h2 id="debugpods">Running Debug Pods</h2>
-  <div class="table-container">
-  <details id='leftoverDebug' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No leftover debug pods detected.</strong></p>
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('leftoverDebug');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
+  </details>
 </div>
-<!-- Job Container -->
-<div class="container">
-<h1 id="jobs">Jobs</h1>
-  <h2 id="stuckjobs">Stuck Jobs</h2>
-  <div class="table-container">
-  <details id='stuckJobs' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No jobs found in the cluster.</strong></p>
+<div style='height: 15px;'></div>
+<table>
+<colgroup><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Issue</th></tr>
+<tr><td>1</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>10</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>2</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>3</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>4</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>5</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>6</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>7</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>8</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>9</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>aks-istio-egress</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>aks-istio-ingress</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>aks-istio-system</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>app-routing-system</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>argo-rollouts</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>argo-workflows</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>argocd</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>cert-manager</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>default</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>gatekeeper-system</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>grafana</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>kiali-operator</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>kube-node-lease</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>kube-public</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>kube-system</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>kubeview</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>linkerd</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>nginx</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>pets</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>prometheus</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>sealed-secrets</td><td>❌ No ResourceQuota defined</td></tr>
+<tr><td>test</td><td>❌ No ResourceQuota defined</td></tr>
+</table>
+
+</div>
 </details>
+</div></div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('stuckJobs');
-  if (!detElem) return;
+<h2 id="namespaceLimitRanges">LimitRange Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces missing default resource limits.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Namespaces missing LimitRanges:</strong> 32</p>
+<div class="collapsible-container" id='namespaceLimitRanges'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Add LimitRanges</h4>
+  <ul>
+      <li><strong>Define Defaults:</strong> Set default requests and limits per container using LimitRange.</li>
+      <li><strong>Example:</strong> 
+<pre><code>apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limits
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "250m"
+      memory: "256Mi"
+    type: Container
+</code></pre></li>
+      <li><strong>Purpose:</strong> Prevent pods from running without resource caps or defaults.</li>
+      <li><strong>Apply:</strong> <code>kubectl apply -f limitrange.yaml -n <namespace></code></li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<table>
+<colgroup><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Issue</th></tr>
+<tr><td>1</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>10</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>2</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>3</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>4</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>5</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>6</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>7</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>8</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>9</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>aks-istio-egress</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>aks-istio-ingress</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>aks-istio-system</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>app-routing-system</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>argo-rollouts</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>argo-workflows</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>argocd</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>cert-manager</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>default</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>gatekeeper-system</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>grafana</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>kiali-operator</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>kube-node-lease</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>kube-public</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>kube-system</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>kubeview</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>linkerd</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>nginx</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>pets</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>prometheus</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>sealed-secrets</td><td>❌ No LimitRange defined</td></tr>
+<tr><td>test</td><td>❌ No LimitRange defined</td></tr>
+</table>
 
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="failedjobs">Job Failures</h2>
-  <div class="table-container">
-  <details id='jobFail' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No failed jobs found.</strong></p>
+</div>
 </details>
+</div></div>
+</div>
+<div class="container"><h1 id="workloads">Workloads</h1><h2 id="daemonsets">DaemonSets Not Fully Running <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with unavailable pods or rollout issues.</span></span></h2><div class="table-container"><p><strong>✅ All DaemonSets are fully running.</strong></p>
+</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('jobFail');
-  if (!detElem) return;
+<h2 id="deploymentIssues">Deployment Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies Deployments with unhealthy replicas or rollout problems.</span></span></h2>
+<div class="table-container"><p><strong>✅ All deployments are healthy.</strong></p>
+</div>
 
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  </div>
-<!-- Networking Container -->
-<div class="container">
-<h1 id="jobs">Networking</h1>
-  <h2 id="servicenoendpoints">Services without Endpoints</h2>
-  <div class="table-container">
-  <details id='servicesWithoutEndpoints' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>⚠️ Total Services Without Endpoints:</strong> 1</p><h2>Services Without Endpoints</h2>
+<h2 id="statefulSetIssues">StatefulSet Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects StatefulSets with unavailable pods or replica mismatches.</span></span></h2>
+<div class="table-container"><p><strong>✅ All StatefulSets are healthy.</strong></p>
+</div>
+
+<h2 id="HPA">Horizontal Pod Autoscalers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Checks HPA presence and effectiveness.</span></span></h2>
+  <div class="table-container"><p><strong>✅ All HPAs are valid, scaled, and reporting metrics.</strong></p>
+</div>
+
+  <h2 id="missingResourceLimits">Missing Resource Requests & Limits <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Finds containers without memory/CPU requests or limits.</span></span></h2>
+  <div class="table-container"><p><strong>⚠️ Total Containers Missing Requests and/or Limits:</strong> 35</p>
+<div class="collapsible-container" id='missingResourceLimits'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class='recommendation-content'>
+  <h4>🛠️ Add Resource Requests and Limits</h4>
+  <ul>
+    <li><strong>Define Requests:</strong> Use <code>resources.requests</code> for <code>cpu</code> and <code>memory</code> to guarantee minimum resources.</li>
+    <li><strong>Define Limits:</strong> Use <code>resources.limits</code> to cap maximum usage for <code>cpu</code> and <code>memory</code>.</li>
+    <li><strong>Example:</strong> 
+      <pre><code>resources:
+  requests:
+    cpu: "250m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"</code></pre>
+    </li>
+    <li><strong>Why:</strong> Avoids resource contention, supports fair scheduling, and prevents overcommitment.</li>
+    <li><strong>Policy Tips:</strong> Use <code>LimitRanges</code> and admission policies to apply defaults or enforce constraints.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<table>
+<colgroup><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Kind</th><th>Workload</th><th>Container</th><th>MissingRequests</th><th>MissingLimits</th></tr>
+<tr><td>aks-istio-system</td><td>Deployment</td><td>istiod-asm-1-23</td><td>discovery</td><td></td><td>CPU, Memory</td></tr>
+<tr><td>app-routing-system</td><td>Deployment</td><td>nginx</td><td>controller</td><td></td><td>CPU, Memory</td></tr>
+<tr><td>argo-rollouts</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argo-workflows</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-applicationset-controller</td><td>argocd-applicationset-controller</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-dex-server</td><td>dex</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-dex-server</td><td>copyutil</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-notifications-controller</td><td>argocd-notifications-controller</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-redis-ha-haproxy</td><td>haproxy</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-redis-ha-haproxy</td><td>secret-init</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-redis-ha-haproxy</td><td>config-init</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-repo-server</td><td>argocd-repo-server</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-repo-server</td><td>copyutil</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-server</td><td>argocd-server</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>cert-manager</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>grafana</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>kiali-operator</td><td>Deployment</td><td>kiali-operator</td><td>operator</td><td></td><td>CPU, Memory</td></tr>
+<tr><td>kubeview</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>linkerd</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>nginx</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>prometheus</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>sealed-secrets</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>test</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>StatefulSet</td><td>argocd-application-controller</td><td>argocd-application-controller</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>StatefulSet</td><td>argocd-redis-ha-server</td><td>redis</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>StatefulSet</td><td>argocd-redis-ha-server</td><td>sentinel</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>StatefulSet</td><td>argocd-redis-ha-server</td><td>split-brain-fix</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>argocd</td><td>StatefulSet</td><td>argocd-redis-ha-server</td><td>config-init</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-metrics-win-node</td><td>prometheus-collector</td><td>CPU, Memory</td><td></td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>azure-npm</td><td>block-wireserver</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>kube-proxy</td><td>kube-proxy</td><td></td><td>CPU, Memory</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>kube-proxy</td><td>kube-proxy-bootstrap</td><td></td><td>CPU, Memory</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>microsoft-defender-publisher-ds</td><td>old-file-cleaner</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>retina-agent</td><td>retina-agent-init</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>windows-kube-proxy-initializer</td><td>pause</td><td>CPU, Memory</td><td>CPU, Memory</td></tr>
+</table>
+
+</div>
+</details>
+</div></div>
+
+  <h2 id="PDB">PodDisruptionBudgets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects missing or ineffective PDBs.</span></span></h2>
+  <div class="table-container"><p><strong>⚠️ PDB Issues Detected:</strong> 25</p>
+<div class="collapsible-container" id='PDB'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class='recommendation-content'>
+  <h4>🛠️ Improve PDB Coverage</h4>
+  <ul>
+    <li><strong>Apply PDBs:</strong> Create PDBs for all critical workloads to control voluntary disruptions.</li>
+    <li><strong>Avoid Weak PDBs:</strong> Don't set <code>minAvailable: 0</code> or <code>maxUnavailable: 100%</code>—they offer no protection.</li>
+    <li><strong>Label Matching:</strong> Verify selectors actually match pods (<code>spec.selector.matchLabels</code>).</li>
+    <li><strong>Dry Run:</strong> Use <code>kubectl get pdb -o wide</code> to confirm expected pod count.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<table>
+<colgroup><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Name</th><th>Kind</th><th>Issue</th></tr>
+<tr><td>app-routing-system</td><td>nginx</td><td>PDB</td><td>⚠️ maxUnavailable = 100%</td></tr>
+<tr><td>argo-rollouts</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argo-workflows</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-applicationset-controller</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-dex-server</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-notifications-controller</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-redis-ha-haproxy</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-repo-server</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-server</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-application-controller</td><td>StatefulSet</td><td>❌ No matching PDB</td></tr>
+<tr><td>argocd</td><td>argocd-redis-ha-server</td><td>StatefulSet</td><td>❌ No matching PDB</td></tr>
+<tr><td>cert-manager</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>grafana</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>kiali-operator</td><td>kiali-operator</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>kiali-operator</td><td>kiali</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>kubeview</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>linkerd</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>nginx</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>pets</td><td>order-service</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>pets</td><td>product-service</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>pets</td><td>store-front</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>pets</td><td>rabbitmq</td><td>StatefulSet</td><td>❌ No matching PDB</td></tr>
+<tr><td>prometheus</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>sealed-secrets</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+<tr><td>test</td><td>simple-deployment</td><td>Deployment</td><td>❌ No matching PDB</td></tr>
+</table>
+
+</div>
+</details>
+</div></div>
+
+  <h2 id="missingProbes">Missing Health Probes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Reports containers missing readiness/liveness/startup probes.</span></span></h2>
+  <div class="table-container"><p><strong>⚠️ Containers Missing Probes:</strong> 60</p>
+<div class="collapsible-container" id='missingProbes'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class='recommendation-content'>
+  <h4>🛠️ Add Health Probes</h4>
+  <ul>
+    <li><strong>Readiness Probes:</strong> Signal when the container is ready to serve traffic.</li>
+    <li><strong>Liveness Probes:</strong> Detect deadlocked or crashed apps. Example: <code>httpGet</code> or <code>exec</code>.</li>
+    <li><strong>Startup Probes:</strong> Useful for slow-starting apps to avoid premature kills.</li>
+    <li><strong>Validation:</strong> Test probe behavior with <code>kubectl describe pod <name></code>.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<table>
+<colgroup><col/><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Kind</th><th>Workload</th><th>Container</th><th>Missing</th></tr>
+<tr><td>aks-istio-ingress</td><td>Deployment</td><td>aks-istio-ingressgateway-external-asm-1-23</td><td>istio-proxy</td><td>readiness, liveness</td></tr>
+<tr><td>aks-istio-system</td><td>Deployment</td><td>istiod-asm-1-23</td><td>discovery</td><td>liveness</td></tr>
+<tr><td>argo-rollouts</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>argo-workflows</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-applicationset-controller</td><td>argocd-applicationset-controller</td><td>readiness, liveness</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-dex-server</td><td>dex</td><td>readiness, liveness</td></tr>
+<tr><td>argocd</td><td>Deployment</td><td>argocd-notifications-controller</td><td>argocd-notifications-controller</td><td>readiness</td></tr>
+<tr><td>cert-manager</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>grafana</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>ama-logs-rs</td><td>ama-logs</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>ama-metrics</td><td>prometheus-collector</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>ama-metrics</td><td>addon-token-adapter</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>ama-metrics-operator-targets</td><td>targetallocator</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>ama-metrics-operator-targets</td><td>config-reader</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>coredns-autoscaler</td><td>autoscaler</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>extension-agent</td><td>extension-agent</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>extension-agent</td><td>fluent-bit</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>extension-operator</td><td>manager</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>extension-operator</td><td>fluent-bit</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>konnectivity-agent-autoscaler</td><td>autoscaler</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>metrics-server</td><td>metrics-server-vpa</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>microsoft-defender-collector-misc</td><td>microsoft-defender-pod-collector</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>vpa-admission-controller</td><td>admission-controller</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>vpa-recommender</td><td>recommender</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>Deployment</td><td>vpa-updater</td><td>updater</td><td>readiness, liveness</td></tr>
+<tr><td>kubeview</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>linkerd</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>nginx</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>prometheus</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>sealed-secrets</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>test</td><td>Deployment</td><td>simple-deployment</td><td>webserver-simple</td><td>readiness, liveness</td></tr>
+<tr><td>argocd</td><td>StatefulSet</td><td>argocd-application-controller</td><td>argocd-application-controller</td><td>liveness</td></tr>
+<tr><td>argocd</td><td>StatefulSet</td><td>argocd-redis-ha-server</td><td>split-brain-fix</td><td>readiness, liveness</td></tr>
+<tr><td>pets</td><td>StatefulSet</td><td>rabbitmq</td><td>rabbitmq</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-csi-driver</td><td>node-driver-registrar</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-csi-driver</td><td>secrets-store</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-csi-driver</td><td>liveness-probe</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-csi-driver-windows</td><td>node-driver-registrar</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-csi-driver-windows</td><td>secrets-store</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-csi-driver-windows</td><td>liveness-probe</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-provider-azure</td><td>provider-azure-installer</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>aks-secrets-store-provider-azure-windows</td><td>provider-azure-installer</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-logs</td><td>ama-logs</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-logs</td><td>ama-logs-prometheus</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-logs-windows</td><td>ama-logs-windows</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-metrics-node</td><td>prometheus-collector</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-metrics-node</td><td>addon-token-adapter</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-metrics-win-node</td><td>prometheus-collector</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>ama-metrics-win-node</td><td>addon-token-adapter-win</td><td>readiness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>azure-ip-masq-agent</td><td>azure-ip-masq-agent</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>azure-npm</td><td>azure-npm</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>cloud-node-manager</td><td>cloud-node-manager</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>cloud-node-manager-windows</td><td>cloud-node-manager</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>kube-proxy</td><td>kube-proxy</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>microsoft-defender-collector-ds</td><td>microsoft-defender-pod-collector</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>microsoft-defender-collector-ds</td><td>microsoft-defender-low-level-collector</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>microsoft-defender-publisher-ds</td><td>microsoft-defender-publisher</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>retina-agent</td><td>retina</td><td>liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>retina-agent-win</td><td>retinawin</td><td>readiness, liveness</td></tr>
+<tr><td>kube-system</td><td>DaemonSet</td><td>windows-kube-proxy-initializer</td><td>pause</td><td>readiness, liveness</td></tr>
+</table>
+
+</div>
+</details>
+</div></div>
+</div>
+<div class="container"><h1 id="pods">Pods</h1><h2 id="podrestarts">Pods with High Restarts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods with restarts above the configured threshold.</span></span></h2><div class="table-container"><p><strong>✅ No pods with excessive restarts detected.</strong></p>
+</div><h2 id="podlong">Long Running Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods running beyond expected duration (e.g. stuck Jobs).</span></span></h2><div class="table-container"><p><strong>✅ No long-running pods detected.</strong></p>
+</div><h2 id="podfail">Failed Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods that exited with a non-zero status.</span></span></h2><div class="table-container"><p><strong>⚠️ Total Failed Pods:</strong> 1</p>
+<div class="collapsible-container" id='podFail'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Resolve Failed Pods</h4>
+  <ul>
+      <li><strong>Events:</strong> Check events with <code>kubectl describe pod <pod-name> -n <namespace></code> for failure reasons.</li>
+      <li><strong>Logs:</strong> Inspect logs (<code>kubectl logs <pod-name> --previous</code>) for crash details.</li>
+      <li><strong>Exit Codes:</strong> Decode exit codes (e.g., 1 for app error, 137 for OOM) and adjust app or resources.</li>
+      <li><strong>Restart Policy:</strong> Ensure pod spec’s restartPolicy is appropriate (<code>Never</code> vs <code>OnFailure</code>).</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>Failed Pods</h2>
+<table>
+<colgroup><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Pod</th><th>Reason</th><th>Message</th></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000n-ck6hm</td><td>UnexpectedAdmissionError</td><td>Pod was rejected: Unexpected error while attempting to recover from admission failure: preemption: error finding a set of pods to preempt: no set of running pods found to reclaim resources: [(res: cpu, q: 38), ]</td></tr>
+</table>
+
+</div>
+</details>
+</div></div><h2 id="podpend">Pending Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods pending scheduling or resource allocation.</span></span></h2><div class="table-container"><p><strong>✅ No pending pods found.</strong></p>
+</div><h2 id="crashloop">CrashLoopBackOff Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods continuously crashing and restarting.</span></span></h2><div class="table-container"><p><strong>✅ No CrashLoopBackOff pods found.</strong></p>
+</div><h2 id="debugpods">Running Debug Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ephemeral containers or debug pods left running.</span></span></h2><div class="table-container"><p><strong>✅ No leftover debug pods detected.</strong></p>
+</div></div>
+<div class="container"><h1 id="jobs">Jobs</h1><h2 id="stuckjobs">Stuck Jobs <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that haven't progressed or completed as expected.</span></span></h2><div class="table-container"><p><strong>✅ No jobs found.</strong></p>
+</div><h2 id="failedjobs">Job Failures <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that exceeded retries or failed execution.</span></span></h2><div class="table-container"><p><strong>✅ No jobs found.</strong></p>
+</div></div>
+<div class="container"><h1 id="networking">Networking</h1><h2 id="servicenoendpoints">Services without Endpoints <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services that have no active pods backing them.</span></span></h2><div class="table-container"><p><strong>⚠️ Total Services Without Endpoints:</strong> 3</p>
+<div class="collapsible-container" id='servicesWithoutEndpoints'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Fix Services Without Endpoints</h4>
+  <ul>
+      <li><strong>Selectors:</strong> Verify service selectors match pod labels (<code>kubectl describe svc <svc-name></code>).</li>
+      <li><strong>Pods:</strong> Deploy missing pods or fix pod failures (<code>kubectl get pods -l <selector></code>).</li>
+      <li><strong>Network:</strong> Ensure network policies aren’t blocking endpoints.</li>
+      <li><strong>Debug:</strong> Use <code>kubectl get endpoints <svc-name></code> to confirm endpoint creation.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
 <table>
 <colgroup><col/><col/><col/><col/></colgroup>
 <tr><th>Namespace</th><th>Service</th><th>Type</th><th>Status</th></tr>
+<tr><td>kube-system</td><td>extension-agent-metrics-service</td><td>ClusterIP</td><td>⚠️ No Endpoints</td></tr>
+<tr><td>kube-system</td><td>extension-operator-metrics-service</td><td>ClusterIP</td><td>⚠️ No Endpoints</td></tr>
 <tr><td>kube-system</td><td>network-observability</td><td>ClusterIP</td><td>⚠️ No Endpoints</td></tr>
 </table>
 
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('servicesWithoutEndpoints');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
 </div>
-<!-- Storage Container -->
-<div class="container">
-<h1 id="storage">Storage</h1>
-  <h2 id="unmountedpv">Unmounted Persistent Volumes</h2>
-  <div class="table-container">
-  <details id='unmountedPV' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>✅ No unused PVCs found.</strong></p>
 </details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('unmountedPV');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  </div>
-<!-- Security Container -->
-<div class="container">
-<h1 id="security">Security</h1>
-  <h2 id="rbacmisconfig">RBAC Misconfigurations</h2>
-  <div class="table-container">
-  <details id='rbacMisconfig' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>⚠️ Total RBAC Misconfigurations Detected:</strong> 9</p><h2>RBAC Misconfigurations</h2>
+</div></div><h2 id="publicServices">Publicly Accessible Services <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed via LoadBalancer or external IPs.</span></span></h2><div class="table-container"><p><strong>⚠️ Total Public Services Found:</strong> 4</p>
+<div class="collapsible-container" id='publicServices'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Secure Public Services</h4>
+  <ul>
+      <li><strong>Check Exposure:</strong> List services with <code>kubectl get svc -A | grep LoadBalancer</code>.</li>
+      <li><strong>Restrict:</strong> Apply network policies to limit access (<code>kubectl apply -f policy.yaml</code>).</li>
+      <li><strong>Internal:</strong> Use <code>service.beta.kubernetes.io/azure-load-balancer-internal: "true"</code> for AKS.</li>
+      <li><strong>Review:</strong> Audit if public access is intentional or reduce scope.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
 <table>
 <colgroup><col/><col/><col/><col/><col/></colgroup>
-<tr><th>Namespace</th><th>Type</th><th>RoleBinding</th><th>Subject</th><th>Issue</th></tr>
-<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system::leader-locking-kube-controller-manager</td><td>ServiceAccount/kube-controller-manager</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system::leader-locking-kube-scheduler</td><td>ServiceAccount/kube-scheduler</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system:controller:cloud-provider</td><td>ServiceAccount/cloud-provider</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>secretproviderrotation-rolebinding</td><td>ServiceAccount/secrets-store-csi-driver</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:azure-cloud-provider</td><td>ServiceAccount/azure-cloud-provider</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:azure-cloud-provider-secret-getter</td><td>ServiceAccount/azure-cloud-provider</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:controller:route-controller</td><td>ServiceAccount/route-controller</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:controller:service-controller</td><td>ServiceAccount/service-controller</td><td>❌ ServiceAccount does not exist</td></tr>
-<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:kube-dns</td><td>ServiceAccount/kube-dns</td><td>❌ ServiceAccount does not exist</td></tr>
+<tr><th>Namespace</th><th>Service</th><th>Type</th><th>Ports</th><th>ExternalIP</th></tr>
+<tr><td>aks-istio-ingress</td><td>aks-istio-ingressgateway-external</td><td>LoadBalancer</td><td>15021/TCP, 80/TCP, 443/TCP</td><td>131.145.32.126</td></tr>
+<tr><td>app-routing-system</td><td>nginx</td><td>LoadBalancer</td><td>80/TCP, 443/TCP</td><td>4.250.59.60</td></tr>
+<tr><td>pets</td><td>store-front</td><td>LoadBalancer</td><td>80/TCP</td><td>85.210.102.171</td></tr>
+<tr><td>test</td><td>simple-service</td><td>NodePort</td><td>8080/TCP</td><td>None</td></tr>
 </table>
 
+</div>
 </details>
+</div></div>
+<h2 id="ingressHealth">Ingress Configuration Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Validates Ingress resources for misconfigurations or missing backend services.</span></span></h2>
+<div class="table-container"><p><strong>✅ No ingresses found in the cluster.</strong></p>
+</div>
+</div>
+<div class="container"><h1 id="storage">Storage</h1><h2 id="unmountedpv">Unmounted Persistent Volumes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Persistent volumes not currently mounted to any pod.</span></span></h2><div class="table-container"><p><strong>✅ No PVCs found.</strong></p>
+</div></div>
+<div class="container"><h1 id="security">Security</h1>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('rbacMisconfig');
-  if (!detElem) return;
+<h2 id="rbacmisconfig">RBAC Misconfigurations <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">RoleBindings or ClusterRoleBindings with missing subjects.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Total RBAC Misconfigurations Detected:</strong> 10</p>
+<div class="collapsible-container" id='rbacMisconfig'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Fix RBAC Misconfigurations</h4>
+  <ul>
+      <li><strong>Audit:</strong> List bindings (<code>kubectl get clusterrolebinding,rolebinding -A</code>).</li>
+      <li><strong>Subjects:</strong> Add missing subjects (<code>kubectl edit clusterrolebinding <name></code>).</li>
+      <li><strong>Remove:</strong> Delete unused roles/bindings (<code>kubectl delete clusterrole <name></code>).</li>
+      <li><strong>Test:</strong> Use <code>kubectl auth can-i</code> to verify permissions.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>RBAC Misconfigurations</h2>
+<table>
+<colgroup><col/><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Type</th><th>RoleBinding</th><th>Subject</th><th>Issue</th><th>Severity</th><th>Recommendation</th></tr>
+<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system::leader-locking-kube-controller-manager</td><td>ServiceAccount/kube-controller-manager</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the RoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system::leader-locking-kube-scheduler</td><td>ServiceAccount/kube-scheduler</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the RoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>kube-system</td><td>&#128313; Namespace Role</td><td>system:controller:cloud-provider</td><td>ServiceAccount/cloud-provider</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the RoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>istio-reader-clusterrole-asm-1-23-aks-istio-system</td><td>ServiceAccount/istio-reader-service-account</td><td>❌ ServiceAccount does not exist in namespace aks-istio-system</td><td>High</td><td>Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>secretproviderrotation-rolebinding</td><td>ServiceAccount/secrets-store-csi-driver</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:azure-cloud-provider</td><td>ServiceAccount/azure-cloud-provider</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:azure-cloud-provider-secret-getter</td><td>ServiceAccount/azure-cloud-provider</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:controller:route-controller</td><td>ServiceAccount/route-controller</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:controller:service-controller</td><td>ServiceAccount/service-controller</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>&#128312; Cluster Role</td><td>system:kube-dns</td><td>ServiceAccount/kube-dns</td><td>❌ ServiceAccount does not exist in namespace kube-system</td><td>High</td><td>Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount.</td></tr>
+</table>
 
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="orphanedconfigmaps">Orphaned ConfigMaps</h2>
-  <div class="table-container">
-  <details id='orphanedConfigMaps' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> 12</p><h2>Orphaned ConfigMaps</h2>
+</div>
+</details>
+</div></div>
+
+<h2 id="rbacOverexposure">RBAC Overexposure <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Subjects with excessive or unnecessary privileges.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Total Overexposed Bindings:</strong> 21</p>
+<div class="collapsible-container" id='rbacOverexposure'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Reduce RBAC Overexposure</h4>
+  <ul>
+      <li><strong>Audit:</strong> Check permissions (<code>kubectl auth can-i --list -A</code>).</li>
+      <li><strong>Scope:</strong> Replace cluster-wide roles with namespace-specific ones (<code>kubectl create role</code>).</li>
+      <li><strong>Least Privilege:</strong> Limit verbs/resources in role definitions.</li>
+      <li><strong>Review:</strong> Regularly audit with tools like <code>rbac-tool</code> or <code>kubectl who-can</code>.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>RBAC Overexposure (cluster-admin, wildcard, or sensitive resources)</h2>
+<table>
+<colgroup><col/><col/><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Binding</th><th>Subject</th><th>Role</th><th>Scope</th><th>Risk</th><th>Severity</th><th>Recommendation</th></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>aks-cluster-admin-binding</td><td>User/clusterAdmin</td><td>cluster-admin</td><td>ClusterRoleBinding</td><td>❗ cluster-admin (built-in role)</td><td>Critical</td><td>Replace with a least-privilege ClusterRole. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>aks-cluster-admin-binding</td><td>User/clusterUser</td><td>cluster-admin</td><td>ClusterRoleBinding</td><td>❗ cluster-admin (built-in role)</td><td>Critical</td><td>Replace with a least-privilege ClusterRole. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>aks-cluster-admin-binding-aad</td><td>Group/e591c663-c79c-47a4-94b8-f646b8647046</td><td>cluster-admin</td><td>ClusterRoleBinding</td><td>❗ cluster-admin (built-in role)</td><td>Critical</td><td>Replace with a least-privilege ClusterRole. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>aks-secretprovidersyncing-rolebinding</td><td>ServiceAccount/aks-secrets-store-csi-driver</td><td>aks-secretprovidersyncing-role</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>aks-service-rolebinding</td><td>User/aks-support</td><td>aks-service</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>argocd-application-controller</td><td>ServiceAccount/argocd-application-controller</td><td>argocd-application-controller</td><td>ClusterRoleBinding</td><td>⚠️ wildcard access</td><td>High</td><td>Restrict the ClusterRole to specific verbs, resources, and apiGroups.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>cluster-admin</td><td>Group/system:masters</td><td>cluster-admin</td><td>ClusterRoleBinding</td><td>❗ cluster-admin (built-in role)</td><td>Critical</td><td>Replace with a least-privilege ClusterRole. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>extension-operator</td><td>ServiceAccount/extension-operatorsa</td><td>cluster-admin</td><td>ClusterRoleBinding</td><td>❗ cluster-admin (built-in role)</td><td>Critical</td><td>Replace with a least-privilege ClusterRole. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>kiali-operator</td><td>ServiceAccount/kiali-operator</td><td>kiali-operator</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>system:controller:clusterrole-aggregation-controller</td><td>ServiceAccount/clusterrole-aggregation-controller</td><td>system:controller:clusterrole-aggregation-controller</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access (built-in role)</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>system:controller:legacy-service-account-token-cleaner</td><td>ServiceAccount/legacy-service-account-token-cleaner</td><td>system:controller:legacy-service-account-token-cleaner</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access (built-in role)</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>system:kube-controller-manager</td><td>User/system:kube-controller-manager</td><td>system:kube-controller-manager</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access (built-in role)</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>system:kube-scheduler</td><td>User/system:kube-scheduler</td><td>system:kube-scheduler</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access (built-in role)</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>system:persistent-volume-binding</td><td>ServiceAccount/persistent-volume-binder</td><td>system:persistent-volume-secret-operator</td><td>ClusterRoleBinding</td><td>⚠️ sensitive resource access (built-in role)</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec. This is a built-in Kubernetes role; proceed with caution when modifying.</td></tr>
+<tr><td>aks-istio-system</td><td>istiod-asm-1-23</td><td>ServiceAccount/istiod-asm-1-23</td><td>istiod-asm-1-23</td><td>RoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>argocd</td><td>argocd-redis-ha-haproxy</td><td>ServiceAccount/argocd-redis-ha-haproxy</td><td>argocd-redis-ha-haproxy</td><td>RoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>argocd</td><td>argocd-server</td><td>ServiceAccount/argocd-server</td><td>argocd-server</td><td>RoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>gatekeeper-system</td><td>gatekeeper-manager-rolebinding</td><td>ServiceAccount/gatekeeper-admin</td><td>gatekeeper-manager-role</td><td>RoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>kube-system</td><td>azure-policy-webhook-rolebinding</td><td>ServiceAccount/azure-policy-webhook-account</td><td>azure-policy-webhook-role</td><td>RoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>kube-system</td><td>keda-operator-certs</td><td>ServiceAccount/keda-operator</td><td>keda-operator-certs</td><td>RoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+<tr><td>kube-system</td><td>system:controller:token-cleaner</td><td>ServiceAccount/token-cleaner</td><td>system:controller:token-cleaner</td><td>RoleBinding</td><td>⚠️ sensitive resource access</td><td>High</td><td>Restrict access to sensitive resources like secrets or pods/exec.</td></tr>
+</table>
+
+</div>
+</details>
+</div></div>
+
+<h2 id="orphanedRoles">Unused Roles & ClusterRoles <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Roles not referenced by any binding.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Unused or Ineffective Roles/Bindings:</strong> 4</p>
+<div class="collapsible-container" id='orphanedRoles'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Remove Unused Roles and ClusterRoles</h4>
+  <ul>
+      <li><strong>List:</strong> Get all Roles and ClusterRoles using <code>kubectl get roles,clusterroles -A</code>.</li>
+      <li><strong>Bindings:</strong> Confirm if they’re bound using <code>kubectl get rolebindings,clusterrolebindings -A</code>.</li>
+      <li><strong>Prune:</strong> Delete unused roles with <code>kubectl delete role <name> -n <namespace></code> or <code>kubectl delete clusterrole <name></code>.</li>
+      <li><strong>Review:</strong> Avoid clutter and reduce audit noise by cleaning up unbound roles regularly.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<table>
+<colgroup><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Role</th><th>Type</th><th>Issue</th><th>Severity</th><th>Recommendation</th></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>system:node</td><td>ClusterRoleBinding</td><td>&#128681; No subjects defined</td><td>Low</td><td>Delete the ClusterRoleBinding as it has no effect.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>aks-secretproviderclasses-admin-role</td><td>ClusterRole</td><td>⚠️ Unused ClusterRole</td><td>Low</td><td>Delete the unused ClusterRole to reduce clutter.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>aks-secretproviderclasses-viewer-role</td><td>ClusterRole</td><td>⚠️ Unused ClusterRole</td><td>Low</td><td>Delete the unused ClusterRole to reduce clutter.</td></tr>
+<tr><td>&#127757; Cluster-Wide</td><td>eraser-imagejob-pods-cluster-role</td><td>ClusterRole</td><td>&#128681; No rules defined</td><td>Low</td><td>Delete the ClusterRole or define rules to make it effective.</td></tr>
+</table>
+
+</div>
+</details>
+</div></div>
+
+<h2 id="orphanedServiceAccounts">Orphaned ServiceAccounts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ServiceAccounts not used by any Pod or Binding.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Orphaned ServiceAccounts:</strong> 20</p>
+<div class="collapsible-container" id='orphanedServiceAccounts'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Clean Up Orphaned ServiceAccounts</h4>
+  <ul>
+      <li><strong>Verify:</strong> Run <code>kubectl get sa -A</code> and check usage across pods, RoleBindings, and ClusterRoleBindings.</li>
+      <li><strong>Delete:</strong> Remove unused SAs with <code>kubectl delete sa <name> -n <namespace></code>.</li>
+      <li><strong>Audit:</strong> Confirm bindings and pods no longer reference the SA to avoid runtime issues.</li>
+      <li><strong>Policy:</strong> Set up a process to review and clean up stale SAs periodically.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<table>
+<colgroup><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Name</th></tr>
+<tr><td>1</td><td>default</td></tr>
+<tr><td>10</td><td>default</td></tr>
+<tr><td>2</td><td>default</td></tr>
+<tr><td>3</td><td>default</td></tr>
+<tr><td>4</td><td>default</td></tr>
+<tr><td>5</td><td>default</td></tr>
+<tr><td>6</td><td>default</td></tr>
+<tr><td>7</td><td>default</td></tr>
+<tr><td>8</td><td>default</td></tr>
+<tr><td>9</td><td>default</td></tr>
+<tr><td>aks-istio-egress</td><td>default</td></tr>
+<tr><td>aks-istio-ingress</td><td>default</td></tr>
+<tr><td>aks-istio-system</td><td>default</td></tr>
+<tr><td>app-routing-system</td><td>default</td></tr>
+<tr><td>argocd</td><td>default</td></tr>
+<tr><td>default</td><td>default</td></tr>
+<tr><td>gatekeeper-system</td><td>default</td></tr>
+<tr><td>kiali-operator</td><td>default</td></tr>
+<tr><td>kube-node-lease</td><td>default</td></tr>
+<tr><td>kube-public</td><td>default</td></tr>
+</table>
+
+</div>
+</details>
+</div></div>
+
+<h2 id="orphanedconfigmaps">Orphaned ConfigMaps <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ConfigMaps not referenced by any pod or controller.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> 19</p>
+<div class="collapsible-container" id='orphanedConfigMaps'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Clean Up Orphaned ConfigMaps</h4>
+  <ul>
+      <li><strong>Verify:</strong> Check usage (<code>kubectl describe cm <name> -n <namespace></code>).</li>
+      <li><strong>Delete:</strong> Remove unused ConfigMaps (<code>kubectl delete cm <name> -n <namespace></code>).</li>
+      <li><strong>Documentation:</strong> Note purpose in annotations if retained.</li>
+      <li><strong>Automation:</strong> Script cleanup for unused ConfigMaps.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>Orphaned ConfigMaps</h2>
 <table>
 <colgroup><col/><col/><col/></colgroup>
 <tr><th>Namespace</th><th>Type</th><th>Name</th></tr>
-<tr><td>default</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
-<tr><td>gatekeeper-system</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
-<tr><td>kube-node-lease</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
-<tr><td>kube-public</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
+<tr><td>aks-istio-system</td><td>&#128220; ConfigMap</td><td>istio-asm-1-23</td></tr>
+<tr><td>aks-istio-system</td><td>&#128220; ConfigMap</td><td>istio-gateway-status-leader</td></tr>
+<tr><td>aks-istio-system</td><td>&#128220; ConfigMap</td><td>istio-leader</td></tr>
+<tr><td>aks-istio-system</td><td>&#128220; ConfigMap</td><td>istio-namespace-controller-election</td></tr>
+<tr><td>aks-istio-system</td><td>&#128220; ConfigMap</td><td>istio-sidecar-injector-asm-1-23</td></tr>
+<tr><td>app-routing-system</td><td>&#128220; ConfigMap</td><td>nginx</td></tr>
+<tr><td>argocd</td><td>&#128220; ConfigMap</td><td>argocd-notifications-cm</td></tr>
+<tr><td>argocd</td><td>&#128220; ConfigMap</td><td>argocd-rbac-cm</td></tr>
 <tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>azure-ip-masq-agent-config-reconciled</td></tr>
 <tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>cluster-autoscaler-status</td></tr>
 <tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>container-azm-ms-aks-k8scluster</td></tr>
 <tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>coredns-autoscaler</td></tr>
 <tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>extension-apiserver-authentication</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>extension-immutable-values</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>extensioncontrollerleaderid-lock</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>konnectivity-agent-autoscaler</td></tr>
 <tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>kube-apiserver-legacy-service-account-token-tracking</td></tr>
-<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>kube-root-ca.crt</td></tr>
 <tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>overlay-upgrade-data</td></tr>
+<tr><td>kube-system</td><td>&#128220; ConfigMap</td><td>retina-config-win</td></tr>
 </table>
 
+</div>
 </details>
+</div></div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('orphanedConfigMaps');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  <h2 id="orphanedsecrets">Orphaned Secrets</h2>
-  <div class="table-container">
-  <details id='orphanedSecrets' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  <p><strong>⚠️ Total Orphaned Secrets Found:</strong> 3</p><h2>Orphaned Secrets</h2>
+<h2 id="orphanedsecrets">Orphaned Secrets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Secrets that are unused or unmounted by workloads.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Total Orphaned Secrets Found:</strong> 10</p>
+<div class="collapsible-container" id='orphanedSecrets'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Handle Orphaned Secrets</h4>
+  <ul>
+      <li><strong>Check:</strong> Verify usage (<code>kubectl describe secret <name> -n <namespace></code>).</li>
+      <li><strong>Delete:</strong> Remove unused Secrets (<code>kubectl delete secret <name> -n <namespace></code>).</li>
+      <li><strong>Mount:</strong> Ensure Secrets are mounted or referenced if needed (<code>spec.volumes.secret</code>).</li>
+      <li><strong>Security:</strong> Rotate if exposed and no longer used.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>Orphaned Secrets</h2>
 <table>
 <colgroup><col/><col/><col/></colgroup>
 <tr><th>Namespace</th><th>Type</th><th>Name</th></tr>
+<tr><td>aks-istio-system</td><td>&#128273; Secret</td><td>istio-ca-secret</td></tr>
+<tr><td>argocd</td><td>&#128273; Secret</td><td>argocd-initial-admin-secret</td></tr>
+<tr><td>argocd</td><td>&#128273; Secret</td><td>argocd-notifications-secret</td></tr>
+<tr><td>argocd</td><td>&#128273; Secret</td><td>argocd-secret</td></tr>
+<tr><td>argocd</td><td>&#128273; Secret</td><td>repo-1114886772</td></tr>
+<tr><td>argocd</td><td>&#128273; Secret</td><td>repo-1952242182</td></tr>
 <tr><td>kube-system</td><td>&#128273; Secret</td><td>aad-msi-auth-token</td></tr>
 <tr><td>kube-system</td><td>&#128273; Secret</td><td>azure-policy-webhook-cert</td></tr>
+<tr><td>kube-system</td><td>&#128273; Secret</td><td>extensions-aad-msi-token</td></tr>
 <tr><td>kube-system</td><td>&#128273; Secret</td><td>omsagent-aad-msi-token</td></tr>
 </table>
 
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('orphanedSecrets');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  </div>
-  <!-- Kube Event Container -->
-  <div class="container">
-  <h1 id="kubeevents">Kubernetes Warning Events</h1>
-  <h2 id="clusterwarnings">Recent Cluster Warnings</h2>
-  <div class="table-container">
-  <details id='eventSummary' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Table</summary>
-  
-</details>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('eventSummary');
-  if (!detElem) return;
-
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Table
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Table';
-  });
-});
-</script>
-  </div>
-  </div>
-    <!-- AKS summary Container -->
-  <div class="container">
-  <h1 id="aks">AKS Best Practices Details</h1>
-  <h2>AKS Best Practices Summary</h2>
-<div class="hero-metrics">
-  <div class="metric-card normal">✅ Passed: <strong>27</strong></div>
-  <div class="metric-card critical">❌ Failed: <strong>7</strong></div>
-  <div class="metric-card default">📊 Total Checks: <strong>34</strong></div>
-  <div class="metric-card warning">🎯 Score: <strong>79.41%</strong></div>
-  <div class="metric-card warning">⭐ Rating: <strong>C</strong></div>
 </div>
-  <h2 id="aksFindings">AKS Best Practices Results</h2>
-  <div class="table-container">
-  <details id='aksSummary' style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer;'>Show Best Practices Report</summary>
-  <table>
-<colgroup><col/><col/><col/><col/><col/><col/><col/></colgroup>
-<tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Recommendation</th><th>URL</th></tr>
-<tr><td>BP009</td><td>Node OS Upgrade Channel Configured</td><td>Medium</td><td>Best Practices</td><td>❌ FAIL</td><td>Node OS upgrade channel is not configured, which may leave your node OS outdated and vulnerable.</td><td>https://learn.microsoft.com/en-us/azure/aks/auto-upgrade</td></tr>
-<tr><td>BP005</td><td>Ephemeral OS Disks Enabled</td><td>Medium</td><td>Best Practices</td><td>❌ FAIL</td><td>One or more agent pools are not using ephemeral OS disks, leading to slower disk performance and increased costs.</td><td>https://learn.microsoft.com/en-us/azure/aks/ephemeral-os-disks</td></tr>
-<tr><td>BP001</td><td>Allowed Container Images Policy Enforcement</td><td>High</td><td>Best Practices</td><td>❌ FAIL</td><td>The &#39;Only Allowed Images&#39; policy is either missing or not enforcing deny mode, increasing the risk of running untrusted images.</td><td>https://learn.microsoft.com/en-us/azure/aks/azure-policy</td></tr>
-<tr><td>NET001</td><td>Authorized IP Ranges</td><td>High</td><td>Networking</td><td>❌ FAIL</td><td>No authorized IP ranges configured. This allows unrestricted access to the API server.</td><td>https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes</td></tr>
-<tr><td>NET003</td><td>Web App Routing Enabled</td><td>Low</td><td>Networking</td><td>❌ FAIL</td><td>Web App Routing is not enabled, which may limit external access management.</td><td>https://learn.microsoft.com/en-us/azure/aks/web-app-routing</td></tr>
-<tr><td>RES002</td><td>AKS Built-in Cost Tooling Enabled</td><td>Medium</td><td>Resource Management</td><td>❌ FAIL</td><td>AKS built-in cost tooling (Open Costs) is not enabled, making cost allocation and optimization harder.</td><td>https://learn.microsoft.com/en-us/azure/aks/cost-management</td></tr>
-<tr><td>SEC001</td><td>Private Cluster</td><td>High</td><td>Security</td><td>❌ FAIL</td><td>Cluster API server is publicly accessible, increasing security risks.</td><td>https://learn.microsoft.com/en-us/azure/aks/private-clusters</td></tr>
-<tr><td>BP010</td><td>Customized MC_ Resource Group Name</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Customized MC_ Resource Group Name is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/concepts-clusters-resource-group</td></tr>
-<tr><td>BP008</td><td>Auto Upgrade Channel Configured</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Auto Upgrade Channel Configured is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/auto-upgrade</td></tr>
-<tr><td>BP007</td><td>System Node Pool Taint</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>System Node Pool Taint is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-system-node-pools</td></tr>
-<tr><td>BP006</td><td>Non-Ephemeral Disks with Adequate Size</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Non-Ephemeral Disks with Adequate Size is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/availability-zone-support</td></tr>
-<tr><td>BP004</td><td>Azure Linux as Host OS</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>Azure Linux as Host OS is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-azure-linux</td></tr>
-<tr><td>BP003</td><td>Multiple Node Pools</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Multiple Node Pools is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-multiple-node-pools</td></tr>
-<tr><td>BP002</td><td>No Privileged Containers Policy Enforcement</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>No Privileged Containers Policy Enforcement is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/azure-policy</td></tr>
-<tr><td>DR001</td><td>Agent Pools with Availability Zones</td><td>High</td><td>Disaster Recovery</td><td>✅ PASS</td><td>Agent Pools with Availability Zones is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/availability-zones</td></tr>
-<tr><td>DR002</td><td>Control Plane SLA</td><td>Medium</td><td>Disaster Recovery</td><td>✅ PASS</td><td>Control Plane SLA is enabled.</td><td>https://azure.microsoft.com/en-us/pricing/details/kubernetes-service/</td></tr>
-<tr><td>IAM001</td><td>RBAC Enabled</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>RBAC Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/rbac</td></tr>
-<tr><td>IAM002</td><td>Managed Identity</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Managed Identity is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-managed-identity</td></tr>
-<tr><td>IAM003</td><td>Workload Identity Enabled</td><td>Medium</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Workload Identity Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview</td></tr>
-<tr><td>IAM004</td><td>Managed Identity Used</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Managed Identity Used is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/use-managed-identity</td></tr>
-<tr><td>IAM005</td><td>AAD RBAC Authorization Integrated</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>AAD RBAC Authorization Integrated is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/aad-integration</td></tr>
-<tr><td>IAM006</td><td>AAD Managed Authentication Enabled</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>AAD Managed Authentication Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/aad-integration</td></tr>
-<tr><td>IAM007</td><td>Local Accounts Disabled</td><td>High</td><td>Identity &amp; Access</td><td>✅ PASS</td><td>Local Accounts Disabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/disable-local-accounts</td></tr>
-<tr><td>MON002</td><td>Managed Prometheus Enabled</td><td>High</td><td>Monitoring &amp; Logging</td><td>✅ PASS</td><td>Managed Prometheus Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/azure-monitor/containers/prometheus-metrics</td></tr>
-<tr><td>MON001</td><td>Azure Monitor</td><td>High</td><td>Monitoring &amp; Logging</td><td>✅ PASS</td><td>Azure Monitor is enabled.</td><td>https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-overview</td></tr>
-<tr><td>NET004</td><td>Azure CNI Networking Recommended</td><td>Medium</td><td>Networking</td><td>✅ PASS</td><td>Azure CNI Networking Recommended is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/concepts-network#networking-options</td></tr>
-<tr><td>NET002</td><td>Network Policy Check</td><td>Medium</td><td>Networking</td><td>✅ PASS</td><td>Network Policy Check is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/best-practices-network#implement-network-policies</td></tr>
-<tr><td>RES001</td><td>Cluster Autoscaler</td><td>Medium</td><td>Resource Management</td><td>✅ PASS</td><td>Cluster Autoscaler is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/cluster-autoscaler</td></tr>
-<tr><td>SEC005</td><td>Azure Key Vault Integration</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Azure Key Vault Integration is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver</td></tr>
-<tr><td>SEC007</td><td>Kubernetes Dashboard Disabled</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Kubernetes Dashboard Disabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/kubernetes-dashboard</td></tr>
-<tr><td>SEC003</td><td>Defender for Containers</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Defender for Containers is enabled.</td><td>https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-containers-introduction</td></tr>
-<tr><td>SEC006</td><td>Image Cleaner Enabled</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>Image Cleaner Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/image-cleaner</td></tr>
-<tr><td>SEC002</td><td>Azure Policy Add-on</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>Azure Policy Add-on is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/policy-reference</td></tr>
-<tr><td>SEC004</td><td>OIDC Issuer Enabled</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>OIDC Issuer Enabled is enabled.</td><td>https://learn.microsoft.com/en-us/azure/aks/oidc-issuer</td></tr>
+</details>
+</div></div>
+
+<h2 id="podsRoot">Pods Running as Root <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running as UID 0.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Total Pods Running as Root:</strong> 153</p>
+<div class="collapsible-container" id='podsRoot'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Secure Root Pods</h4>
+  <ul>
+      <li><strong>Config:</strong> Set <code>securityContext.runAsNonRoot: true</code> in pod spec.</li>
+      <li><strong>User:</strong> Define <code>runAsUser: <non-zero-uid></code> to avoid root.</li>
+      <li><strong>Verify:</strong> Check with <code>kubectl exec <pod-name> -- whoami</code>.</li>
+      <li><strong>Policy:</strong> Enforce via PodSecurity admission controller.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>Pods Running as Root</h2>
+<table>
+<colgroup><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Pod</th><th>Container</th><th>runAsUser</th></tr>
+<tr><td>aks-istio-system</td><td>istiod-asm-1-23-7744d5fbf4-2q886</td><td>discovery</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>aks-istio-system</td><td>istiod-asm-1-23-7744d5fbf4-kffzl</td><td>discovery</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argo-rollouts</td><td>simple-deployment-74fd649f8d-6nsqn</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argo-workflows</td><td>simple-deployment-74fd649f8d-xh6fc</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-application-controller-0</td><td>argocd-application-controller</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-applicationset-controller-6fdf84dbb6-dxmmk</td><td>argocd-applicationset-controller</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-dex-server-556c76889-kspcg</td><td>dex</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-notifications-controller-6ff6bf8dd6-2jmv8</td><td>argocd-notifications-controller</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-repo-server-8568fc89b5-8r5mv</td><td>argocd-repo-server</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-repo-server-8568fc89b5-q2tbb</td><td>argocd-repo-server</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-server-5df7b9f58d-7s5qh</td><td>argocd-server</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>argocd</td><td>argocd-server-5df7b9f58d-rrxzz</td><td>argocd-server</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>cert-manager</td><td>simple-deployment-74fd649f8d-ps8ll</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>grafana</td><td>simple-deployment-74fd649f8d-f52jv</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kiali-operator</td><td>kiali-5b88cfb6f8-9wxkc</td><td>kiali</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kiali-operator</td><td>kiali-operator-696bd54db-cv6fc</td><td>operator</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-7ghbq</td><td>node-driver-registrar</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-7ghbq</td><td>secrets-store</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-7ghbq</td><td>liveness-probe</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-dg79g</td><td>node-driver-registrar</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-dg79g</td><td>secrets-store</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-dg79g</td><td>liveness-probe</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-h8s4k</td><td>node-driver-registrar</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-h8s4k</td><td>secrets-store</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-h8s4k</td><td>liveness-probe</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-hpc6x</td><td>node-driver-registrar</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-hpc6x</td><td>secrets-store</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-hpc6x</td><td>liveness-probe</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-v7qxk</td><td>node-driver-registrar</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-v7qxk</td><td>secrets-store</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-v7qxk</td><td>liveness-probe</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-xf5d4</td><td>node-driver-registrar</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-xf5d4</td><td>secrets-store</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-xf5d4</td><td>liveness-probe</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-5wpww</td><td>provider-azure-installer</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-74vvm</td><td>provider-azure-installer</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-c6x7x</td><td>provider-azure-installer</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-dhr9b</td><td>provider-azure-installer</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-tvsv4</td><td>provider-azure-installer</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-wxfc8</td><td>provider-azure-installer</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-cz28v</td><td>ama-logs</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-cz28v</td><td>ama-logs-prometheus</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-d92qr</td><td>ama-logs</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-d92qr</td><td>ama-logs-prometheus</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-qlh7j</td><td>ama-logs</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-qlh7j</td><td>ama-logs-prometheus</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-rqbvf</td><td>ama-logs</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-rqbvf</td><td>ama-logs-prometheus</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-rs-64765bd4b9-22kzv</td><td>ama-logs</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-x4x2r</td><td>ama-logs</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-x4x2r</td><td>ama-logs-prometheus</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-zxwzq</td><td>ama-logs</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-logs-zxwzq</td><td>ama-logs-prometheus</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-7f878d975f-7k97h</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-7f878d975f-7k97h</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-7f878d975f-q5llb</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-7f878d975f-q5llb</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-5qnn7</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-5qnn7</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-6wx54</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-6wx54</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-bp2db</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-bp2db</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-nw9c8</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-nw9c8</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-qpq4d</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-qpq4d</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-rtdhh</td><td>prometheus-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-node-rtdhh</td><td>addon-token-adapter</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-operator-targets-66fb46c8d6-jfwrg</td><td>targetallocator</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>ama-metrics-operator-targets-66fb46c8d6-jfwrg</td><td>config-reader</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-7lxpz</td><td>azure-ip-masq-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-c6xzh</td><td>azure-ip-masq-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-k4nc9</td><td>azure-ip-masq-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-v7qfj</td><td>azure-ip-masq-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-x4zch</td><td>azure-ip-masq-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-z8vqr</td><td>azure-ip-masq-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-npm-559xn</td><td>azure-npm</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-npm-7sp9m</td><td>azure-npm</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-npm-chwl2</td><td>azure-npm</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-npm-g5hx8</td><td>azure-npm</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-npm-x6g85</td><td>azure-npm</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-npm-xjh28</td><td>azure-npm</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>azure-policy-698f7c86b4-2mgdj</td><td>azure-policy</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-7r45z</td><td>cloud-node-manager</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-lstsj</td><td>cloud-node-manager</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-mwl6j</td><td>cloud-node-manager</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-p7rf6</td><td>cloud-node-manager</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-swp7f</td><td>cloud-node-manager</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-vnbh9</td><td>cloud-node-manager</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>coredns-658d6d767d-dgvc7</td><td>coredns</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>coredns-658d6d767d-sghts</td><td>coredns</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>coredns-autoscaler-5955d6bbdb-s2gk7</td><td>autoscaler</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000m-zxfzm</td><td>collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000m-zxfzm</td><td>remover</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000m-zxfzm</td><td>trivy-scanner</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000n-ck6hm</td><td>collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000n-ck6hm</td><td>remover</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000n-ck6hm</td><td>trivy-scanner</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000o-kpb2b</td><td>collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000o-kpb2b</td><td>remover</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-systempool-19995743-vmss00000o-kpb2b</td><td>trivy-scanner</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-workloadpool-10479701-vmss00000e-9mcf6</td><td>collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-workloadpool-10479701-vmss00000e-9mcf6</td><td>remover</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>eraser-aks-workloadpool-10479701-vmss00000e-9mcf6</td><td>trivy-scanner</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>extension-agent-66c4486d68-rczq6</td><td>extension-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>extension-agent-66c4486d68-rczq6</td><td>fluent-bit</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>extension-operator-d95fd449b-gfw8s</td><td>manager</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>extension-operator-d95fd449b-gfw8s</td><td>fluent-bit</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>konnectivity-agent-9f65c5cd8-jrr7v</td><td>konnectivity-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>konnectivity-agent-9f65c5cd8-w2zdz</td><td>konnectivity-agent</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>konnectivity-agent-autoscaler-cdfc7c46-hldwj</td><td>autoscaler</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-22hgl</td><td>kube-proxy</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-8dlr6</td><td>kube-proxy</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-fh5fr</td><td>kube-proxy</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-gb78q</td><td>kube-proxy</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-mb2c4</td><td>kube-proxy</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-nq2sj</td><td>kube-proxy</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-kqfft</td><td>microsoft-defender-pod-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-kqfft</td><td>microsoft-defender-low-level-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-mxck9</td><td>microsoft-defender-pod-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-mxck9</td><td>microsoft-defender-low-level-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-pnlvq</td><td>microsoft-defender-pod-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-pnlvq</td><td>microsoft-defender-low-level-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-r57j5</td><td>microsoft-defender-pod-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-r57j5</td><td>microsoft-defender-low-level-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-rzv62</td><td>microsoft-defender-pod-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-rzv62</td><td>microsoft-defender-low-level-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-zb6fd</td><td>microsoft-defender-pod-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-ds-zb6fd</td><td>microsoft-defender-low-level-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-collector-misc-7df6776447-x9vzw</td><td>microsoft-defender-pod-collector</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-publisher-ds-9glts</td><td>microsoft-defender-publisher</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-publisher-ds-bsthb</td><td>microsoft-defender-publisher</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-publisher-ds-dwpb7</td><td>microsoft-defender-publisher</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-publisher-ds-hdpvx</td><td>microsoft-defender-publisher</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-publisher-ds-n8rx5</td><td>microsoft-defender-publisher</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>microsoft-defender-publisher-ds-qxcd9</td><td>microsoft-defender-publisher</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>retina-agent-62scz</td><td>retina</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>retina-agent-ds69z</td><td>retina</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>retina-agent-h5wrd</td><td>retina</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>retina-agent-p74qf</td><td>retina</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>retina-agent-r2bvv</td><td>retina</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kube-system</td><td>retina-agent-xcvmn</td><td>retina</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>kubeview</td><td>simple-deployment-74fd649f8d-9d5gt</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>linkerd</td><td>simple-deployment-74fd649f8d-5bztq</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>nginx</td><td>simple-deployment-74fd649f8d-hf4dd</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>pets</td><td>order-service-6c5bfb6946-9jjrw</td><td>order-service</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>pets</td><td>product-service-5dd87dfb8-h4495</td><td>product-service</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>pets</td><td>rabbitmq-0</td><td>rabbitmq</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>pets</td><td>store-front-658994fd95-8b7jr</td><td>store-front</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>prometheus</td><td>simple-deployment-74fd649f8d-6r55l</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>sealed-secrets</td><td>simple-deployment-74fd649f8d-66bwl</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
+<tr><td>test</td><td>simple-deployment-74fd649f8d-lgft6</td><td>webserver-simple</td><td>Not Set (Defaults to root)</td></tr>
 </table>
 
+</div>
 </details>
+</div></div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const detElem = document.getElementById('aksSummary');
-  if (!detElem) return;
+<h2 id="privilegedContainers">Privileged Containers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running with privileged security context.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Total Privileged Containers Found:</strong> 25</p>
+<div class="collapsible-container" id='privilegedContainers'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Remove Privileged Containers</h4>
+  <ul>
+      <li><strong>Check:</strong> Inspect spec (<code>kubectl get pod <pod-name> -o yaml</code>).</li>
+      <li><strong>Fix:</strong> Remove <code>privileged: true</code> from <code>securityContext</code>.</li>
+      <li><strong>Capabilities:</strong> Use specific capabilities instead (<code>securityContext.capabilities.add</code>).</li>
+      <li><strong>Audit:</strong> Block privileged pods with Open Policy Agent or PodSecurity admission controller.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>Privileged Containers</h2>
+<table>
+<colgroup><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Pod</th><th>Container</th></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-7ghbq</td><td>secrets-store</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-dg79g</td><td>secrets-store</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-h8s4k</td><td>secrets-store</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-hpc6x</td><td>secrets-store</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-v7qxk</td><td>secrets-store</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-csi-driver-xf5d4</td><td>secrets-store</td></tr>
+<tr><td>kube-system</td><td>ama-logs-cz28v</td><td>ama-logs</td></tr>
+<tr><td>kube-system</td><td>ama-logs-cz28v</td><td>ama-logs-prometheus</td></tr>
+<tr><td>kube-system</td><td>ama-logs-d92qr</td><td>ama-logs</td></tr>
+<tr><td>kube-system</td><td>ama-logs-d92qr</td><td>ama-logs-prometheus</td></tr>
+<tr><td>kube-system</td><td>ama-logs-qlh7j</td><td>ama-logs</td></tr>
+<tr><td>kube-system</td><td>ama-logs-qlh7j</td><td>ama-logs-prometheus</td></tr>
+<tr><td>kube-system</td><td>ama-logs-rqbvf</td><td>ama-logs</td></tr>
+<tr><td>kube-system</td><td>ama-logs-rqbvf</td><td>ama-logs-prometheus</td></tr>
+<tr><td>kube-system</td><td>ama-logs-rs-64765bd4b9-22kzv</td><td>ama-logs</td></tr>
+<tr><td>kube-system</td><td>ama-logs-x4x2r</td><td>ama-logs</td></tr>
+<tr><td>kube-system</td><td>ama-logs-x4x2r</td><td>ama-logs-prometheus</td></tr>
+<tr><td>kube-system</td><td>ama-logs-zxwzq</td><td>ama-logs</td></tr>
+<tr><td>kube-system</td><td>ama-logs-zxwzq</td><td>ama-logs-prometheus</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-22hgl</td><td>kube-proxy</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-8dlr6</td><td>kube-proxy</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-fh5fr</td><td>kube-proxy</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-gb78q</td><td>kube-proxy</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-mb2c4</td><td>kube-proxy</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-nq2sj</td><td>kube-proxy</td></tr>
+</table>
 
-  const sum = detElem.querySelector('summary');
-  detElem.addEventListener('toggle', () => {
-    // If open, change label to "Hide Table", else revert to Show Best Practices Report
-    sum.textContent = detElem.open ? 'Hide Table' : 'Show Best Practices Report';
-  });
-});
-</script>
-  </div>
-  </div>
-    <footer class="footer">
-        <p><strong>Report generated by Kubebuddy v0.0.4</strong> on March 19, 2025 11:35:57 UTC</p>
-        <p>&copy; 2025 Kubebuddy | <a href="https://kubedeck.io" target="_blank">KubeDeck.io</a></p>
-        <p><em>This report is a snapshot of the cluster state at the time of generation. It may not reflect real-time changes. Always verify configurations before making critical decisions.</em></p>
-    </footer>
-<!-- Back to Top Button -->
+</div>
+</details>
+</div></div>
+
+<h2 id="hostPidNet">hostPID / hostNetwork Enabled <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span></h2>
+<div class="table-container"><p><strong>⚠️ Total Flagged Pods:</strong> 36</p>
+<div class="collapsible-container" id='hostPidNet'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <div class="recommendation-card">
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      <div class="recommendation-content">
+  <h4>🛠️ Disable Host PID/Network</h4>
+  <ul>
+      <li><strong>Inspect:</strong> Check pod spec (<code>kubectl get pod <pod-name> -o yaml</code>).</li>
+      <li><strong>Fix:</strong> Set <code>hostPID: false</code> and <code>hostNetwork: false</code> in <code>spec</code>.</li>
+      <li><strong>Use Case:</strong> Justify if required (e.g., monitoring tools), otherwise remove.</li>
+      <li><strong>Security:</strong> Enforce via admission controllers to prevent host access.</li>
+  </ul>
+</div>
+  </details>
+</div>
+<div style='height: 15px;'></div>
+<h2>Pods with hostPID / hostNetwork</h2>
+<table>
+<colgroup><col/><col/><col/><col/></colgroup>
+<tr><th>Namespace</th><th>Pod</th><th>hostPID</th><th>hostNetwork</th></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-5wpww</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-74vvm</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-c6x7x</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-dhr9b</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-tvsv4</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>aks-secrets-store-provider-azure-wxfc8</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-7lxpz</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-c6xzh</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-k4nc9</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-v7qfj</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-x4zch</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-ip-masq-agent-z8vqr</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-npm-559xn</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-npm-7sp9m</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-npm-chwl2</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-npm-g5hx8</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-npm-x6g85</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>azure-npm-xjh28</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-7r45z</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-lstsj</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-mwl6j</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-p7rf6</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-swp7f</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>cloud-node-manager-vnbh9</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-22hgl</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-8dlr6</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-fh5fr</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-gb78q</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-mb2c4</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>kube-proxy-nq2sj</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>retina-agent-62scz</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>retina-agent-ds69z</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>retina-agent-h5wrd</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>retina-agent-p74qf</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>retina-agent-r2bvv</td><td>✅ false</td><td>❌ true</td></tr>
+<tr><td>kube-system</td><td>retina-agent-xcvmn</td><td>✅ false</td><td>❌ true</td></tr>
+</table>
+
+</div>
+</details>
+</div></div>
+
+</div>
+<div class="container">
+<h1 id="kubeevents">Kubernetes Warning Events</h1>
+<h2 id="clusterwarnings">Warning Summary (Grouped) <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Grouped summary of recent Warning and Error events from the cluster.</span></span></h2>
+<div class="table-container"><p><strong>✅ No Kubernetes warnings found.</strong></p>
+</div>
+<h2 id="fulleventlog">Full Warning Event Log <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detailed log of recent Warning and Error events from the cluster.</span></span></h2>
+<div class="table-container"><p><strong>✅ No Kubernetes warnings found.</strong></p>
+</div>
+</div>
+<div class="container">
+<h1 id="aks">AKS Best Practices Details</h1>
+<h2>AKS Best Practices Summary</h2>
+<div class="hero-metrics">
+<div class="metric-card normal">✅ Passed: <strong>30</strong></div>
+<div class="metric-card critical">❌ Failed: <strong>5</strong></div>
+<div class="metric-card default">📊 Total Checks: <strong>35</strong></div>
+<div class="metric-card warning">🎯 Score: <strong>85.71%</strong></div>
+<div class="metric-card warning">⭐ Rating: <strong>B</strong></div>
+</div>
+<h2 id="aksFindings">AKS Best Practices Results</h2>
+<div class="table-container">
+<div class="collapsible-container" id='aksSummary'>
+<details style='margin:10px 0;'>
+<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>Show Findings</summary>
+<div style='padding-top: 15px;'>
+  <table>
+<thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Recommendation</th><th>URL</th></tr></thead>
+<tbody>
+<tr><td>BP002</td><td>No Privileged Containers Policy Enforcement</td><td>High</td><td>Best Practices</td><td>❌ FAIL</td><td>The 'No Privileged Containers' policy is either missing or not enforcing deny mode, allowing potentially insecure workloads.</td><td><a href='https://learn.microsoft.com/azure/aks/policy-reference' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP001</td><td>Allowed Container Images Policy Enforcement</td><td>High</td><td>Best Practices</td><td>❌ FAIL</td><td>The 'Only Allowed Images' policy is either missing or not enforcing deny mode, increasing the risk of running untrusted images.</td><td><a href='https://learn.microsoft.com/azure/aks/policy-reference' target='_blank'>Learn More</a></td></tr>
+<tr><td>NET001</td><td>Authorized IP Ranges</td><td>High</td><td>Networking</td><td>❌ FAIL</td><td>No authorized IP ranges configured. This allows unrestricted access to the API server.</td><td><a href='https://learn.microsoft.com/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes' target='_blank'>Learn More</a></td></tr>
+<tr><td>RES002</td><td>AKS Built-in Cost Tooling Enabled</td><td>Medium</td><td>Resource Management</td><td>❌ FAIL</td><td>AKS built-in cost tooling (Open Costs) is not enabled, making cost allocation and optimization harder.</td><td><a href='https://learn.microsoft.com/azure/aks/cost-analysis' target='_blank'>Learn More</a></td></tr>
+<tr><td>SEC001</td><td>Private Cluster</td><td>High</td><td>Security</td><td>❌ FAIL</td><td>Cluster API server is publicly accessible, increasing security risks.</td><td><a href='https://learn.microsoft.com/azure/aks/private-clusters' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP010</td><td>Customized MC_ Resource Group Name</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Customized MC_ Resource Group Name is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/faq#can-i-provide-my-own-name-for-the-aks-node-resource-group-' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP008</td><td>Auto Upgrade Channel Configured</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Auto Upgrade Channel Configured is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/auto-upgrade-cluster?tabs=azure-cli' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP007</td><td>System Node Pool Taint</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>System Node Pool Taint is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#system-and-user-node-pools' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP006</td><td>Non-Ephemeral Disks with Adequate Size</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Non-Ephemeral Disks with Adequate Size is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/concepts-storage#managed-os-disks' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP005</td><td>Ephemeral OS Disks Enabled</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Ephemeral OS Disks Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/concepts-storage#ephemeral-os-disk' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP004</td><td>Azure Linux as Host OS</td><td>High</td><td>Best Practices</td><td>✅ PASS</td><td>Azure Linux as Host OS is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/use-azure-linux' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP003</td><td>Multiple Node Pools</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Multiple Node Pools is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/use-multiple-node-pools' target='_blank'>Learn More</a></td></tr>
+<tr><td>BP009</td><td>Node OS Upgrade Channel Configured</td><td>Medium</td><td>Best Practices</td><td>✅ PASS</td><td>Node OS Upgrade Channel Configured is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/auto-upgrade-node-os-image?tabs=azure-cli' target='_blank'>Learn More</a></td></tr>
+<tr><td>DR001</td><td>Agent Pools with Availability Zones</td><td>High</td><td>Disaster Recovery</td><td>✅ PASS</td><td>Agent Pools with Availability Zones is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/availability-zones' target='_blank'>Learn More</a></td></tr>
+<tr><td>DR002</td><td>Control Plane SLA</td><td>Medium</td><td>Disaster Recovery</td><td>✅ PASS</td><td>Control Plane SLA is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/free-standard-pricing-tiers' target='_blank'>Learn More</a></td></tr>
+<tr><td>IAM002</td><td>Managed Identity</td><td>High</td><td>Identity & Access</td><td>✅ PASS</td><td>Managed Identity is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/use-managed-identity' target='_blank'>Learn More</a></td></tr>
+<tr><td>IAM001</td><td>RBAC Enabled</td><td>High</td><td>Identity & Access</td><td>✅ PASS</td><td>RBAC Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli' target='_blank'>Learn More</a></td></tr>
+<tr><td>IAM003</td><td>Workload Identity Enabled</td><td>Medium</td><td>Identity & Access</td><td>✅ PASS</td><td>Workload Identity Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/workload-identity-overview' target='_blank'>Learn More</a></td></tr>
+<tr><td>IAM004</td><td>Managed Identity Used</td><td>High</td><td>Identity & Access</td><td>✅ PASS</td><td>Managed Identity Used is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/use-managed-identity' target='_blank'>Learn More</a></td></tr>
+<tr><td>IAM005</td><td>AAD RBAC Authorization Integrated</td><td>High</td><td>Identity & Access</td><td>✅ PASS</td><td>AAD RBAC Authorization Integrated is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/enable-authentication-microsoft-entra-id' target='_blank'>Learn More</a></td></tr>
+<tr><td>IAM006</td><td>AAD Managed Authentication Enabled</td><td>High</td><td>Identity & Access</td><td>✅ PASS</td><td>AAD Managed Authentication Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli' target='_blank'>Learn More</a></td></tr>
+<tr><td>IAM007</td><td>Local Accounts Disabled</td><td>High</td><td>Identity & Access</td><td>✅ PASS</td><td>Local Accounts Disabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/manage-local-accounts-managed-azure-ad' target='_blank'>Learn More</a></td></tr>
+<tr><td>MON001</td><td>Azure Monitor</td><td>High</td><td>Monitoring & Logging</td><td>✅ PASS</td><td>Azure Monitor is enabled.</td><td><a href='https://learn.microsoft.com/azure/azure-monitor/containers/container-insights-overview' target='_blank'>Learn More</a></td></tr>
+<tr><td>MON002</td><td>Managed Prometheus Enabled</td><td>High</td><td>Monitoring & Logging</td><td>✅ PASS</td><td>Managed Prometheus Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview' target='_blank'>Learn More</a></td></tr>
+<tr><td>NET004</td><td>Azure CNI Networking Recommended</td><td>Medium</td><td>Networking</td><td>✅ PASS</td><td>Azure CNI Networking Recommended is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/concepts-network#networking-options' target='_blank'>Learn More</a></td></tr>
+<tr><td>NET003</td><td>Web App Routing Enabled</td><td>Low</td><td>Networking</td><td>✅ PASS</td><td>Web App Routing Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/web-app-routing' target='_blank'>Learn More</a></td></tr>
+<tr><td>NET002</td><td>Network Policy Check</td><td>Medium</td><td>Networking</td><td>✅ PASS</td><td>Network Policy Check is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/operator-best-practices-network#control-traffic-flow-with-network-policies' target='_blank'>Learn More</a></td></tr>
+<tr><td>RES003</td><td>Vertical Pod Autoscaler (VPA) is enabled</td><td>Medium</td><td>Resource Management</td><td>✅ PASS</td><td>Vertical Pod Autoscaler (VPA) is enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/vertical-pod-autoscaler' target='_blank'>Learn More</a></td></tr>
+<tr><td>RES001</td><td>Cluster Autoscaler</td><td>Medium</td><td>Resource Management</td><td>✅ PASS</td><td>Cluster Autoscaler is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/cluster-autoscaler' target='_blank'>Learn More</a></td></tr>
+<tr><td>SEC005</td><td>Azure Key Vault Integration</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Azure Key Vault Integration is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/csi-secrets-store-driver' target='_blank'>Learn More</a></td></tr>
+<tr><td>SEC003</td><td>Defender for Containers</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Defender for Containers is enabled.</td><td><a href='https://learn.microsoft.com/azure/defender-for-cloud/defender-for-containers-introduction' target='_blank'>Learn More</a></td></tr>
+<tr><td>SEC002</td><td>Azure Policy Add-on</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>Azure Policy Add-on is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/policy-reference' target='_blank'>Learn More</a></td></tr>
+<tr><td>SEC007</td><td>Kubernetes Dashboard Disabled</td><td>High</td><td>Security</td><td>✅ PASS</td><td>Kubernetes Dashboard Disabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/kubernetes-dashboard' target='_blank'>Learn More</a></td></tr>
+<tr><td>SEC004</td><td>OIDC Issuer Enabled</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>OIDC Issuer Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/workload-identity-deploy-cluster' target='_blank'>Learn More</a></td></tr>
+<tr><td>SEC006</td><td>Image Cleaner Enabled</td><td>Medium</td><td>Security</td><td>✅ PASS</td><td>Image Cleaner Enabled is enabled.</td><td><a href='https://learn.microsoft.com/azure/aks/image-cleaner' target='_blank'>Learn More</a></td></tr>
+</tbody>
+</table>
+</div>
+</details>
+</div>
+</div>
+</div>
+<button id="menuFab" title="Open Menu">☰</button>
+<footer class="footer">
+  <img src="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/images/reportheader%20(2).png" alt="KubeBuddy Logo" class="logo">
+  <p><strong>Report generated by KubeBuddy v0.0.4</strong> on April 14, 2025 14:09:11 UTC</p>
+  <p>© 2025 KubeBuddy | <a href="https://kubedeck.io" target="_blank">KubeDeck.io</a></p>
+  <p><em>This report is a snapshot of the cluster state at the time of generation. It may not reflect real-time changes. Always verify configurations before making critical decisions.</em></p>
+</footer>
 <a href="#top" id="backToTop">Back to Top</a>
-<script>
-    // Show/hide "Back to Top" button based on scroll
-    window.addEventListener('scroll', function() {
-      const button = document.getElementById('backToTop');
-      // If scrolled down more than 200px, show the button, else hide it
-      if (window.scrollY > 200) {
-        button.style.display = 'block';
-      } else {
-        button.style.display = 'none';
-      }
-    });
-    document.addEventListener("DOMContentLoaded", function() {
-        const toc = document.getElementById("toc");
-        const tocToggle = document.getElementById("toc-toggle");
-        const tocContent = document.getElementById("toc-content");
-        const tocClose = document.getElementById("toc-close");
-    
-        // Start in collapsed state
-        toc.classList.remove("open");
-        tocContent.style.display = "none";
-    
-        tocToggle.addEventListener("click", function() {
-            toc.classList.add("open");
-            tocContent.style.display = "block"; // Show content
-            toc.style.width = "200px"; // Expand
-            toc.style.height = "auto";
+      <script>
+      // Back to Top
+window.addEventListener('scroll', function () {
+    const button = document.getElementById('backToTop');
+    if (button) button.style.display = window.scrollY > 200 ? 'block' : 'none';
+});
+
+// Global print state
+let isPrinting = false;
+
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOM fully loaded, initializing scripts');
+
+    // Navigation Drawer
+    try {
+        const navDrawer = document.getElementById('navDrawer');
+        const navToggle = document.getElementById('menuFab');
+        const navClose = document.getElementById('navClose');
+        const navScrim = document.getElementById('navScrim');
+
+        if (!navDrawer || !navToggle || !navClose || !navScrim) {
+            console.error('Navigation drawer elements missing');
+            return;
+        }
+
+        function toggleDrawer() {
+            const isOpen = navDrawer.classList.contains('open');
+            navDrawer.classList.toggle('open');
+            navScrim.classList.toggle('open');
+            if (window.innerWidth <= 800) document.body.style.overflow = isOpen ? '' : 'hidden';
+        }
+
+        navToggle.addEventListener('click', toggleDrawer);
+        navClose.addEventListener('click', toggleDrawer);
+        navScrim.addEventListener('click', toggleDrawer);
+
+        document.querySelectorAll('.nav-item a, .nav-item details summary').forEach(item => {
+            item.addEventListener('click', function (e) {
+                const rect = this.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const ripple = document.createElement('span');
+                ripple.classList.add('ripple');
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                this.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            });
         });
-    
-        tocClose.addEventListener("click", function() {
-            toc.classList.remove("open");
-            tocContent.style.display = "none"; // Hide content
-            toc.style.width = "40px"; // Shrink
-            toc.style.height = "100px"; // Keep blue part covering it
-        });
-    
-        // Auto-close TOC on scroll
+
         let lastScrollY = window.scrollY;
-        window.addEventListener("scroll", function() {
-            if (Math.abs(window.scrollY - lastScrollY) > 50) { // If scrolled more than 50px
-                toc.classList.remove("open");
-                tocContent.style.display = "none";
-                toc.style.width = "40px";
-                toc.style.height = "100px";
+        window.addEventListener('scroll', function () {
+            if (Math.abs(window.scrollY - lastScrollY) > 50 && navDrawer.classList.contains('open')) {
+                toggleDrawer();
             }
             lastScrollY = window.scrollY;
         });
-    });
-    document.getElementById("savePdfBtn").addEventListener("click", function() {
-        // Store original open state of all collapsible sections
-        const detailsElements = document.querySelectorAll("details");
-        const detailsStates = new Map();
-        
-        detailsElements.forEach(detail => {
-            detailsStates.set(detail, detail.open);
-            detail.open = true; // Expand all sections
-        });
-    
-        // Save original table styles
-        const tableContainers = document.querySelectorAll(".table-container");
-        const tables = document.querySelectorAll("table");
-    
-        const originalStyles = [];
-    
-        tableContainers.forEach((container, index) => {
-            originalStyles[index] = {
-                overflow: container.style.overflow,
-                height: container.style.height
-            };
-    
-            // Remove scrollbars and expand tables
-            container.style.overflow = "visible";
-            container.style.height = "auto";
-        });
-    
-        // Force table rows to expand fully
-        tables.forEach(table => {
-            table.style.width = "100%";
-            table.style.tableLayout = "fixed";
-        });
-    
-        // Delay print to allow rendering
-        setTimeout(() => {
-            window.print();
-        }, 500);
-    
-        // Restore original styles after printing
-        window.onafterprint = function() {
-            detailsElements.forEach(detail => {
-                detail.open = detailsStates.get(detail); // Restore original state
-            });
-    
-            tableContainers.forEach((container, index) => {
-                container.style.overflow = originalStyles[index].overflow;
-                container.style.height = originalStyles[index].height;
-            });
-    
-            // Reset table styles
-            tables.forEach(table => {
-                table.style.tableLayout = "";
-            });
-        };
-    });
+    } catch (e) {
+        console.error('Navigation Drawer Error:', e);
+    }
 
-  </script>
+    // Save as PDF
+    try {
+        const savePdfBtn = document.getElementById('savePdfBtn');
+        if (!savePdfBtn) {
+            console.error('Save PDF button not found');
+        } else {
+            savePdfBtn.addEventListener('click', function () {
+                isPrinting = true;
+                console.log('Preparing for PDF: expanding details and removing pagination');
+
+                document.querySelectorAll('.table-pagination').forEach(pagination => {
+                    console.log(`Pre-print: Removing pagination from ${pagination.parentElement.id}`);
+                    pagination.remove();
+                });
+
+                const detailsElements = document.querySelectorAll('details');
+                const detailsStates = new Map();
+                detailsElements.forEach(detail => {
+                    detailsStates.set(detail, detail.open);
+                    detail.open = true;
+                });
+
+                const tableContainers = document.querySelectorAll('.table-container');
+                const tables = document.querySelectorAll('table');
+                const originalStyles = [];
+                tableContainers.forEach((container, index) => {
+                    originalStyles[index] = { overflow: container.style.overflow, height: container.style.height };
+                    container.style.overflow = 'visible';
+                    container.style.height = 'auto';
+                });
+                tables.forEach(table => {
+                    table.style.width = '100%';
+                    table.style.tableLayout = 'fixed';
+                });
+
+                document.querySelectorAll('.collapsible-container').forEach(container => {
+                    const table = container.querySelector('table');
+                    if (table) {
+                        const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
+                        console.log(`Pre-print: Showing all ${allRows.length - 1} rows for ${container.id}`);
+                        allRows.forEach(row => row.style.display = '');
+                    }
+                });
+
+                setTimeout(() => {
+                    window.print();
+                }, 1500);
+
+                window.onafterprint = function () {
+                    console.log('PDF print complete, restoring original state');
+                    isPrinting = false;
+                    detailsElements.forEach(detail => detail.open = detailsStates.get(detail));
+                    tableContainers.forEach((container, index) => {
+                        container.style.overflow = originalStyles[index].overflow;
+                        container.style.height = originalStyles[index].height;
+                    });
+                    tables.forEach(table => table.style.tableLayout = '');
+
+                    document.querySelectorAll('.collapsible-container').forEach(container => {
+                        if (container.querySelector('details').open) {
+                            paginateTable(container);
+                        }
+                    });
+                };
+            });
+
+            window.addEventListener('afterprint', () => {
+                if (isPrinting) {
+                    isPrinting = false;
+                    console.log('Print canceled, restoring pagination');
+                    document.querySelectorAll('.collapsible-container').forEach(container => {
+                        if (container.querySelector('details').open) {
+                            paginateTable(container);
+                        }
+                    });
+                }
+            });
+        }
+    } catch (e) {
+        console.error('PDF Error:', e);
+    }
+
+    // Collapsible Toggle, Pagination, and Sorting Setup
+    try {
+        const containers = document.querySelectorAll('.container');
+        console.log(`Found ${containers.length} containers`);
+        containers.forEach(container => {
+            const details = container.querySelectorAll('.collapsible-container > details');
+            console.log(`Found ${details.length} details in container`);
+            details.forEach(detail => {
+                const collapsibleContainer = detail.parentElement;
+                const id = collapsibleContainer.id;
+                if (!id) {
+                    console.log('Skipping collapsible with no ID');
+                    return;
+                }
+                const summary = detail.querySelector('summary');
+                const defaultText = summary.textContent;
+
+                console.log(`Setting up collapsible for ID: ${id}`);
+
+                // Initialize sorting state for this table
+                collapsibleContainer.sortState = {
+                    columnIndex: null,
+                    ascending: true
+                };
+
+                detail.addEventListener('toggle', () => {
+                    summary.textContent = detail.open ? 'Hide Findings' : defaultText;
+                    const pagination = collapsibleContainer.querySelector('.table-pagination');
+                
+                    if (detail.open) {
+                        console.log(`Toggled open: ${id}, calling paginateTable`);
+                        setTimeout(() => paginateTable(collapsibleContainer), 200);
+                    } else if (pagination) {
+                        pagination.remove();
+                        console.log(`Toggled closed: ${id}, removed pagination`);
+                    }
+                });
+
+                // Add sorting functionality to table headers
+                const table = collapsibleContainer.querySelector('table');
+                if (table) {
+                    const headers = table.querySelectorAll('th');
+                    headers.forEach((header, index) => {
+                        header.style.cursor = 'pointer'; // Make header clickable
+                        header.addEventListener('click', () => {
+                            sortTable(collapsibleContainer, index);
+                            paginateTable(collapsibleContainer); // Re-paginate after sorting
+                        });
+                    });
+                }
+
+                if (detail.open) {
+                    console.log(`Initial open state detected for ${id}`);
+                    setTimeout(() => paginateTable(collapsibleContainer), 200);
+                }
+            });
+        });
+    } catch (e) {
+        console.error('Collapsible/Pagination/Sorting Setup Error:', e);
+    }
+});
+
+// Sorting Function
+function sortTable(collapsibleContainer, columnIndex) {
+    try {
+        const id = collapsibleContainer.id;
+        console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
+        const table = collapsibleContainer.querySelector('table');
+        if (!table) {
+            console.error(`Table not found in collapsible container: ${id}`);
+            return;
+        }
+
+        const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
+        const headerRow = allRows.find(row => row.querySelector('th')) || null;
+        const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
+
+        // Determine sort direction
+        const sortState = collapsibleContainer.sortState;
+        if (sortState.columnIndex === columnIndex) {
+            sortState.ascending = !sortState.ascending; // Toggle direction
+        } else {
+            sortState.columnIndex = columnIndex;
+            sortState.ascending = true;
+        }
+
+        // Update header to show sort direction
+        const headers = table.querySelectorAll('th');
+        headers.forEach((header, idx) => {
+            header.innerHTML = header.innerHTML.replace(/ (↑|↓)$/, ''); // Remove existing arrows
+            if (idx === columnIndex) {
+                header.innerHTML += sortState.ascending ? ' ↑' : ' ↓'; // Add arrow
+            }
+        });
+
+        // Sort the rows
+        dataRows.sort((rowA, rowB) => {
+            let cellA = rowA.cells[columnIndex].textContent.trim();
+            let cellB = rowB.cells[columnIndex].textContent.trim();
+
+            // Handle special cases for specific columns (e.g., Status, Severity)
+            if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
+                return sortState.ascending ? -1 : 1;
+            } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
+                return sortState.ascending ? 1 : -1;
+            }
+
+            if (columnIndex === 2) { // Severity column
+                const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+                const valA = severityOrder[cellA] || 0;
+                const valB = severityOrder[cellB] || 0;
+                return sortState.ascending ? valA - valB : valB - valA;
+            }
+
+            // Default sorting (alphabetical or numerical)
+            const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
+            if (isNumeric) {
+                return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
+            } else {
+                return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+            }
+        });
+
+        // Rebuild the table body with sorted rows
+        const tbody = table.querySelector('tbody') || table;
+        dataRows.forEach(row => tbody.appendChild(row));
+
+        console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
+    } catch (e) {
+        console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
+    }
+}
+
+// Pagination Function with Sliding Window
+function paginateTable(collapsibleContainer) {
+    try {
+        const id = collapsibleContainer.id;
+        console.log(`paginateTable called for ID: ${id}`);
+        if (!collapsibleContainer.classList.contains('collapsible-container')) {
+            console.error(`Element with ID ${id} is not a collapsible-container`);
+            return;
+        }
+
+        const table = collapsibleContainer.querySelector('table');
+        if (!table) {
+            console.error(`Table not found in collapsible container: ${id}`);
+            return;
+        }
+
+        const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
+        const headerRow = allRows.find(row => row.querySelector('th')) || null;
+        const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
+
+        console.log(`Found ${headerRow ? 1 : 0} header row and ${dataRows.length} data rows in table for ${id}`);
+
+        if (isPrinting) {
+            console.log(`Printing mode: showing all ${dataRows.length} rows for ${id} (pagination skipped)`);
+            allRows.forEach(row => row.style.display = '');
+            return;
+        }
+
+        if (dataRows.length < 10) {
+            console.log(`Fewer than 10 data rows for ${id}, skipping pagination`);
+            allRows.forEach(row => row.style.display = '');
+            const existingPagination = collapsibleContainer.querySelector('.table-pagination');
+            if (existingPagination) existingPagination.remove();
+            return;
+        }
+
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalPages = Math.ceil(dataRows.length / pageSize);
+        const maxVisiblePages = 5; // Window of 5 pages
+
+        let pagination = collapsibleContainer.querySelector('.table-pagination');
+        if (!pagination) {
+            pagination = document.createElement('div');
+            pagination.className = 'table-pagination';
+            collapsibleContainer.appendChild(pagination);
+            console.log(`Created pagination div for ${id}`);
+        }
+
+        const pageSizeSelect = document.createElement('select');
+        [10, 25, 50].forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = `${n} per page`;
+            if (n === pageSize) opt.selected = true;
+            pageSizeSelect.appendChild(opt);
+        });
+
+        pageSizeSelect.addEventListener('change', () => {
+            pageSize = parseInt(pageSizeSelect.value);
+            currentPage = 1;
+            totalPages = Math.ceil(dataRows.length / pageSize);
+            update();
+        });
+
+        function createButton(label, onClick, disabled, active = false) {
+            const btn = document.createElement('button');
+            btn.textContent = label;
+            btn.disabled = disabled;
+            if (active) btn.classList.add('active');
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        function createEllipsis() {
+            const span = document.createElement('span');
+            span.textContent = '...';
+            span.style.padding = '6px 12px';
+            return span;
+        }
+
+        function updatePaginationControls() {
+            pagination.innerHTML = '';
+
+            // Previous Button
+            pagination.appendChild(createButton('←', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    update();
+                }
+            }, currentPage === 1));
+
+            // Calculate the range of pages to display
+            let startPage, endPage;
+            const halfWindow = Math.floor(maxVisiblePages / 2);
+
+            if (totalPages <= maxVisiblePages) {
+                // If total pages are less than or equal to the window size, show all pages
+                startPage = 1;
+                endPage = totalPages;
+            } else {
+                // Center the current page in the window
+                startPage = Math.max(1, currentPage - halfWindow);
+                endPage = startPage + maxVisiblePages - 1;
+
+                // Adjust if the end page exceeds total pages
+                if (endPage > totalPages) {
+                    endPage = totalPages;
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                }
+            }
+
+            // Add ellipsis before if there are pages before startPage
+            if (startPage > 1) {
+                pagination.appendChild(createButton(1, () => {
+                    currentPage = 1;
+                    update();
+                }, false));
+                if (startPage > 2) {
+                    pagination.appendChild(createEllipsis());
+                }
+            }
+
+            // Show the page numbers in the calculated range
+            for (let i = startPage; i <= endPage; i++) {
+                pagination.appendChild(createButton(i, () => {
+                    currentPage = i;
+                    update();
+                }, false, i === currentPage));
+            }
+
+            // Add ellipsis after and last page if there are pages after endPage
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    pagination.appendChild(createEllipsis());
+                }
+                pagination.appendChild(createButton(totalPages, () => {
+                    currentPage = totalPages;
+                    update();
+                }, false, currentPage === totalPages));
+            }
+
+            // Next Button
+            pagination.appendChild(createButton('→', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    update();
+                }
+            }, currentPage === totalPages));
+
+            // Page Size Selector
+            pagination.appendChild(pageSizeSelect);
+
+            console.log(`Pagination controls updated for ${id}, page ${currentPage}/${totalPages}, range ${startPage}-${endPage}`);
+        }
+
+        function showPage() {
+            if (headerRow) {
+                headerRow.style.display = '';
+            }
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            dataRows.forEach((row, i) => {
+                row.style.display = (i >= start && i < end) ? '' : 'none';
+            });
+        }
+
+        function update() {
+            showPage();
+            updatePaginationControls();
+        }
+
+        update();
+    } catch (e) {
+        console.error(`Pagination Error for ${collapsibleContainer.id}:`, e);
+    }
+}
+      </script>
 </body>
 </html>

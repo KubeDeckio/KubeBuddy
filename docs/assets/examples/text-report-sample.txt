@@ -1,37 +1,37 @@
 --- Kubernetes Cluster Report ---
-Timestamp: 03/19/2025 12:54:18
+Timestamp: 04/14/2025 14:07:55
 ---------------------------------
 
 [🌐 Cluster Summary]
 
 Cluster Name: aks-0402-dev-uks
-Kubernetes Version: v1.30.9
+Kubernetes Version: v1.30.11
 Kubernetes control plane is running at https://aks-0402-dev-uks-okv6e22w.hcp.uksouth.azmk8s.io:443
 CoreDNS is running at https://aks-0402-dev-uks-okv6e22w.hcp.uksouth.azmk8s.io:443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
 Metrics-server is running at https://aks-0402-dev-uks-okv6e22w.hcp.uksouth.azmk8s.io:443/api/v1/namespaces/kube-system/services/https:metrics-server:/proxy
 
 To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
 
-Compatibility Check: ⚠️  Cluster is running an outdated version: v1.30.9 (Latest: v1.32.3)
+Compatibility Check: ⚠️  Cluster is running an outdated version: v1.30.11 (Latest: v1.32.3)
 
 Metrics: 
 📊 Cluster Metrics Summary
 ------------------------------------------------------------------------------------------
-🚀 Nodes:                   5   🟩 Healthy:              5   🟥 Issues:                  0
-📦 Pods:                   80   🟩 Running:             77   🟥 Failed:                  0
-🔄 Restarts:                2   🟨 Warnings:             0   🟥 Critical:                0
+🚀 Nodes:                   6   🟩 Healthy:              6   🟥 Issues:                  0
+📦 Pods:                  140   🟩 Running:            136   🟥 Failed:                  1
+🔄 Restarts:                3   🟨 Warnings:             0   🟥 Critical:                0
 ⏳ Pending Pods:            0   🟡 Waiting:              0   
 ⚠️ Stuck Pods:              0   ❌ Stuck:                0     
 📉 Job Failures:            0   🔴 Failed:               0   
 ------------------------------------------------------------------------------------------
 
-📊 Pod Distribution: Avg: 16 | Max: 24 | Min: 6 | Total Nodes: 5
+📊 Pod Distribution: Avg: 23.3 | Max: 39 | Min: 12 | Total Nodes: 6
 
 
 💾 Resource Usage
 ------------------------------------------------------------------------------------------
-🖥  CPU Usage:           10.76%        🟩 Normal
-💾 Memory Usage:          4.1%        🟩 Normal
+🖥  CPU Usage:           15.17%        🟩 Normal
+💾 Memory Usage:         4.26%        🟩 Normal
 ------------------------------------------------------------------------------------------
 
 ❌ Errors: 0   ⚠️ Warnings: 0
@@ -43,319 +43,889 @@ Metrics:
 
 Node                                 Status    Issues
 ----                                 ------    ------
-aks-systempool-19995743-vmss00000c   ✅ Healthy None
-aks-systempool-19995743-vmss00000d   ✅ Healthy None
-aks-systempool-19995743-vmss00000e   ✅ Healthy None
-aks-workloadpool-10479701-vmss000004 ✅ Healthy None
-akswinnp000001                       ✅ Healthy None
+aks-systempool-19995743-vmss00000m   ✅ Healthy None
+aks-systempool-19995743-vmss00000n   ✅ Healthy None
+aks-systempool-19995743-vmss00000o   ✅ Healthy None
+aks-workloadpool-10479701-vmss00000e ✅ Healthy None
+aks-workloadpool-10479701-vmss00000f ✅ Healthy None
+aks-workloadpool-10479701-vmss00000g ✅ Healthy None
 
 
 
 [📊 Node Resource Usage]
 
-⚠️ Total Resource Warnings Across All Nodes: 2
+⚠️ Total Resource Warnings Across All Nodes: 1
 --------------------------------------------------------------------------
 
 Node                                 CPU Status CPU % CPU Used CPU Total Mem Status Mem %  Mem Used Mem Total Disk % Disk Status
 ----                                 ---------- ----- -------- --------- ---------- -----  -------- --------- ------ -----------
-aks-systempool-19995743-vmss00000c   ✅ Normal   8%    152 mC   1900 mC   🟡 Warning 53.02% 3464 Mi  6533 Mi   53%    ✅ Normal
-aks-systempool-19995743-vmss00000d   ✅ Normal   7.26% 138 mC   1900 mC   🟡 Warning 53.71% 3509 Mi  6533 Mi   53%    ✅ Normal
-aks-systempool-19995743-vmss00000e   ✅ Normal   7.05% 134 mC   1900 mC   ✅ Normal   46.72% 3052 Mi  6533 Mi   46%    ✅ Normal
-aks-workloadpool-10479701-vmss000004 ✅ Normal   2.75% 106 mC   3860 mC   ✅ Normal   12.11% 1766 Mi  14584 Mi  12%    ✅ Normal
-akswinnp000001                       ✅ Normal   0.42% 8 mC     1900 mC   ✅ Normal   29.74% 1634 Mi  5494 Mi   29%    ✅ Normal
+aks-systempool-19995743-vmss00000o   ✅ Normal   6.95% 132 mC   1900 mC   🟡 Warning 50.13% 3275 Mi  6533 Mi   50%    ✅ Normal
+aks-systempool-19995743-vmss00000m   ✅ Normal   8.53% 162 mC   1900 mC   ✅ Normal   48.83% 3190 Mi  6533 Mi   48%    ✅ Normal
+aks-systempool-19995743-vmss00000n   ✅ Normal   8.89% 169 mC   1900 mC   ✅ Normal   43.43% 2837 Mi  6533 Mi   43%    ✅ Normal
+aks-workloadpool-10479701-vmss00000e ✅ Normal   4.53% 175 mC   3860 mC   ✅ Normal   25.01% 3647 Mi  14584 Mi  25%    ✅ Normal
+aks-workloadpool-10479701-vmss00000f ✅ Normal   3.7%  143 mC   3860 mC   ✅ Normal   13.86% 2022 Mi  14584 Mi  13%    ✅ Normal
+aks-workloadpool-10479701-vmss00000g ✅ Normal   3.19% 123 mC   3860 mC   ✅ Normal   12.25% 1787 Mi  14584 Mi  12%    ✅ Normal
 
 
 
 [📂 Empty Namespaces]
 
-⚠️ Total Empty Namespaces: 3
+⚠️ Total Empty Namespaces: 14
 ---------------------------------
+1
+10
+2
+3
+4
+5
+6
+7
+8
+9
+aks-istio-egress
 default
 kube-node-lease
 kube-public
 
-[🔄 DaemonSets Not Fully Running]
+[📊 Missing or Weak ResourceQuotas]
 
+⚠️ Total Issues: 32
+
+Namespace          Issue
+---------          -----
+1                  ❌ No ResourceQuota defined
+10                 ❌ No ResourceQuota defined
+2                  ❌ No ResourceQuota defined
+3                  ❌ No ResourceQuota defined
+4                  ❌ No ResourceQuota defined
+5                  ❌ No ResourceQuota defined
+6                  ❌ No ResourceQuota defined
+7                  ❌ No ResourceQuota defined
+8                  ❌ No ResourceQuota defined
+9                  ❌ No ResourceQuota defined
+aks-istio-egress   ❌ No ResourceQuota defined
+aks-istio-ingress  ❌ No ResourceQuota defined
+aks-istio-system   ❌ No ResourceQuota defined
+app-routing-system ❌ No ResourceQuota defined
+argo-rollouts      ❌ No ResourceQuota defined
+argo-workflows     ❌ No ResourceQuota defined
+argocd             ❌ No ResourceQuota defined
+cert-manager       ❌ No ResourceQuota defined
+default            ❌ No ResourceQuota defined
+gatekeeper-system  ❌ No ResourceQuota defined
+grafana            ❌ No ResourceQuota defined
+kiali-operator     ❌ No ResourceQuota defined
+kube-node-lease    ❌ No ResourceQuota defined
+kube-public        ❌ No ResourceQuota defined
+kube-system        ❌ No ResourceQuota defined
+kubeview           ❌ No ResourceQuota defined
+linkerd            ❌ No ResourceQuota defined
+nginx              ❌ No ResourceQuota defined
+pets               ❌ No ResourceQuota defined
+prometheus         ❌ No ResourceQuota defined
+sealed-secrets     ❌ No ResourceQuota defined
+test               ❌ No ResourceQuota defined
+
+
+
+[📐 Missing LimitRanges]
+⚠️ Total: 32
+
+Namespace          Issue
+---------          -----
+1                  ❌ No LimitRange defined
+10                 ❌ No LimitRange defined
+2                  ❌ No LimitRange defined
+3                  ❌ No LimitRange defined
+4                  ❌ No LimitRange defined
+5                  ❌ No LimitRange defined
+6                  ❌ No LimitRange defined
+7                  ❌ No LimitRange defined
+8                  ❌ No LimitRange defined
+9                  ❌ No LimitRange defined
+aks-istio-egress   ❌ No LimitRange defined
+aks-istio-ingress  ❌ No LimitRange defined
+aks-istio-system   ❌ No LimitRange defined
+app-routing-system ❌ No LimitRange defined
+argo-rollouts      ❌ No LimitRange defined
+argo-workflows     ❌ No LimitRange defined
+argocd             ❌ No LimitRange defined
+cert-manager       ❌ No LimitRange defined
+default            ❌ No LimitRange defined
+gatekeeper-system  ❌ No LimitRange defined
+grafana            ❌ No LimitRange defined
+kiali-operator     ❌ No LimitRange defined
+kube-node-lease    ❌ No LimitRange defined
+kube-public        ❌ No LimitRange defined
+kube-system        ❌ No LimitRange defined
+kubeview           ❌ No LimitRange defined
+linkerd            ❌ No LimitRange defined
+nginx              ❌ No LimitRange defined
+pets               ❌ No LimitRange defined
+prometheus         ❌ No LimitRange defined
+sealed-secrets     ❌ No LimitRange defined
+test               ❌ No LimitRange defined
+
+
+
+[🔄 DaemonSets Not Fully Running]
 ✅ All DaemonSets are fully running.
 
-[🔁 Pods with High Restarts]
+[🚀 Deployment Issues]
+✅ All deployments are healthy.
 
-✅ No pods with excessive restarts detected.
+[🏗️ StatefulSet Issues]
+✅ All StatefulSets are healthy.
 
-[⏳ Long Running Pods]
+[📦 Missing Resource Limits]
+⚠️ Total: 35
 
-✅ No long-running pods detected.
+Namespace          Kind        Workload                         Container                        Missing
+---------          ----        --------                         ---------                        -------
+aks-istio-system   Deployment  istiod-asm-1-23                  discovery                        
+app-routing-system Deployment  nginx                            controller                       
+argo-rollouts      Deployment  simple-deployment                webserver-simple                 
+argo-workflows     Deployment  simple-deployment                webserver-simple                 
+argocd             Deployment  argocd-applicationset-controller argocd-applicationset-controller 
+argocd             Deployment  argocd-dex-server                dex                              
+argocd             Deployment  argocd-dex-server                copyutil                         
+argocd             Deployment  argocd-notifications-controller  argocd-notifications-controller  
+argocd             Deployment  argocd-redis-ha-haproxy          haproxy                          
+argocd             Deployment  argocd-redis-ha-haproxy          secret-init                      
+argocd             Deployment  argocd-redis-ha-haproxy          config-init                      
+argocd             Deployment  argocd-repo-server               argocd-repo-server               
+argocd             Deployment  argocd-repo-server               copyutil                         
+argocd             Deployment  argocd-server                    argocd-server                    
+cert-manager       Deployment  simple-deployment                webserver-simple                 
+grafana            Deployment  simple-deployment                webserver-simple                 
+kiali-operator     Deployment  kiali-operator                   operator                         
+kubeview           Deployment  simple-deployment                webserver-simple                 
+linkerd            Deployment  simple-deployment                webserver-simple                 
+nginx              Deployment  simple-deployment                webserver-simple                 
+prometheus         Deployment  simple-deployment                webserver-simple                 
+sealed-secrets     Deployment  simple-deployment                webserver-simple                 
+test               Deployment  simple-deployment                webserver-simple                 
+argocd             StatefulSet argocd-application-controller    argocd-application-controller    
+argocd             StatefulSet argocd-redis-ha-server           redis                            
+argocd             StatefulSet argocd-redis-ha-server           sentinel                         
+argocd             StatefulSet argocd-redis-ha-server           split-brain-fix                  
+argocd             StatefulSet argocd-redis-ha-server           config-init                      
+kube-system        DaemonSet   ama-metrics-win-node             prometheus-collector             
+kube-system        DaemonSet   azure-npm                        block-wireserver                 
+kube-system        DaemonSet   kube-proxy                       kube-proxy                       
+kube-system        DaemonSet   kube-proxy                       kube-proxy-bootstrap             
+kube-system        DaemonSet   microsoft-defender-publisher-ds  old-file-cleaner                 
+kube-system        DaemonSet   retina-agent                     retina-agent-init                
+kube-system        DaemonSet   windows-kube-proxy-initializer   pause                            
+
+
+
+[🛡️ PodDisruptionBudget Coverage Check]
+
+⚠️ Total Issues: 25
+
+Namespace          Name                             Kind        Issue
+---------          ----                             ----        -----
+app-routing-system nginx                            PDB         ⚠️ maxUnavailable = 100%
+argo-rollouts      simple-deployment                Deployment  ❌ No matching PDB
+argo-workflows     simple-deployment                Deployment  ❌ No matching PDB
+argocd             argocd-applicationset-controller Deployment  ❌ No matching PDB
+argocd             argocd-dex-server                Deployment  ❌ No matching PDB
+argocd             argocd-notifications-controller  Deployment  ❌ No matching PDB
+argocd             argocd-redis-ha-haproxy          Deployment  ❌ No matching PDB
+argocd             argocd-repo-server               Deployment  ❌ No matching PDB
+argocd             argocd-server                    Deployment  ❌ No matching PDB
+cert-manager       simple-deployment                Deployment  ❌ No matching PDB
+grafana            simple-deployment                Deployment  ❌ No matching PDB
+kiali-operator     kiali                            Deployment  ❌ No matching PDB
+kiali-operator     kiali-operator                   Deployment  ❌ No matching PDB
+kubeview           simple-deployment                Deployment  ❌ No matching PDB
+linkerd            simple-deployment                Deployment  ❌ No matching PDB
+nginx              simple-deployment                Deployment  ❌ No matching PDB
+pets               order-service                    Deployment  ❌ No matching PDB
+pets               product-service                  Deployment  ❌ No matching PDB
+pets               store-front                      Deployment  ❌ No matching PDB
+prometheus         simple-deployment                Deployment  ❌ No matching PDB
+sealed-secrets     simple-deployment                Deployment  ❌ No matching PDB
+test               simple-deployment                Deployment  ❌ No matching PDB
+argocd             argocd-application-controller    StatefulSet ❌ No matching PDB
+argocd             argocd-redis-ha-server           StatefulSet ❌ No matching PDB
+pets               rabbitmq                         StatefulSet ❌ No matching PDB
+
+
+
+[🔎 Missing Health Probes]
+⚠️ Total: 60
+
+Namespace         Kind        Workload                                   Container                              Missing
+---------         ----        --------                                   ---------                              -------
+aks-istio-ingress Deployment  aks-istio-ingressgateway-external-asm-1-23 istio-proxy                            readiness, liveness
+aks-istio-system  Deployment  istiod-asm-1-23                            discovery                              liveness
+argo-rollouts     Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+argo-workflows    Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+argocd            Deployment  argocd-applicationset-controller           argocd-applicationset-controller       readiness, liveness
+argocd            Deployment  argocd-dex-server                          dex                                    readiness, liveness
+argocd            Deployment  argocd-notifications-controller            argocd-notifications-controller        readiness
+cert-manager      Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+grafana           Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+kube-system       Deployment  ama-logs-rs                                ama-logs                               readiness
+kube-system       Deployment  ama-metrics                                prometheus-collector                   readiness
+kube-system       Deployment  ama-metrics                                addon-token-adapter                    readiness
+kube-system       Deployment  ama-metrics-operator-targets               targetallocator                        readiness
+kube-system       Deployment  ama-metrics-operator-targets               config-reader                          readiness
+kube-system       Deployment  coredns-autoscaler                         autoscaler                             readiness
+kube-system       Deployment  extension-agent                            extension-agent                        readiness, liveness
+kube-system       Deployment  extension-agent                            fluent-bit                             readiness, liveness
+kube-system       Deployment  extension-operator                         manager                                readiness, liveness
+kube-system       Deployment  extension-operator                         fluent-bit                             readiness, liveness
+kube-system       Deployment  konnectivity-agent-autoscaler              autoscaler                             readiness
+kube-system       Deployment  metrics-server                             metrics-server-vpa                     readiness, liveness
+kube-system       Deployment  microsoft-defender-collector-misc          microsoft-defender-pod-collector       readiness, liveness
+kube-system       Deployment  vpa-admission-controller                   admission-controller                   readiness, liveness
+kube-system       Deployment  vpa-recommender                            recommender                            readiness, liveness
+kube-system       Deployment  vpa-updater                                updater                                readiness, liveness
+kubeview          Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+linkerd           Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+nginx             Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+prometheus        Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+sealed-secrets    Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+test              Deployment  simple-deployment                          webserver-simple                       readiness, liveness
+argocd            StatefulSet argocd-application-controller              argocd-application-controller          liveness
+argocd            StatefulSet argocd-redis-ha-server                     split-brain-fix                        readiness, liveness
+pets              StatefulSet rabbitmq                                   rabbitmq                               readiness, liveness
+kube-system       DaemonSet   aks-secrets-store-csi-driver               node-driver-registrar                  readiness
+kube-system       DaemonSet   aks-secrets-store-csi-driver               secrets-store                          readiness
+kube-system       DaemonSet   aks-secrets-store-csi-driver               liveness-probe                         readiness, liveness
+kube-system       DaemonSet   aks-secrets-store-csi-driver-windows       node-driver-registrar                  readiness
+kube-system       DaemonSet   aks-secrets-store-csi-driver-windows       secrets-store                          readiness
+kube-system       DaemonSet   aks-secrets-store-csi-driver-windows       liveness-probe                         readiness, liveness
+kube-system       DaemonSet   aks-secrets-store-provider-azure           provider-azure-installer               readiness
+kube-system       DaemonSet   aks-secrets-store-provider-azure-windows   provider-azure-installer               readiness
+kube-system       DaemonSet   ama-logs                                   ama-logs                               readiness
+kube-system       DaemonSet   ama-logs                                   ama-logs-prometheus                    readiness
+kube-system       DaemonSet   ama-logs-windows                           ama-logs-windows                       readiness
+kube-system       DaemonSet   ama-metrics-node                           prometheus-collector                   readiness
+kube-system       DaemonSet   ama-metrics-node                           addon-token-adapter                    readiness
+kube-system       DaemonSet   ama-metrics-win-node                       prometheus-collector                   readiness
+kube-system       DaemonSet   ama-metrics-win-node                       addon-token-adapter-win                readiness
+kube-system       DaemonSet   azure-ip-masq-agent                        azure-ip-masq-agent                    readiness, liveness
+kube-system       DaemonSet   azure-npm                                  azure-npm                              readiness, liveness
+kube-system       DaemonSet   cloud-node-manager                         cloud-node-manager                     readiness, liveness
+kube-system       DaemonSet   cloud-node-manager-windows                 cloud-node-manager                     readiness, liveness
+kube-system       DaemonSet   kube-proxy                                 kube-proxy                             readiness, liveness
+kube-system       DaemonSet   microsoft-defender-collector-ds            microsoft-defender-pod-collector       readiness, liveness
+kube-system       DaemonSet   microsoft-defender-collector-ds            microsoft-defender-low-level-collector readiness, liveness
+kube-system       DaemonSet   microsoft-defender-publisher-ds            microsoft-defender-publisher           readiness, liveness
+kube-system       DaemonSet   retina-agent                               retina                                 liveness
+kube-system       DaemonSet   retina-agent-win                           retinawin                              readiness, liveness
+kube-system       DaemonSet   windows-kube-proxy-initializer             pause                                  readiness, liveness
+
+
 
 [🔴 Failed Pods]
 
-✅ No failed pods found.
+⚠️ Total Failed Pods: 1
 
-[⏳ Pending Pods]
+Namespace   Pod                                             Reason                   Message
+---------   ---                                             ------                   -------
+kube-system eraser-aks-systempool-19995743-vmss00000n-ck6hm UnexpectedAdmissionError Pod was rejected: Unexpected error while attempting to recover from admission fai…
 
-✅ No pending pods found.
+
 
 [🔴 CrashLoopBackOff Pods]
-
 ✅ No CrashLoopBackOff pods found.
 
 [🐞 Leftover Debug Pods]
-
 ✅ No leftover debug pods detected.
 
-[⏳ Stuck Kubernetes Jobs]
-
-✅ No jobs found in the cluster.
-
-[🔴 Failed Kubernetes Jobs]
-
-✅ No jobs found in the cluster.
-
 [🔍 Services Without Endpoints]
+⚠️ Total: 3
 
-⚠️ Total Services Without Endpoints: 1
+Namespace   Service                            Type      Status
+---------   -------                            ----      ------
+kube-system extension-agent-metrics-service    ClusterIP ⚠️ No Endpoints
+kube-system extension-operator-metrics-service ClusterIP ⚠️ No Endpoints
+kube-system network-observability              ClusterIP ⚠️ No Endpoints
 
-Namespace   Service               Type      Status
----------   -------               ----      ------
-kube-system network-observability ClusterIP ⚠️ No Endpoints
+
+
+[🌐 Publicly Accessible Services]
+⚠️ Total Public Services Found: 4
+
+Namespace          Service                           Type         Ports                      ExternalIP
+---------          -------                           ----         -----                      ----------
+aks-istio-ingress  aks-istio-ingressgateway-external LoadBalancer 15021/TCP, 80/TCP, 443/TCP 131.145.32.126
+app-routing-system nginx                             LoadBalancer 80/TCP, 443/TCP            4.250.59.60
+pets               store-front                       LoadBalancer 80/TCP                     85.210.102.171
+test               simple-service                    NodePort     8080/TCP                   None
 
 
 
-[💾 Unused Persistent Volume Claims]
-
-✅ No unused PVCs found.
+[🌐 Ingress Health]
+✅ No ingresses found in the cluster.
 
 [RBAC Misconfigurations]
 
-⚠️ Total RBAC Misconfigurations Detected: 9
+⚠️ Total RBAC Misconfigurations Detected: 10
 
-Namespace       Type              RoleBinding                                    Subject                                 Issue
----------       ----              -----------                                    -------                                 -----
-kube-system     🔹 Namespace Role system::leader-locking-kube-controller-manager ServiceAccount/kube-controller-manager  ❌ ServiceAccount does not exist
-kube-system     🔹 Namespace Role system::leader-locking-kube-scheduler          ServiceAccount/kube-scheduler           ❌ ServiceAccount does not exist
-kube-system     🔹 Namespace Role system:controller:cloud-provider               ServiceAccount/cloud-provider           ❌ ServiceAccount does not exist
-🌍 Cluster-Wide 🔸 Cluster Role   secretproviderrotation-rolebinding             ServiceAccount/secrets-store-csi-driver ❌ ServiceAccount does not exist
-🌍 Cluster-Wide 🔸 Cluster Role   system:azure-cloud-provider                    ServiceAccount/azure-cloud-provider     ❌ ServiceAccount does not exist
-🌍 Cluster-Wide 🔸 Cluster Role   system:azure-cloud-provider-secret-getter      ServiceAccount/azure-cloud-provider     ❌ ServiceAccount does not exist
-🌍 Cluster-Wide 🔸 Cluster Role   system:controller:route-controller             ServiceAccount/route-controller         ❌ ServiceAccount does not exist
-🌍 Cluster-Wide 🔸 Cluster Role   system:controller:service-controller           ServiceAccount/service-controller       ❌ ServiceAccount does not exist
-🌍 Cluster-Wide 🔸 Cluster Role   system:kube-dns                                ServiceAccount/kube-dns                 ❌ ServiceAccount does not exist
+Namespace       Type              RoleBinding                                        Subject                                     Issue
+---------       ----              -----------                                        -------                                     -----                                 
+kube-system     🔹 Namespace Role system::leader-locking-kube-controller-manager     ServiceAccount/kube-controller-manager      ❌ ServiceAccount does not exist in na…
+kube-system     🔹 Namespace Role system::leader-locking-kube-scheduler              ServiceAccount/kube-scheduler               ❌ ServiceAccount does not exist in na…
+kube-system     🔹 Namespace Role system:controller:cloud-provider                   ServiceAccount/cloud-provider               ❌ ServiceAccount does not exist in na…
+🌍 Cluster-Wide 🔸 Cluster Role   istio-reader-clusterrole-asm-1-23-aks-istio-system ServiceAccount/istio-reader-service-account ❌ ServiceAccount does not exist in na…
+🌍 Cluster-Wide 🔸 Cluster Role   secretproviderrotation-rolebinding                 ServiceAccount/secrets-store-csi-driver     ❌ ServiceAccount does not exist in na…
+🌍 Cluster-Wide 🔸 Cluster Role   system:azure-cloud-provider                        ServiceAccount/azure-cloud-provider         ❌ ServiceAccount does not exist in na…
+🌍 Cluster-Wide 🔸 Cluster Role   system:azure-cloud-provider-secret-getter          ServiceAccount/azure-cloud-provider         ❌ ServiceAccount does not exist in na…
+🌍 Cluster-Wide 🔸 Cluster Role   system:controller:route-controller                 ServiceAccount/route-controller             ❌ ServiceAccount does not exist in na…
+🌍 Cluster-Wide 🔸 Cluster Role   system:controller:service-controller               ServiceAccount/service-controller           ❌ ServiceAccount does not exist in na…
+🌍 Cluster-Wide 🔸 Cluster Role   system:kube-dns                                    ServiceAccount/kube-dns                     ❌ ServiceAccount does not exist in na…
+
+
+
+[🔓 RBAC Overexposure Check]
+
+⚠️ Total Overexposed Bindings: 21
+
+Namespace         Binding                                                Subject                                             Role
+---------         -------                                                -------                                             ----                                      
+🌍 Cluster-Wide   aks-cluster-admin-binding                              User/clusterAdmin                                   cluster-admin                             
+🌍 Cluster-Wide   aks-cluster-admin-binding                              User/clusterUser                                    cluster-admin                             
+🌍 Cluster-Wide   aks-cluster-admin-binding-aad                          Group/e591c663-c79c-47a4-94b8-f646b8647046          cluster-admin                             
+🌍 Cluster-Wide   aks-secretprovidersyncing-rolebinding                  ServiceAccount/aks-secrets-store-csi-driver         aks-secretprovidersyncing-role            
+🌍 Cluster-Wide   aks-service-rolebinding                                User/aks-support                                    aks-service                               
+🌍 Cluster-Wide   argocd-application-controller                          ServiceAccount/argocd-application-controller        argocd-application-controller             
+🌍 Cluster-Wide   cluster-admin                                          Group/system:masters                                cluster-admin                             
+🌍 Cluster-Wide   extension-operator                                     ServiceAccount/extension-operatorsa                 cluster-admin                             
+🌍 Cluster-Wide   kiali-operator                                         ServiceAccount/kiali-operator                       kiali-operator                            
+🌍 Cluster-Wide   system:controller:clusterrole-aggregation-controller   ServiceAccount/clusterrole-aggregation-controller   system:controller:clusterrole-aggregation…
+🌍 Cluster-Wide   system:controller:legacy-service-account-token-cleaner ServiceAccount/legacy-service-account-token-cleaner system:controller:legacy-service-account-…
+🌍 Cluster-Wide   system:kube-controller-manager                         User/system:kube-controller-manager                 system:kube-controller-manager            
+🌍 Cluster-Wide   system:kube-scheduler                                  User/system:kube-scheduler                          system:kube-scheduler                     
+🌍 Cluster-Wide   system:persistent-volume-binding                       ServiceAccount/persistent-volume-binder             system:persistent-volume-secret-operator  
+aks-istio-system  istiod-asm-1-23                                        ServiceAccount/istiod-asm-1-23                      istiod-asm-1-23                           
+argocd            argocd-redis-ha-haproxy                                ServiceAccount/argocd-redis-ha-haproxy              argocd-redis-ha-haproxy                   
+argocd            argocd-server                                          ServiceAccount/argocd-server                        argocd-server                             
+gatekeeper-system gatekeeper-manager-rolebinding                         ServiceAccount/gatekeeper-admin                     gatekeeper-manager-role                   
+kube-system       azure-policy-webhook-rolebinding                       ServiceAccount/azure-policy-webhook-account         azure-policy-webhook-role                 
+kube-system       keda-operator-certs                                    ServiceAccount/keda-operator                        keda-operator-certs                       
+kube-system       system:controller:token-cleaner                        ServiceAccount/token-cleaner                        system:controller:token-cleaner           
+
+
+
+[🗂️ Unused Roles & ClusterRoles]
+⚠️ Total: 4
+
+Namespace       Role                                  Type               Issue                  Severity Recommendation
+---------       ----                                  ----               -----                  -------- --------------
+🌍 Cluster-Wide system:node                           ClusterRoleBinding 🚩 No subjects defined Low      Delete the ClusterRoleBinding as it has no effect.
+🌍 Cluster-Wide aks-secretproviderclasses-admin-role  ClusterRole        ⚠️ Unused ClusterRole  Low      Delete the unused ClusterRole to reduce clutter.
+🌍 Cluster-Wide aks-secretproviderclasses-viewer-role ClusterRole        ⚠️ Unused ClusterRole  Low      Delete the unused ClusterRole to reduce clutter.
+🌍 Cluster-Wide eraser-imagejob-pods-cluster-role     ClusterRole        🚩 No rules defined    Low      Delete the ClusterRole or define rules to make it effective.
+
+
+
+[🧾 Orphaned ServiceAccounts]
+⚠️ Total: 20
+
+Namespace          Name
+---------          ----
+1                  default
+10                 default
+2                  default
+3                  default
+4                  default
+5                  default
+6                  default
+7                  default
+8                  default
+9                  default
+aks-istio-egress   default
+aks-istio-ingress  default
+aks-istio-system   default
+app-routing-system default
+argocd             default
+default            default
+gatekeeper-system  default
+kiali-operator     default
+kube-node-lease    default
+kube-public        default
 
 
 
 [📜 Orphaned ConfigMaps]
 
-⚠️ Total Orphaned ConfigMaps Found: 12
+⚠️ Total Orphaned ConfigMaps Found: 19
 
-Namespace         Type         Name
----------         ----         ----
-default           📜 ConfigMap kube-root-ca.crt
-gatekeeper-system 📜 ConfigMap kube-root-ca.crt
-kube-node-lease   📜 ConfigMap kube-root-ca.crt
-kube-public       📜 ConfigMap kube-root-ca.crt
-kube-system       📜 ConfigMap azure-ip-masq-agent-config-reconciled
-kube-system       📜 ConfigMap cluster-autoscaler-status
-kube-system       📜 ConfigMap container-azm-ms-aks-k8scluster
-kube-system       📜 ConfigMap coredns-autoscaler
-kube-system       📜 ConfigMap extension-apiserver-authentication
-kube-system       📜 ConfigMap kube-apiserver-legacy-service-account-token-tracking
-kube-system       📜 ConfigMap kube-root-ca.crt
-kube-system       📜 ConfigMap overlay-upgrade-data
+Namespace          Type         Name
+---------          ----         ----
+aks-istio-system   📜 ConfigMap istio-asm-1-23
+aks-istio-system   📜 ConfigMap istio-gateway-status-leader
+aks-istio-system   📜 ConfigMap istio-leader
+aks-istio-system   📜 ConfigMap istio-namespace-controller-election
+aks-istio-system   📜 ConfigMap istio-sidecar-injector-asm-1-23
+app-routing-system 📜 ConfigMap nginx
+argocd             📜 ConfigMap argocd-notifications-cm
+argocd             📜 ConfigMap argocd-rbac-cm
+kube-system        📜 ConfigMap azure-ip-masq-agent-config-reconciled
+kube-system        📜 ConfigMap cluster-autoscaler-status
+kube-system        📜 ConfigMap container-azm-ms-aks-k8scluster
+kube-system        📜 ConfigMap coredns-autoscaler
+kube-system        📜 ConfigMap extension-apiserver-authentication
+kube-system        📜 ConfigMap extension-immutable-values
+kube-system        📜 ConfigMap extensioncontrollerleaderid-lock
+kube-system        📜 ConfigMap konnectivity-agent-autoscaler
+kube-system        📜 ConfigMap kube-apiserver-legacy-service-account-token-tracking
+kube-system        📜 ConfigMap overlay-upgrade-data
+kube-system        📜 ConfigMap retina-config-win
 
 
 
 [🔑 Orphaned Secrets]
 
-⚠️ Total Orphaned Secrets Found: 3
+⚠️ Total Orphaned Secrets Found: 10
 
-Namespace   Type      Name
----------   ----      ----
-kube-system 🔑 Secret aad-msi-auth-token
-kube-system 🔑 Secret azure-policy-webhook-cert
-kube-system 🔑 Secret omsagent-aad-msi-token
+Namespace        Type      Name
+---------        ----      ----
+aks-istio-system 🔑 Secret istio-ca-secret
+argocd           🔑 Secret argocd-initial-admin-secret
+argocd           🔑 Secret argocd-notifications-secret
+argocd           🔑 Secret argocd-secret
+argocd           🔑 Secret repo-1114886772
+argocd           🔑 Secret repo-1952242182
+kube-system      🔑 Secret aad-msi-auth-token
+kube-system      🔑 Secret azure-policy-webhook-cert
+kube-system      🔑 Secret extensions-aad-msi-token
+kube-system      🔑 Secret omsagent-aad-msi-token
+
+
+
+[👑 Pods Running as Root]
+
+⚠️ Total Pods Running as Root: 153
+
+Namespace        Pod                                                Container                              runAsUser
+---------        ---                                                ---------                              ---------
+aks-istio-system istiod-asm-1-23-7744d5fbf4-2q886                   discovery                              Not Set (Defaults to root)
+aks-istio-system istiod-asm-1-23-7744d5fbf4-kffzl                   discovery                              Not Set (Defaults to root)
+argo-rollouts    simple-deployment-74fd649f8d-6nsqn                 webserver-simple                       Not Set (Defaults to root)
+argo-workflows   simple-deployment-74fd649f8d-xh6fc                 webserver-simple                       Not Set (Defaults to root)
+argocd           argocd-application-controller-0                    argocd-application-controller          Not Set (Defaults to root)
+argocd           argocd-applicationset-controller-6fdf84dbb6-dxmmk  argocd-applicationset-controller       Not Set (Defaults to root)
+argocd           argocd-dex-server-556c76889-kspcg                  dex                                    Not Set (Defaults to root)
+argocd           argocd-notifications-controller-6ff6bf8dd6-2jmv8   argocd-notifications-controller        Not Set (Defaults to root)
+argocd           argocd-repo-server-8568fc89b5-8r5mv                argocd-repo-server                     Not Set (Defaults to root)
+argocd           argocd-repo-server-8568fc89b5-q2tbb                argocd-repo-server                     Not Set (Defaults to root)
+argocd           argocd-server-5df7b9f58d-7s5qh                     argocd-server                          Not Set (Defaults to root)
+argocd           argocd-server-5df7b9f58d-rrxzz                     argocd-server                          Not Set (Defaults to root)
+cert-manager     simple-deployment-74fd649f8d-ps8ll                 webserver-simple                       Not Set (Defaults to root)
+grafana          simple-deployment-74fd649f8d-f52jv                 webserver-simple                       Not Set (Defaults to root)
+kiali-operator   kiali-5b88cfb6f8-9wxkc                             kiali                                  Not Set (Defaults to root)
+kiali-operator   kiali-operator-696bd54db-cv6fc                     operator                               Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-7ghbq                 node-driver-registrar                  Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-7ghbq                 secrets-store                          Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-7ghbq                 liveness-probe                         Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-dg79g                 node-driver-registrar                  Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-dg79g                 secrets-store                          Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-dg79g                 liveness-probe                         Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-h8s4k                 node-driver-registrar                  Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-h8s4k                 secrets-store                          Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-h8s4k                 liveness-probe                         Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-hpc6x                 node-driver-registrar                  Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-hpc6x                 secrets-store                          Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-hpc6x                 liveness-probe                         Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-v7qxk                 node-driver-registrar                  Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-v7qxk                 secrets-store                          Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-v7qxk                 liveness-probe                         Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-xf5d4                 node-driver-registrar                  Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-xf5d4                 secrets-store                          Not Set (Defaults to root)
+kube-system      aks-secrets-store-csi-driver-xf5d4                 liveness-probe                         Not Set (Defaults to root)
+kube-system      aks-secrets-store-provider-azure-5wpww             provider-azure-installer               Not Set (Defaults to root)
+kube-system      aks-secrets-store-provider-azure-74vvm             provider-azure-installer               Not Set (Defaults to root)
+kube-system      aks-secrets-store-provider-azure-c6x7x             provider-azure-installer               Not Set (Defaults to root)
+kube-system      aks-secrets-store-provider-azure-dhr9b             provider-azure-installer               Not Set (Defaults to root)
+kube-system      aks-secrets-store-provider-azure-tvsv4             provider-azure-installer               Not Set (Defaults to root)
+kube-system      aks-secrets-store-provider-azure-wxfc8             provider-azure-installer               Not Set (Defaults to root)
+kube-system      ama-logs-cz28v                                     ama-logs                               Not Set (Defaults to root)
+kube-system      ama-logs-cz28v                                     ama-logs-prometheus                    Not Set (Defaults to root)
+kube-system      ama-logs-d92qr                                     ama-logs                               Not Set (Defaults to root)
+kube-system      ama-logs-d92qr                                     ama-logs-prometheus                    Not Set (Defaults to root)
+kube-system      ama-logs-qlh7j                                     ama-logs                               Not Set (Defaults to root)
+kube-system      ama-logs-qlh7j                                     ama-logs-prometheus                    Not Set (Defaults to root)
+kube-system      ama-logs-rqbvf                                     ama-logs                               Not Set (Defaults to root)
+kube-system      ama-logs-rqbvf                                     ama-logs-prometheus                    Not Set (Defaults to root)
+kube-system      ama-logs-rs-64765bd4b9-22kzv                       ama-logs                               Not Set (Defaults to root)
+kube-system      ama-logs-x4x2r                                     ama-logs                               Not Set (Defaults to root)
+kube-system      ama-logs-x4x2r                                     ama-logs-prometheus                    Not Set (Defaults to root)
+kube-system      ama-logs-zxwzq                                     ama-logs                               Not Set (Defaults to root)
+kube-system      ama-logs-zxwzq                                     ama-logs-prometheus                    Not Set (Defaults to root)
+kube-system      ama-metrics-7f878d975f-7k97h                       prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-7f878d975f-7k97h                       addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-7f878d975f-q5llb                       prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-7f878d975f-q5llb                       addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-node-5qnn7                             prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-node-5qnn7                             addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-node-6wx54                             prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-node-6wx54                             addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-node-bp2db                             prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-node-bp2db                             addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-node-nw9c8                             prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-node-nw9c8                             addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-node-qpq4d                             prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-node-qpq4d                             addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-node-rtdhh                             prometheus-collector                   Not Set (Defaults to root)
+kube-system      ama-metrics-node-rtdhh                             addon-token-adapter                    Not Set (Defaults to root)
+kube-system      ama-metrics-operator-targets-66fb46c8d6-jfwrg      targetallocator                        Not Set (Defaults to root)
+kube-system      ama-metrics-operator-targets-66fb46c8d6-jfwrg      config-reader                          Not Set (Defaults to root)
+kube-system      azure-ip-masq-agent-7lxpz                          azure-ip-masq-agent                    Not Set (Defaults to root)
+kube-system      azure-ip-masq-agent-c6xzh                          azure-ip-masq-agent                    Not Set (Defaults to root)
+kube-system      azure-ip-masq-agent-k4nc9                          azure-ip-masq-agent                    Not Set (Defaults to root)
+kube-system      azure-ip-masq-agent-v7qfj                          azure-ip-masq-agent                    Not Set (Defaults to root)
+kube-system      azure-ip-masq-agent-x4zch                          azure-ip-masq-agent                    Not Set (Defaults to root)
+kube-system      azure-ip-masq-agent-z8vqr                          azure-ip-masq-agent                    Not Set (Defaults to root)
+kube-system      azure-npm-559xn                                    azure-npm                              Not Set (Defaults to root)
+kube-system      azure-npm-7sp9m                                    azure-npm                              Not Set (Defaults to root)
+kube-system      azure-npm-chwl2                                    azure-npm                              Not Set (Defaults to root)
+kube-system      azure-npm-g5hx8                                    azure-npm                              Not Set (Defaults to root)
+kube-system      azure-npm-x6g85                                    azure-npm                              Not Set (Defaults to root)
+kube-system      azure-npm-xjh28                                    azure-npm                              Not Set (Defaults to root)
+kube-system      azure-policy-698f7c86b4-2mgdj                      azure-policy                           Not Set (Defaults to root)
+kube-system      cloud-node-manager-7r45z                           cloud-node-manager                     Not Set (Defaults to root)
+kube-system      cloud-node-manager-lstsj                           cloud-node-manager                     Not Set (Defaults to root)
+kube-system      cloud-node-manager-mwl6j                           cloud-node-manager                     Not Set (Defaults to root)
+kube-system      cloud-node-manager-p7rf6                           cloud-node-manager                     Not Set (Defaults to root)
+kube-system      cloud-node-manager-swp7f                           cloud-node-manager                     Not Set (Defaults to root)
+kube-system      cloud-node-manager-vnbh9                           cloud-node-manager                     Not Set (Defaults to root)
+kube-system      coredns-658d6d767d-dgvc7                           coredns                                Not Set (Defaults to root)
+kube-system      coredns-658d6d767d-sghts                           coredns                                Not Set (Defaults to root)
+kube-system      coredns-autoscaler-5955d6bbdb-s2gk7                autoscaler                             Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000m-zxfzm    collector                              Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000m-zxfzm    remover                                Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000m-zxfzm    trivy-scanner                          Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000n-ck6hm    collector                              Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000n-ck6hm    remover                                Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000n-ck6hm    trivy-scanner                          Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000o-kpb2b    collector                              Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000o-kpb2b    remover                                Not Set (Defaults to root)
+kube-system      eraser-aks-systempool-19995743-vmss00000o-kpb2b    trivy-scanner                          Not Set (Defaults to root)
+kube-system      eraser-aks-workloadpool-10479701-vmss00000e-9mcf6  collector                              Not Set (Defaults to root)
+kube-system      eraser-aks-workloadpool-10479701-vmss00000e-9mcf6  remover                                Not Set (Defaults to root)
+kube-system      eraser-aks-workloadpool-10479701-vmss00000e-9mcf6  trivy-scanner                          Not Set (Defaults to root)
+kube-system      extension-agent-66c4486d68-rczq6                   extension-agent                        Not Set (Defaults to root)
+kube-system      extension-agent-66c4486d68-rczq6                   fluent-bit                             Not Set (Defaults to root)
+kube-system      extension-operator-d95fd449b-gfw8s                 manager                                Not Set (Defaults to root)
+kube-system      extension-operator-d95fd449b-gfw8s                 fluent-bit                             Not Set (Defaults to root)
+kube-system      konnectivity-agent-9f65c5cd8-jrr7v                 konnectivity-agent                     Not Set (Defaults to root)
+kube-system      konnectivity-agent-9f65c5cd8-w2zdz                 konnectivity-agent                     Not Set (Defaults to root)
+kube-system      konnectivity-agent-autoscaler-cdfc7c46-hldwj       autoscaler                             Not Set (Defaults to root)
+kube-system      kube-proxy-22hgl                                   kube-proxy                             Not Set (Defaults to root)
+kube-system      kube-proxy-8dlr6                                   kube-proxy                             Not Set (Defaults to root)
+kube-system      kube-proxy-fh5fr                                   kube-proxy                             Not Set (Defaults to root)
+kube-system      kube-proxy-gb78q                                   kube-proxy                             Not Set (Defaults to root)
+kube-system      kube-proxy-mb2c4                                   kube-proxy                             Not Set (Defaults to root)
+kube-system      kube-proxy-nq2sj                                   kube-proxy                             Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-kqfft              microsoft-defender-pod-collector       Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-kqfft              microsoft-defender-low-level-collector Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-mxck9              microsoft-defender-pod-collector       Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-mxck9              microsoft-defender-low-level-collector Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-pnlvq              microsoft-defender-pod-collector       Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-pnlvq              microsoft-defender-low-level-collector Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-r57j5              microsoft-defender-pod-collector       Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-r57j5              microsoft-defender-low-level-collector Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-rzv62              microsoft-defender-pod-collector       Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-rzv62              microsoft-defender-low-level-collector Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-zb6fd              microsoft-defender-pod-collector       Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-ds-zb6fd              microsoft-defender-low-level-collector Not Set (Defaults to root)
+kube-system      microsoft-defender-collector-misc-7df6776447-x9vzw microsoft-defender-pod-collector       Not Set (Defaults to root)
+kube-system      microsoft-defender-publisher-ds-9glts              microsoft-defender-publisher           Not Set (Defaults to root)
+kube-system      microsoft-defender-publisher-ds-bsthb              microsoft-defender-publisher           Not Set (Defaults to root)
+kube-system      microsoft-defender-publisher-ds-dwpb7              microsoft-defender-publisher           Not Set (Defaults to root)
+kube-system      microsoft-defender-publisher-ds-hdpvx              microsoft-defender-publisher           Not Set (Defaults to root)
+kube-system      microsoft-defender-publisher-ds-n8rx5              microsoft-defender-publisher           Not Set (Defaults to root)
+kube-system      microsoft-defender-publisher-ds-qxcd9              microsoft-defender-publisher           Not Set (Defaults to root)
+kube-system      retina-agent-62scz                                 retina                                 Not Set (Defaults to root)
+kube-system      retina-agent-ds69z                                 retina                                 Not Set (Defaults to root)
+kube-system      retina-agent-h5wrd                                 retina                                 Not Set (Defaults to root)
+kube-system      retina-agent-p74qf                                 retina                                 Not Set (Defaults to root)
+kube-system      retina-agent-r2bvv                                 retina                                 Not Set (Defaults to root)
+kube-system      retina-agent-xcvmn                                 retina                                 Not Set (Defaults to root)
+kubeview         simple-deployment-74fd649f8d-9d5gt                 webserver-simple                       Not Set (Defaults to root)
+linkerd          simple-deployment-74fd649f8d-5bztq                 webserver-simple                       Not Set (Defaults to root)
+nginx            simple-deployment-74fd649f8d-hf4dd                 webserver-simple                       Not Set (Defaults to root)
+pets             order-service-6c5bfb6946-9jjrw                     order-service                          Not Set (Defaults to root)
+pets             product-service-5dd87dfb8-h4495                    product-service                        Not Set (Defaults to root)
+pets             rabbitmq-0                                         rabbitmq                               Not Set (Defaults to root)
+pets             store-front-658994fd95-8b7jr                       store-front                            Not Set (Defaults to root)
+prometheus       simple-deployment-74fd649f8d-6r55l                 webserver-simple                       Not Set (Defaults to root)
+sealed-secrets   simple-deployment-74fd649f8d-66bwl                 webserver-simple                       Not Set (Defaults to root)
+test             simple-deployment-74fd649f8d-lgft6                 webserver-simple                       Not Set (Defaults to root)
+
+
+
+[🔓 Privileged Containers]
+
+⚠️ Total Privileged Containers Found: 25
+
+Namespace   Pod                                Container
+---------   ---                                ---------
+kube-system aks-secrets-store-csi-driver-7ghbq secrets-store
+kube-system aks-secrets-store-csi-driver-dg79g secrets-store
+kube-system aks-secrets-store-csi-driver-h8s4k secrets-store
+kube-system aks-secrets-store-csi-driver-hpc6x secrets-store
+kube-system aks-secrets-store-csi-driver-v7qxk secrets-store
+kube-system aks-secrets-store-csi-driver-xf5d4 secrets-store
+kube-system ama-logs-cz28v                     ama-logs
+kube-system ama-logs-cz28v                     ama-logs-prometheus
+kube-system ama-logs-d92qr                     ama-logs
+kube-system ama-logs-d92qr                     ama-logs-prometheus
+kube-system ama-logs-qlh7j                     ama-logs
+kube-system ama-logs-qlh7j                     ama-logs-prometheus
+kube-system ama-logs-rqbvf                     ama-logs
+kube-system ama-logs-rqbvf                     ama-logs-prometheus
+kube-system ama-logs-rs-64765bd4b9-22kzv       ama-logs
+kube-system ama-logs-x4x2r                     ama-logs
+kube-system ama-logs-x4x2r                     ama-logs-prometheus
+kube-system ama-logs-zxwzq                     ama-logs
+kube-system ama-logs-zxwzq                     ama-logs-prometheus
+kube-system kube-proxy-22hgl                   kube-proxy
+kube-system kube-proxy-8dlr6                   kube-proxy
+kube-system kube-proxy-fh5fr                   kube-proxy
+kube-system kube-proxy-gb78q                   kube-proxy
+kube-system kube-proxy-mb2c4                   kube-proxy
+kube-system kube-proxy-nq2sj                   kube-proxy
+
+
+
+[🔌 Pods with hostPID / hostNetwork]
+
+⚠️ Total Flagged Pods: 36
+
+Namespace   Pod                                    hostPID hostNetwork
+---------   ---                                    ------- -----------
+kube-system aks-secrets-store-provider-azure-5wpww ✅ false ❌ true
+kube-system aks-secrets-store-provider-azure-74vvm ✅ false ❌ true
+kube-system aks-secrets-store-provider-azure-c6x7x ✅ false ❌ true
+kube-system aks-secrets-store-provider-azure-dhr9b ✅ false ❌ true
+kube-system aks-secrets-store-provider-azure-tvsv4 ✅ false ❌ true
+kube-system aks-secrets-store-provider-azure-wxfc8 ✅ false ❌ true
+kube-system azure-ip-masq-agent-7lxpz              ✅ false ❌ true
+kube-system azure-ip-masq-agent-c6xzh              ✅ false ❌ true
+kube-system azure-ip-masq-agent-k4nc9              ✅ false ❌ true
+kube-system azure-ip-masq-agent-v7qfj              ✅ false ❌ true
+kube-system azure-ip-masq-agent-x4zch              ✅ false ❌ true
+kube-system azure-ip-masq-agent-z8vqr              ✅ false ❌ true
+kube-system azure-npm-559xn                        ✅ false ❌ true
+kube-system azure-npm-7sp9m                        ✅ false ❌ true
+kube-system azure-npm-chwl2                        ✅ false ❌ true
+kube-system azure-npm-g5hx8                        ✅ false ❌ true
+kube-system azure-npm-x6g85                        ✅ false ❌ true
+kube-system azure-npm-xjh28                        ✅ false ❌ true
+kube-system cloud-node-manager-7r45z               ✅ false ❌ true
+kube-system cloud-node-manager-lstsj               ✅ false ❌ true
+kube-system cloud-node-manager-mwl6j               ✅ false ❌ true
+kube-system cloud-node-manager-p7rf6               ✅ false ❌ true
+kube-system cloud-node-manager-swp7f               ✅ false ❌ true
+kube-system cloud-node-manager-vnbh9               ✅ false ❌ true
+kube-system kube-proxy-22hgl                       ✅ false ❌ true
+kube-system kube-proxy-8dlr6                       ✅ false ❌ true
+kube-system kube-proxy-fh5fr                       ✅ false ❌ true
+kube-system kube-proxy-gb78q                       ✅ false ❌ true
+kube-system kube-proxy-mb2c4                       ✅ false ❌ true
+kube-system kube-proxy-nq2sj                       ✅ false ❌ true
+kube-system retina-agent-62scz                     ✅ false ❌ true
+kube-system retina-agent-ds69z                     ✅ false ❌ true
+kube-system retina-agent-h5wrd                     ✅ false ❌ true
+kube-system retina-agent-p74qf                     ✅ false ❌ true
+kube-system retina-agent-r2bvv                     ✅ false ❌ true
+kube-system retina-agent-xcvmn                     ✅ false ❌ true
 
 
 
 [📢 Kubernetes Warnings]
-
-⚠️ Warnings: 0
------------------------------------------------------------
-
+✅ No warnings found.
 
 [✅ AKS Best Practices Check]
 
-[Best Practices] Allowed Container Images Policy Enforcement - Status: ❌ FAIL
+[Best Practices] Allowed Container Images Policy Enforcement - ❌ FAIL
    🔹 Severity: High
    🔹 Recommendation: The 'Only Allowed Images' policy is either missing or not enforcing deny mode, increasing the risk of running untrusted images.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/azure-policy
+   🔹 Info: https://learn.microsoft.com/azure/aks/policy-reference
 
-[Best Practices] No Privileged Containers Policy Enforcement - Status: ✅ PASS
+[Best Practices] No Privileged Containers Policy Enforcement - ❌ FAIL
    🔹 Severity: High
-   🔹 Recommendation: No Privileged Containers Policy Enforcement is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/azure-policy
+   🔹 Recommendation: The 'No Privileged Containers' policy is either missing or not enforcing deny mode, allowing potentially insecure workloads.
+   🔹 Info: https://learn.microsoft.com/azure/aks/policy-reference
 
-[Best Practices] Multiple Node Pools - Status: ✅ PASS
+[Best Practices] Multiple Node Pools - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Multiple Node Pools is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-multiple-node-pools
+   🔹 Info: https://learn.microsoft.com/azure/aks/use-multiple-node-pools
 
-[Best Practices] Azure Linux as Host OS - Status: ✅ PASS
+[Best Practices] Azure Linux as Host OS - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Azure Linux as Host OS is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-azure-linux
+   🔹 Info: https://learn.microsoft.com/azure/aks/use-azure-linux
 
-[Best Practices] Ephemeral OS Disks Enabled - Status: ❌ FAIL
+[Best Practices] Ephemeral OS Disks Enabled - ✅ PASS
    🔹 Severity: Medium
-   🔹 Recommendation: One or more agent pools are not using ephemeral OS disks, leading to slower disk performance and increased costs.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/ephemeral-os-disks
+   🔹 Recommendation: Ephemeral OS Disks Enabled is enabled.
+   🔹 Info: https://learn.microsoft.com/azure/aks/concepts-storage#ephemeral-os-disk
 
-[Best Practices] Non-Ephemeral Disks with Adequate Size - Status: ✅ PASS
+[Best Practices] Non-Ephemeral Disks with Adequate Size - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Non-Ephemeral Disks with Adequate Size is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/availability-zone-support
+   🔹 Info: https://learn.microsoft.com/azure/aks/concepts-storage#managed-os-disks
 
-[Best Practices] System Node Pool Taint - Status: ✅ PASS
+[Best Practices] System Node Pool Taint - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: System Node Pool Taint is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-system-node-pools
+   🔹 Info: https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#system-and-user-node-pools
 
-[Best Practices] Auto Upgrade Channel Configured - Status: ✅ PASS
+[Best Practices] Auto Upgrade Channel Configured - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Auto Upgrade Channel Configured is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/auto-upgrade
+   🔹 Info: https://learn.microsoft.com/azure/aks/auto-upgrade-cluster?tabs=azure-cli
 
-[Best Practices] Node OS Upgrade Channel Configured - Status: ❌ FAIL
+[Best Practices] Node OS Upgrade Channel Configured - ✅ PASS
    🔹 Severity: Medium
-   🔹 Recommendation: Node OS upgrade channel is not configured, which may leave your node OS outdated and vulnerable.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/auto-upgrade
+   🔹 Recommendation: Node OS Upgrade Channel Configured is enabled.
+   🔹 Info: https://learn.microsoft.com/azure/aks/auto-upgrade-node-os-image?tabs=azure-cli
 
-[Best Practices] Customized MC_ Resource Group Name - Status: ✅ PASS
+[Best Practices] Customized MC_ Resource Group Name - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Customized MC_ Resource Group Name is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/concepts-clusters-resource-group
+   🔹 Info: https://learn.microsoft.com/azure/aks/faq#can-i-provide-my-own-name-for-the-aks-node-resource-group-
 
-[Disaster Recovery] Agent Pools with Availability Zones - Status: ✅ PASS
+[Disaster Recovery] Agent Pools with Availability Zones - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Agent Pools with Availability Zones is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/availability-zones
+   🔹 Info: https://learn.microsoft.com/azure/aks/availability-zones
 
-[Disaster Recovery] Control Plane SLA - Status: ✅ PASS
+[Disaster Recovery] Control Plane SLA - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Control Plane SLA is enabled.
-   🔹 More Info: https://azure.microsoft.com/en-us/pricing/details/kubernetes-service/
+   🔹 Info: https://learn.microsoft.com/azure/aks/free-standard-pricing-tiers
 
-[Identity & Access] RBAC Enabled - Status: ✅ PASS
+[Identity & Access] RBAC Enabled - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: RBAC Enabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/rbac
+   🔹 Info: https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli
 
-[Identity & Access] Managed Identity - Status: ✅ PASS
+[Identity & Access] Managed Identity - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Managed Identity is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-managed-identity
+   🔹 Info: https://learn.microsoft.com/azure/aks/use-managed-identity
 
-[Identity & Access] Workload Identity Enabled - Status: ✅ PASS
+[Identity & Access] Workload Identity Enabled - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Workload Identity Enabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview
+   🔹 Info: https://learn.microsoft.com/azure/aks/workload-identity-overview
 
-[Identity & Access] Managed Identity Used - Status: ✅ PASS
+[Identity & Access] Managed Identity Used - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Managed Identity Used is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/use-managed-identity
+   🔹 Info: https://learn.microsoft.com/azure/aks/use-managed-identity
 
-[Identity & Access] AAD RBAC Authorization Integrated - Status: ✅ PASS
+[Identity & Access] AAD RBAC Authorization Integrated - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: AAD RBAC Authorization Integrated is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/aad-integration
+   🔹 Info: https://learn.microsoft.com/azure/aks/enable-authentication-microsoft-entra-id
 
-[Identity & Access] AAD Managed Authentication Enabled - Status: ✅ PASS
+[Identity & Access] AAD Managed Authentication Enabled - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: AAD Managed Authentication Enabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/aad-integration
+   🔹 Info: https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli
 
-[Identity & Access] Local Accounts Disabled - Status: ✅ PASS
+[Identity & Access] Local Accounts Disabled - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Local Accounts Disabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/disable-local-accounts
+   🔹 Info: https://learn.microsoft.com/azure/aks/manage-local-accounts-managed-azure-ad
 
-[Monitoring & Logging] Azure Monitor - Status: ✅ PASS
+[Monitoring & Logging] Azure Monitor - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Azure Monitor is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/azure-monitor/containers/container-insights-overview
+   🔹 Info: https://learn.microsoft.com/azure/azure-monitor/containers/container-insights-overview
 
-[Monitoring & Logging] Managed Prometheus Enabled - Status: ✅ PASS
+[Monitoring & Logging] Managed Prometheus Enabled - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Managed Prometheus Enabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/azure-monitor/containers/prometheus-metrics
+   🔹 Info: https://learn.microsoft.com/azure/azure-monitor/essentials/prometheus-metrics-overview
 
-[Networking] Authorized IP Ranges - Status: ❌ FAIL
+[Networking] Authorized IP Ranges - ❌ FAIL
    🔹 Severity: High
    🔹 Recommendation: No authorized IP ranges configured. This allows unrestricted access to the API server.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes
+   🔹 Info: https://learn.microsoft.com/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes
 
-[Networking] Network Policy Check - Status: ✅ PASS
+[Networking] Network Policy Check - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Network Policy Check is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/best-practices-network#implement-network-policies
+   🔹 Info: https://learn.microsoft.com/azure/aks/operator-best-practices-network#control-traffic-flow-with-network-policies
 
-[Networking] Web App Routing Enabled - Status: ❌ FAIL
+[Networking] Web App Routing Enabled - ✅ PASS
    🔹 Severity: Low
-   🔹 Recommendation: Web App Routing is not enabled, which may limit external access management.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/web-app-routing
+   🔹 Recommendation: Web App Routing Enabled is enabled.
+   🔹 Info: https://learn.microsoft.com/azure/aks/web-app-routing
 
-[Networking] Azure CNI Networking Recommended - Status: ✅ PASS
+[Networking] Azure CNI Networking Recommended - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Azure CNI Networking Recommended is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/concepts-network#networking-options
+   🔹 Info: https://learn.microsoft.com/azure/aks/concepts-network#networking-options
 
-[Resource Management] Cluster Autoscaler - Status: ✅ PASS
+[Resource Management] Cluster Autoscaler - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Cluster Autoscaler is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/cluster-autoscaler
+   🔹 Info: https://learn.microsoft.com/azure/aks/cluster-autoscaler
 
-[Resource Management] AKS Built-in Cost Tooling Enabled - Status: ❌ FAIL
+[Resource Management] AKS Built-in Cost Tooling Enabled - ❌ FAIL
    🔹 Severity: Medium
    🔹 Recommendation: AKS built-in cost tooling (Open Costs) is not enabled, making cost allocation and optimization harder.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/cost-management
+   🔹 Info: https://learn.microsoft.com/azure/aks/cost-analysis
 
-[Security] Private Cluster - Status: ❌ FAIL
+[Resource Management] Vertical Pod Autoscaler (VPA) is enabled - ✅ PASS
+   🔹 Severity: Medium
+   🔹 Recommendation: Vertical Pod Autoscaler (VPA) is enabled is enabled.
+   🔹 Info: https://learn.microsoft.com/azure/aks/vertical-pod-autoscaler
+
+[Security] Private Cluster - ❌ FAIL
    🔹 Severity: High
    🔹 Recommendation: Cluster API server is publicly accessible, increasing security risks.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/private-clusters
+   🔹 Info: https://learn.microsoft.com/azure/aks/private-clusters
 
-[Security] Azure Policy Add-on - Status: ✅ PASS
+[Security] Azure Policy Add-on - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Azure Policy Add-on is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/policy-reference
+   🔹 Info: https://learn.microsoft.com/azure/aks/policy-reference
 
-[Security] Defender for Containers - Status: ✅ PASS
+[Security] Defender for Containers - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Defender for Containers is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/defender-for-cloud/defender-for-containers-introduction
+   🔹 Info: https://learn.microsoft.com/azure/defender-for-cloud/defender-for-containers-introduction
 
-[Security] OIDC Issuer Enabled - Status: ✅ PASS
+[Security] OIDC Issuer Enabled - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: OIDC Issuer Enabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/oidc-issuer
+   🔹 Info: https://learn.microsoft.com/azure/aks/workload-identity-deploy-cluster
 
-[Security] Azure Key Vault Integration - Status: ✅ PASS
+[Security] Azure Key Vault Integration - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Azure Key Vault Integration is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver
+   🔹 Info: https://learn.microsoft.com/azure/aks/csi-secrets-store-driver
 
-[Security] Image Cleaner Enabled - Status: ✅ PASS
+[Security] Image Cleaner Enabled - ✅ PASS
    🔹 Severity: Medium
    🔹 Recommendation: Image Cleaner Enabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/image-cleaner
+   🔹 Info: https://learn.microsoft.com/azure/aks/image-cleaner
 
-[Security] Kubernetes Dashboard Disabled - Status: ✅ PASS
+[Security] Kubernetes Dashboard Disabled - ✅ PASS
    🔹 Severity: High
    🔹 Recommendation: Kubernetes Dashboard Disabled is enabled.
-   🔹 More Info: https://learn.microsoft.com/en-us/azure/aks/kubernetes-dashboard
+   🔹 Info: https://learn.microsoft.com/azure/aks/kubernetes-dashboard
 
 
 Summary & Rating:           
 Passed       Failed       Total        Score (%)    Rating  
 ============================================================
-✅ 27         ❌ 7          34           79.41        
-C
+✅ 30         ❌ 5          35           85.71        
+B
+
+🩺 Cluster Health Score: 54.3 / 100
