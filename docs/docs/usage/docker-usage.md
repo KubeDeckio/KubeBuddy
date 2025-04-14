@@ -78,6 +78,26 @@ This will download the latest version of the KubeBuddy image (or the specified v
 
   See the [Setup for AKS](#🛠️-setup-for-aks-required-for-aks_mode) section for details on configuring the role.
 
+## 🌐 Environment Variables
+
+| Variable              | Type   | Default | Description                                                                 |
+|-----------------------|--------|---------|-----------------------------------------------------------------------------|
+| `KUBECONFIG`          | String | —       | Path to kubeconfig inside container (default: `/home/kubeuser/.kube/config`)|
+| `HTML_REPORT`         | String | false   | Set to `"true"` to generate an HTML report                                  |
+| `JSON_REPORT`         | String | false   | Set to `"true"` to generate a JSON report                                  |
+| `TXT_REPORT`          | String | false   | Set to `"true"` to generate a TXT report                                   |
+| `AKS_MODE`            | String | false   | Set to `"true"` to enable AKS-specific checks                              |
+| `CLUSTER_NAME`        | String | —       | AKS cluster name (required for `AKS_MODE`)                                 |
+| `RESOURCE_GROUP`      | String | —       | AKS resource group (required for `AKS_MODE`)                               |
+| `SUBSCRIPTION_ID`     | String | —       | Azure subscription ID (required for `AKS_MODE`)                           |
+| `AZURE_CLIENT_ID`     | String | —       | SPN client ID (required for `AKS_MODE`)                                    |
+| `AZURE_CLIENT_SECRET` | String | —       | SPN client secret (required for `AKS_MODE`)                                |
+| `AZURE_TENANT_ID`     | String | —       | Azure tenant ID (required for `AKS_MODE`)                                  |
+| `USE_AKS_REST_API`    | String | false   | Set to `"true"` to use Azure REST API for AKS metadata (optional, auto-enabled with SPN) |
+| `EXCLUDE_NAMESPACES`  | String | false   | Set to `"true"` to skip system namespaces (e.g., `kube-system`, `coredns`)  |
+| `TERM`                | String | —       | Set to `"xterm"` to suppress terminal warnings                             |
+
+
 
 ## 📄 1. Running KubeBuddy Container with Bash
 
