@@ -19,12 +19,12 @@ function Generate-K8sHTMLReport {
         
     @"
 <div class="collapsible-container" id='$Id'>
-<details style='margin:10px 0;'>
-<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>
-<div style='padding-top: 15px;'>
-$content
-</div>
-</details>
+  <details style='margin:10px 0;'>
+    <summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>
+    <div style='padding-top: 15px;'>
+      $content
+    </div>
+  </details>
 </div>
 "@
   }
@@ -90,22 +90,22 @@ $content
     $heroRatingHtml = @"
 <h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
-<div class="metric-card normal">✅ Passed: <strong>$aksPass</strong></div>
-<div class="metric-card critical">❌ Failed: <strong>$aksFail</strong></div>
-<div class="metric-card default">📊 Total Checks: <strong>$aksTotal</strong></div>
-<div class="metric-card $ratingColorClass">🎯 Score: <strong>$aksScore%</strong></div>
-<div class="metric-card $ratingColorClass">⭐ Rating: <strong>$aksRating</strong></div>
+  <div class="metric-card normal">✅ Passed: <strong>$aksPass</strong></div>
+  <div class="metric-card critical">❌ Failed: <strong>$aksFail</strong></div>
+  <div class="metric-card default">📊 Total Checks: <strong>$aksTotal</strong></div>
+  <div class="metric-card $ratingColorClass">🎯 Score: <strong>$aksScore%</strong></div>
+  <div class="metric-card $ratingColorClass">⭐ Rating: <strong>$aksRating</strong></div>
 </div>
 "@
 
     $aksHealthCheck = @"
 <div class="container">
-<h1 id="aks">AKS Best Practices Details</h1>
-$heroRatingHtml
-<h2 id="aksFindings">AKS Best Practices Results</h2>
-<div class="table-container">
-$collapsibleAKSHtml
-</div>
+  <h1 id="aks">AKS Best Practices</h1>
+  $heroRatingHtml
+  <h2 id="aksFindings">AKS Best Practices Results</h2>
+  <div class="table-container">
+    $collapsibleAKSHtml
+  </div>
 </div>
 "@
 
@@ -138,7 +138,7 @@ $collapsibleAKSHtml
     @{ Id = "unmountedPV"; Cmd = { Show-UnusedPVCs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "rbacMisconfig"; Cmd = { Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "rbacOverexposure"; Cmd = { Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "orphanedServiceAccounts"; Cmd = { Check-OrphanedServiceAccounts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
+    @{ Id = "orphanedServiceAccounts"; Cmd = { Check-OrphanedServiceAccounts -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "orphanedRoles"; Cmd = { Check-OrphanedRoles -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "orphanedConfigMaps"; Cmd = { Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "orphanedSecrets"; Cmd = { Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
@@ -148,7 +148,7 @@ $collapsibleAKSHtml
     @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -KubeData:$KubeData } },
     @{ Id = "deploymentIssues"; Cmd = { Check-DeploymentIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     @{ Id = "statefulSetIssues"; Cmd = { Check-StatefulSetIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "ingressHealth"; Cmd = { Check-IngressHealth -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },        
+    @{ Id = "ingressHealth"; Cmd = { Check-IngressHealth -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
     # Add custom kubectl checks
     @{ Id = "customChecks"; Cmd = { Invoke-CustomKubectlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
   )
@@ -163,20 +163,17 @@ $collapsibleAKSHtml
     }
     $checkResults[$check.Id] = $html
 
-    # Inject custom checks into relevant sections
+    # Inject custom checks into sections as before...
     if ($check.Id -eq "customChecks" -and $html -is [hashtable]) {
       $customChecksBySection = $html
 
       foreach ($section in $customChecksBySection.Keys) {
         $sanitizedId = $section -replace '[^\w]', ''
         $varName = "collapsible" + $sanitizedId + "Html"
-
-        # Extract individual check details from the HTML
         $sectionHtml = $customChecksBySection[$section]
         $checkIds = [regex]::Matches($sectionHtml, "<h2 id=''([^'']+)'") | ForEach-Object { $_.Groups[1].Value }
         $checkNames = [regex]::Matches($sectionHtml, "<h2 id='[^']+'>\s*[^-]+\s*-\s*([^<]+)\s*(?:<span.*?</span>)?\s*</h2>") | ForEach-Object { $_.Groups[1].Value }
 
-        # Pair IDs with Names
         $checksInSection = for ($i = 0; $i -lt [Math]::Min($checkIds.Count, $checkNames.Count); $i++) {
           @{
             Id   = $checkIds[$i]
@@ -184,34 +181,21 @@ $collapsibleAKSHtml
           }
         }
 
-        # Map section to navigation category
         $navSection = $sectionToNavMap[$section]
-        if (-not $navSection) {
-          $navSection = "Custom Checks"
-        }
-
-        if (-not $customNavItems[$navSection]) {
-          $customNavItems[$navSection] = @()
-        }
+        if (-not $navSection) { $navSection = "Custom Checks" }
+        if (-not $customNavItems[$navSection]) { $customNavItems[$navSection] = @() }
         $customNavItems[$navSection] += $checksInSection
 
-        # Update section HTML variable
         if (Get-Variable -Name $varName -Scope "Script" -ErrorAction SilentlyContinue) {
-          Set-Variable -Name $varName -Value (@(
-                      (Get-Variable -Name $varName -ValueOnly)
-              $sectionHtml
-            ) -join "`n")
+          Set-Variable -Name $varName -Value (@((Get-Variable -Name $varName -ValueOnly) , $sectionHtml) -join "`n")
         }
         else {
           Set-Variable -Name $varName -Value $sectionHtml
         }
 
-        # Map built-in checks to sections for menu generation
         foreach ($section in $sectionToNavMap.Keys) {
-          if ($check.Id -match $section -or $section -eq "Configuration Hygiene" -and $check.Id -match "Configuration") {
-            if (-not $customNavItems[$section]) {
-              $customNavItems[$section] = @()
-            }
+          if ($check.Id -match $section -or ($section -eq "Configuration Hygiene" -and $check.Id -match "Configuration")) {
+            if (-not $customNavItems[$section]) { $customNavItems[$section] = @() }
             $customNavItems[$section] += @{
               Id   = $check.Id
               Name = ($check.Id -replace '([a-z])([A-Z])', '$1 $2') -replace '-', ' ' -replace '\s+', ' '
@@ -224,38 +208,30 @@ $collapsibleAKSHtml
     }
 
     if ($check.Id -eq "eventSummary") {
-      # Special handling for eventSummary, which returns two HTML fragments
       $summaryHtml = $html.SummaryHtml
       $eventsHtml = $html.EventsHtml
-
-      # Process Warning Summary
-      $summaryPre = if ($summaryHtml -match '^\s*<p>.*?</p>') {
-        $matches[0]
-      }
-      else {
-        "<p>⚠️ Warning Summary Report</p>"
-      }
+      $summaryPre = if ($summaryHtml -match '^\s*<p>.*?</p>') { $matches[0] } else { "<p>⚠️ Warning Summary Report</p>" }
       $summaryContent = $summaryHtml -replace [regex]::Escape($summaryPre), ""
       $summaryHasIssues = $summaryContent -match '<tr>.*?<td>.*?</td>.*?</tr>' -and $summaryContent -notmatch 'No data available'
       $summaryNoFindings = $summaryPre -match '✅'
       $summaryRecommendation = if ($summaryHasIssues) {
         $recommendationText = @"
 <div class="recommendation-content">
-<h4>🛠️ Address Warning Events</h4>
-<ul>
+  <h4>🛠️ Address Warning Events</h4>
+  <ul>
     <li><strong>Correlate:</strong> Match events to resources (<code>kubectl describe <resource> <name></code>).</li>
     <li><strong>Root Cause:</strong> Investigate logs or metrics for warnings.</li>
-    <li><strong>Fix:</strong> Adjust resources (e.g., limits) or configs based on event type.</li>
+    <li><strong>Fix:</strong> Adjust resources or configs based on event type.</li>
     <li><strong>Monitor:</strong> Set up alerts for recurring warnings.</li>
-</ul>
+  </ul>
 </div>
 "@
         @"
 <div class="recommendation-card">
-<details style='margin-bottom: 10px;'>
-    <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
-    $recommendationText
-</details>
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      $recommendationText
+  </details>
 </div>
 <div style='height: 15px;'></div>
 "@
@@ -270,34 +246,28 @@ $collapsibleAKSHtml
       }
       Set-Variable -Name "collapsibleEventSummaryWarningsHtml" -Value $summaryContentFinal
 
-      # Process Full Event Log
-      $eventsPre = if ($eventsHtml -match '^\s*<p>.*?</p>') {
-        $matches[0]
-      }
-      else {
-        "<p>⚠️ Full Warning Event Log</p>"
-      }
+      $eventsPre = if ($eventsHtml -match '^\s*<p>.*?</p>') { $matches[0] } else { "<p>⚠️ Full Warning Event Log</p>" }
       $eventsContent = $eventsHtml -replace [regex]::Escape($eventsPre), ""
       $eventsHasIssues = $eventsContent -match '<tr>.*?<td>.*?</td>.*?</tr>' -and $eventsContent -notmatch 'No data available'
       $eventsNoFindings = $eventsPre -match '✅'
       $eventsRecommendation = if ($eventsHasIssues) {
         $recommendationText = @"
 <div class="recommendation-content">
-<h4>🛠️ Address Warning Events</h4>
-<ul>
+  <h4>🛠️ Address Warning Events</h4>
+  <ul>
     <li><strong>Correlate:</strong> Match events to resources (<code>kubectl describe <resource> <name></code>).</li>
-    <li><strong>Root Cause:</strong> Investigate logs or metrics for warnings.</li>
-    <li><strong>Fix:</strong> Adjust resources (e.g., limits) or configs based on event type.</li>
-    <li><strong>Monitor:</strong> Set up alerts for recurring warnings.</li>
-</ul>
+    <li><strong>Root Cause:</strong> Investigate logs or metrics for warnings/errors.</li>
+    <li><strong>Fix:</strong> Adjust resources or configs as needed.</li>
+    <li><strong>Monitor:</strong> Set up alerts for recurring events.</li>
+  </ul>
 </div>
 "@
         @"
 <div class="recommendation-card">
-<details style='margin-bottom: 10px;'>
-    <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
-    $recommendationText
-</details>
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      $recommendationText
+  </details>
 </div>
 <div style='height: 15px;'></div>
 "@
@@ -312,7 +282,7 @@ $collapsibleAKSHtml
       }
       Set-Variable -Name "collapsibleEventSummaryFullLogHtml" -Value $eventsContentFinal
 
-      continue  # Skip the default processing for eventSummary
+      continue
     }
 
     $pre = ""
@@ -331,7 +301,6 @@ $collapsibleAKSHtml
 
     $hasIssues = $html -match '<tr>.*?<td>.*?</td>.*?</tr>' -and $html -notmatch 'No data available'
     $recommendation = ""
-
     $noFindings = $pre -match '✅'
 
     if ($check.Id -in @("nodeConditions", "nodeResources")) {
@@ -344,7 +313,6 @@ $collapsibleAKSHtml
       }
       $hasIssues = $warningsCount -ge 1
       $noFindings = $warningsCount -eq 0
-      # Override noFindings for nodeConditions and nodeResources to always show the table
       if ($check.Id -in @("nodeConditions", "nodeResources")) {
         $noFindings = $false
       }
@@ -355,501 +323,438 @@ $collapsibleAKSHtml
         "nodeConditions" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Fix Node Issues</h4>
-<ul>
-    <li><strong>Check Node Status:</strong> Run <code>kubectl describe node <node-name></code> to inspect conditions like DiskPressure, MemoryPressure, or NotReady states.</li>
-    <li><strong>Taints and Tolerations:</strong> If nodes are tainted, ensure pods have matching tolerations (<code>kubectl edit node <node-name></code> to remove unnecessary taints).</li>
-    <li><strong>Resource Exhaustion:</strong> If nodes are overloaded, scale up the cluster (<code>az aks scale</code>) or evict pods to other nodes.</li>
-    <li><strong>Logs:</strong> Check system logs via <code>kubectl logs -n kube-system</code> for kubelet or other issues.</li>
-</ul>
+  <h4>🛠️ Fix Node Issues</h4>
+  <ul>
+    <li><strong>Check Node Status:</strong> Use <code>kubectl describe node <node-name></code> to inspect conditions.</li>
+    <li><strong>Taints and Tolerations:</strong> Verify if pods have proper tolerations.</li>
+    <li><strong>Resource Exhaustion:</strong> Scale the cluster or rebalance pods.</li>
+    <li><strong>Logs:</strong> Review system logs via <code>kubectl logs -n kube-system</code>.</li>
+  </ul>
 </div>
 "@
         }
         "nodeResources" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Optimize Resource Usage</h4>
-<ul>
-    <li><strong>Monitor Usage:</strong> Use <code>kubectl top nodes</code> to identify nodes with high CPU/memory usage (>80%).</li>
-    <li><strong>Scale Nodes:</strong> Add more nodes if capacity is consistently exceeded (<code>az aks nodepool add</code> for AKS).</li>
-    <li><strong>Pod Limits:</strong> Set resource requests/limits in pod specs to prevent overconsumption (e.g., <code>resources: { requests: { cpu: "100m" } }</code>).</li>
-    <li><strong>Horizontal Scaling:</strong> Deploy a HorizontalPodAutoscaler (<code>kubectl autoscale</code>) for workloads causing spikes.</li>
-    <li><strong>Eviction:</strong> Manually reschedule pods (<code>kubectl drain <node-name></code>) if a node is overloaded.</li>
-</ul>
+  <h4>🛠️ Optimize Resource Usage</h4>
+  <ul>
+    <li><strong>Monitor Usage:</strong> Use <code>kubectl top nodes</code> to find overloaded nodes.</li>
+    <li><strong>Scale Nodes:</strong> Add nodes if capacity is exceeded.</li>
+    <li><strong>Pod Limits:</strong> Set appropriate resource requests/limits.</li>
+    <li><strong>Horizontal Scaling:</strong> Deploy a HorizontalPodAutoscaler.</li>
+  </ul>
 </div>
 "@
         }
         "emptyNamespace" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Clean Up Empty Namespaces</h4>
-<ul>
-    <li><strong>Verify Usage:</strong> Check if namespaces are truly unused with <code>kubectl get all -n <namespace></code>.</li>
-    <li><strong>Delete:</strong> Remove empty namespaces with <code>kubectl delete ns <namespace></code> to reduce clutter.</li>
-    <li><strong>Documentation:</strong> If retained, document their purpose in a ConfigMap or team wiki to avoid confusion.</li>
-    <li><strong>Automation:</strong> Consider a cronjob to periodically clean up unused namespaces.</li>
-</ul>
+  <h4>🛠️ Clean Up Empty Namespaces</h4>
+  <ul>
+    <li><strong>Verify Usage:</strong> Check if namespaces are truly unused.</li>
+    <li><strong>Delete:</strong> Remove empty namespaces with <code>kubectl delete ns <namespace></code>.</li>
+    <li><strong>Document:</strong> Record purpose if retained.</li>
+    <li><strong>Automate:</strong> Consider periodic cleanup jobs.</li>
+  </ul>
 </div>
 "@
         }
         "resourceQuotas" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Set ResourceQuotas</h4>
-<ul>
-    <li><strong>Define:</strong> Create ResourceQuota objects with limits on CPU, memory, and pods per namespace.</li>
-    <li><strong>Example:</strong> 
-<pre><code>apiVersion: v1
-kind: ResourceQuota
-metadata:
-name: compute-resources
-spec:
-hard:
-  pods: "10"
-  requests.cpu: "1"
-  requests.memory: 1Gi
-  limits.cpu: "2"
-  limits.memory: 2Gi
-</code></pre></li>
-    <li><strong>Scope:</strong> Apply different quotas per environment (e.g., dev vs prod).</li>
-    <li><strong>Monitor:</strong> Use <code>kubectl describe quota -n <namespace></code> to see usage.</li>
-</ul>
+  <h4>🛠️ Set ResourceQuotas</h4>
+  <ul>
+    <li><strong>Define:</strong> Create ResourceQuota objects with limits.</li>
+    <li><strong>Example:</strong> Use a quota YAML for CPU, memory and pods.</li>
+    <li><strong>Scope:</strong> Apply different quotas for environments.</li>
+    <li><strong>Monitor:</strong> Use <code>kubectl describe quota</code>.</li>
+  </ul>
 </div>
 "@
         }
         "namespaceLimitRanges" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Add LimitRanges</h4>
-<ul>
-    <li><strong>Define Defaults:</strong> Set default requests and limits per container using LimitRange.</li>
-    <li><strong>Example:</strong> 
-<pre><code>apiVersion: v1
-kind: LimitRange
-metadata:
-name: limits
-spec:
-limits:
-- default:
-    cpu: "500m"
-    memory: "512Mi"
-  defaultRequest:
-    cpu: "250m"
-    memory: "256Mi"
-  type: Container
-</code></pre></li>
-    <li><strong>Purpose:</strong> Prevent pods from running without resource caps or defaults.</li>
-    <li><strong>Apply:</strong> <code>kubectl apply -f limitrange.yaml -n <namespace></code></li>
-</ul>
+  <h4>🛠️ Add LimitRanges</h4>
+  <ul>
+    <li><strong>Define Defaults:</strong> Set default requests and limits per container.</li>
+    <li><strong>Example:</strong> Use a LimitRange YAML file.</li>
+    <li><strong>Purpose:</strong> Prevent pods from overconsumption.</li>
+    <li><strong>Apply:</strong> <code>kubectl apply -f limitrange.yaml -n <namespace></code>.</li>
+  </ul>
 </div>
 "@
         }
         "daemonSetIssues" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Resolve DaemonSet Issues</h4>
-<ul>
-    <li><strong>Inspect Logs:</strong> Check pod logs with <code>kubectl logs -l <selector> -n <namespace></code> for errors.</li>
-    <li><strong>Node Affinity:</strong> Ensure DaemonSet spec matches node conditions (<code>kubectl describe ds <name></code>).</li>
-    <li><strong>Tolerations:</strong> Add tolerations if nodes are tainted (<code>spec.template.spec.tolerations</code>).</li>
-    <li><strong>Rollout:</strong> Restart rollout if stuck (<code>kubectl rollout restart ds <name></code>).</li>
-</ul>
-</div>
-"@
-        }
-        "deployments" {
-          @"
-<div class="recommendation-content">
-<h4>🛠️ Fix Deployment Issues</h4>
-<ul>
-    <li><strong>Rollout Status:</strong> Use <code>kubectl rollout status deploy <name> -n <namespace></code> to check for rollout problems.</li>
-    <li><strong>Unavailable Pods:</strong> If replicas are unavailable, inspect pod events and logs for failures.</li>
-    <li><strong>Strategy:</strong> Consider using <code>RollingUpdate</code> with a proper <code>maxUnavailable</code> setting to avoid disruption.</li>
-    <li><strong>Recreate:</strong> Use <code>kubectl rollout restart deploy <name></code> if stuck or hanging.</li>
-</ul>
-</div>
-"@
-        }
-        "statefulsets" {
-          @"
-<div class="recommendation-content">
-<h4>🛠️ Review StatefulSet Health</h4>
-<ul>
-    <li><strong>Pod Status:</strong> Check pod readiness and init status with <code>kubectl get pods -l app=<label> -n <namespace></code>.</li>
-    <li><strong>Persistent Volumes:</strong> Verify PVCs are properly bound and mounted.</li>
-    <li><strong>Pod Ordinality:</strong> StatefulSets start pods in order. A stuck pod blocks the rest—check logs of the first pod.</li>
-    <li><strong>Headless Service:</strong> Ensure a headless service is defined for network identity.</li>
-</ul>
+  <h4>🛠️ Resolve DaemonSet Issues</h4>
+  <ul>
+    <li><strong>Inspect Logs:</strong> Use <code>kubectl logs</code> for error details.</li>
+    <li><strong>Node Affinity:</strong> Verify DaemonSet spec matches node conditions.</li>
+    <li><strong>Tolerations:</strong> Add if nodes are tainted.</li>
+    <li><strong>Rollout:</strong> Restart the DaemonSet if necessary.</li>
+  </ul>
 </div>
 "@
         }
         "HPA" {
           @"
 <div class='recommendation-content'>
-<h4>🛠️ Configure Horizontal Pod Autoscalers</h4>
-<ul>
-  <li><strong>Enable Scaling:</strong> Apply HPA to workloads using <code>kubectl autoscale deploy <name> --min=1 --max=5 --cpu-percent=80</code>.</li>
-  <li><strong>CPU/Memory Metrics:</strong> Ensure the metrics server is deployed and working correctly.</li>
-  <li><strong>Custom Metrics:</strong> Use <code>external.metrics.k8s.io</code> or <code>custom.metrics.k8s.io</code> for advanced autoscaling logic.</li>
-  <li><strong>Validation:</strong> Monitor scaling events with <code>kubectl describe hpa <name></code>.</li>
-</ul>
+  <h4>🛠️ Configure Horizontal Pod Autoscalers</h4>
+  <ul>
+    <li><strong>Enable Scaling:</strong> Use <code>kubectl autoscale deploy</code> for workloads.</li>
+    <li><strong>CPU/Memory Metrics:</strong> Ensure the metrics server is running.</li>
+    <li><strong>Custom Metrics:</strong> Configure if needed.</li>
+    <li><strong>Validation:</strong> Monitor with <code>kubectl describe hpa</code>.</li>
+  </ul>
 </div>
-"@ 
+"@
         }
         "missingResourceLimits" {
           @"
 <div class='recommendation-content'>
-<h4>🛠️ Add Resource Requests and Limits</h4>
-<ul>
-  <li><strong>Define Requests:</strong> Use <code>resources.requests</code> for <code>cpu</code> and <code>memory</code> to guarantee minimum resources.</li>
-  <li><strong>Define Limits:</strong> Use <code>resources.limits</code> to cap maximum usage for <code>cpu</code> and <code>memory</code>.</li>
-  <li><strong>Example:</strong> 
-    <pre><code>resources:
-requests:
-  cpu: "250m"
-  memory: "128Mi"
-limits:
-  cpu: "500m"
-  memory: "256Mi"</code></pre>
-  </li>
-  <li><strong>Why:</strong> Avoids resource contention, supports fair scheduling, and prevents overcommitment.</li>
-  <li><strong>Policy Tips:</strong> Use <code>LimitRanges</code> and admission policies to apply defaults or enforce constraints.</li>
-</ul>
+  <h4>🛠️ Add Resource Requests and Limits</h4>
+  <ul>
+    <li><strong>Define Requests:</strong> Set minimum resource requirements.</li>
+    <li><strong>Define Limits:</strong> Limit maximum resource usage.</li>
+    <li><strong>Example:</strong> Include sample YAML in your pod spec.</li>
+    <li><strong>Policy:</strong> Enforce via LimitRanges.</li>
+  </ul>
 </div>
 "@
         }
         "PDB" {
           @"
 <div class='recommendation-content'>
-<h4>🛠️ Improve PDB Coverage</h4>
-<ul>
-  <li><strong>Apply PDBs:</strong> Create PDBs for all critical workloads to control voluntary disruptions.</li>
-  <li><strong>Avoid Weak PDBs:</strong> Don't set <code>minAvailable: 0</code> or <code>maxUnavailable: 100%</code>—they offer no protection.</li>
-  <li><strong>Label Matching:</strong> Verify selectors actually match pods (<code>spec.selector.matchLabels</code>).</li>
-  <li><strong>Dry Run:</strong> Use <code>kubectl get pdb -o wide</code> to confirm expected pod count.</li>
-</ul>
+  <h4>🛠️ Improve PDB Coverage</h4>
+  <ul>
+    <li><strong>Apply PDBs:</strong> Create for critical workloads.</li>
+    <li><strong>Avoid Weak PDBs:</strong> Do not set ineffective limits.</li>
+    <li><strong>Label Matching:</strong> Ensure selectors match pods.</li>
+    <li><strong>Dry Run:</strong> Verify with <code>kubectl get pdb</code>.</li>
+  </ul>
 </div>
-"@ 
+"@
         }
         "missingProbes" {
           @"
 <div class='recommendation-content'>
-<h4>🛠️ Add Health Probes</h4>
-<ul>
-  <li><strong>Readiness Probes:</strong> Signal when the container is ready to serve traffic.</li>
-  <li><strong>Liveness Probes:</strong> Detect deadlocked or crashed apps. Example: <code>httpGet</code> or <code>exec</code>.</li>
-  <li><strong>Startup Probes:</strong> Useful for slow-starting apps to avoid premature kills.</li>
-  <li><strong>Validation:</strong> Test probe behavior with <code>kubectl describe pod <name></code>.</li>
-</ul>
+  <h4>🛠️ Add Health Probes</h4>
+  <ul>
+    <li><strong>Readiness Probes:</strong> Indicate when containers are ready.</li>
+    <li><strong>Liveness Probes:</strong> Detect crashed apps.</li>
+    <li><strong>Startup Probes:</strong> Avoid premature termination.</li>
+    <li><strong>Validation:</strong> Test with <code>kubectl describe pod</code>.</li>
+  </ul>
 </div>
-"@ 
+"@
         }
         "podsRestart" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Fix High Restart Pods</h4>
-<ul>
-    <li><strong>Logs:</strong> Review pod logs (<code>kubectl logs <pod-name> -n <namespace></code>) to identify crash reasons.</li>
-    <li><strong>Resources:</strong> Increase CPU/memory limits in pod spec if resource starvation is suspected.</li>
-    <li><strong>Liveness Probes:</strong> Adjust or remove overly strict liveness probes causing restarts (<code>spec.containers.livenessProbe</code>).</li>
-    <li><strong>App Debugging:</strong> Fix application code if it’s exiting unexpectedly (check exit codes).</li>
-</ul>
+  <h4>🛠️ Fix High Restart Pods</h4>
+  <ul>
+    <li><strong>Logs:</strong> Check <code>kubectl logs</code> for crash details.</li>
+    <li><strong>Resources:</strong> Increase limits if needed.</li>
+    <li><strong>Liveness Probes:</strong> Adjust if causing restarts.</li>
+    <li><strong>App Debugging:</strong> Investigate application exit codes.</li>
+  </ul>
 </div>
 "@
         }
         "podLongRunning" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Handle Long-Running Pods</h4>
-<ul>
-    <li><strong>Verify Intent:</strong> Confirm if pods should run indefinitely (<code>kubectl describe pod <pod-name></code>).</li>
-    <li><strong>Stuck Jobs:</strong> If from a Job, check job status (<code>kubectl describe job <job-name></code>) and delete if stuck (<code>kubectl delete pod <pod-name></code>).</li>
-    <li><strong>Timeouts:</strong> Add pod disruption budgets or termination grace periods to manage lifecycle.</li>
-    <li><strong>Monitoring:</strong> Set up alerts for pods exceeding expected runtime.</li>
-</ul>
+  <h4>🛠️ Handle Long-Running Pods</h4>
+  <ul>
+    <li><strong>Verify Intent:</strong> Confirm if pods should run indefinitely.</li>
+    <li><strong>Jobs:</strong> Check if linked to a Job and inspect status.</li>
+    <li><strong>Timeouts:</strong> Consider disruption budgets.</li>
+    <li><strong>Monitoring:</strong> Setup alerts for abnormal runtimes.</li>
+  </ul>
 </div>
 "@
         }
         "podFail" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Resolve Failed Pods</h4>
-<ul>
-    <li><strong>Events:</strong> Check events with <code>kubectl describe pod <pod-name> -n <namespace></code> for failure reasons.</li>
-    <li><strong>Logs:</strong> Inspect logs (<code>kubectl logs <pod-name> --previous</code>) for crash details.</li>
-    <li><strong>Exit Codes:</strong> Decode exit codes (e.g., 1 for app error, 137 for OOM) and adjust app or resources.</li>
-    <li><strong>Restart Policy:</strong> Ensure pod spec’s restartPolicy is appropriate (<code>Never</code> vs <code>OnFailure</code>).</li>
-</ul>
+  <h4>🛠️ Resolve Failed Pods</h4>
+  <ul>
+    <li><strong>Events:</strong> Review pod events for failures.</li>
+    <li><strong>Logs:</strong> Inspect previous logs (<code>--previous</code>).</li>
+    <li><strong>Exit Codes:</strong> Check exit status and adjust resources.</li>
+    <li><strong>Restart Policy:</strong> Verify the pod’s restart policy.</li>
+  </ul>
 </div>
 "@
         }
         "podPending" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Fix Pending Pods</h4>
-<ul>
-    <li><strong>Resources:</strong> Check cluster capacity (<code>kubectl top nodes</code>) and quotas (<code>kubectl get resourcequota -n <namespace></code>).</li>
-    <li><strong>Taints:</strong> Add tolerations if nodes are tainted (<code>kubectl edit pod <pod-name></code>).</li>
-    <li><strong>Scheduling:</strong> Review node affinity/selectors (<code>kubectl describe pod <pod-name></code>).</li>
-    <li><strong>Scale:</strong> Add nodes if cluster is at capacity (<code>az aks scale</code>).</li>
-</ul>
+  <h4>🛠️ Fix Pending Pods</h4>
+  <ul>
+    <li><strong>Resources:</strong> Check cluster capacity.</li>
+    <li><strong>Taints:</strong> Verify node tolerations.</li>
+    <li><strong>Scheduling:</strong> Inspect node selectors.</li>
+    <li><strong>Scale:</strong> Add nodes if needed.</li>
+  </ul>
 </div>
 "@
         }
         "crashloop" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Fix CrashLoopBackOff Pods</h4>
-<ul>
-    <li><strong>Logs:</strong> Check logs (<code>kubectl logs <pod-name> -n <namespace></code>) for crash causes.</li>
-    <li><strong>Resources:</strong> Increase requests/limits if OOMKilled (<code>spec.containers.resources</code>).</li>
-    <li><strong>Probes:</strong> Adjust readiness/liveness probes if too aggressive (<code>spec.containers.livenessProbe</code>).</li>
-    <li><strong>App Fix:</strong> Debug app code for unhandled exceptions or misconfiguration.</li>
-</ul>
+  <h4>🛠️ Fix CrashLoopBackOff Pods</h4>
+  <ul>
+    <li><strong>Logs:</strong> Check logs for crash reasons.</li>
+    <li><strong>Resources:</strong> Increase limits if pods are OOMKilled.</li>
+    <li><strong>Probes:</strong> Adjust if probes are too strict.</li>
+    <li><strong>App Fix:</strong> Debug application issues.</li>
+  </ul>
 </div>
 "@
         }
         "leftoverDebug" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Remove Debug Pods</h4>
-<ul>
-    <li><strong>Identify:</strong> Confirm pods are debug-related (<code>kubectl describe pod <pod-name></code>).</li>
-    <li><strong>Delete:</strong> Remove with <code>kubectl delete pod <pod-name> -n <namespace></code>).</li>
-    <li><strong>Policy:</strong> Set TTL or cleanup scripts to auto-remove debug pods post-use.</li>
-    <li><strong>Monitoring:</strong> Alert on lingering debug pods to prevent resource waste.</li>
-</ul>
+  <h4>🛠️ Remove Debug Pods</h4>
+  <ul>
+    <li><strong>Identify:</strong> Verify pods are for debugging.</li>
+    <li><strong>Delete:</strong> Remove debug pods manually.</li>
+    <li><strong>Policy:</strong> Automate cleanup of debug pods.</li>
+    <li><strong>Monitoring:</strong> Alert on lingering debug pods.</li>
+  </ul>
 </div>
 "@
         }
         "stuckJobs" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Resolve Stuck Jobs</h4>
-<ul>
-    <li><strong>Status:</strong> Inspect job with <code>kubectl describe job <job-name></code> for pod failures.</li>
-    <li><strong>Pods:</strong> Check pod logs (<code>kubectl logs -l job-name=<job-name></code>) for errors.</li>
-    <li><strong>Delete:</strong> Remove stuck jobs (<code>kubectl delete job <job-name></code>) if unresolvable.</li>
-    <li><strong>Backoff:</strong> Adjust <code>spec.backoffLimit</code> if retries are exhausted too quickly.</li>
-</ul>
+  <h4>🛠️ Resolve Stuck Jobs</h4>
+  <ul>
+    <li><strong>Status:</strong> Check the Job’s pod failures.</li>
+    <li><strong>Pods:</strong> Inspect logs for errors.</li>
+    <li><strong>Delete:</strong> Remove stuck jobs if needed.</li>
+    <li><strong>Backoff:</strong> Adjust <code>backoffLimit</code>.</li>
+  </ul>
 </div>
 "@
         }
         "jobFail" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Fix Failed Jobs</h4>
-<ul>
-    <li><strong>Logs:</strong> Review pod logs (<code>kubectl logs -l job-name=<job-name></code>) for failure details.</li>
-    <li><strong>Spec:</strong> Check job spec (<code>kubectl get job <job-name> -o yaml</code>) for misconfiguration.</li>
-    <li><strong>Resources:</strong> Ensure sufficient CPU/memory (<code>spec.template.spec.resources</code>).</li>
-    <li><strong>Retry:</strong> Increase <code>spec.backoffLimit</code> or fix underlying app issues.</li>
-</ul>
+  <h4>🛠️ Fix Failed Jobs</h4>
+  <ul>
+    <li><strong>Logs:</strong> Check logs for job failure details.</li>
+    <li><strong>Spec:</strong> Inspect the job specification.</li>
+    <li><strong>Resources:</strong> Ensure adequate CPU/memory.</li>
+    <li><strong>Retry:</strong> Increase retry settings or fix issues.</li>
+  </ul>
 </div>
 "@
         }
         "servicesWithoutEndpoints" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Fix Services Without Endpoints</h4>
-<ul>
-    <li><strong>Selectors:</strong> Verify service selectors match pod labels (<code>kubectl describe svc <svc-name></code>).</li>
-    <li><strong>Pods:</strong> Deploy missing pods or fix pod failures (<code>kubectl get pods -l <selector></code>).</li>
-    <li><strong>Network:</strong> Ensure network policies aren’t blocking endpoints.</li>
-    <li><strong>Debug:</strong> Use <code>kubectl get endpoints <svc-name></code> to confirm endpoint creation.</li>
-</ul>
+  <h4>🛠️ Fix Services Without Endpoints</h4>
+  <ul>
+    <li><strong>Selectors:</strong> Ensure service selectors match pods.</li>
+    <li><strong>Pods:</strong> Deploy missing pods if needed.</li>
+    <li><strong>Network:</strong> Check network policies.</li>
+    <li><strong>Debug:</strong> Use <code>kubectl get endpoints</code> to verify.</li>
+  </ul>
 </div>
 "@
         }
         "publicServices" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Secure Public Services</h4>
-<ul>
-    <li><strong>Check Exposure:</strong> List services with <code>kubectl get svc -A | grep LoadBalancer</code>.</li>
-    <li><strong>Restrict:</strong> Apply network policies to limit access (<code>kubectl apply -f policy.yaml</code>).</li>
-    <li><strong>Internal:</strong> Use <code>service.beta.kubernetes.io/azure-load-balancer-internal: "true"</code> for AKS.</li>
-    <li><strong>Review:</strong> Audit if public access is intentional or reduce scope.</li>
-</ul>
+  <h4>🛠️ Secure Public Services</h4>
+  <ul>
+    <li><strong>Check Exposure:</strong> List services exposed via LoadBalancer.</li>
+    <li><strong>Restrict:</strong> Apply network policies to limit access.</li>
+    <li><strong>Internal:</strong> Use internal load balancer annotations if available.</li>
+    <li><strong>Review:</strong> Audit public exposure regularly.</li>
+  </ul>
 </div>
 "@
         }
         "ingress" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Validate Ingress Resources</h4>
-<ul>
-    <li><strong>Backend Services:</strong> Verify Ingress routes to services with healthy endpoints.</li>
-    <li><strong>Annotations:</strong> Confirm correct ingress class or controller annotations.</li>
-    <li><strong>TLS:</strong> Use <code>cert-manager</code> or secrets to configure valid TLS certs.</li>
-    <li><strong>Check Errors:</strong> Look for HTTP 404s, 502s or connection errors in the ingress controller logs.</li>
-</ul>
+  <h4>🛠️ Validate Ingress Resources</h4>
+  <ul>
+    <li><strong>Backend Services:</strong> Verify Ingress routes to healthy pods.</li>
+    <li><strong>Annotations:</strong> Check correct ingress class.</li>
+    <li><strong>TLS:</strong> Ensure valid TLS configuration.</li>
+    <li><strong>Check Errors:</strong> Look for HTTP errors in logs.</li>
+  </ul>
 </div>
 "@
         }
         "unmountedPV" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Handle Unmounted PVs</h4>
-<ul>
-    <li><strong>Verify:</strong> Check PVC status (<code>kubectl get pvc -A</code>) and pod mounts.</li>
-    <li><strong>Reclaim:</strong> Delete unused PVCs (<code>kubectl delete pvc <pvc-name> -n <namespace></code>).</li>
-    <li><strong>Reattach:</strong> Mount to a pod if needed (<code>spec.volumes</code> in pod spec).</li>
-    <li><strong>Cleanup:</strong> Set reclaim policy to <code>Delete</code> if no longer needed (<code>kubectl edit pv</code>).</li>
-</ul>
+  <h4>🛠️ Handle Unmounted PVs</h4>
+  <ul>
+    <li><strong>Verify:</strong> Check PVC status and pod mounts.</li>
+    <li><strong>Reclaim:</strong> Delete unused PVCs if not needed.</li>
+    <li><strong>Reattach:</strong> Mount them if required.</li>
+    <li><strong>Cleanup:</strong> Change reclaim policy if necessary.</li>
+  </ul>
 </div>
 "@
         }
         "rbacMisconfig" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Fix RBAC Misconfigurations</h4>
-<ul>
-    <li><strong>Audit:</strong> List bindings (<code>kubectl get clusterrolebinding,rolebinding -A</code>).</li>
-    <li><strong>Subjects:</strong> Add missing subjects (<code>kubectl edit clusterrolebinding <name></code>).</li>
-    <li><strong>Remove:</strong> Delete unused roles/bindings (<code>kubectl delete clusterrole <name></code>).</li>
-    <li><strong>Test:</strong> Use <code>kubectl auth can-i</code> to verify permissions.</li>
-</ul>
+  <h4>🛠️ Fix RBAC Misconfigurations</h4>
+  <ul>
+    <li><strong>Audit:</strong> List role bindings using <code>kubectl get</code>.</li>
+    <li><strong>Subjects:</strong> Add missing subjects if necessary.</li>
+    <li><strong>Remove:</strong> Delete unused roles or bindings.</li>
+    <li><strong>Test:</strong> Verify with <code>kubectl auth can-i</code>.</li>
+  </ul>
 </div>
 "@
         }
         "rbacOverexposure" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Reduce RBAC Overexposure</h4>
-<ul>
-    <li><strong>Audit:</strong> Check permissions (<code>kubectl auth can-i --list -A</code>).</li>
-    <li><strong>Scope:</strong> Replace cluster-wide roles with namespace-specific ones (<code>kubectl create role</code>).</li>
-    <li><strong>Least Privilege:</strong> Limit verbs/resources in role definitions.</li>
-    <li><strong>Review:</strong> Regularly audit with tools like <code>rbac-tool</code> or <code>kubectl who-can</code>.</li>
-</ul>
+  <h4>🛠️ Reduce RBAC Overexposure</h4>
+  <ul>
+    <li><strong>Audit:</strong> Check permissions with <code>kubectl auth can-i</code>.</li>
+    <li><strong>Scope:</strong> Replace cluster-wide roles with namespace-specific ones.</li>
+    <li><strong>Least Privilege:</strong> Limit verbs/resources accordingly.</li>
+    <li><strong>Review:</strong> Regularly audit your RBAC settings.</li>
+  </ul>
 </div>
 "@
         }
         "orphanedConfigMaps" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Clean Up Orphaned ConfigMaps</h4>
-<ul>
-    <li><strong>Verify:</strong> Check usage (<code>kubectl describe cm <name> -n <namespace></code>).</li>
-    <li><strong>Delete:</strong> Remove unused ConfigMaps (<code>kubectl delete cm <name> -n <namespace></code>).</li>
-    <li><strong>Documentation:</strong> Note purpose in annotations if retained.</li>
-    <li><strong>Automation:</strong> Script cleanup for unused ConfigMaps.</li>
-</ul>
+  <h4>🛠️ Clean Up Orphaned ConfigMaps</h4>
+  <ul>
+    <li><strong>Verify:</strong> Check if ConfigMaps are used.</li>
+    <li><strong>Delete:</strong> Remove unused ConfigMaps.</li>
+    <li><strong>Documentation:</strong> Annotate if retained.</li>
+    <li><strong>Automation:</strong> Consider script-based cleanup.</li>
+  </ul>
 </div>
 "@
         }
         "orphanedSecrets" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Handle Orphaned Secrets</h4>
-<ul>
-    <li><strong>Check:</strong> Verify usage (<code>kubectl describe secret <name> -n <namespace></code>).</li>
-    <li><strong>Delete:</strong> Remove unused Secrets (<code>kubectl delete secret <name> -n <namespace></code>).</li>
-    <li><strong>Mount:</strong> Ensure Secrets are mounted or referenced if needed (<code>spec.volumes.secret</code>).</li>
-    <li><strong>Security:</strong> Rotate if exposed and no longer used.</li>
-</ul>
+  <h4>🛠️ Handle Orphaned Secrets</h4>
+  <ul>
+    <li><strong>Check:</strong> Verify if Secrets are in use.</li>
+    <li><strong>Delete:</strong> Remove unused Secrets.</li>
+    <li><strong>Mount:</strong> Confirm Secrets are mounted where needed.</li>
+    <li><strong>Security:</strong> Rotate if exposed unnecessarily.</li>
+  </ul>
 </div>
 "@
         }
         "podsRoot" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Secure Root Pods</h4>
-<ul>
-    <li><strong>Config:</strong> Set <code>securityContext.runAsNonRoot: true</code> in pod spec.</li>
-    <li><strong>User:</strong> Define <code>runAsUser: <non-zero-uid></code> to avoid root.</li>
-    <li><strong>Verify:</strong> Check with <code>kubectl exec <pod-name> -- whoami</code>.</li>
-    <li><strong>Policy:</strong> Enforce via PodSecurity admission controller.</li>
-</ul>
+  <h4>🛠️ Secure Root Pods</h4>
+  <ul>
+    <li><strong>Config:</strong> Set <code>securityContext.runAsNonRoot: true</code>.</li>
+    <li><strong>User:</strong> Specify a non-zero UID.</li>
+    <li><strong>Verify:</strong> Use <code>kubectl exec</code> to check user.</li>
+    <li><strong>Policy:</strong> Enforce via admission controller.</li>
+  </ul>
 </div>
 "@
         }
         "privilegedContainers" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Remove Privileged Containers</h4>
-<ul>
-    <li><strong>Check:</strong> Inspect spec (<code>kubectl get pod <pod-name> -o yaml</code>).</li>
-    <li><strong>Fix:</strong> Remove <code>privileged: true</code> from <code>securityContext</code>.</li>
-    <li><strong>Capabilities:</strong> Use specific capabilities instead (<code>securityContext.capabilities.add</code>).</li>
-    <li><strong>Audit:</strong> Block privileged pods with Open Policy Agent or PodSecurity admission controller.</li>
-</ul>
+  <h4>🛠️ Remove Privileged Containers</h4>
+  <ul>
+    <li><strong>Check:</strong> Inspect the pod spec for <code>privileged: true</code>.</li>
+    <li><strong>Fix:</strong> Remove the privileged flag and set capabilities.</li>
+    <li><strong>Audit:</strong> Block with policy if needed.</li>
+  </ul>
 </div>
 "@
         }
         "hostPidNet" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Disable Host PID/Network</h4>
-<ul>
-    <li><strong>Inspect:</strong> Check pod spec (<code>kubectl get pod <pod-name> -o yaml</code>).</li>
-    <li><strong>Fix:</strong> Set <code>hostPID: false</code> and <code>hostNetwork: false</code> in <code>spec</code>.</li>
-    <li><strong>Use Case:</strong> Justify if required (e.g., monitoring tools), otherwise remove.</li>
-    <li><strong>Security:</strong> Enforce via admission controllers to prevent host access.</li>
-</ul>
+  <h4>🛠️ Disable Host PID/Network</h4>
+  <ul>
+    <li><strong>Inspect:</strong> Check for usage of host PID or network.</li>
+    <li><strong>Fix:</strong> Set <code>hostPID: false</code> and <code>hostNetwork: false</code>.</li>
+    <li><strong>Justify:</strong> Only enable if absolutely required.</li>
+    <li><strong>Enforce:</strong> Use admission controllers to block such settings.</li>
+  </ul>
 </div>
 "@
         }
         "orphanedServiceAccounts" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Clean Up Orphaned ServiceAccounts</h4>
-<ul>
-    <li><strong>Verify:</strong> Run <code>kubectl get sa -A</code> and check usage across pods, RoleBindings, and ClusterRoleBindings.</li>
-    <li><strong>Delete:</strong> Remove unused SAs with <code>kubectl delete sa <name> -n <namespace></code>.</li>
-    <li><strong>Audit:</strong> Confirm bindings and pods no longer reference the SA to avoid runtime issues.</li>
-    <li><strong>Policy:</strong> Set up a process to review and clean up stale SAs periodically.</li>
-</ul>
+  <h4>🛠️ Clean Up Orphaned ServiceAccounts</h4>
+  <ul>
+    <li><strong>Verify:</strong> List ServiceAccounts across namespaces.</li>
+    <li><strong>Delete:</strong> Remove unused ServiceAccounts.</li>
+    <li><strong>Audit:</strong> Confirm no pods or bindings use the ServiceAccount.</li>
+    <li><strong>Policy:</strong> Regularly review and clean up.</li>
+  </ul>
 </div>
 "@
         }
         "orphanedRoles" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Remove Unused Roles and ClusterRoles</h4>
-<ul>
-    <li><strong>List:</strong> Get all Roles and ClusterRoles using <code>kubectl get roles,clusterroles -A</code>.</li>
-    <li><strong>Bindings:</strong> Confirm if they’re bound using <code>kubectl get rolebindings,clusterrolebindings -A</code>.</li>
-    <li><strong>Prune:</strong> Delete unused roles with <code>kubectl delete role <name> -n <namespace></code> or <code>kubectl delete clusterrole <name></code>.</li>
-    <li><strong>Review:</strong> Avoid clutter and reduce audit noise by cleaning up unbound roles regularly.</li>
-</ul>
+  <h4>🛠️ Remove Unused Roles and ClusterRoles</h4>
+  <ul>
+    <li><strong>List:</strong> Get all roles and clusterroles.</li>
+    <li><strong>Bindings:</strong> Verify if they are in use.</li>
+    <li><strong>Prune:</strong> Remove those not bound.</li>
+    <li><strong>Review:</strong> Clean up for better auditing.</li>
+  </ul>
 </div>
 "@
         }
         "eventSummary" {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Address Cluster Events</h4>
-<ul>
-    <li><strong>Correlate:</strong> Match events to resources (<code>kubectl describe <resource> <name></code>).</li>
-    <li><strong>Root Cause:</strong> Investigate logs or metrics for warnings/errors.</li>
-    <li><strong>Fix:</strong> Adjust resources (e.g., limits) or configs based on event type.</li>
-    <li><strong>Monitor:</strong> Set up alerts for recurring critical events.</li>
-</ul>
+  <h4>🛠️ Address Cluster Events</h4>
+  <ul>
+    <li><strong>Correlate:</strong> Match events to resources.</li>
+    <li><strong>Root Cause:</strong> Investigate via logs/metrics.</li>
+    <li><strong>Fix:</strong> Adjust resources or configurations.</li>
+    <li><strong>Monitor:</strong> Alert on recurring issues.</li>
+  </ul>
 </div>
 "@
         }
         default {
           @"
 <div class="recommendation-content">
-<h4>🛠️ Generic Fix</h4>
-<ul>
+  <h4>🛠️ Generic Fix</h4>
+  <ul>
     <li><strong>Inspect:</strong> Use <code>kubectl describe</code> on affected resources.</li>
-    <li><strong>Logs:</strong> Check logs for clues (<code>kubectl logs</code>).</li>
-    <li><strong>Config:</strong> Review and adjust YAML manifests.</li>
-    <li><strong>Docs:</strong> Refer to Kubernetes documentation for specific guidance.</li>
-</ul>
+    <li><strong>Logs:</strong> Check logs for details.</li>
+    <li><strong>Config:</strong> Review YAML manifests.</li>
+    <li><strong>Docs:</strong> Consult Kubernetes documentation.</li>
+  </ul>
 </div>
 "@
         }
       }
       $recommendation = @"
 <div class="recommendation-card">
-<details style='margin-bottom: 10px;'>
-    <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
-    $recommendationText
-</details>
+  <details style='margin-bottom: 10px;'>
+      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
+      $recommendationText
+  </details>
 </div>
 <div style='height: 15px;'></div>
 "@
@@ -874,15 +779,68 @@ limits:
   $k8sVersion = "Unknown"
   $clusterScore = Get-ClusterHealthScore -Checks $checkResults
   $scoreColor = if ($clusterScore -ge 80) {
-    "#4CAF50"  # Green
+      "#4CAF50"
+  } elseif ($clusterScore -ge 50) {
+      "#FF9800"
+  } else {
+      "#F44336"
   }
-  elseif ($clusterScore -ge 50) {
-    "#FF9800"  # Orange
-  }
-  else {
-    "#F44336"  # Red
-  }
-  $scoreHeader = "<h2 style='margin-top: 0;'>Cluster: $ClusterName   |   Health Score: $clusterScore / 100</h2>"
+  
+  $scoreBarHtml = @"
+<div class="score-container">
+  <p>Score: <strong>$clusterScore / 100</strong></p>
+  <div class="progress-bar" style="--cluster-score: $clusterScore%; --score-color: $scoreColor;">
+    <div class="progress">
+      <span class="progress-text">$clusterScore%</span>
+    </div>
+  </div>
+  <p style="margin-top:10px; font-size:16px;">This score is calculated from key checks across nodes, workloads, security, and configuration best practices.
+A higher score means fewer issues and better adherence to Kubernetes standards.</p>
+</div>
+"@
+
+if ($aks) {
+  $genericTotal  = $checkResults.Count
+  $genericPassed = ($checkResults.Values | Where-Object { $_ -match '✅' }).Count
+  $genericIssues = $genericTotal - $genericPassed
+
+  $totalChecks  = $genericTotal + $aksTotal
+  $passedChecks = $genericPassed + $aksPass
+  $issuesChecks = $genericIssues + $aksFail
+} else {
+  $totalChecks  = $checkResults.Count
+  $passedChecks = ($checkResults.Values | Where-Object { $_ -match '✅' }).Count
+  $issuesChecks = $totalChecks - $passedChecks
+}
+$passedPercent = if ($totalChecks -gt 0) { [math]::Round(($passedChecks / $totalChecks) * 100, 2) } else { 0 }
+
+
+# Suppose we computed:
+#   $totalChecks, $passedChecks, $issuesChecks
+#   $passedPercent = [math]::Round(($passedChecks / $totalChecks) * 100, 2)
+
+$pieChartHtml = @"
+<svg class="pie-chart" width="120" height="120" viewBox="0 0 36 36">
+  <!-- Background circle path -->
+  <path class="circle-bg"
+        d="M18 2.0845
+           a 15.9155 15.9155 0 0 1 0 31.831
+           a 15.9155 15.9155 0 0 1 0 -31.831"/>
+  <!-- Foreground arc showing passed checks -->
+  <path class="circle"
+        stroke-dasharray="$passedPercent,100"
+        d="M18 2.0845
+           a 15.9155 15.9155 0 0 1 0 31.831
+           a 15.9155 15.9155 0 0 1 0 -31.831"
+        style="stroke: #4CAF50;" />
+  <!-- Text in the center showing 'Passed/Total' -->
+  <text x="18" y="20.35" class="percentage" text-anchor="middle">
+    $passedChecks/$totalChecks
+  </text>
+</svg>
+"@
+
+  
   for ($i = 0; $i -lt $clusterSummaryRaw.Count; $i++) {
     $line = [string]$clusterSummaryRaw[$i] -replace "`r", "" -replace "`n", ""
     if ($line -match "Cluster Name\s*$") { $clusterName = [string]$clusterSummaryRaw[$i + 2] -replace "`r", "" -replace "`n", "" }
@@ -927,7 +885,7 @@ limits:
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
     $excludedNamespacesHtml = @"
 <h2>Excluded Namespaces
-<span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">These namespaces are excluded from analysis and reporting.</span></span>
+  <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">These namespaces are excluded from analysis and reporting.</span></span>
 </h2>
 <p>$excludedList</p>
 "@
@@ -936,749 +894,1053 @@ limits:
     $excludedNamespacesHtml = ""
   }
 
-  # Build navigation drawer dynamically
-  $navItems = @"
-<div class="nav-drawer" id="navDrawer">
-<div class="nav-header">
-    <h3>Navigation</h3>
-    <button class="nav-close" id="navClose">✖</button>
-</div>
-<div class="nav-content">
-    <ul class="nav-items">
-        <li class="nav-item"><a href="#summary"><span class="material-icons">dashboard</span> Cluster Summary</a></li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">computer</span> Nodes</summary>
-                <ul>
-                    <li><a href="#nodecon">Node Conditions</a></li>
-                    <li><a href="#noderesource">Node Resources</a></li>
-"@
-  if ($customNavItems["Nodes"]) {
-    foreach ($check in $customNavItems["Nodes"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">folder</span> Namespaces</summary>
-                <ul>
-                    <li><a href="#namespaces">Empty Namespaces</a></li>
-                    <li><a href="#resourceQuotas">ResourceQuotas</a></li>
-                    <li><a href="#namespaceLimitRanges">LimitRanges</a></li>
-"@
-  if ($customNavItems["Namespaces"]) {
-    foreach ($check in $customNavItems["Namespaces"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">build</span> Workloads</summary>
-                <ul>
-                    <li><a href="#daemonsets">DaemonSets</a></li>
-                    <li><a href="#deploymentIssues">Deployment Issues</a></li>
-                    <li><a href="#statefulSetIssues">StatefulSet Issues</a></li>
-                    <li><a href="#HPA">Horizontal Pod Autoscalers</a></li>
-                    <li><a href="#missingResourceLimits">Missing Resource Limits</a></li>
-                    <li><a href="#PDB">PodDisruptionBudgets</a></li>
-                    <li><a href="#missingProbes">Missing Health Probes</a></li>
-"@
-  if ($customNavItems["Workloads"]) {
-    foreach ($check in $customNavItems["Workloads"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">hexagon</span> Pods</summary>
-                <ul>
-                    <li><a href="#podrestarts">Pods with High Restarts</a></li>
-                    <li><a href="#podlong">Long Running Pods</a></li>
-                    <li><a href="#podfail">Failed Pods</a></li>
-                    <li><a href="#podpend">Pending Pods</a></li>
-                    <li><a href="#crashloop">Pods in Crashloop</a></li>
-                    <li><a href="#debugpods">Running Debug Pods</a></li>
-"@
-  if ($customNavItems["Pods"]) {
-    foreach ($check in $customNavItems["Pods"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">work</span> Jobs</summary>
-                <ul>
-                    <li><a href="#stuckjobs">Stuck Jobs</a></li>
-                    <li><a href="#failedjobs">Job Failures</a></li>
-"@
-  if ($customNavItems["Jobs"]) {
-    foreach ($check in $customNavItems["Jobs"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">network_check</span> Networking</summary>
-                <ul>
-                    <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
-                    <li><a href="#publicServices">Public Services</a></li>
-                    <li><a href="#ingressHealth">Ingress Health</a></li>
-"@
-  if ($customNavItems["Networking"]) {
-    foreach ($check in $customNavItems["Networking"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">storage</span> Storage</summary>
-                <ul>
-                    <li><a href="#unmountedpv">Unmounted Persistent Volumes</a></li>
-"@
-  if ($customNavItems["Storage"]) {
-    foreach ($check in $customNavItems["Storage"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item"><a href="#configuration"><span class="material-icons">settings</span> Configuration Hygiene</a></li>
-"@
-  if ($customNavItems["Configuration Hygiene"]) {
-    foreach ($check in $customNavItems["Configuration Hygiene"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">security</span> Security</summary>
-                <ul>
-                    <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
-                    <li><a href="#rbacOverexposure">RBAC Overexposure</a></li>
-                    <li><a href="#orphanedRoles">Unused Roles</a></li>
-                    <li><a href="#orphanedServiceAccounts">Orphaned ServiceAccounts</a></li>
-                    <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
-                    <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
-                    <li><a href="#podsRoot">Pods Running as Root</a></li>
-                    <li><a href="#privilegedContainers">Privileged Containers</a></li>
-                    <li><a href="#hostPidNet">hostPID / hostNetwork</a></li>
-"@
-  if ($customNavItems["Security"]) {
-    foreach ($check in $customNavItems["Security"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">warning</span> Kubernetes Events</summary>
-                <ul>
-                    <li><a href="#clusterwarnings">Warning Summary</a></li>
-                    <li><a href="#fulleventlog">Full Warning Event Log</a></li>
-"@
-  if ($customNavItems["Kubernetes Events"]) {
-    foreach ($check in $customNavItems["Kubernetes Events"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-  }
-  $navItems += @"
-                </ul>
-            </details>
-        </li>
-"@
-  if ($customNavItems["Custom Checks"]) {
-    $navItems += @"
-        <li class="nav-item">
-            <details>
-                <summary><span class="material-icons">extension</span> Custom Checks</summary>
-                <ul>
-"@
-    foreach ($check in $customNavItems["Custom Checks"]) {
-      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
-    }
-    $navItems += @"
-                </ul>
-            </details>
-        </li>
-"@
-  }
-  if ($aksMenuItem) {
-    $navItems += $aksMenuItem
-  }
-  $navItems += @"
-    </ul>
-</div>
-</div>
-"@
-
+  # Updated HTML template using Tabs
   $htmlTemplate = @"
 <!DOCTYPE html>
-<html lang="en">
+<html lang='en'>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
   <title>Kubernetes Cluster Report</title>
-  <link rel="icon" href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/assets/images/favicon.ico" type="image/x-icon">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
-  html { scroll-behavior: smooth; }
-  body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; background: #eceff1; color: #37474f; }
-  .header { background: linear-gradient(90deg, #005ad1, #0071FF); color: white; display: flex; justify-content: space-between; align-items: center; padding: 10px 24px; font-weight: bold; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); position: relative; top: auto; z-index: auto; }
-  .header .nav-toggle { cursor: pointer; font-size: 28px; color: #fff; }
-  .header .logo { height: 44px; margin-right: 12px; }
-  .container { max-width: 1350px; margin: 20px auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1); }
-  .compatibility { padding: 12px; border-radius: 8px; font-weight: bold; text-align: center; color: #ffffff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); }
-  .warning { background: #ffeb3b; } .healthy { background: #4CAF50; } .unknown { background: #9E9E9E; }
-  .table-container { overflow-x: auto; width: 100%; max-width: 100%; }
-  table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 20px 0; font-size: 14px; text-align: left; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; }
-  th {
-      background-color: #0071FF;
-      color: white;
-      padding: 12px;
-      font-weight: 500;
-      position: relative;
-      cursor: pointer;
-      white-space: nowrap; /* Prevent text wrapping */
-      overflow: hidden; /* Hide overflow text */
-      text-overflow: ellipsis; /* Add ellipsis for overflow text */
-  }
-  th:hover {
-      background-color: #005ad1; /* Darker blue on hover */
-  }
-  th::after {
-      content: '';
-      display: inline-block;
-      margin-left: 5px;
-      vertical-align: middle;
-  }
-  td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #f5f5f5; transition: background 0.2s; }
-  th:first-child { border-top-left-radius: 8px; }
-  th:last-child { border-top-right-radius: 8px; }
-  td:first-child { border-left: none; }
-  td:last-child { border-right: none; }
-  table a {
-      color: #0071FF;
-      text-decoration: none;
-      font-weight: 500;
-  }
-  table a:hover {
-      text-decoration: underline;
-      color: #005ad1;
-  }
-  #backToTop { position: fixed; bottom: 20px; right: 20px; background: #0071FF; color: #fff; padding: 10px 15px; border-radius: 25px; text-decoration: none; font-size: 14px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: none; transition: opacity 0.3s ease; }
-  #backToTop:hover { background: #005ad1; }
-  #printContainer { text-align: right; margin-bottom: 15px; }
-  #printContainer button { background: #0071FF; color: white; padding: 10px 15px; border: none; cursor: pointer; font-size: 16px; border-radius: 8px; transition: background 0.3s; }
-  #printContainer button:hover { background: #005ad1; }
-  #savePdfBtn { background: #0071FF; color: white; padding: 8px 12px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; border-radius: 8px; margin-top: 10px; transition: background 0.3s; }
-  #savePdfBtn:hover { background: #005ad1; }
-@media print {
-    #savePdfBtn, #printContainer, .table-pagination, #menuFab {
-        display: none !important; /* Add !important to override any inline styles */
+  <link rel='icon' href='https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/assets/images/favicon.ico' type='image/x-icon'>
+  <link href='https://fonts.googleapis.com/icon?family=Material+Icons' rel='stylesheet'>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+
+    html { scroll-behavior: smooth; }
+
+    body { 
+        font-family: 'Roboto', sans-serif; 
+        margin: 0; 
+        padding: 0; 
+        background: #eceff1; 
+        color: #37474f; 
     }
-    details {
-        display: block;
+
+    .header { 
+        background: linear-gradient(90deg, #005ad1, #0071FF); 
+        color: white; 
+        display: flex; 
+        flex-direction: column;
+        justify-content: space-between; 
+        align-items: center; 
+        padding: 10px 24px; 
+        font-weight: bold; 
+        font-size: 24px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2); 
+        position: relative; 
+        top: auto; 
+        z-index: auto; 
     }
-    table {
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+      /* Responsive Header Inner Container */
+      .header-inner {
         width: 100%;
-        table-layout: fixed;
-        border-collapse: collapse;
+        max-width: 1350px; /* Adjust as needed */
+        margin: 0 auto;
+      }
+      .header .tabs {
+      list-style: none;
+      margin: 10px 0 0 0;
+      padding: 0;
+      display: flex;
+      overflow-x: auto;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
     }
-    th, td {
-        white-space: normal !important;
-        overflow: visible !important;
-        word-wrap: break-word;
-        padding: 8px;
-        border: 1px solid #ddd;
+
+    .header .tabs li {
+      color: #fff;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      white-space: nowrap;
     }
-    .table-container {
-        overflow: visible !important;
-        height: auto !important;
+
+    .header .tabs li.active {
+      border-bottom: 3px solid #fff;
     }
-}
-  .excluded-ns { padding: 2px 6px; background-color: #eee; border-radius: 4px; margin-right: 4px; display: inline-block; }
-  .nav-drawer { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: linear-gradient(135deg, #f5f7fa, #ffffff); box-shadow: 4px 0 12px rgba(0,0,0,0.2); transition: left 0.3s ease-in-out; z-index: 2000; overflow-y: auto; }
-  .nav-drawer.open { left: 0; }
-  .nav-scrim { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 1999; display: none; }
-  .nav-scrim.open { display: block; }
-  .nav-content { padding: 20px; }
-  .nav-header { padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; background: #0071FF; color: #fff; }
-  .nav-header h3 { margin: 0; font-size: 24px; font-weight: 700; }
-  .nav-close { background: none; border: none; cursor: pointer; font-size: 28px; color: #fff; transition: color 0.3s; }
-  .nav-close:hover { color: #BBDEFB; }
-  .nav-items { list-style: none; padding: 0; margin: 0; }
-  .nav-item { position: relative; }
-  .nav-item a { display: flex; align-items: center; padding: 12px 20px; color: #37474f; text-decoration: none; font-size: 16px; font-weight: 400; transition: background-color 0.3s, color 0.3s; border-radius: 6px; }
-  .nav-item a:hover { background: #E3F2FD; color: #005ad1; }
-  .nav-item .material-icons { margin-right: 16px; font-size: 22px; color: #0071FF; }
-  .nav-item details { margin: 5px 0; }
-  .nav-item details summary { display: flex; align-items: center; padding: 12px 20px; color: #37474f; font-size: 16px; font-weight: 500; cursor: pointer; transition: background-color 0.3s, color 0.3s; border-radius: 6px; }
-  .nav-item details summary:hover { background: #E3F2FD; color: #005ad1; }
-  .nav-item details summary .material-icons { margin-right: 16px; font-size: 22px; color: #0071FF; }
-  .nav-item details ul { padding-left: 48px; list-style: none; }
-  .nav-item details ul li a { padding: 8px 20px; font-size: 14px; font-weight: 400; color: #455A64; border-radius: 6px; }
-  .nav-item details ul li a:hover { background: #f0f4f8; color: #0071FF; }
-  .ripple { position: absolute; border-radius: 50%; background: rgba(0,113,255,0.3); transform: scale(0); animation: ripple 0.6s linear; pointer-events: none; }
-  @keyframes ripple { to { transform: scale(4); opacity: 0; } }
-  @media (max-width: 800px) {
-      .nav-drawer { width: 240px; left: -240px; }
-      .nav-drawer.open { left: 0; }
-  }
-      details,
-  .table-container,
-  .recommendation-card {
-    overflow: visible !important;
-    position: relative;
-    z-index: 0;
-  }
-  details ul { margin-left: 1.5em; }
-  .hero-metrics { display: flex; justify-content: space-around; margin-bottom: 20px; flex-wrap: wrap; }
-  .metric-card { text-align: center; padding: 20px; border-radius: 10px; color: white; font-size: 20px; font-weight: bold; min-width: 150px; flex: 1; margin: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
-  .normal { background-color: #388e3c; } .warning { background-color: #ffa000; } .critical { background-color: #B71C1C; } .default { background-color: #0071FF; }
-  @media (max-width: 600px) { .hero-metrics { flex-direction: column; align-items: center; } .metric-card { width: 80%; } }
-  .tooltip { display: inline-block; position: relative; cursor: pointer; margin-left: 8px; color: #0071FF; font-weight: bold; }
-  .tooltip .tooltip-text { visibility: hidden; width: 260px; background-color: #0071FF; color: #fff; text-align: left; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -130px; opacity: 0; transition: opacity 0.3s; font-size: 13px; }
-  .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
-  .tooltip .tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: #0071FF transparent transparent transparent; }
-.info-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: bold;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid #0071FF;
-  color: #0071FF;
-  background-color: #ffffff;
-  font-family: sans-serif;
-  vertical-align: middle;
-  position: relative;
-  top: -1px;
-  line-height: 1;
-}
-  .footer { background: linear-gradient(90deg, #263238, #37474f); color: white; text-align: center; padding: 20px; font-size: 14px; position: relative; }
-  .footer a { color: #80cbc4; text-decoration: none; }
-  .footer a:hover { text-decoration: underline; }
-  .footer .logo { height: 30px; margin-bottom: 10px; }
-  .recommendation-card { margin-bottom: 10px; }
-  .recommendation-card details { background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-  .recommendation-card summary { padding: 12px; background: #E3F2FD; border-radius: 8px 8px 0 0; }
-  .recommendation-card summary:hover { background: #BBDEFB; }
-  .recommendation-content { padding: 15px; background: #f9f9f9; border: 1px solid #BBDEFB; border-top: none; border-radius: 0 0 8px 8px; color: #37474f; line-height: 1.6; }
-  .recommendation-content h4 { margin: 0 0 10px 0; font-size: 16px; color: #0071FF; }
-  .recommendation-content ul { padding-left: 20px; margin: 0; }
-  .recommendation-content li { margin-bottom: 10px; }
-  .recommendation-content code { background: #e0e0e0; padding: 2px 4px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; }
-.table-pagination {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-.table-pagination select,
-.table-pagination button {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  background: #f7f7f7;
-  cursor: pointer;
-}
-.table-pagination button[disabled] {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.table-pagination .active {
-  font-weight: bold;
-  background: #0071FF;
-  color: white;
-}
-  #menuFab {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  width: 52px;
-  height: 52px;
-  background-color: #0071FF;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  font-size: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  cursor: pointer;
-  z-index: 2001;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.3s ease;
-}
-#menuFab:hover {
-  background-color: #005ad1;
-}
-</style>
+
+    .header .nav-toggle { 
+        cursor: pointer; 
+        font-size: 28px; 
+        color: #fff; 
+    }
+
+    .header .logo { 
+        height: 44px; 
+        margin-right: 12px; 
+    }
+
+    .container { 
+        max-width: 1350px; 
+        margin: 20px auto; 
+        background: white; 
+        padding: 20px; 
+        border-radius: 12px; 
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1); 
+    }
+
+    .compatibility { 
+        padding: 12px; 
+        border-radius: 8px; 
+        font-weight: bold; 
+        text-align: center; 
+        color: #ffffff; 
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); 
+    }
+
+    .warning { background: #ffeb3b; }
+    .healthy { background: #4CAF50; }
+    .unknown { background: #9E9E9E; }
+
+    .table-container { 
+        overflow-x: auto; 
+        width: 100%; 
+        max-width: 100%; 
+    }
+
+    table { 
+        width: 100%; 
+        border-collapse: separate; 
+        border-spacing: 0; 
+        margin: 20px 0; 
+        font-size: 14px; 
+        text-align: left; 
+        background: #fff; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        border-left: 1px solid #e0e0e0; 
+        border-right: 1px solid #e0e0e0; 
+    }
+
+    th { 
+        background-color: #0071FF; 
+        color: white; 
+        padding: 12px; 
+        font-weight: 500; 
+        position: relative; 
+        cursor: pointer; 
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+    }
+
+    th:hover { 
+        background-color: #005ad1; 
+    }
+
+    th::after { 
+        content: ''; 
+        display: inline-block; 
+        margin-left: 5px; 
+        vertical-align: middle; 
+    }
+
+    td { 
+        padding: 12px; 
+        border-bottom: 1px solid #e0e0e0; 
+    }
+
+    tr:last-child td { 
+        border-bottom: none; 
+    }
+
+    tr:hover td { 
+        background: #f5f5f5; 
+        transition: background 0.2s; 
+    }
+
+    th:first-child { 
+        border-top-left-radius: 8px; 
+    }
+
+    th:last-child { 
+        border-top-right-radius: 8px; 
+    }
+
+    td:first-child { 
+        border-left: none; 
+    }
+
+    td:last-child { 
+        border-right: none; 
+    }
+
+    table a { 
+        color: #0071FF; 
+        text-decoration: none; 
+        font-weight: 500; 
+    }
+
+    table a:hover { 
+        text-decoration: underline; 
+        color: #005ad1; 
+    }
+
+    #backToTop { 
+        position: fixed; 
+        bottom: 20px; 
+        right: 20px; 
+        background: #0071FF; 
+        color: #fff; 
+        padding: 10px 15px; 
+        border-radius: 25px; 
+        text-decoration: none; 
+        font-size: 14px; 
+        font-weight: bold; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+        display: none; 
+        transition: opacity 0.3s ease; 
+    }
+
+    #backToTop:hover { 
+        background: #005ad1; 
+    }
+
+    #printContainer { 
+        text-align: right; 
+        margin-bottom: 15px; 
+    }
+
+    #printContainer button { 
+        background: #0071FF; 
+        color: white; 
+        padding: 10px 15px; 
+        border: none; 
+        cursor: pointer; 
+        font-size: 16px; 
+        border-radius: 8px; 
+        transition: background 0.3s; 
+    }
+
+    #printContainer button:hover { 
+        background: #005ad1; 
+    }
+
+    #savePdfBtn { 
+        background: #0071FF; 
+        color: white; 
+        padding: 8px 12px; 
+        font-size: 14px; 
+        font-weight: bold; 
+        border: none; 
+        cursor: pointer; 
+        border-radius: 8px; 
+        margin-top: 10px; 
+        transition: background 0.3s; 
+    }
+
+    #savePdfBtn:hover { 
+        background: #005ad1; 
+    }
+
+    .excluded-ns { 
+        padding: 2px 6px; 
+        background-color: #eee; 
+        border-radius: 4px; 
+        margin-right: 4px; 
+        display: inline-block; 
+    }
+
+    .nav-drawer { 
+        position: fixed; 
+        top: 0; 
+        left: -280px; 
+        width: 280px; 
+        height: 100%; 
+        background: linear-gradient(135deg, #f5f7fa, #ffffff); 
+        box-shadow: 4px 0 12px rgba(0,0,0,0.2); 
+        transition: left 0.3s ease-in-out; 
+        z-index: 2000; 
+        overflow-y: auto; 
+    }
+
+    .nav-drawer.open { 
+        left: 0; 
+    }
+
+    .nav-scrim { 
+        position: fixed; 
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100%; 
+        background-color: rgba(0,0,0,0.4); 
+        z-index: 1999; 
+        display: none; 
+    }
+
+    .nav-scrim.open { 
+        display: block; 
+    }
+
+    .nav-content { 
+        padding: 20px; 
+    }
+
+    .nav-header { 
+        padding: 20px; 
+        border-bottom: 1px solid #e0e0e0; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        background: #0071FF; 
+        color: #fff; 
+    }
+
+    .nav-header h3 { 
+        margin: 0; 
+        font-size: 24px; 
+        font-weight: 700; 
+    }
+
+    .nav-close { 
+        background: none; 
+        border: none; 
+        cursor: pointer; 
+        font-size: 28px; 
+        color: #fff; 
+        transition: color 0.3s; 
+    }
+
+    .nav-close:hover { 
+        color: #BBDEFB; 
+    }
+
+    .nav-items { 
+        list-style: none; 
+        padding: 0; 
+        margin: 0; 
+    }
+
+    .nav-item { 
+        position: relative; 
+    }
+
+    .nav-item a { 
+        display: flex; 
+        align-items: center; 
+        padding: 12px 20px; 
+        color: #37474f; 
+        text-decoration: none; 
+        font-size: 16px; 
+        font-weight: 400; 
+        transition: background-color 0.3s, color 0.3s; 
+        border-radius: 6px; 
+    }
+
+    .nav-item a:hover { 
+        background: #E3F2FD; 
+        color: #005ad1; 
+    }
+
+    .nav-item .material-icons { 
+        margin-right: 16px; 
+        font-size: 22px; 
+        color: #0071FF; 
+    }
+
+    .nav-item details { 
+        margin: 5px 0; 
+    }
+
+    .nav-item details summary { 
+        display: flex; 
+        align-items: center; 
+        padding: 12px 20px; 
+        color: #37474f; 
+        font-size: 16px; 
+        font-weight: 500; 
+        cursor: pointer; 
+        transition: background-color 0.3s, color 0.3s; 
+        border-radius: 6px; 
+    }
+
+    .nav-item details summary:hover { 
+        background: #E3F2FD; 
+        color: #005ad1; 
+    }
+
+    .nav-item details summary .material-icons { 
+        margin-right: 16px; 
+        font-size: 22px; 
+        color: #0071FF; 
+    }
+
+    .nav-item details ul { 
+        padding-left: 48px; 
+        list-style: none; 
+    }
+
+    .nav-item details ul li a { 
+        padding: 8px 20px; 
+        font-size: 14px; 
+        font-weight: 400; 
+        color: #455A64; 
+        border-radius: 6px; 
+    }
+
+    .nav-item details ul li a:hover { 
+        background: #f0f4f8; 
+        color: #0071FF; 
+    }
+
+    .ripple { 
+        position: absolute; 
+        border-radius: 50%; 
+        background: rgba(0,113,255,0.3); 
+        transform: scale(0); 
+        animation: ripple 0.6s linear; 
+        pointer-events: none; 
+    }
+
+    @keyframes ripple { 
+        to { transform: scale(4); opacity: 0; } 
+    }
+
+    .hero-metrics { 
+        display: flex; 
+        justify-content: space-around; 
+        margin-bottom: 20px; 
+        flex-wrap: wrap; 
+    }
+
+    .metric-card { 
+        text-align: center; 
+        padding: 20px; 
+        border-radius: 10px; 
+        color: white; 
+        font-size: 20px; 
+        font-weight: bold; 
+        min-width: 150px; 
+        flex: 1; 
+        margin: 10px; 
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
+    }
+
+    .normal { background-color: #388e3c; }
+    .warning { background-color: #ffa000; }
+    .critical { background-color: #B71C1C; }
+    .default { background-color: #0071FF; }
+
+    .tooltip { 
+        display: inline-block; 
+        position: relative; 
+        cursor: pointer; 
+        margin-left: 8px; 
+        color: #0071FF; 
+        font-weight: bold; 
+    }
+
+    .tooltip .tooltip-text { 
+        visibility: hidden; 
+        width: 260px; 
+        background-color: #0071FF; 
+        color: #fff; 
+        text-align: left; 
+        border-radius: 6px; 
+        padding: 8px; 
+        position: absolute; 
+        z-index: 10; 
+        bottom: 125%; 
+        left: 50%; 
+        margin-left: -130px; 
+        opacity: 0; 
+        transition: opacity 0.3s; 
+        font-size: 13px; 
+    }
+
+    .tooltip:hover .tooltip-text { 
+        visibility: visible; 
+        opacity: 1; 
+    }
+
+    .tooltip .tooltip-text::after { 
+        content: ""; 
+        position: absolute; 
+        top: 100%; 
+        left: 50%; 
+        margin-left: -6px; 
+        border-width: 6px; 
+        border-style: solid; 
+        border-color: #0071FF transparent transparent transparent; 
+    }
+
+    .info-icon { 
+        display: inline-flex; 
+        align-items: center; 
+        justify-content: center; 
+        font-size: 13px; 
+        font-weight: bold; 
+        width: 18px; 
+        height: 18px; 
+        border-radius: 50%; 
+        border: 1px solid #0071FF; 
+        color: #0071FF; 
+        background-color: #ffffff; 
+        font-family: sans-serif; 
+        vertical-align: middle; 
+        position: relative; 
+        top: -1px; 
+        line-height: 1; 
+    }
+
+    html, body {
+        height: 100%;
+        margin: 0;
+    }
+    .wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+    .main-content {
+        flex: 1;
+    }
+
+    .footer { 
+        background: linear-gradient(90deg, #263238, #37474f); 
+        color: white; 
+        text-align: center; 
+        padding: 20px; 
+        font-size: 14px; 
+        position: relative; 
+        z-index: 1000;
+    }
+
+    .footer a { 
+        color: #80cbc4; 
+        text-decoration: none; 
+    }
+
+    .footer a:hover { 
+        text-decoration: underline; 
+    }
+
+    .footer .logo { 
+        height: 30px; 
+        margin-bottom: 10px; 
+    }
+
+    .recommendation-card { 
+        margin-bottom: 10px; 
+    }
+
+    .recommendation-card details { 
+        background: #fff; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1); 
+    }
+
+    .recommendation-card summary { 
+        padding: 12px; 
+        background: #E3F2FD; 
+        border-radius: 8px 8px 0 0; 
+    }
+
+    .recommendation-card summary:hover { 
+        background: #BBDEFB; 
+    }
+
+    .recommendation-content { 
+        padding: 15px; 
+        background: #f9f9f9; 
+        border: 1px solid #BBDEFB; 
+        border-top: none; 
+        border-radius: 0 0 8px 8px; 
+        color: #37474f; 
+        line-height: 1.6; 
+    }
+
+    .recommendation-content h4 { 
+        margin: 0 0 10px 0; 
+        font-size: 16px; 
+        color: #0071FF; 
+    }
+
+    .recommendation-content ul { 
+        padding-left: 20px; 
+        margin: 0; 
+    }
+
+    .recommendation-content li { 
+        margin-bottom: 10px; 
+    }
+
+    .recommendation-content code { 
+        background: #e0e0e0; 
+        padding: 2px 4px; 
+        border-radius: 4px; 
+        font-family: 'Courier New', Courier, monospace; 
+    }
+
+    .table-pagination { 
+        margin-top: 10px; 
+        display: flex; 
+        flex-wrap: wrap; 
+        align-items: center; 
+        gap: 10px; 
+    }
+
+    .table-pagination select, 
+    .table-pagination button { 
+        padding: 6px 12px; 
+        border-radius: 6px; 
+        border: 1px solid #ccc; 
+        background: #f7f7f7; 
+        cursor: pointer; 
+    }
+
+    .table-pagination button[disabled] { 
+        opacity: 0.5; 
+        cursor: not-allowed; 
+    }
+
+    .table-pagination .active { 
+        font-weight: bold; 
+        background: #0071FF; 
+        color: white; 
+    }
+
+    #menuFab { 
+        position: fixed; 
+        bottom: 20px; 
+        left: 20px; 
+        width: 52px; 
+        height: 52px; 
+        background-color: #0071FF; 
+        color: white; 
+        border: none; 
+        border-radius: 50%; 
+        font-size: 24px; 
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); 
+        cursor: pointer; 
+        z-index: 2001; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        transition: background 0.3s ease; 
+    }
+
+    #menuFab:hover { 
+        background-color: #005ad1; 
+    }
+
+    details, 
+    .table-container, 
+    .recommendation-card { 
+        overflow: visible !important; 
+        position: relative; 
+        z-index: 0; 
+    }
+
+    details ul { 
+        margin-left: 1.5em; 
+    }
+
+    @media print { 
+        #savePdfBtn, 
+        #printContainer, 
+        .table-pagination, 
+        #menuFab, 
+        .tabs-card { 
+            display: none !important; 
+        } 
+        details { 
+            display: block; 
+        } 
+        table { 
+            width: 100%; 
+            table-layout: fixed; 
+            border-collapse: collapse; 
+        } 
+        th, td { 
+            white-space: normal !important; 
+            overflow: visible !important; 
+            word-wrap: break-word; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+        } 
+        .table-container { 
+            overflow: visible !important; 
+            height: auto !important; 
+        } 
+    }
+
+    @media (max-width: 800px) { 
+        .nav-drawer { 
+            width: 240px; 
+            left: -240px; 
+        } 
+        .nav-drawer.open { 
+            left: 0; 
+        } 
+    }
+
+    @media (max-width: 600px) { 
+        .hero-metrics { 
+            flex-direction: column; 
+            align-items: center; 
+        } 
+        .metric-card { 
+            width: 80%; 
+        } 
+    }
+    @media (max-width: 600px) {
+        .header .tabs {
+            display: none;
+        }
+        #menuFab {
+            display: flex; /* or block, as needed */
+        }
+    }
+
+    @media (min-width: 601px) {
+        .header .tabs {
+            display: flex;
+        }
+        #menuFab {
+            display: none;
+        }
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .progress-bar {
+      background-color: #e0e0e0;
+      border-radius: 8px;
+      height: 26px;
+      width: 100%;
+      margin: 0 auto;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .progress {
+      height: 100%;
+      width: var(--cluster-score, 0%);
+      background-color: var(--score-color, #4CAF50);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      transition: width 0.3s ease;
+    }
+    .progress-text {
+      margin: 0 5px;
+    }
+
+    .cluster-health {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .health-score {
+        flex: 1;
+    }
+    .pie-chart {
+      display: block;
+      margin: 0 auto;
+    }
+
+    .circle-bg {
+      fill: none;
+      stroke: #e6e6e6;     /* light gray background */
+      stroke-width: 4;
+    }
+
+    .circle {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round; /* rounded arc edges */
+      transform: rotate(-90deg);
+      transform-origin: center; /* top of arc at 12 o'clock */
+    }
+
+    .percentage {
+      font-size: 10px;  /* adjust as desired */
+      fill: #37474f;    /* text color */
+    }
+
+  </style>
 </head>
 <body>
-<div class="nav-drawer" id="navDrawer">
-  <div class="nav-header">
-      <h3>Navigation</h3>
-      <button class="nav-close" id="navClose">✖</button>
-  </div>
-  <div class="nav-content">
-      <ul class="nav-items">
-          <li class="nav-item"><a href="#summary"><span class="material-icons">dashboard</span> Cluster Summary</a></li>
-          <li class="nav-item">
-              <details>
-                  <summary><span class="material-icons">computer</span> Nodes</summary>
-                  <ul>
-                      <li><a href="#nodecon">Node Conditions</a></li>
-                      <li><a href="#noderesource">Node Resources</a></li>
-                  </ul>
-              </details>
-          </li>
-          <li class="nav-item">
-            <details>
-              <summary><span class="material-icons">folder</span> Namespaces</summary>
-              <ul>
-                <li><a href="#namespaces">Empty Namespaces</a></li>
-                <li><a href="#resourceQuotas">ResourceQuotas</a></li>
-                <li><a href="#namespaceLimitRanges">LimitRanges</a></li>
-              </ul>
-            </details>
-          </li>
-          <li class="nav-item">
-            <details>
-              <summary><span class="material-icons">build</span> Workloads</summary>
-              <ul>
-                <li><a href="#daemonsets">DaemonSets</a></li>
-                <li><a href="#deploymentIssues">Deployment Issues</a></li>
-                <li><a href="#statefulSetIssues">StatefulSet Issues</a></li>
-                <li><a href="#HPA">Horizontal Pod Autoscalers</a></li>
-                <li><a href="#missingResourceLimits">Missing Resource Limits</a></li>
-                <li><a href="#PDB">PodDisruptionBudgets</a></li>
-                <li><a href="#missingProbes">Missing Health Probes</a></li>
-              </ul>
-            </details>
-          </li>
-          <li class="nav-item">
-              <details>
-                  <summary><span class="material-icons">hexagon</span> Pods</summary>
-                  <ul>
-                      <li><a href="#podrestarts">Pods with High Restarts</a></li>
-                      <li><a href="#podlong">Long Running Pods</a></li>
-                      <li><a href="#podfail">Failed Pods</a></li>
-                      <li><a href="#podpend">Pending Pods</a></li>
-                      <li><a href="#crashloop">Pods in Crashloop</a></li>
-                      <li><a href="#debugpods">Running Debug Pods</a></li>
-                  </ul>
-              </details>
-          </li>
-          <li class="nav-item">
-              <details>
-                  <summary><span class="material-icons">work</span> Jobs</summary>
-                  <ul>
-                      <li><a href="#stuckjobs">Stuck Jobs</a></li>
-                      <li><a href="#failedjobs">Job Failures</a></li>
-                  </ul>
-              </details>
-          </li>
-          <li class="nav-item">
-              <details>
-                  <summary><span class="material-icons">network_check</span> Networking</summary>
-                  <ul>
-                      <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
-                      <li><a href="#publicServices">Public Services</a></li>
-                      <li><a href="#ingressHealth">Ingress Health</a></li>
-                  </ul>
-              </details>
-          </li>
-          <li class="nav-item">
-              <details>
-                  <summary><span class="material-icons">storage</span> Storage</summary>
-                  <ul>
-                      <li><a href="#unmountedpv">Unmounted Persistent Volumes</a></li>
-                  </ul>
-              </details>
-          </li>
-          <li class="nav-item"><a href="#configuration"><span class="material-icons">settings</span> Configuration Hygiene</a></li>
-          <li class="nav-item">
-            <details>
-              <summary><span class="material-icons">security</span> Security</summary>
-              <ul>
-                <!-- RBAC -->
-                <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
-                <li><a href="#rbacOverexposure">RBAC Overexposure</a></li>
-                <li><a href="#orphanedRoles">Unused Roles</a></li>
-                <li><a href="#orphanedServiceAccounts">Orphaned ServiceAccounts</a></li>
-          
-                <!-- Orphaned resources -->
-                <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
-                <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
-          
-                <!-- Pod/container security -->
-                <li><a href="#podsRoot">Pods Running as Root</a></li>
-                <li><a href="#privilegedContainers">Privileged Containers</a></li>
-                <li><a href="#hostPidNet">hostPID / hostNetwork</a></li>
-              </ul>
-            </details>
-          </li>
-          <li class="nav-item">
-    <details>
-        <summary><span class="material-icons">warning</span> Kubernetes Events</summary>
-        <ul>
-            <li><a href="#clusterwarnings">Warning Summary</a></li>
-            <li><a href="#fulleventlog">Full Warning Event Log</a></li>
-        </ul>
-    </details>
-</li>
-$aksMenuItem
-      </ul>
-  </div>
-</div>
-<div class="nav-scrim" id="navScrim"></div>
-<div id="top"></div>
-<div class="header">
-  <div style="display: flex; flex-direction: column;">
-    <span>Kubernetes Cluster Report: $clusterName</span>
-    <span style="font-size: 12px;">
-      Powered by 
-      <img src="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/images/reportheader%20(2).png" 
-           alt="KubeBuddy Logo" 
-           style="height: 70px; vertical-align: middle;">
-    </span>
-  </div>
-  <div style="text-align: right; font-size: 13px; line-height: 1.4;">
-      <div>Generated on: <strong>$today</strong></div>
+  <div class="wrapper">
+    <div class="main-content">
+  <!-- Full-width header container -->
+  <div class="header">
+    <!-- Inner wrapper keeps content from going 100% edge-to-edge 
+         but also remains centered and flexible up to max-width -->
+    <div class="header-inner">
 
-      <div>Created by <a href="https://kubedeck.io" target="_blank" style="color: #ffffff; text-decoration: underline;">🌐 KubeDeck.io</a></div>
-      <div style="margin-top: 4px;" id="printContainer"><button id="savePdfBtn">📄 Save as PDF</button></div>
-  </div>
-</div>
-<div class="container">
-  <h1 style="margin-top: 0;">Cluster Health Score</h1>
-  <div style="margin: 20px 0;">
-    <div style="font-size: 18px; margin-bottom: 6px;">
-      Score: <strong>$clusterScore / 100</strong>
-    </div>
-    <div style="background-color: #e0e0e0; border-radius: 8px; height: 26px; width: 100%;">
-      <div style="height: 100%; width: $clusterScore%; background-color: $scoreColor; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-        $clusterScore%
+      <!-- Top row with cluster name and date on opposite ends -->
+      <div class="header-top">
+        <div>
+          <span>Kubernetes Cluster Report: $ClusterName</span>
+          <br>
+          <span style="font-size: 12px;">
+            Powered by 
+            <img src="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/images/reportheader%20(2).png" alt="KubeBuddy Logo" style="height: 70px; vertical-align: middle;">
+          </span>
+        </div>
+        <div style="text-align: right; font-size: 13px; line-height: 1.4;">
+          <div>Generated on: <strong>$today</strong></div>
+          <div>
+            Created by 
+            <a href="https://kubedeck.io" target="_blank" style="color: #ffffff; text-decoration: underline;">
+              🌐 KubeDeck.io
+            </a>
+          </div>
+          <div id="printContainer" style="margin-top: 4px;">
+            <button id="savePdfBtn">📄 Save as PDF</button>
+          </div>
+        </div>
       </div>
+
+      <!-- Tabs row -->
+      <ul class="tabs">
+        <li class="tab active" data-tab="summary">Summary</li>
+        <li class="tab" data-tab="nodes">Nodes</li>
+        <li class="tab" data-tab="namespaces">Namespaces</li>
+        <li class="tab" data-tab="workloads">Workloads</li>
+        <li class="tab" data-tab="pods">Pods</li>
+        <li class="tab" data-tab="jobs">Jobs</li>
+        <li class="tab" data-tab="networking">Networking</li>
+        <li class="tab" data-tab="storage">Storage</li>
+        <li class="tab" data-tab="configuration">Configuration</li>
+        <li class="tab" data-tab="security">Security</li>
+        <li class="tab" data-tab="events">Kubernetes Events</li>
+        <li class="tab" data-tab="customChecks">Custom Checks</li>
+        $(if ($aks) { '<li class="tab" data-tab="aks">AKS Best Practices</li>' })
+      </ul>
     </div>
-    <p style="margin-top: 10px; font-size: 16px; color: #555;">
-      This score is calculated from key checks across nodes, workloads, security, and configuration best practices.
-      <br>
-      A higher score means fewer issues and better adherence to Kubernetes standards.
-    </p>
   </div>
-</div>
-<div class="container">
-  <h1 id="summary">Cluster Summary</h1>
-  <p><strong>Cluster Name:</strong> $clusterName</p>
-  <p><strong>Kubernetes Version:</strong> $k8sVersion</p>
-  <div class="compatibility $compatibilityClass"><strong>$compatibilityCheck</strong></div>
-  <h2>Cluster Metrics Summary <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of node and pod counts including warnings, restarts, and issues.</span></span></h2>
-  <table>
-      <tr><td>🚀 Nodes: $totalNodes</td><td>🟩 Healthy: $healthyNodes</td><td>🟥 Issues: $issueNodes</td></tr>
-      <tr><td>📦 Pods: $totalPods</td><td>🟩 Running: $runningPods</td><td>🟥 Failed: $failedPods</td></tr>
-      <tr><td>🔄 Restarts: $totalRestarts</td><td>🟨 Warnings: $warnings</td><td>🟥 Critical: $critical</td></tr>
-      <tr><td>⏳ Pending Pods: $pendingPods</td><td>🟡 Waiting: $pendingPods</td><td></td></tr>
-      <tr><td>⚠️ Stuck Pods: $stuckPods</td><td>❌ Stuck: $stuckPods</td><td></td></tr>
-      <tr><td>📉 Job Failures: $jobFailures</td><td>🔴 Failed: $jobFailures</td><td></td></tr>
-  </table>
-  <h2>Pod Distribution <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Average, min, and max pods per node, and total node count.</span></span></h2>
-  <table><tr><td>Avg: <strong>$podAvg</strong></td><td>Max: <strong>$podMax</strong></td><td>Min: <strong>$podMin</strong></td><td>Total Nodes: <strong>$podTotalNodes</strong></td></tr></table>
-  <h2>Resource Usage <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Cluster-wide CPU and memory usage.</span></span></h2>
-  <div class="hero-metrics">
-      <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong> <br><span>$cpuStatus</span></div>
-      <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong> <br><span>$memStatus</span></div>
+
+    <!-- Navigation Drawer -->
+  <div id="navDrawer" class="nav-drawer">
+    <div class="nav-header">
+      <h3>Menu</h3>
+      <button id="navClose" class="nav-close">&times;</button>
+    </div>
+    <ul class="nav-items"></ul>
   </div>
-  <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Recent warning and error events from the cluster.</span></span></h2>
-  <div class="hero-metrics">
-      <div class="metric-card $errorClass">❌ Errors: <strong>$eventErrors</strong></div>
-      <div class="metric-card $warningClass">⚠️ Warnings: <strong>$eventWarnings</strong></div>
+  <div id="navScrim" class="nav-scrim"></div>
+  <button id="menuFab">☰</button>
+
+  <!-- Tab Content Sections -->
+<div class="tab-content active" id="summary">
+  <div class="container">
+    <h1 id="Health">Cluster Overview</h1>
+    <div class="cluster-health">
+      <div class="health-score">
+      <h2>Cluster Health Score</h>
+        $scoreBarHtml
+      </div>
+      <div class="health-pie">
+      <h2>Cluster Check Breakdown</h2>
+      $pieChartHtml
+    </div>
+    </div>
+    </div>
+    <div class="container">
+      <h1 id="summary">Cluster Summary</h1>
+      <p><strong>Cluster Name:</strong> $ClusterName</p>
+      <p><strong>Kubernetes Version:</strong> $k8sVersion</p>
+      <div class="compatibility $compatibilityClass"><strong>$compatibilityCheck</strong></div>
+      <h2>Cluster Metrics Summary <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of metrics including node and pod counts, warnings, and issues.</span></span></h2>
+      <table>
+        <tr><td>🚀 Nodes: $totalNodes</td><td>🟩 Healthy: $healthyNodes</td><td>🟥 Issues: $issueNodes</td></tr>
+        <tr><td>📦 Pods: $totalPods</td><td>🟩 Running: $runningPods</td><td>🟥 Failed: $failedPods</td></tr>
+        <tr><td>🔄 Restarts: $totalRestarts</td><td>🟨 Warnings: $warnings</td><td>🟥 Critical: $critical</td></tr>
+        <tr><td>⏳ Pending Pods: $pendingPods</td><td>🟡 Waiting: $pendingPods</td></tr>
+        <tr><td>⚠️ Stuck Pods: $stuckPods</td><td>❌ Stuck: $stuckPods</td></tr>
+        <tr><td>📉 Job Failures: $jobFailures</td><td>🔴 Failed: $jobFailures</td></tr>
+      </table>
+      <h2>Pod Distribution <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Average, min, and max pods per node and total node count.</span></span></h2>
+      <table>
+        <tr><td>Avg: <strong>$podAvg</strong></td><td>Max: <strong>$podMax</strong></td><td>Min: <strong>$podMin</strong></td><td>Total Nodes: <strong>$podTotalNodes</strong></td></tr>
+      </table>
+      <h2>Resource Usage <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Cluster-wide CPU and memory usage.</span></span></h2>
+      <div class="hero-metrics">
+        <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
+        <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
+      </div>
+      <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of recent warning and error events.</span></span></h2>
+      <div class="hero-metrics">
+        <div class="metric-card $errorClass">❌ Errors: <strong>$eventErrors</strong></div>
+        <div class="metric-card $warningClass">⚠️ Warnings: <strong>$eventWarnings</strong></div>
+      </div>
+      $excludedNamespacesHtml
+    </div>
   </div>
-  $excludedNamespacesHtml
+  
+  <div class="tab-content" id="nodes">
+    <div class="container">
+      <h1>Node Conditions & Resources</h1>
+      <h2 id="nodecon">Node Conditions <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Displays node readiness, taints, and schedulability.</span></span></h2>
+      <div class="table-container">$collapsibleNodeConditionsHtml</div>
+      <h2 id="noderesource">Node Resources <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Shows CPU and memory usage across nodes.</span></span></h2>
+      <div class="table-container">$collapsibleNodeResourcesHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="namespaces">
+    <div class="container">
+      <h1>Namespaces</h1>
+      <h2>Empty Namespaces <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span></h2>
+      <div class="table-container">$collapsibleEmptyNamespaceHtml</div>
+      <h2 id="resourceQuotas">ResourceQuota Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces lacking quota definitions.</span></span></h2>
+      <div class="table-container">$collapsibleResourceQuotasHtml</div>
+      <h2 id="namespaceLimitRanges">LimitRange Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces missing default resource limits.</span></span></h2>
+      <div class="table-container">$collapsibleNamespaceLimitRangesHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="workloads">
+    <div class="container">
+      <h1>Workloads</h1>
+      <h2 id="daemonsets">DaemonSets Not Fully Running <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with rollout issues.</span></span></h2>
+      <div class="table-container">$collapsibleDaemonSetIssuesHtml</div>
+      <h2 id="deploymentIssues">Deployment Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies Deployments with unhealthy replicas or rollout problems.</span></span></h2>
+      <div class="table-container">$collapsibleDeploymentIssuesHtml</div>
+      <h2 id="statefulSetIssues">StatefulSet Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects StatefulSets with replica mismatches or unavailable pods.</span></span></h2>
+      <div class="table-container">$collapsibleStatefulSetIssuesHtml</div>
+      <h2 id="HPA">Horizontal Pod Autoscalers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Checks for presence and effectiveness of HPAs.</span></span></h2>
+      <div class="table-container">$collapsibleHPAHtml</div>
+      <h2 id="missingResourceLimits">Missing Resource Requests & Limits <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Finds containers missing CPU/memory requests or limits.</span></span></h2>
+      <div class="table-container">$collapsibleMissingResourceLimitsHtml</div>
+      <h2 id="PDB">PodDisruptionBudgets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects missing or ineffective PDBs.</span></span></h2>
+      <div class="table-container">$collapsiblePDBHtml</div>
+      <h2 id="missingProbes">Missing Health Probes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Reports containers without readiness/liveness/startup probes.</span></span></h2>
+      <div class="table-container">$collapsibleMissingProbesHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="pods">
+    <div class="container">
+      <h1>Pods</h1>
+      <h2 id="podrestarts">Pods with High Restarts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods restarting frequently.</span></span></h2>
+      <div class="table-container">$collapsiblePodsRestartHtml</div>
+      <h2 id="podlong">Long Running Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods running longer than expected.</span></span></h2>
+      <div class="table-container">$collapsiblePodLongRunningHtml</div>
+      <h2 id="podfail">Failed Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods that exited with a non-zero status.</span></span></h2>
+      <div class="table-container">$collapsiblePodFailHtml</div>
+      <h2 id="podpend">Pending Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods waiting for resources.</span></span></h2>
+      <div class="table-container">$collapsiblePodPendingHtml</div>
+      <h2 id="crashloop">CrashLoopBackOff Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods in a continuous crash loop.</span></span></h2>
+      <div class="table-container">$collapsibleCrashloopHtml</div>
+      <h2 id="debugpods">Running Debug Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ephemeral or debug pods that remain running.</span></span></h2>
+      <div class="table-container">$collapsibleLeftoverdebugHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="jobs">
+    <div class="container">
+      <h1>Jobs</h1>
+      <h2 id="stuckjobs">Stuck Jobs <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that haven't progressed as expected.</span></span></h2>
+      <div class="table-container">$collapsibleStuckJobsHtml</div>
+      <h2 id="failedjobs">Job Failures <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that failed execution.</span></span></h2>
+      <div class="table-container">$collapsibleJobFailHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="networking">
+    <div class="container">
+      <h1>Networking</h1>
+      <h2 id="servicenoendpoints">Services without Endpoints <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services with no active backend pods.</span></span></h2>
+      <div class="table-container">$collapsibleServicesWithoutEndpointsHtml</div>
+      <h2 id="publicServices">Publicly Accessible Services <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed externally.</span></span></h2>
+      <div class="table-container">$collapsiblePublicServicesHtml</div>
+      <h2 id="ingressHealth">Ingress Configuration Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ingress misconfigurations or missing backends.</span></span></h2>
+      <div class="table-container">$collapsibleIngressHealthHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="storage">
+    <div class="container">
+      <h1>Storage</h1>
+      <h2 id="unmountedpv">Unmounted Persistent Volumes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Persistent volumes not mounted to any pod.</span></span></h2>
+      <div class="table-container">$collapsibleUnmountedpvHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="configuration">
+    <div class="container">
+      <h1>Configuration Hygiene</h1>
+      <div class="table-container">$collapsibleConfigurationHygieneHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="security">
+    <div class="container">
+      <h1>Security</h1>
+      <h2 id="rbacmisconfig">RBAC Misconfigurations <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">RoleBindings or ClusterRoleBindings missing subjects.</span></span></h2>
+      <div class="table-container">$collapsibleRbacmisconfigHtml</div>
+      <h2 id="rbacOverexposure">RBAC Overexposure <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Excessive privileges assigned.</span></span></h2>
+      <div class="table-container">$collapsibleRbacOverexposureHtml</div>
+      <h2 id="orphanedRoles">Unused Roles & ClusterRoles <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Roles with no bindings.</span></span></h2>
+      <div class="table-container">$collapsibleOrphanedRolesHtml</div>
+      <h2 id="orphanedServiceAccounts">Orphaned ServiceAccounts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ServiceAccounts not used by any pod or binding.</span></span></h2>
+      <div class="table-container">$collapsibleOrphanedServiceAccountsHtml</div>
+      <h2 id="orphanedconfigmaps">Orphaned ConfigMaps <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ConfigMaps not referenced by any workload.</span></span></h2>
+      <div class="table-container">$collapsibleOrphanedConfigMapsHtml</div>
+      <h2 id="orphanedsecrets">Orphaned Secrets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Secrets that are unused or unmounted.</span></span></h2>
+      <div class="table-container">$collapsibleOrphanedSecretsHtml</div>
+      <h2 id="podsRoot">Pods Running as Root <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running as UID 0.</span></span></h2>
+      <div class="table-container">$collapsiblePodsRootHtml</div>
+      <h2 id="privilegedContainers">Privileged Containers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers with privileged security context.</span></span></h2>
+      <div class="table-container">$collapsiblePrivilegedContainersHtml</div>
+      <h2 id="hostPidNet">hostPID / hostNetwork Enabled <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span></h2>
+      <div class="table-container">$collapsibleHostPidNetHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="events">
+    <div class="container">
+      <h1>Kubernetes Warning Events</h1>
+      <h2 id="clusterwarnings">Warning Summary (Grouped) <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Grouped summary of recent warnings and errors.</span></span></h2>
+      <div class="table-container">$collapsibleEventSummaryWarningsHtml</div>
+      <h2 id="fulleventlog">Full Warning Event Log <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detailed log of warning and error events.</span></span></h2>
+      <div class="table-container">$collapsibleEventSummaryFullLogHtml</div>
+    </div>
+  </div>
+  
+  <div class="tab-content" id="customChecks">
+    <div class="container">
+      <h1>Custom Kubectl Checks</h1>
+      <div class="table-container">$collapsibleCustomChecksHtml</div>
+    </div>
+  </div>
+  
+  $(if ($aks) {
+    @"
+<div class="tab-content" id="aks">
+    $aksHealthCheck
 </div>
-<div class="container"><h1>Node Conditions & Resources</h1><h2 id="nodecon">Node Conditions <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Displays node readiness, taints, and schedulability.</span></span></h2><div class="table-container">$collapsibleNodeConditionsHtml</div><h2 id="noderesource">Node Resources <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Shows CPU and memory usage across nodes.</span></span></h2><div class="table-container">$collapsibleNodeResourcesHtml</div></div>
-<div class="container"><h1 id="namespaces">Namespaces</h1><h2>Empty Namespaces <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span></h2><div class="table-container">$collapsibleEmptyNamespaceHtml</div>
-<h2 id="resourceQuotas">ResourceQuota Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces lacking or missing quota definitions.</span></span></h2>
-<div class="table-container">$collapsibleResourceQuotasHtml</div>
-
-<h2 id="namespaceLimitRanges">LimitRange Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces missing default resource limits.</span></span></h2>
-<div class="table-container">$collapsibleNamespaceLimitRangesHtml</div>
-</div>
-<div class="container"><h1 id="workloads">Workloads</h1><h2 id="daemonsets">DaemonSets Not Fully Running <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with unavailable pods or rollout issues.</span></span></h2><div class="table-container">$collapsibleDaemonSetIssuesHtml</div>
-
-<h2 id="deploymentIssues">Deployment Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies Deployments with unhealthy replicas or rollout problems.</span></span></h2>
-<div class="table-container">$collapsibleDeploymentIssuesHtml</div>
-
-<h2 id="statefulSetIssues">StatefulSet Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects StatefulSets with unavailable pods or replica mismatches.</span></span></h2>
-<div class="table-container">$collapsibleStatefulSetIssuesHtml</div>
-
-<h2 id="HPA">Horizontal Pod Autoscalers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Checks HPA presence and effectiveness.</span></span></h2>
-  <div class="table-container">$collapsibleHPAHtml</div>
-
-  <h2 id="missingResourceLimits">Missing Resource Requests & Limits <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Finds containers without memory/CPU requests or limits.</span></span></h2>
-  <div class="table-container">$collapsibleMissingResourceLimitsHtml</div>
-
-  <h2 id="PDB">PodDisruptionBudgets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects missing or ineffective PDBs.</span></span></h2>
-  <div class="table-container">$collapsiblePDBHtml</div>
-
-  <h2 id="missingProbes">Missing Health Probes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Reports containers missing readiness/liveness/startup probes.</span></span></h2>
-  <div class="table-container">$collapsibleMissingProbesHtml</div>
-</div>
-<div class="container">
-  <h1 id="pods">Pods</h1>
-
-  <h2 id="podrestarts">Pods with High Restarts 
-    <span class="tooltip"><span class="info-icon">i</span>
-      <span class="tooltip-text">Pods with restarts above the configured threshold.</span>
-    </span>
-  </h2>
-  <div class="table-container">$collapsiblePodsRestartHtml</div>
-
-  <h2 id="podlong">Long Running Pods 
-    <span class="tooltip"><span class="info-icon">i</span>
-      <span class="tooltip-text">Pods running beyond expected duration (e.g. stuck Jobs).</span>
-    </span>
-  </h2>
-  <div class="table-container">$collapsiblePodLongRunningHtml</div>
-
-  <h2 id="podfail">Failed Pods 
-    <span class="tooltip"><span class="info-icon">i</span>
-      <span class="tooltip-text">Pods that exited with a non-zero status.</span>
-    </span>
-  </h2>
-  <div class="table-container">$collapsiblePodFailHtml</div>
-
-  <h2 id="podpend">Pending Pods 
-    <span class="tooltip"><span class="info-icon">i</span>
-      <span class="tooltip-text">Pods pending scheduling or resource allocation.</span>
-    </span>
-  </h2>
-  <div class="table-container">$collapsiblePodPendingHtml</div>
-
-  <h2 id="crashloop">CrashLoopBackOff Pods 
-    <span class="tooltip"><span class="info-icon">i</span>
-      <span class="tooltip-text">Pods continuously crashing and restarting.</span>
-    </span>
-  </h2>
-  <div class="table-container">$collapsibleCrashloopHtml</div>
-
-  <h2 id="debugpods">Running Debug Pods 
-    <span class="tooltip"><span class="info-icon">i</span>
-      <span class="tooltip-text">Ephemeral containers or debug pods left running.</span>
-    </span>
-  </h2>
-  <div class="table-container">$collapsibleLeftoverdebugHtml</div>
-
-  <!-- 🔧 Custom checks for Section: Pods -->
-  <div class="table-container">$collapsiblePodsHtml</div>
-</div>
-<div class="container"><h1 id="jobs">Jobs</h1><h2 id="stuckjobs">Stuck Jobs <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that haven't progressed or completed as expected.</span></span></h2><div class="table-container">$collapsibleStuckJobsHtml</div><h2 id="failedjobs">Job Failures <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that exceeded retries or failed execution.</span></span></h2><div class="table-container">$collapsibleJobFailHtml</div></div>
-<div class="container"><h1 id="networking">Networking</h1><h2 id="servicenoendpoints">Services without Endpoints <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services that have no active pods backing them.</span></span></h2><div class="table-container">$collapsibleServicesWithoutEndpointsHtml</div><h2 id="publicServices">Publicly Accessible Services <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed via LoadBalancer or external IPs.</span></span></h2><div class="table-container">$collapsiblePublicServicesHtml</div>
-<h2 id="ingressHealth">Ingress Configuration Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Validates Ingress resources for misconfigurations or missing backend services.</span></span></h2>
-<div class="table-container">$collapsibleIngressHealthHtml</div>
-</div>
-<div class="container"><h1 id="storage">Storage</h1><h2 id="unmountedpv">Unmounted Persistent Volumes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Persistent volumes not currently mounted to any pod.</span></span></h2><div class="table-container">$collapsibleUnmountedpvHtml</div></div>
-
-<div class="container">
-  <h1 id="configuration">Configuration Hygiene</h1>
-  <div class="table-container">$collapsibleConfigurationHygieneHtml</div>
-</div>
-
-
-<div class="container"><h1 id="security">Security</h1>
-
-<h2 id="rbacmisconfig">RBAC Misconfigurations <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">RoleBindings or ClusterRoleBindings with missing subjects.</span></span></h2>
-<div class="table-container">$collapsibleRbacmisconfigHtml</div>
-
-<h2 id="rbacOverexposure">RBAC Overexposure <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Subjects with excessive or unnecessary privileges.</span></span></h2>
-<div class="table-container">$collapsibleRbacOverexposureHtml</div>
-
-<h2 id="orphanedRoles">Unused Roles & ClusterRoles <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Roles not referenced by any binding.</span></span></h2>
-<div class="table-container">$collapsibleOrphanedRolesHtml</div>
-
-<h2 id="orphanedServiceAccounts">Orphaned ServiceAccounts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ServiceAccounts not used by any Pod or Binding.</span></span></h2>
-<div class="table-container">$collapsibleOrphanedServiceAccountsHtml</div>
-
-<h2 id="orphanedconfigmaps">Orphaned ConfigMaps <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ConfigMaps not referenced by any pod or controller.</span></span></h2>
-<div class="table-container">$collapsibleOrphanedConfigMapsHtml</div>
-
-<h2 id="orphanedsecrets">Orphaned Secrets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Secrets that are unused or unmounted by workloads.</span></span></h2>
-<div class="table-container">$collapsibleOrphanedSecretsHtml</div>
-
-<h2 id="podsRoot">Pods Running as Root <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running as UID 0.</span></span></h2>
-<div class="table-container">$collapsiblePodsRootHtml</div>
-
-<h2 id="privilegedContainers">Privileged Containers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running with privileged security context.</span></span></h2>
-<div class="table-container">$collapsiblePrivilegedContainersHtml</div>
-
-<h2 id="hostPidNet">hostPID / hostNetwork Enabled <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span></h2>
-<div class="table-container">$collapsibleHostPidNetHtml</div>
-
-</div>
-<div class="container">
-<h1 id="kubeevents">Kubernetes Warning Events</h1>
-<h2 id="clusterwarnings">Warning Summary (Grouped) <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Grouped summary of recent Warning and Error events from the cluster.</span></span></h2>
-<div class="table-container">$collapsibleEventSummaryWarningsHtml</div>
-<h2 id="fulleventlog">Full Warning Event Log <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detailed log of recent Warning and Error events from the cluster.</span></span></h2>
-<div class="table-container">$collapsibleEventSummaryFullLogHtml</div>
-</div>
-<div class="container">
-  <h1 id="customChecks">Custom Kubectl Checks</h1>
-  <div class="table-container">$collapsibleCustomChecksHtml</div>
-</div>
-$aksHealthCheck
-<button id="menuFab" title="Open Menu">☰</button>
-<footer class="footer">
-  <img src="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/images/reportheader%20(2).png" alt="KubeBuddy Logo" class="logo">
-  <p><strong>Report generated by KubeBuddy $version</strong> on $today</p>
-  <p>© $year KubeBuddy | <a href="https://kubedeck.io" target="_blank">KubeDeck.io</a></p>
-  <p><em>This report is a snapshot of the cluster state at the time of generation. It may not reflect real-time changes. Always verify configurations before making critical decisions.</em></p>
-</footer>
-<a href="#top" id="backToTop">Back to Top</a>
-      <script>
-      $jsContent
-      </script>
+"@
+  })
+  </div>
+  <footer class="footer">
+    <img src="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/images/reportheader%20(2).png" alt="KubeBuddy Logo" class="logo">
+    <p><strong>Report generated by KubeBuddy $version</strong> on $today</p>
+    <p>© $year KubeBuddy | <a href="https://kubedeck.io" target="_blank">KubeDeck.io</a></p>
+    <p><em>This report is a snapshot of the cluster state at the time of generation. Always verify configurations before making critical decisions.</em></p>
+  </footer>
+   </div>
+  <a href="#top" id="backToTop">Back to Top</a>
+  
+  <script>
+    $jsContent
+  </script>
 </body>
 </html>
 "@
-
   $htmlTemplate | Set-Content $outputPath
 }

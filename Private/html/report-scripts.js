@@ -450,3 +450,64 @@ function paginateTable(collapsibleContainer) {
         console.error(`Pagination Error for ${collapsibleContainer.id}:`, e);
     }
 }
+document.addEventListener('DOMContentLoaded', function(){
+    var tabs = document.querySelectorAll('.tabs li');
+    var tabContents = document.querySelectorAll('.tab-content');
+    tabs.forEach(function(tab){
+      tab.addEventListener('click', function(){
+        tabs.forEach(function(t){ t.classList.remove('active'); });
+        tabContents.forEach(function(tc){ tc.classList.remove('active'); });
+        tab.classList.add('active');
+        var target = tab.getAttribute('data-tab');
+        var content = document.getElementById(target);
+        if(content) { 
+          content.classList.add('active');
+          // Only reinitialize pagination for containers that are already open
+          var containers = content.querySelectorAll('.collapsible-container');
+          containers.forEach(function(container){
+            var details = container.querySelector('details');
+            if(details && details.open) {
+              paginateTable(container);
+            }
+          });
+        }
+      });
+    });
+  });
+  document.addEventListener('DOMContentLoaded', function () {
+    const tabList = document.querySelectorAll('.header .tabs li');
+    const navItemsContainer = document.querySelector('#navDrawer .nav-items');
+    if (navItemsContainer) {
+        navItemsContainer.innerHTML = ''; // Clear existing items
+        tabList.forEach(tab => {
+            const target = tab.getAttribute('data-tab') || tab.textContent.trim().toLowerCase();
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+            const a = document.createElement('a');
+            a.href = '#' + target;
+            a.textContent = tab.textContent.trim();
+            li.appendChild(a);
+            navItemsContainer.appendChild(li);
+        });
+    }
+});
+document.addEventListener('DOMContentLoaded', function () {
+    const tabsContainer = document.querySelector('.header .tabs');
+    const menuFab = document.getElementById('menuFab');
+
+    function checkTabsOverflow() {
+        if (tabsContainer && menuFab) {
+            // If the tabs scroll, hide them and show the menu button.
+            if (tabsContainer.scrollWidth > tabsContainer.clientWidth) {
+                tabsContainer.style.display = 'none';
+                menuFab.style.display = 'flex';
+            } else {
+                tabsContainer.style.display = 'flex';
+                menuFab.style.display = 'none';
+            }
+        }
+    }
+
+    checkTabsOverflow();
+    window.addEventListener('resize', checkTabsOverflow);
+});

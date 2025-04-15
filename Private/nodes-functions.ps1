@@ -80,8 +80,11 @@ function Show-NodeConditions {
         ConvertTo-Html -Fragment -Property Node, Status, Issues |
         Out-String
 
-        # Insert a note about total not ready
+        if ($totalNotReadyNodes -eq 0) {
+            $htmlTable = "<p><strong>✅ All nodes are Ready</strong></p>" + $htmlTable
+        } else {
         $htmlTable = "<p><strong>⚠️ Total Not Ready Nodes:</strong> $totalNotReadyNodes</p>" + $htmlTable
+        }
 
         # Return the HTML snippet (no ASCII output)
         return $htmlTable
@@ -318,7 +321,12 @@ function Show-NodeResourceUsage {
         Out-String
 
         # Insert a note about total warnings
-        $htmlTable = "<p><strong>⚠️ Total Resource Warnings Across All Nodes:</strong> $totalWarnings</p>" + $htmlTable
+        if ($totalWarnings -gt 0) {
+            $htmlTable = "<p><strong>✅ No Resource Warnings Across All Nodes:</strong></p>" + $htmlTable
+        } else {
+            $htmlTable = "<p><strong>⚠️ Total Resource Warnings Across All Nodes:</strong> $totalWarnings</p>" + $htmlTable
+        }
+        
 
         return $htmlTable
     }
