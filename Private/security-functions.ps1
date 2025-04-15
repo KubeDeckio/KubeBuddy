@@ -462,283 +462,283 @@ function Check-RBACOverexposure {
     } while ($true)
 }
 
-function Check-RBACMisconfigurations {
-    param(
-        [int]$PageSize = 10,
-        [switch]$Html,
-        [switch]$ExcludeNamespaces,
-        [switch]$Json,
-        [object]$KubeData
-    )
+# function Check-RBACMisconfigurations {
+#     param(
+#         [int]$PageSize = 10,
+#         [switch]$Html,
+#         [switch]$ExcludeNamespaces,
+#         [switch]$Json,
+#         [object]$KubeData
+#     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
-    Write-Host "`n[RBAC Misconfigurations]" -ForegroundColor Cyan
-    Write-Host -NoNewline "`n🤖 Fetching RoleBindings & ClusterRoleBindings..." -ForegroundColor Yellow
+#     if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+#     Write-Host "`n[RBAC Misconfigurations]" -ForegroundColor Cyan
+#     Write-Host -NoNewline "`n🤖 Fetching RoleBindings & ClusterRoleBindings..." -ForegroundColor Yellow
 
-    try {
-        $roleBindings = if ($KubeData -and $KubeData.RoleBindings) {
-            $KubeData.RoleBindings
-        } else {
-            kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
+#     try {
+#         $roleBindings = if ($KubeData -and $KubeData.RoleBindings) {
+#             $KubeData.RoleBindings
+#         } else {
+#             kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+#         }
 
-        $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) {
-            $KubeData.ClusterRoleBindings
-        } else {
-            kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
+#         $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) {
+#             $KubeData.ClusterRoleBindings
+#         } else {
+#             kubectl get clusterrolebindings -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+#         }
 
-        $roles = if ($KubeData -and $KubeData.Roles) {
-            $KubeData.Roles
-        } else {
-            kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
+#         $roles = if ($KubeData -and $KubeData.Roles) {
+#             $KubeData.Roles
+#         } else {
+#             kubectl get roles --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+#         }
 
-        $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) {
-            $KubeData.ClusterRoles
-        } else {
-            kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
+#         $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) {
+#             $KubeData.ClusterRoles
+#         } else {
+#             kubectl get clusterroles -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+#         }
 
-        $existingNamespaces = if ($KubeData -and $KubeData.Namespaces) {
-            $KubeData.Namespaces | ForEach-Object { $_.metadata.name }
-        } else {
-            kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items | ForEach-Object { $_.metadata.name }
-        }
+#         $existingNamespaces = if ($KubeData -and $KubeData.Namespaces) {
+#             $KubeData.Namespaces | ForEach-Object { $_.metadata.name }
+#         } else {
+#             kubectl get namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items | ForEach-Object { $_.metadata.name }
+#         }
 
-        $serviceAccounts = if ($KubeData -and $KubeData.ServiceAccounts) {
-            $KubeData.ServiceAccounts
-        } else {
-            kubectl get serviceaccounts --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-        }
-    }
-    catch {
-        Write-Host "`r🤖 ❌ Error retrieving RBAC data: $_" -ForegroundColor Red
-        return
-    }
+#         $serviceAccounts = if ($KubeData -and $KubeData.ServiceAccounts) {
+#             $KubeData.ServiceAccounts
+#         } else {
+#             kubectl get serviceaccounts --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+#         }
+#     }
+#     catch {
+#         Write-Host "`r🤖 ❌ Error retrieving RBAC data: $_" -ForegroundColor Red
+#         return
+#     }
 
-    if ($ExcludeNamespaces) {
-        $roleBindings = Exclude-Namespaces -items $roleBindings
-        $roles = Exclude-Namespaces -items $roles
-        $serviceAccounts = Exclude-Namespaces -items $serviceAccounts
-    }
+#     if ($ExcludeNamespaces) {
+#         $roleBindings = Exclude-Namespaces -items $roleBindings
+#         $roles = Exclude-Namespaces -items $roles
+#         $serviceAccounts = Exclude-Namespaces -items $serviceAccounts
+#     }
 
-    Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings, $($roles.Count) Roles, $($clusterRoles.Count) ClusterRoles, $($serviceAccounts.Count) ServiceAccounts.`n" -ForegroundColor Green
-    Write-Host -NoNewline "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
+#     Write-Host "`r🤖 ✅ Fetched $($roleBindings.Count) RoleBindings, $($clusterRoleBindings.Count) ClusterRoleBindings, $($roles.Count) Roles, $($clusterRoles.Count) ClusterRoles, $($serviceAccounts.Count) ServiceAccounts.`n" -ForegroundColor Green
+#     Write-Host -NoNewline "🤖 Analyzing RBAC configurations..." -ForegroundColor Yellow
 
-    $invalidRBAC = @()
+#     $invalidRBAC = @()
 
-    # Check 1: Missing RoleRef in Bindings
-    foreach ($rb in $roleBindings) {
-        if (-not $rb.roleRef) {
-            $invalidRBAC += [PSCustomObject]@{
-                Namespace     = $rb.metadata.namespace
-                Type          = "🔹 Namespace Role"
-                RoleBinding   = $rb.metadata.name
-                Subject       = "N/A"
-                Issue         = "🚩 Missing roleRef in RoleBinding"
-                Severity      = "High"
-                Recommendation = "Delete the RoleBinding or specify a valid roleRef."
-            }
-            continue
-        }
+#     # Check 1: Missing RoleRef in Bindings
+#     foreach ($rb in $roleBindings) {
+#         if (-not $rb.roleRef) {
+#             $invalidRBAC += [PSCustomObject]@{
+#                 Namespace     = $rb.metadata.namespace
+#                 Type          = "🔹 Namespace Role"
+#                 RoleBinding   = $rb.metadata.name
+#                 Subject       = "N/A"
+#                 Issue         = "🚩 Missing roleRef in RoleBinding"
+#                 Severity      = "High"
+#                 Recommendation = "Delete the RoleBinding or specify a valid roleRef."
+#             }
+#             continue
+#         }
 
-        $rbNamespace = $rb.metadata.namespace
-        $namespaceExists = $rbNamespace -in $existingNamespaces
+#         $rbNamespace = $rb.metadata.namespace
+#         $namespaceExists = $rbNamespace -in $existingNamespaces
 
-        # Check 2: Missing Role for RoleBinding
-        $roleExists = $roles | Where-Object {
-            $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $rbNamespace
-        }
+#         # Check 2: Missing Role for RoleBinding
+#         $roleExists = $roles | Where-Object {
+#             $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $rbNamespace
+#         }
 
-        if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
-            $invalidRBAC += [PSCustomObject]@{
-                Namespace     = if ($namespaceExists) { $rbNamespace } else { "🚩 Namespace Missing" }
-                Type          = "🔹 Namespace Role"
-                RoleBinding   = $rb.metadata.name
-                Subject       = "N/A"
-                Issue         = "❌ Missing Role: $($rb.roleRef.name)"
-                Severity      = "High"
-                Recommendation = "Create the missing Role or update the RoleBinding to reference an existing Role."
-            }
-        }
+#         if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
+#             $invalidRBAC += [PSCustomObject]@{
+#                 Namespace     = if ($namespaceExists) { $rbNamespace } else { "🚩 Namespace Missing" }
+#                 Type          = "🔹 Namespace Role"
+#                 RoleBinding   = $rb.metadata.name
+#                 Subject       = "N/A"
+#                 Issue         = "❌ Missing Role: $($rb.roleRef.name)"
+#                 Severity      = "High"
+#                 Recommendation = "Create the missing Role or update the RoleBinding to reference an existing Role."
+#             }
+#         }
 
-        # Check 3: RoleBinding Referencing ClusterRole
-        if ($rb.roleRef.kind -eq "ClusterRole") {
-            $clusterRole = $clusterRoles | Where-Object { $_.metadata.name -eq $rb.roleRef.name }
-            if ($clusterRole) {
-                $invalidRBAC += [PSCustomObject]@{
-                    Namespace     = $rbNamespace
-                    Type          = "🔹 Namespace Role"
-                    RoleBinding   = $rb.metadata.name
-                    Subject       = if ($rb.subjects) { ($rb.subjects | ForEach-Object { "$($_.kind)/$($_.name)" }) -join ", " } else { "N/A" }
-                    Issue         = "⚠️ RoleBinding references ClusterRole: $($rb.roleRef.name)"
-                    Severity      = "Medium"
-                    Recommendation = "Consider using a namespace-scoped Role instead of a ClusterRole to limit permissions to the namespace."
-                }
-            }
-        }
+#         # Check 3: RoleBinding Referencing ClusterRole
+#         if ($rb.roleRef.kind -eq "ClusterRole") {
+#             $clusterRole = $clusterRoles | Where-Object { $_.metadata.name -eq $rb.roleRef.name }
+#             if ($clusterRole) {
+#                 $invalidRBAC += [PSCustomObject]@{
+#                     Namespace     = $rbNamespace
+#                     Type          = "🔹 Namespace Role"
+#                     RoleBinding   = $rb.metadata.name
+#                     Subject       = if ($rb.subjects) { ($rb.subjects | ForEach-Object { "$($_.kind)/$($_.name)" }) -join ", " } else { "N/A" }
+#                     Issue         = "⚠️ RoleBinding references ClusterRole: $($rb.roleRef.name)"
+#                     Severity      = "Medium"
+#                     Recommendation = "Consider using a namespace-scoped Role instead of a ClusterRole to limit permissions to the namespace."
+#                 }
+#             }
+#         }
 
-        # Check 4: Missing ServiceAccounts and Namespaces
-        foreach ($subject in $rb.subjects) {
-            if ($subject.kind -eq "ServiceAccount") {
-                $subjectNamespace = if ($subject.namespace) { $subject.namespace } else { $rbNamespace }
-                if (-not $namespaceExists) {
-                    $invalidRBAC += [PSCustomObject]@{
-                        Namespace     = "🚩 Namespace Missing"
-                        Type          = "🔹 Namespace Role"
-                        RoleBinding   = $rb.metadata.name
-                        Subject       = "$($subject.kind)/$($subject.name)"
-                        Issue         = "🚩 Namespace does not exist"
-                        Severity      = "High"
-                        Recommendation = "Delete the RoleBinding or update the namespace to an existing one."
-                    }
-                } else {
-                    $exists = $serviceAccounts | Where-Object {
-                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNamespace
-                    }
-                    if (-not $exists) {
-                        $invalidRBAC += [PSCustomObject]@{
-                            Namespace     = $rbNamespace
-                            Type          = "🔹 Namespace Role"
-                            RoleBinding   = $rb.metadata.name
-                            Subject       = "$($subject.kind)/$($subject.name)"
-                            Issue         = "❌ ServiceAccount does not exist in namespace $subjectNamespace"
-                            Severity      = "High"
-                            Recommendation = "Create the missing ServiceAccount or update the RoleBinding to reference an existing ServiceAccount."
-                        }
-                    }
-                }
-            }
-        }
-    }
+#         # Check 4: Missing ServiceAccounts and Namespaces
+#         foreach ($subject in $rb.subjects) {
+#             if ($subject.kind -eq "ServiceAccount") {
+#                 $subjectNamespace = if ($subject.namespace) { $subject.namespace } else { $rbNamespace }
+#                 if (-not $namespaceExists) {
+#                     $invalidRBAC += [PSCustomObject]@{
+#                         Namespace     = "🚩 Namespace Missing"
+#                         Type          = "🔹 Namespace Role"
+#                         RoleBinding   = $rb.metadata.name
+#                         Subject       = "$($subject.kind)/$($subject.name)"
+#                         Issue         = "🚩 Namespace does not exist"
+#                         Severity      = "High"
+#                         Recommendation = "Delete the RoleBinding or update the namespace to an existing one."
+#                     }
+#                 } else {
+#                     $exists = $serviceAccounts | Where-Object {
+#                         $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNamespace
+#                     }
+#                     if (-not $exists) {
+#                         $invalidRBAC += [PSCustomObject]@{
+#                             Namespace     = $rbNamespace
+#                             Type          = "🔹 Namespace Role"
+#                             RoleBinding   = $rb.metadata.name
+#                             Subject       = "$($subject.kind)/$($subject.name)"
+#                             Issue         = "❌ ServiceAccount does not exist in namespace $subjectNamespace"
+#                             Severity      = "High"
+#                             Recommendation = "Create the missing ServiceAccount or update the RoleBinding to reference an existing ServiceAccount."
+#                         }
+#                     }
+#                 }
+#             }
+#         }
+#     }
 
-    foreach ($crb in $clusterRoleBindings) {
-        # Check 5: Missing RoleRef in ClusterRoleBinding
-        if (-not $crb.roleRef) {
-            $invalidRBAC += [PSCustomObject]@{
-                Namespace     = "🌍 Cluster-Wide"
-                Type          = "🔸 Cluster Role"
-                RoleBinding   = $crb.metadata.name
-                Subject       = "N/A"
-                Issue         = "🚩 Missing roleRef in ClusterRoleBinding"
-                Severity      = "High"
-                Recommendation = "Delete the ClusterRoleBinding or specify a valid roleRef."
-            }
-            continue
-        }
+#     foreach ($crb in $clusterRoleBindings) {
+#         # Check 5: Missing RoleRef in ClusterRoleBinding
+#         if (-not $crb.roleRef) {
+#             $invalidRBAC += [PSCustomObject]@{
+#                 Namespace     = "🌍 Cluster-Wide"
+#                 Type          = "🔸 Cluster Role"
+#                 RoleBinding   = $crb.metadata.name
+#                 Subject       = "N/A"
+#                 Issue         = "🚩 Missing roleRef in ClusterRoleBinding"
+#                 Severity      = "High"
+#                 Recommendation = "Delete the ClusterRoleBinding or specify a valid roleRef."
+#             }
+#             continue
+#         }
 
-        # Check 6: Missing ServiceAccounts and Namespaces in ClusterRoleBindings
-        foreach ($subject in $crb.subjects) {
-            if ($subject.kind -eq "ServiceAccount") {
-                $subjectNamespace = $subject.namespace
-                if (-not $subjectNamespace) {
-                    $invalidRBAC += [PSCustomObject]@{
-                        Namespace     = "🌍 Cluster-Wide"
-                        Type          = "🔸 Cluster Role"
-                        RoleBinding   = $crb.metadata.name
-                        Subject       = "$($subject.kind)/$($subject.name)"
-                        Issue         = "🚩 Namespace not specified for ServiceAccount"
-                        Severity      = "High"
-                        Recommendation = "Specify a valid namespace for the ServiceAccount in the ClusterRoleBinding."
-                    }
-                }
-                elseif ($subjectNamespace -notin $existingNamespaces) {
-                    $invalidRBAC += [PSCustomObject]@{
-                        Namespace     = "🚩 Namespace Missing"
-                        Type          = "🔸 Cluster Role"
-                        RoleBinding   = $crb.metadata.name
-                        Subject       = "$($subject.kind)/$($subject.name)"
-                        Issue         = "🚩 Namespace does not exist: $subjectNamespace"
-                        Severity      = "High"
-                        Recommendation = "Delete the ClusterRoleBinding or update the namespace to an existing one."
-                    }
-                } else {
-                    $exists = $serviceAccounts | Where-Object {
-                        $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNamespace
-                    }
-                    if (-not $exists) {
-                        $invalidRBAC += [PSCustomObject]@{
-                            Namespace     = "🌍 Cluster-Wide"
-                            Type          = "🔸 Cluster Role"
-                            RoleBinding   = $crb.metadata.name
-                            Subject       = "$($subject.kind)/$($subject.name)"
-                            Issue         = "❌ ServiceAccount does not exist in namespace $subjectNamespace"
-                            Severity      = "High"
-                            Recommendation = "Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount."
-                        }
-                    }
-                }
-            }
-        }
-    }
+#         # Check 6: Missing ServiceAccounts and Namespaces in ClusterRoleBindings
+#         foreach ($subject in $crb.subjects) {
+#             if ($subject.kind -eq "ServiceAccount") {
+#                 $subjectNamespace = $subject.namespace
+#                 if (-not $subjectNamespace) {
+#                     $invalidRBAC += [PSCustomObject]@{
+#                         Namespace     = "🌍 Cluster-Wide"
+#                         Type          = "🔸 Cluster Role"
+#                         RoleBinding   = $crb.metadata.name
+#                         Subject       = "$($subject.kind)/$($subject.name)"
+#                         Issue         = "🚩 Namespace not specified for ServiceAccount"
+#                         Severity      = "High"
+#                         Recommendation = "Specify a valid namespace for the ServiceAccount in the ClusterRoleBinding."
+#                     }
+#                 }
+#                 elseif ($subjectNamespace -notin $existingNamespaces) {
+#                     $invalidRBAC += [PSCustomObject]@{
+#                         Namespace     = "🚩 Namespace Missing"
+#                         Type          = "🔸 Cluster Role"
+#                         RoleBinding   = $crb.metadata.name
+#                         Subject       = "$($subject.kind)/$($subject.name)"
+#                         Issue         = "🚩 Namespace does not exist: $subjectNamespace"
+#                         Severity      = "High"
+#                         Recommendation = "Delete the ClusterRoleBinding or update the namespace to an existing one."
+#                     }
+#                 } else {
+#                     $exists = $serviceAccounts | Where-Object {
+#                         $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNamespace
+#                     }
+#                     if (-not $exists) {
+#                         $invalidRBAC += [PSCustomObject]@{
+#                             Namespace     = "🌍 Cluster-Wide"
+#                             Type          = "🔸 Cluster Role"
+#                             RoleBinding   = $crb.metadata.name
+#                             Subject       = "$($subject.kind)/$($subject.name)"
+#                             Issue         = "❌ ServiceAccount does not exist in namespace $subjectNamespace"
+#                             Severity      = "High"
+#                             Recommendation = "Create the missing ServiceAccount or update the ClusterRoleBinding to reference an existing ServiceAccount."
+#                         }
+#                     }
+#                 }
+#             }
+#         }
+#     }
 
-    Write-Host "`r🤖 ✅ RBAC configurations Checked.       " -ForegroundColor Green
+#     Write-Host "`r🤖 ✅ RBAC configurations Checked.       " -ForegroundColor Green
 
-    if ($invalidRBAC.Count -eq 0) {
-        Write-Host "`r✅ No RBAC misconfigurations found." -ForegroundColor Green
-        if ($Html) { return "<p><strong>✅ No RBAC misconfigurations found.</strong></p>" }
-        if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
-            Write-ToReport "`n[RBAC Misconfigurations]`n"
-            Write-ToReport "✅ No RBAC misconfigurations found."
-        }
-        if (-not $Global:MakeReport -and -not $Html) {
-            Read-Host "🤖 Press Enter to return to the menu"
-        }
-        return
-    }
+#     if ($invalidRBAC.Count -eq 0) {
+#         Write-Host "`r✅ No RBAC misconfigurations found." -ForegroundColor Green
+#         if ($Html) { return "<p><strong>✅ No RBAC misconfigurations found.</strong></p>" }
+#         if ($Json) { return @{ Total = 0; Items = @() } }
+#         if ($Global:MakeReport -and -not $Html) {
+#             Write-ToReport "`n[RBAC Misconfigurations]`n"
+#             Write-ToReport "✅ No RBAC misconfigurations found."
+#         }
+#         if (-not $Global:MakeReport -and -not $Html) {
+#             Read-Host "🤖 Press Enter to return to the menu"
+#         }
+#         return
+#     }
 
-    if ($Json) {
-        return @{ Total = $invalidRBAC.Count; Items = $invalidRBAC }
-    }
+#     if ($Json) {
+#         return @{ Total = $invalidRBAC.Count; Items = $invalidRBAC }
+#     }
 
-    if ($Html) {
-        $htmlTable = $invalidRBAC |
-            ConvertTo-Html -Fragment -Property Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -PreContent "<h2>RBAC Misconfigurations</h2>" |
-            Out-String
-        return "<p><strong>⚠️ Total RBAC Misconfigurations Detected:</strong> $($invalidRBAC.Count)</p>$htmlTable"
-    }
+#     if ($Html) {
+#         $htmlTable = $invalidRBAC |
+#             ConvertTo-Html -Fragment -Property Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -PreContent "<h2>RBAC Misconfigurations</h2>" |
+#             Out-String
+#         return "<p><strong>⚠️ Total RBAC Misconfigurations Detected:</strong> $($invalidRBAC.Count)</p>$htmlTable"
+#     }
 
-    if ($Global:MakeReport) {
-        Write-ToReport "`n[RBAC Misconfigurations]`n"
-        Write-ToReport "⚠️ Total RBAC Misconfigurations Detected: $($invalidRBAC.Count)"
-        $tableString = $invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -AutoSize | Out-String
-        Write-ToReport $tableString
-        return
-    }
+#     if ($Global:MakeReport) {
+#         Write-ToReport "`n[RBAC Misconfigurations]`n"
+#         Write-ToReport "⚠️ Total RBAC Misconfigurations Detected: $($invalidRBAC.Count)"
+#         $tableString = $invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -AutoSize | Out-String
+#         Write-ToReport $tableString
+#         return
+#     }
 
-    $total = $invalidRBAC.Count
-    $currentPage = 0
-    $totalPages = [math]::Ceiling($total / $PageSize)
+#     $total = $invalidRBAC.Count
+#     $currentPage = 0
+#     $totalPages = [math]::Ceiling($total / $PageSize)
 
-    do {
-        Clear-Host
-        Write-Host "`n[RBAC Misconfigurations - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
+#     do {
+#         Clear-Host
+#         Write-Host "`n[RBAC Misconfigurations - Page $($currentPage + 1) of $totalPages]" -ForegroundColor Cyan
 
-        if ($currentPage -eq 0) {
-            $msg = @(
-                "🤖 RBAC (Role-Based Access Control) defines who can do what in your cluster.",
-                "",
-                "📌 This check identifies:",
-                "   - 🔍 Misconfigurations in RoleBindings & ClusterRoleBindings.",
-                "   - ❌ Missing references to ServiceAccounts & Namespaces.",
-                "   - ⚠️ RoleBindings referencing ClusterRoles.",
-                "",
-                "⚠️ Total RBAC Misconfigurations Detected: $total"
-            )
-            Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
-        }
+#         if ($currentPage -eq 0) {
+#             $msg = @(
+#                 "🤖 RBAC (Role-Based Access Control) defines who can do what in your cluster.",
+#                 "",
+#                 "📌 This check identifies:",
+#                 "   - 🔍 Misconfigurations in RoleBindings & ClusterRoleBindings.",
+#                 "   - ❌ Missing references to ServiceAccounts & Namespaces.",
+#                 "   - ⚠️ RoleBindings referencing ClusterRoles.",
+#                 "",
+#                 "⚠️ Total RBAC Misconfigurations Detected: $total"
+#             )
+#             Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Red" -delay 50
+#         }
 
-        $paged = $invalidRBAC | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
-        $paged | Format-Table Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -AutoSize | Out-Host
+#         $paged = $invalidRBAC | Select-Object -Skip ($currentPage * $PageSize) -First $PageSize
+#         $paged | Format-Table Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -AutoSize | Out-Host
 
-        $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
-        if ($newPage -eq -1) { break }
-        $currentPage = $newPage
+#         $newPage = Show-Pagination -currentPage $currentPage -totalPages $totalPages
+#         if ($newPage -eq -1) { break }
+#         $currentPage = $newPage
 
-    } while ($true)
-}
+#     } while ($true)
+# }
 
 function Check-HostPidAndNetwork {
     param(

@@ -28,6 +28,7 @@ function Generate-K8sHTMLReport {
 </div>
 "@
   }
+  
 
   # Mapping of custom check sections to navigation categories
   $sectionToNavMap = @{
@@ -153,24 +154,41 @@ function Generate-K8sHTMLReport {
     @{ Id = "customChecks"; Cmd = { Invoke-CustomKubectlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
   )
 
-  $checkResults = @{}
   $customNavItems = @{}
+  $checkStatusList = @()
+
 
   foreach ($check in $checks) {
     $html = & $check.Cmd
     if (-not $html) {
       $html = "<p>No data available for $($check.Id).</p>"
     }
-    $checkResults[$check.Id] = $html
+    # Record pass/fail status
+    $status = if ($html -match '✅') { 'Passed' } else { 'Failed' }
+    $checkStatusList += [pscustomobject]@{
+      Id     = $check.Id
+      Status = $status
+    }
 
     # Inject custom checks into sections as before...
     if ($check.Id -eq "customChecks" -and $html -is [hashtable]) {
-      $customChecksBySection = $html
+      $customChecksBySection = $html.HtmlBySection
+      $customCheckStatusList = $html.StatusList
+      $checkStatusList += $customCheckStatusList
+
 
       foreach ($section in $customChecksBySection.Keys) {
         $sanitizedId = $section -replace '[^\w]', ''
         $varName = "collapsible" + $sanitizedId + "Html"
         $sectionHtml = $customChecksBySection[$section]
+        # Inject into appropriate section variable for rendering in correct tab
+        $htmlVarName = "collapsible" + ($section -replace '[^\w]', '') + "Html"
+        if (Get-Variable -Name $htmlVarName -ErrorAction SilentlyContinue) {
+          Set-Variable -Name $htmlVarName -Value ((Get-Variable -Name $htmlVarName -ValueOnly) + "`n" + $sectionHtml)
+        }
+        else {
+          Set-Variable -Name $htmlVarName -Value $sectionHtml
+        }
         $checkIds = [regex]::Matches($sectionHtml, "<h2 id=''([^'']+)'") | ForEach-Object { $_.Groups[1].Value }
         $checkNames = [regex]::Matches($sectionHtml, "<h2 id='[^']+'>\s*[^-]+\s*-\s*([^<]+)\s*(?:<span.*?</span>)?\s*</h2>") | ForEach-Object { $_.Groups[1].Value }
 
@@ -193,16 +211,16 @@ function Generate-K8sHTMLReport {
           Set-Variable -Name $varName -Value $sectionHtml
         }
 
-        foreach ($section in $sectionToNavMap.Keys) {
-          if ($check.Id -match $section -or ($section -eq "Configuration Hygiene" -and $check.Id -match "Configuration")) {
-            if (-not $customNavItems[$section]) { $customNavItems[$section] = @() }
-            $customNavItems[$section] += @{
-              Id   = $check.Id
-              Name = ($check.Id -replace '([a-z])([A-Z])', '$1 $2') -replace '-', ' ' -replace '\s+', ' '
-            }
-            break
-          }
-        }
+        # foreach ($section in $sectionToNavMap.Keys) {
+        #   if ($check.Id -match $section -or ($section -eq "Configuration Hygiene" -and $check.Id -match "Configuration")) {
+        #     if (-not $customNavItems[$section]) { $customNavItems[$section] = @() }
+        #     $customNavItems[$section] += @{
+        #       Id   = $check.Id
+        #       Name = ($check.Id -replace '([a-z])([A-Z])', '$1 $2') -replace '-', ' ' -replace '\s+', ' '
+        #     }
+        #     break
+        #   }
+        # }
       }
       continue
     }
@@ -777,13 +795,15 @@ function Generate-K8sHTMLReport {
   }
   $clusterName = "Unknown"
   $k8sVersion = "Unknown"
-  $clusterScore = Get-ClusterHealthScore -Checks $checkResults
+  $clusterScore = Get-ClusterHealthScore -Checks $checkStatusList
   $scoreColor = if ($clusterScore -ge 80) {
-      "#4CAF50"
-  } elseif ($clusterScore -ge 50) {
-      "#FF9800"
-  } else {
-      "#F44336"
+    "#4CAF50"
+  }
+  elseif ($clusterScore -ge 50) {
+    "#FF9800"
+  }
+  else {
+    "#F44336"
   }
   
   $scoreBarHtml = @"
@@ -799,27 +819,19 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
 </div>
 "@
 
-if ($aks) {
-  $genericTotal  = $checkResults.Count
-  $genericPassed = ($checkResults.Values | Where-Object { $_ -match '✅' }).Count
-  $genericIssues = $genericTotal - $genericPassed
+  $totalChecks = $checkStatusList.Count
+  $passedChecks = ($checkStatusList | Where-Object { $_.Status -eq 'Passed' }).Count
 
-  $totalChecks  = $genericTotal + $aksTotal
-  $passedChecks = $genericPassed + $aksPass
-  $issuesChecks = $genericIssues + $aksFail
-} else {
-  $totalChecks  = $checkResults.Count
-  $passedChecks = ($checkResults.Values | Where-Object { $_ -match '✅' }).Count
+  # Add AKS if enabled
+  if ($aks) {
+    $totalChecks += $aksTotal
+    $passedChecks += $aksPass
+  }
+
   $issuesChecks = $totalChecks - $passedChecks
-}
-$passedPercent = if ($totalChecks -gt 0) { [math]::Round(($passedChecks / $totalChecks) * 100, 2) } else { 0 }
+  $passedPercent = if ($totalChecks -gt 0) { [math]::Round(($passedChecks / $totalChecks) * 100, 2) } else { 0 }
 
-
-# Suppose we computed:
-#   $totalChecks, $passedChecks, $issuesChecks
-#   $passedPercent = [math]::Round(($passedChecks / $totalChecks) * 100, 2)
-
-$pieChartHtml = @"
+  $pieChartHtml = @"
 <svg class="pie-chart" width="120" height="120" viewBox="0 0 36 36">
   <!-- Background circle path -->
   <path class="circle-bg"
@@ -1652,7 +1664,7 @@ $pieChartHtml = @"
 
     .circle-bg {
       fill: none;
-      stroke: #e6e6e6;     /* light gray background */
+      stroke: #F44336;
       stroke-width: 4;
     }
 
@@ -1665,7 +1677,7 @@ $pieChartHtml = @"
     }
 
     .percentage {
-      font-size: 10px;  /* adjust as desired */
+      font-size: 10px;
       fill: #37474f;    /* text color */
     }
 
@@ -1744,7 +1756,7 @@ $pieChartHtml = @"
         $scoreBarHtml
       </div>
       <div class="health-pie">
-      <h2>Cluster Check Breakdown</h2>
+      <h2>Passed / Failed Checks</h2>
       $pieChartHtml
     </div>
     </div>
@@ -1838,6 +1850,7 @@ $pieChartHtml = @"
       <div class="table-container">$collapsibleCrashloopHtml</div>
       <h2 id="debugpods">Running Debug Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ephemeral or debug pods that remain running.</span></span></h2>
       <div class="table-container">$collapsibleLeftoverdebugHtml</div>
+      <div class="table-container">$collapsiblePodsHtml</div>
     </div>
   </div>
   
@@ -1899,6 +1912,7 @@ $pieChartHtml = @"
       <div class="table-container">$collapsiblePrivilegedContainersHtml</div>
       <h2 id="hostPidNet">hostPID / hostNetwork Enabled <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span></h2>
       <div class="table-container">$collapsibleHostPidNetHtml</div>
+      <div class="table-container">$collapsibleSecurityHtml</div>
     </div>
   </div>
   

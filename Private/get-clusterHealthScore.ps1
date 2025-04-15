@@ -1,6 +1,6 @@
 function Get-ClusterHealthScore {
     param (
-        [object]$Checks
+        [array]$Checks
     )
 
     $weights = @{
@@ -38,84 +38,24 @@ function Get-ClusterHealthScore {
         "deploymentIssues"         = 3
         "statefulSetIssues"        = 2
         "ingressHealth"            = 2
-        "AKSBestPractices"         = 0
     }
 
-    $score = 100
+    $totalWeight = 0
+    $failedWeight = 0
 
-    foreach ($checkName in $Checks.Keys) {
-        if (-not $weights.ContainsKey($checkName)) { 
-            # Write-Host "`rSkipping $checkName (no weight defined)" -ForegroundColor Yellow
-            continue 
-        }
-        $weight = $weights[$checkName]
-        $check = $Checks[$checkName]
-        $deduction = 0
-
-        if ($check -is [string]) {
-            $rows = $check | Select-String -Pattern "<tr>.*?<td>.*?</td>.*?</tr>" -AllMatches
-            $headerRow = if ($rows) { $rows.Matches | Where-Object { $_.Value -match "<th>" } } else { $null }
-            $dataRows = if ($rows) { $rows.Matches | Where-Object { $_.Value -notmatch "<th>" } } else { @() }
-            $total = if ($dataRows) { $dataRows.Count } else { 1 }
-
-            if ($checkName -eq "nodeConditions" -and $check -match '<p(?:>|.*?>.*?)<strong>[✅⚠️].*?Not Ready Nodes.*?</strong>\s*(\d+)</p>') {
-                $issues = [int]$matches[1]
-                $total = if ($rows) { $rows.Matches.Count } else { 1 }
-                $deduction = ($issues / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
-            }
-            elseif ($checkName -eq "nodeResources" -and $check -match '<p(?:>|.*?>.*?)<strong>[✅⚠️].*?Resource Warnings.*?</strong>\s*(\d+)</p>') {
-                $issues = [int]$matches[1]
-                $total = if ($rows) { $rows.Matches.Count * 3 } else { 1 }  # 3 resources per node
-                $deduction = ($issues / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
-            }
-            else {
-                $issues = $dataRows.Count
-                $deduction = ($issues / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
+    foreach ($check in $Checks) {
+        $id = $check.Id
+        if ($weights.ContainsKey($id)) {
+            $weight = $weights[$id]
+            $totalWeight += $weight
+            if ($check.Status -ne 'Passed') {
+                $failedWeight += $weight
             }
         }
-        else {
-            if ($checkName -eq "nodeConditions" -and $check.NotReady -is [int]) {
-                $total = if ($check.Total -gt 0) { $check.Total } else { 1 }
-                $deduction = ($check.NotReady / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
-            }
-            elseif ($checkName -eq "nodeResources" -and $check.Warnings -is [int]) {
-                $total = if ($check.Total -gt 0) { $check.Total * 3 } else { 1 }
-                $deduction = ($check.Warnings / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
-            }
-            elseif ($checkName -eq "emptyNamespace" -and $check.TotalEmptyNamespaces -is [int]) {
-                $issues = $check.TotalEmptyNamespaces
-                $total = if ($issues -gt 0) { $issues } else { 1 }
-                $deduction = ($issues / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
-            }
-            elseif ($checkName -eq "eventSummary" -and $check.Events) {
-                $warnings = ($check.Events | Where-Object { $_.Type -eq "Warning" }).Count
-                $errors = ($check.Events | Where-Object { $_.Type -eq "Error" }).Count
-                $totalIssues = $warnings + $errors
-                $total = if ($totalIssues -gt 0) { $totalIssues } else { 1 }
-                $deduction = ($totalIssues / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
-            }
-            else {
-                $total = if ($check.Total -is [int] -and $check.Total -gt 0) { $check.Total } else { 1 }
-                $issues = if ($check.Items -is [array]) { $check.Items.Count } 
-                         elseif ($check.Items -and $check.Items.PSObject.Properties) { 1 }
-                         else { 0 }
-                $deduction = ($issues / $total) * $weight
-                if ($deduction -gt $weight) { $deduction = $weight }
-            }
-        }
-
-        $score -= $deduction
     }
 
-    if ($score -lt 0) { $score = 0 }
-    if ($score -gt 100) { $score = 100 }
+    if ($totalWeight -eq 0) { return 0 }
 
+    $score = 100 - (($failedWeight / $totalWeight) * 100)
     return [math]::Round($score, 1)
 }

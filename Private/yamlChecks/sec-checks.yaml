@@ -1,0 +1,247 @@
+checks:
+  - ID: "RBAC001"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "RBAC Misconfigurations"
+    Description: "Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces in RoleBindings and ClusterRoleBindings."
+    ResourceKind: "ClusterRoleBinding"  # Trigger resource kind, but the script handles all RBAC objects
+    Severity: "High"
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+
+      $invalid = @()
+      $roleBindings = $KubeData.RoleBindings
+      $clusterRoleBindings = $KubeData.ClusterRoleBindings
+      $roles = $KubeData.Roles
+      $clusterRoles = $KubeData.ClusterRoles
+      $namespaces = $KubeData.Namespaces | ForEach-Object { $_.metadata.name }
+      $serviceAccounts = $KubeData.ServiceAccounts
+
+      foreach ($rb in $roleBindings) {
+        if (-not $rb.roleRef) {
+          $invalid += [pscustomobject]@{
+            Namespace = $rb.metadata.namespace
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = "-"
+            Message   = "Missing roleRef in RoleBinding"
+          }
+          continue
+        }
+
+        $ns = $rb.metadata.namespace
+        $roleExists = $roles | Where-Object {
+          $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $ns
+        }
+
+        if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
+          $invalid += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "Missing Role: $($rb.roleRef.name)"
+          }
+        }
+
+        if ($rb.roleRef.kind -eq "ClusterRole") {
+          $invalid += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "RoleBinding references ClusterRole"
+          }
+        }
+
+        foreach ($subject in $rb.subjects) {
+          if ($subject.kind -eq "ServiceAccount") {
+            $subjectNs = $subject.namespace
+            if (-not $subjectNs) { $subjectNs = $ns }
+
+            if ($subjectNs -notin $namespaces) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(unknown)"
+                Resource  = "RoleBinding/$($rb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Namespace does not exist: $subjectNs"
+              }
+            }
+            else {
+              $found = $serviceAccounts | Where-Object {
+                $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
+              }
+              if (-not $found) {
+                $invalid += [pscustomobject]@{
+                  Namespace = $subjectNs
+                  Resource  = "RoleBinding/$($rb.metadata.name)"
+                  Value     = "$($subject.kind)/$($subject.name)"
+                  Message   = "ServiceAccount not found"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      foreach ($crb in $clusterRoleBindings) {
+        if (-not $crb.roleRef) {
+          $invalid += [pscustomobject]@{
+            Namespace = "(cluster)"
+            Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+            Value     = "-"
+            Message   = "Missing roleRef in ClusterRoleBinding"
+          }
+          continue
+        }
+
+        foreach ($subject in $crb.subjects) {
+          if ($subject.kind -eq "ServiceAccount") {
+            $subjectNs = $subject.namespace
+            if (-not $subjectNs) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(cluster)"
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Missing namespace in ClusterRoleBinding subject"
+              }
+              continue
+            }
+
+            if ($subjectNs -notin $namespaces) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(unknown)"
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Namespace does not exist: $subjectNs"
+              }
+              continue
+            }
+
+            $found = $serviceAccounts | Where-Object {
+              $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
+            }
+            if (-not $found) {
+              $invalid += [pscustomobject]@{
+                Namespace = $subjectNs
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "ServiceAccount not found"
+              }
+            }
+          }
+        }
+      }
+
+      return $invalid
+    FailMessage: "RBAC misconfiguration detected"
+    Recommendation:
+      text: "Fix missing roleRefs, service accounts, and invalid namespaces in RoleBindings and ClusterRoleBindings."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 RBAC Misconfiguration Fixes</h4>
+          <ul>
+            <li>Don't leave roleRef blank in bindings.</li>
+            <li>Use valid Roles/ClusterRoles that exist in the correct namespace.</li>
+            <li>Verify ServiceAccounts exist in the namespace specified.</li>
+            <li>Remove or correct subjects pointing to non-existent namespaces.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+  - ID: "SEC001"
+    Category: "Security"
+    Section: "Security"
+    Name: "Orphaned Secrets"
+    Description: "Detects Secrets not used by any workloads, ingresses, service accounts, or known custom resources."
+    ResourceKind: "Secret"
+    Severity: "Medium"
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+
+      $excludedSecretPatterns = @(
+        "^sh\.helm\.release\.v1\.",
+        "^bootstrap-token-",
+        "^default-token-",
+        "^kube-root-ca\.crt$"
+      )
+
+      $secrets = $KubeData.Secrets | Where-Object {
+        $_.metadata.name -notmatch ($excludedSecretPatterns -join "|")
+      }
+
+      $usedSecrets = [System.Collections.Generic.HashSet[string]]::new()
+
+      $pods = $KubeData.Pods.items
+      $workloadTypes = @("deployments", "statefulsets", "daemonsets")
+      $workloads = foreach ($type in $workloadTypes) { $KubeData[$type] }
+
+      $ingresses = $KubeData.Ingresses
+      $serviceAccounts = $KubeData.ServiceAccounts
+
+      foreach ($resource in $pods + $workloads) {
+        $resource.spec.volumes | Where-Object { $_.secret } | ForEach-Object {
+          $null = $usedSecrets.Add($_.secret.secretName)
+        }
+
+        $containers = @()
+        $containers += $resource.spec.containers
+        $containers += $resource.spec.initContainers
+        $containers += $resource.spec.ephemeralContainers
+
+        foreach ($container in $containers) {
+          $container.env | Where-Object { $_.valueFrom.secretKeyRef } | ForEach-Object {
+            $null = $usedSecrets.Add($_.valueFrom.secretKeyRef.name)
+          }
+          $container.envFrom | Where-Object { $_.secretRef } | ForEach-Object {
+            $null = $usedSecrets.Add($_.secretRef.name)
+          }
+        }
+      }
+
+      $ingresses | ForEach-Object {
+        $_.spec.tls | Where-Object { $_.secretName } | ForEach-Object {
+          $null = $usedSecrets.Add($_.secretName)
+        }
+      }
+
+      $serviceAccounts | ForEach-Object {
+        $_.secrets | ForEach-Object {
+          $null = $usedSecrets.Add($_.name)
+        }
+      }
+
+      if ($KubeData.CustomResourcesByKind) {
+        foreach ($kind in $KubeData.CustomResourcesByKind.Keys) {
+          foreach ($res in $KubeData.CustomResourcesByKind[$kind]) {
+            if ($res.spec -and $res.spec.PSObject.Properties.Name -contains "secretName") {
+              $null = $usedSecrets.Add($res.spec.secretName)
+            }
+          }
+        }
+      }
+
+      $orphaned = $secrets | Where-Object { -not $usedSecrets.Contains($_.metadata.name) }
+
+      $results = foreach ($s in $orphaned) {
+        [pscustomobject]@{
+          Namespace = $s.metadata.namespace
+          Resource  = "secret/$($s.metadata.name)"
+          Value     = $s.metadata.name
+          Message   = "Secret appears unused across workloads, ingresses, service accounts, or CRs"
+        }
+      }
+
+      return $results
+    FailMessage: "Secret is unused"
+    Recommendation:
+      text: "Review and remove unused Secrets to reduce surface area and limit stale credentials."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 Orphaned Secrets Cleanup</h4>
+          <ul>
+            <li>Remove Secrets not referenced in Pods, Deployments, StatefulSets, or Ingresses.</li>
+            <li>Audit Secret content before deletion to avoid removing active credentials.</li>
+            <li>Validate Custom Resources don’t indirectly depend on these Secrets.</li>
+            <li>Regularly prune Secrets as part of security hygiene.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/configuration/secret/"

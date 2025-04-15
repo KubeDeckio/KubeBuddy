@@ -175,7 +175,6 @@ function Invoke-CustomKubectlChecks {
                     $data = $KubeData.($check.ResourceKind).items
                 }
                 else {
-                    Write-Host -NoNewline "Fetching $($check.ResourceKind) data..." -ForegroundColor Yellow
                     $kubectlCmd = if ($Namespace) {
                         "$kubectl get $($check.ResourceKind) -n $Namespace -o json"
                     }
@@ -188,7 +187,6 @@ function Invoke-CustomKubectlChecks {
                             throw "kubectl failed: $output"
                         }
                         $data = ($output | ConvertFrom-Json).items
-                        Write-Host "`r$($check.ResourceKind) data fetched.   " -ForegroundColor Green
                     }
                     catch {
                         Write-Host "❌ Failed to fetch $($check.ResourceKind) data: $_" -ForegroundColor Red
@@ -403,33 +401,54 @@ function Invoke-CustomKubectlChecks {
                     $validProps = Get-ValidProperties -Items $check.Items
                     if ($validProps) {
                         $check.Items | ConvertTo-Html -Fragment -Property $validProps | Out-String
-                    } else {
+                    }
+                    else {
                         "<p>No valid data to display.</p>"
                     }
                 }
                 else { "" }
     
-# Append to section HTML
-$sectionHtml += @"
+                # Append to section HTML
+                $sectionHtml += @"
 <h2 id='$($check.ID)'>$($check.ID) - $($check.Name) $tooltip</h2>
 $summary
 "@
 
-if ($check.Items.Count -gt 0) {
-    $collapsibleContent = "$recommendationHtml`n$tableContent"
-    $sectionHtml += @"
+                if ($check.Items.Count -gt 0) {
+                    $collapsibleContent = "$recommendationHtml`n$tableContent"
+                    $sectionHtml += @"
 <div class='table-container'>
   $(ConvertToCollapsible -Id $check.ID -defaultText "Show Findings" -content $collapsibleContent)
 </div>
 "@
-}
+                }
 
             }
     
-            $collapsibleSectionMap[$section] = "<div class='table-container'>$sectionHtml</div>"
+            if ($collapsibleSectionMap.ContainsKey($section)) {
+                $collapsibleSectionMap[$section] += "`n<div class='table-container'>$sectionHtml</div>"
+            }
+            else {
+                $collapsibleSectionMap[$section] = "<div class='table-container'>$sectionHtml</div>"
+            }
         }
     
-        return $collapsibleSectionMap
+        $checkStatusList = @()
+        foreach ($section in $sectionGroups.Keys) {
+            foreach ($check in $sectionGroups[$section]) {
+                $status = if ($check.Total -eq 0) { 'Passed' } else { 'Failed' }
+                $checkStatusList += [pscustomobject]@{
+                    Id     = $check.ID
+                    Status = $status
+                }
+            }
+        }
+                    
+        return @{
+            HtmlBySection = $collapsibleSectionMap
+            StatusList    = $checkStatusList
+        }
+                    
     }
 
     if ($Global:MakeReport) {
@@ -442,7 +461,8 @@ if ($check.Items.Count -gt 0) {
                 if ($validProps) {
                     $tableString = $result.Items | Format-Table -Property $validProps -AutoSize | Out-String
                     Write-ToReport $tableString
-                } else {
+                }
+                else {
                     Write-ToReport "No valid data to display."
                 }
             }
