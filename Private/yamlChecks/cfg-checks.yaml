@@ -1,0 +1,149 @@
+checks:
+  - ID: "CFG001"
+    Category: "Best Practices"
+    Section: "Configuration Hygiene"
+    Name: "Orphaned ConfigMaps"
+    Description: "Detects ConfigMaps that are not referenced by any pod, workload, service, or ingress."
+    ResourceKind: "ConfigMap"
+    Severity: "Medium"
+    FailMessage: "ConfigMap is not referenced by any workloads or services."
+    Recommendation:
+      text: "Delete unused ConfigMaps to clean up the cluster and reduce confusion."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Clean Up Orphaned ConfigMaps</h4>
+          <ul>
+            <li><strong>Verify:</strong> Check usage (<code>kubectl describe cm &lt;name&gt;</code>).</li>
+            <li><strong>Delete:</strong> <code>kubectl delete cm &lt;name&gt;</code> if unused.</li>
+            <li><strong>Automation:</strong> Schedule periodic scans.</li>
+          </ul>
+        </div>
+    Script: |
+      param (
+        $KubeData,
+        $Namespace
+      )
+
+      $excludedPatterns = "^sh\.helm\.release\.v1\.|^kube-root-ca\.crt$"
+      $configMaps = if ($KubeData.ConfigMaps) { $KubeData.ConfigMaps } else { @() }
+      $configMaps = $configMaps | Where-Object { $_.metadata.name -notmatch $excludedPatterns }
+
+      $used = [System.Collections.Generic.HashSet[string]]::new()
+
+      $pods = $KubeData.Pods.items
+      $workloads = @("deployments", "statefulsets", "daemonsets", "cronjobs", "jobs", "replicasets") | ForEach-Object {
+        $KubeData[$_].items
+      }
+
+      foreach ($item in $pods + $workloads) {
+        $item.spec.volumes | Where-Object { $_.configMap } | ForEach-Object { $null = $used.Add($_.configMap.name) }
+
+        $containers = @($item.spec.containers) + @($item.spec.initContainers) + @($item.spec.ephemeralContainers)
+        foreach ($c in $containers) {
+          $c.env | Where-Object { $_.valueFrom.configMapKeyRef } | ForEach-Object { $null = $used.Add($_.valueFrom.configMapKeyRef.name) }
+          $c.envFrom | Where-Object { $_.configMapRef } | ForEach-Object { $null = $used.Add($_.configMapRef.name) }
+        }
+      }
+
+      foreach ($svc in $KubeData.Services) {
+        $svc.metadata.annotations.Values | Where-Object { $_ -match "configMap" } | ForEach-Object { $null = $used.Add($_) }
+      }
+
+      foreach ($ing in $KubeData.Ingresses) {
+        $ing.metadata.annotations.Values | Where-Object { $_ -match "configMap" } | ForEach-Object { $null = $used.Add($_) }
+      }
+
+      foreach ($kind in $KubeData.CustomResourcesByKind.Keys) {
+        foreach ($cr in $KubeData.CustomResourcesByKind[$kind]) {
+          $cr.metadata.annotations.Values | Where-Object { $_ -match "configMap" } | ForEach-Object { $null = $used.Add($_) }
+        }
+      }
+
+      $orphans = $configMaps | Where-Object { -not $used.Contains($_.metadata.name) }
+
+      foreach ($cm in $orphans) {
+        [pscustomobject]@{
+          Namespace = $cm.metadata.namespace
+          Resource  = "configmap/$($cm.metadata.name)"
+          Value     = "-"
+          Message   = "ConfigMap is not used by any workloads or services."
+        }
+      }
+  - ID: "CFG002"
+    Category: "Best Practices"
+    Section: "Configuration Hygiene"
+    Name: "Duplicate ConfigMap Names"
+    Description: "Detects ConfigMaps with identical names across different namespaces."
+    ResourceKind: "ConfigMap"
+    Severity: "Medium"
+    FailMessage: "ConfigMap name reused in multiple namespaces."
+    Recommendation:
+      text: "Avoid using the same ConfigMap name across namespaces to reduce confusion and misconfiguration risk."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Fix Duplicate ConfigMap Names</h4>
+          <ul>
+            <li><strong>Standardize:</strong> Use unique names or a naming convention that includes the environment or team name.</li>
+            <li><strong>Audit:</strong> Periodically review ConfigMaps across namespaces for duplication.</li>
+            <li><strong>Automation:</strong> Use policies or linting tools to catch duplicates pre-deploy.</li>
+          </ul>
+        </div>
+    Script: |
+      param ($KubeData)
+
+      $configMaps = if ($KubeData.ConfigMaps) { $KubeData.ConfigMaps } else { @() }
+      $grouped = $configMaps | Group-Object { $_.metadata.name } | Where-Object { $_.Count -gt 1 }
+
+      foreach ($g in $grouped) {
+        $namespaces = ($g.Group | ForEach-Object { $_.metadata.namespace }) -join ", "
+        [pscustomobject]@{
+          Namespace = "-"
+          Resource  = $g.Name
+          Value     = "-"
+          Message   = "Found in namespaces: $namespaces"
+        }
+      }
+  - ID: "CFG003"
+    Category: "Best Practices"
+    Section: "Configuration Hygiene"
+    Name: "Large ConfigMaps"
+    Description: "Finds ConfigMaps larger than 1 MiB, which may impact performance or exceed platform limits."
+    ResourceKind: "ConfigMap"
+    Severity: "Medium"
+    FailMessage: "ConfigMap exceeds 1 MiB in size."
+    Recommendation:
+      text: "Avoid storing large data in ConfigMaps. Consider using PersistentVolumes or Secrets instead."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Reduce ConfigMap Size</h4>
+          <ul>
+            <li><strong>Refactor:</strong> Move large files or data to PersistentVolumes.</li>
+            <li><strong>Split:</strong> Break up oversized ConfigMaps into smaller ones by function.</li>
+            <li><strong>Review:</strong> Check for secrets or binary blobs mistakenly stored in ConfigMaps.</li>
+          </ul>
+        </div>
+    Script: |
+      param ($KubeData)
+    
+      $configMaps = if ($KubeData.ConfigMaps) { $KubeData.ConfigMaps } else { @() }
+      $threshold = 1048576
+    
+      foreach ($cm in $configMaps) {
+        $size = 0
+        foreach ($entry in $cm.data.PSObject.Properties) {
+          $value = $entry.Value
+          if ($null -ne $value) {
+            $size += [System.Text.Encoding]::UTF8.GetByteCount($value.ToString())
+          }
+        }
+    
+        if ($size -gt $threshold) {
+          [pscustomobject]@{
+            Namespace = $cm.metadata.namespace
+            Resource  = "configmap/$($cm.metadata.name)"
+            Value     = "$size bytes"
+            Message   = "ConfigMap exceeds 1 MiB"
+          }
+        }
+      }
+

@@ -54,6 +54,7 @@ function Create-JsonReport {
             "deploymentIssues"         = Check-DeploymentIssues -Json -KubeData $KubeData
             "statefulSetIssues"        = Check-StatefulSetIssues -Json -KubeData $KubeData
             "ingressHealth"            = Check-IngressHealth -Json -KubeData $KubeData
+            "customChecks"             = Invoke-CustomKubectlChecks -JsOn -KubeData $KubeData
         }
     }
 

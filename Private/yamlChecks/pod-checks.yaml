@@ -1,0 +1,25 @@
+checks:
+  - ID: "RES004"
+    Category: "Resource Management"
+    Section: "Pods"
+    Name: "Container images do not use latest tag"
+    Description: "Flags containers using the 'latest' tag in their image, which can cause unpredictable upgrades."
+    ResourceKind: "Pod"
+    Condition: "spec.containers[].image"
+    Operator: "not_contains"
+    Expected: ":latest"
+    FailMessage: "Container image uses the 'latest' tag, which can lead to unpredictable deployments."
+    Severity: "High"
+    Recommendation:
+      text: "Specify an explicit image tag (e.g., ':v1.2.3') to ensure consistent deployments."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Use Specific Image Tags</h4>
+          <ul>
+            <li><strong>Don't use</strong> the <code>:latest</code> tag in container images.</li>
+            <li><strong>Why:</strong> It can pull different images on each deploy, leading to drift.</li>
+            <li><strong>Fix:</strong> Tag images explicitly (e.g., <code>:v1.2.3</code>) and update the pod spec.</li>
+            <li><strong>Docs:</strong> <a href="https://kubernetes.io/docs/concepts/containers/images/#image-tags" target="_blank">Kubernetes Image Tagging</a></li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/containers/images/#image-tags"
