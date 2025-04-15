@@ -1,0 +1,313 @@
+checks:
+  - ID: "RBAC001"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "RBAC Misconfigurations"
+    Description: "Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces in RoleBindings and ClusterRoleBindings."
+    ResourceKind: "ClusterRoleBinding"  # Trigger resource kind, but the script handles all RBAC objects
+    Severity: "High"
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+
+      $invalid = @()
+      $roleBindings = $KubeData.RoleBindings
+      $clusterRoleBindings = $KubeData.ClusterRoleBindings
+      $roles = $KubeData.Roles
+      $clusterRoles = $KubeData.ClusterRoles
+      $namespaces = $KubeData.Namespaces | ForEach-Object { $_.metadata.name }
+      $serviceAccounts = $KubeData.ServiceAccounts
+
+      foreach ($rb in $roleBindings) {
+        if (-not $rb.roleRef) {
+          $invalid += [pscustomobject]@{
+            Namespace = $rb.metadata.namespace
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = "-"
+            Message   = "Missing roleRef in RoleBinding"
+          }
+          continue
+        }
+
+        $ns = $rb.metadata.namespace
+        $roleExists = $roles | Where-Object {
+          $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $ns
+        }
+
+        if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
+          $invalid += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "Missing Role: $($rb.roleRef.name)"
+          }
+        }
+
+        if ($rb.roleRef.kind -eq "ClusterRole") {
+          $invalid += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "RoleBinding references ClusterRole"
+          }
+        }
+
+        foreach ($subject in $rb.subjects) {
+          if ($subject.kind -eq "ServiceAccount") {
+            $subjectNs = $subject.namespace
+            if (-not $subjectNs) { $subjectNs = $ns }
+
+            if ($subjectNs -notin $namespaces) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(unknown)"
+                Resource  = "RoleBinding/$($rb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Namespace does not exist: $subjectNs"
+              }
+            }
+            else {
+              $found = $serviceAccounts | Where-Object {
+                $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
+              }
+              if (-not $found) {
+                $invalid += [pscustomobject]@{
+                  Namespace = $subjectNs
+                  Resource  = "RoleBinding/$($rb.metadata.name)"
+                  Value     = "$($subject.kind)/$($subject.name)"
+                  Message   = "ServiceAccount not found"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      foreach ($crb in $clusterRoleBindings) {
+        if (-not $crb.roleRef) {
+          $invalid += [pscustomobject]@{
+            Namespace = "(cluster)"
+            Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+            Value     = "-"
+            Message   = "Missing roleRef in ClusterRoleBinding"
+          }
+          continue
+        }
+
+        foreach ($subject in $crb.subjects) {
+          if ($subject.kind -eq "ServiceAccount") {
+            $subjectNs = $subject.namespace
+            if (-not $subjectNs) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(cluster)"
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Missing namespace in ClusterRoleBinding subject"
+              }
+              continue
+            }
+
+            if ($subjectNs -notin $namespaces) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(unknown)"
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Namespace does not exist: $subjectNs"
+              }
+              continue
+            }
+
+            $found = $serviceAccounts | Where-Object {
+              $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
+            }
+            if (-not $found) {
+              $invalid += [pscustomobject]@{
+                Namespace = $subjectNs
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "ServiceAccount not found"
+              }
+            }
+          }
+        }
+      }
+
+      return $invalid
+    FailMessage: "RBAC misconfiguration detected"
+    Recommendation:
+      text: "Fix missing roleRefs, service accounts, and invalid namespaces in RoleBindings and ClusterRoleBindings."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 RBAC Misconfiguration Fixes</h4>
+          <ul>
+            <li>Don't leave roleRef blank in bindings.</li>
+            <li>Use valid Roles/ClusterRoles that exist in the correct namespace.</li>
+            <li>Verify ServiceAccounts exist in the namespace specified.</li>
+            <li>Remove or correct subjects pointing to non-existent namespaces.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+  - ID: "RBAC002"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "RBAC Overexposure"
+    Description: "Identifies dangerous RBAC grants such as cluster-admin, wildcard permissions, and sensitive resource access in roles and bindings."
+    ResourceKind: "ClusterRoleBinding"  # Used to trigger loading; script uses full RBAC set
+    Severity: "Critical"
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+
+      $findings = @()
+
+      $roles = $KubeData.Roles
+      $clusterRoles = $KubeData.ClusterRoles
+      $roleBindings = $KubeData.RoleBindings
+      $clusterRoleBindings = $KubeData.ClusterRoleBindings
+
+      $wildcardRoles = @{}
+      $sensitiveResourceRoles = @{}
+
+      $builtInClusterRoles = @(
+        "cluster-admin", "admin", "edit", "view",
+        "system:kube-scheduler", "system:kube-controller-manager", "system:node", 
+        "system:node-proxier", "system:monitoring", "system:service-account-issuer-discovery",
+        "system:auth-delegator", "system:heapster", "system:kube-dns", 
+        "system:metrics-server", "system:public-info-viewer"
+      )
+
+      foreach ($cr in $clusterRoles) {
+        foreach ($rule in $cr.rules) {
+          if ($rule.verbs -contains "*" -and $rule.resources -contains "*" -and $rule.apiGroups -contains "*") {
+            $wildcardRoles[$cr.metadata.name] = "ClusterRole"
+            break
+          }
+
+          $sensitiveResources = @("secrets", "pods/exec", "roles", "clusterroles", "bindings", "clusterrolebindings")
+          $dangerousVerbs = @("*", "create", "update", "delete")
+          if ($rule.resources | Where-Object { $_ -in $sensitiveResources }) {
+            if ($rule.verbs | Where-Object { $_ -in $dangerousVerbs }) {
+              $sensitiveResourceRoles[$cr.metadata.name] = "ClusterRole"
+              break
+            }
+          }
+        }
+      }
+
+      foreach ($r in $roles) {
+        foreach ($rule in $r.rules) {
+          if ($rule.verbs -contains "*" -and $rule.resources -contains "*" -and $rule.apiGroups -contains "*") {
+            $key = "$($r.metadata.namespace)/$($r.metadata.name)"
+            $wildcardRoles[$key] = "Role"
+            break
+          }
+
+          $sensitiveResources = @("secrets", "pods/exec", "roles", "clusterroles", "bindings", "clusterrolebindings")
+          $dangerousVerbs = @("*", "create", "update", "delete")
+          if ($rule.resources | Where-Object { $_ -in $sensitiveResources }) {
+            if ($rule.verbs | Where-Object { $_ -in $dangerousVerbs }) {
+              $key = "$($r.metadata.namespace)/$($r.metadata.name)"
+              $sensitiveResourceRoles[$key] = "Role"
+              break
+            }
+          }
+        }
+      }
+
+      foreach ($crb in $clusterRoleBindings) {
+        $roleName = $crb.roleRef.name
+        $isClusterAdmin = ($roleName -eq "cluster-admin")
+        $isWildcard = $wildcardRoles.ContainsKey($roleName)
+        $isSensitive = $sensitiveResourceRoles.ContainsKey($roleName)
+
+        $isBuiltIn = $false
+        if ($roleName -like "system:*" -or $roleName -in $builtInClusterRoles) {
+          $isBuiltIn = $true
+        } elseif ($clusterRoles | Where-Object { $_.metadata.name -eq $roleName -and $_.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults' }) {
+          $isBuiltIn = $true
+        }
+
+        if ($isClusterAdmin -or $isWildcard -or $isSensitive) {
+          foreach ($subject in $crb.subjects) {
+            $isDefaultSA = ($subject.kind -eq "ServiceAccount" -and $subject.name -eq "default")
+            $finding = [pscustomobject]@{
+              Namespace     = "🌍 Cluster-Wide"
+              Resource      = "ClusterRoleBinding/$($crb.metadata.name)"
+              Value         = "$($subject.kind)/$($subject.name)"
+              Message       = if ($isClusterAdmin) {
+                                "cluster-admin binding"
+                              } elseif ($isWildcard) {
+                                "Wildcard permission role"
+                              } else {
+                                "Access to sensitive resources"
+                              }
+            }
+            if ($isBuiltIn) {
+              $finding.Message += " (built-in)"
+            }
+            if ($isDefaultSA) {
+              $finding.Message += " (default ServiceAccount)"
+            }
+            $findings += $finding
+          }
+        }
+      }
+
+      foreach ($rb in $roleBindings) {
+        $roleName = $rb.roleRef.name
+        $ns = $rb.metadata.namespace
+        $key = "$ns/$roleName"
+        $isClusterAdmin = ($roleName -eq "cluster-admin")
+        $isWildcard = $wildcardRoles.ContainsKey($key)
+        $isSensitive = $sensitiveResourceRoles.ContainsKey($key)
+
+        $isBuiltIn = $false
+        if ($rb.roleRef.kind -eq "ClusterRole") {
+          if ($roleName -like "system:*" -or $roleName -in $builtInClusterRoles) {
+            $isBuiltIn = $true
+          } elseif ($clusterRoles | Where-Object { $_.metadata.name -eq $roleName -and $_.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults' }) {
+            $isBuiltIn = $true
+          }
+        }
+
+        if ($isClusterAdmin -or $isWildcard -or $isSensitive) {
+          foreach ($subject in $rb.subjects) {
+            $isDefaultSA = ($subject.kind -eq "ServiceAccount" -and $subject.name -eq "default")
+            $finding = [pscustomobject]@{
+              Namespace     = $ns
+              Resource      = "RoleBinding/$($rb.metadata.name)"
+              Value         = "$($subject.kind)/$($subject.name)"
+              Message       = if ($isClusterAdmin) {
+                                "cluster-admin binding"
+                              } elseif ($isWildcard) {
+                                "Wildcard permission role"
+                              } else {
+                                "Access to sensitive resources"
+                              }
+            }
+            if ($isBuiltIn) {
+              $finding.Message += " (built-in)"
+            }
+            if ($isDefaultSA) {
+              $finding.Message += " (default ServiceAccount)"
+            }
+            $findings += $finding
+          }
+        }
+      }
+
+      return $findings
+    FailMessage: "RBAC overexposure risk detected"
+    Recommendation:
+      text: "Avoid cluster-admin, wildcard, and sensitive resource access in roles. Use least privilege."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 RBAC Hardening Tips</h4>
+          <ul>
+            <li>Avoid using <code>cluster-admin</code> directly in bindings.</li>
+            <li>Don’t assign Roles or ClusterRoles with wildcard verbs/resources/apiGroups.</li>
+            <li>Restrict access to sensitive resources like <code>secrets</code> or <code>pods/exec</code>.</li>
+            <li>Minimize privileges for default ServiceAccounts.</li>
+            <li>Document use of any built-in roles used in production.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"

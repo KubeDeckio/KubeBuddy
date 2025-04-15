@@ -1,151 +1,4 @@
 checks:
-  - ID: "RBAC001"
-    Category: "RBAC"
-    Section: "Security"
-    Name: "RBAC Misconfigurations"
-    Description: "Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces in RoleBindings and ClusterRoleBindings."
-    ResourceKind: "ClusterRoleBinding"  # Trigger resource kind, but the script handles all RBAC objects
-    Severity: "High"
-    Operator: "script"
-    Script: |
-      param($KubeData, $Namespace)
-
-      $invalid = @()
-      $roleBindings = $KubeData.RoleBindings
-      $clusterRoleBindings = $KubeData.ClusterRoleBindings
-      $roles = $KubeData.Roles
-      $clusterRoles = $KubeData.ClusterRoles
-      $namespaces = $KubeData.Namespaces | ForEach-Object { $_.metadata.name }
-      $serviceAccounts = $KubeData.ServiceAccounts
-
-      foreach ($rb in $roleBindings) {
-        if (-not $rb.roleRef) {
-          $invalid += [pscustomobject]@{
-            Namespace = $rb.metadata.namespace
-            Resource  = "RoleBinding/$($rb.metadata.name)"
-            Value     = "-"
-            Message   = "Missing roleRef in RoleBinding"
-          }
-          continue
-        }
-
-        $ns = $rb.metadata.namespace
-        $roleExists = $roles | Where-Object {
-          $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $ns
-        }
-
-        if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
-          $invalid += [pscustomobject]@{
-            Namespace = $ns
-            Resource  = "RoleBinding/$($rb.metadata.name)"
-            Value     = $rb.roleRef.name
-            Message   = "Missing Role: $($rb.roleRef.name)"
-          }
-        }
-
-        if ($rb.roleRef.kind -eq "ClusterRole") {
-          $invalid += [pscustomobject]@{
-            Namespace = $ns
-            Resource  = "RoleBinding/$($rb.metadata.name)"
-            Value     = $rb.roleRef.name
-            Message   = "RoleBinding references ClusterRole"
-          }
-        }
-
-        foreach ($subject in $rb.subjects) {
-          if ($subject.kind -eq "ServiceAccount") {
-            $subjectNs = $subject.namespace
-            if (-not $subjectNs) { $subjectNs = $ns }
-
-            if ($subjectNs -notin $namespaces) {
-              $invalid += [pscustomobject]@{
-                Namespace = "(unknown)"
-                Resource  = "RoleBinding/$($rb.metadata.name)"
-                Value     = "$($subject.kind)/$($subject.name)"
-                Message   = "Namespace does not exist: $subjectNs"
-              }
-            }
-            else {
-              $found = $serviceAccounts | Where-Object {
-                $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
-              }
-              if (-not $found) {
-                $invalid += [pscustomobject]@{
-                  Namespace = $subjectNs
-                  Resource  = "RoleBinding/$($rb.metadata.name)"
-                  Value     = "$($subject.kind)/$($subject.name)"
-                  Message   = "ServiceAccount not found"
-                }
-              }
-            }
-          }
-        }
-      }
-
-      foreach ($crb in $clusterRoleBindings) {
-        if (-not $crb.roleRef) {
-          $invalid += [pscustomobject]@{
-            Namespace = "(cluster)"
-            Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
-            Value     = "-"
-            Message   = "Missing roleRef in ClusterRoleBinding"
-          }
-          continue
-        }
-
-        foreach ($subject in $crb.subjects) {
-          if ($subject.kind -eq "ServiceAccount") {
-            $subjectNs = $subject.namespace
-            if (-not $subjectNs) {
-              $invalid += [pscustomobject]@{
-                Namespace = "(cluster)"
-                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
-                Value     = "$($subject.kind)/$($subject.name)"
-                Message   = "Missing namespace in ClusterRoleBinding subject"
-              }
-              continue
-            }
-
-            if ($subjectNs -notin $namespaces) {
-              $invalid += [pscustomobject]@{
-                Namespace = "(unknown)"
-                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
-                Value     = "$($subject.kind)/$($subject.name)"
-                Message   = "Namespace does not exist: $subjectNs"
-              }
-              continue
-            }
-
-            $found = $serviceAccounts | Where-Object {
-              $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
-            }
-            if (-not $found) {
-              $invalid += [pscustomobject]@{
-                Namespace = $subjectNs
-                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
-                Value     = "$($subject.kind)/$($subject.name)"
-                Message   = "ServiceAccount not found"
-              }
-            }
-          }
-        }
-      }
-
-      return $invalid
-    FailMessage: "RBAC misconfiguration detected"
-    Recommendation:
-      text: "Fix missing roleRefs, service accounts, and invalid namespaces in RoleBindings and ClusterRoleBindings."
-      html: |
-        <div class="recommendation-content">
-          <h4>🔐 RBAC Misconfiguration Fixes</h4>
-          <ul>
-            <li>Don't leave roleRef blank in bindings.</li>
-            <li>Use valid Roles/ClusterRoles that exist in the correct namespace.</li>
-            <li>Verify ServiceAccounts exist in the namespace specified.</li>
-            <li>Remove or correct subjects pointing to non-existent namespaces.</li>
-          </ul>
-        </div>
-    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
   - ID: "SEC001"
     Category: "Security"
     Section: "Security"
@@ -245,3 +98,100 @@ checks:
           </ul>
         </div>
     URL: "https://kubernetes.io/docs/concepts/configuration/secret/"
+  - ID: "POD001"
+    Category: "Pods"
+    Section: "Security"
+    Name: "Pods using hostPID or hostNetwork"
+    Description: "Flags pods that share the host's PID or network namespace, which can compromise isolation and node security."
+    ResourceKind: "Pod"
+    Severity: "High"
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+
+      $flagged = @()
+
+      $pods = $KubeData.Pods.items
+      if ($Namespace) {
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      foreach ($pod in $pods) {
+          $hostPID = $pod.spec.hostPID
+          if ($hostPID -ne $true) { $hostPID = $false }
+
+          $hostNetwork = $pod.spec.hostNetwork
+          if ($hostNetwork -ne $true) { $hostNetwork = $false }
+
+
+        if ($hostPID -or $hostNetwork) {
+          $flagged += [pscustomobject]@{
+            Namespace   = $pod.metadata.namespace
+            Resource    = "pod/$($pod.metadata.name)"
+            Value       = "hostPID=$hostPID, hostNetwork=$hostNetwork"
+            Message = ("Pod uses " + (($hostPID -eq $true) ? "hostPID" : "") +
+           (($hostPID -eq $true -and $hostNetwork -eq $true) ? " and " : "") +
+           (($hostNetwork -eq $true) ? "hostNetwork" : ""))
+          }
+        }
+      }
+
+      return $flagged
+    FailMessage: "Pod uses hostPID or hostNetwork"
+    Recommendation:
+      text: "Avoid using hostPID or hostNetwork unless strictly required. These settings reduce isolation and can expose the host."
+      html: |
+        <div class="recommendation-content">
+          <h4>⚠️ Avoid Host-Level Sharing</h4>
+          <ul>
+            <li>Set <code>hostPID: false</code> and <code>hostNetwork: false</code> unless needed for special workloads.</li>
+            <li>Review security implications of namespace sharing with the host.</li>
+            <li>Restrict use of these settings to trusted namespaces and workloads.</li>
+            <li>Consider using PSPs or OPA/Gatekeeper policies to prevent usage cluster-wide.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
+  - ID: "POD005"
+    Category: "Pod Security"
+    Section: "Isolation"
+    Name: "Pods Using hostIPC"
+    Description: "Detects pods that use hostIPC, which can compromise pod isolation and allow access to shared memory on the host."
+    ResourceKind: "Pod"
+    Severity: "High"
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+
+      $pods = $KubeData.Pods.items
+
+      if ($Namespace) {
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+
+      foreach ($pod in $pods) {
+        if ($pod.spec.hostIPC -eq $true) {
+          $results += [pscustomobject]@{
+            Namespace = $pod.metadata.namespace
+            Resource  = "pod/$($pod.metadata.name)"
+            Value     = "true"
+            Message   = "hostIPC is enabled"
+          }
+        }
+      }
+
+      return $results
+    FailMessage: "Pods with hostIPC enabled found"
+    Recommendation:
+      text: "Avoid using hostIPC in pods unless absolutely required for specific functionality."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔒 Disable hostIPC for Pods</h4>
+          <ul>
+            <li>Remove <code>hostIPC: true</code> from pod specs.</li>
+            <li>Review workloads that require inter-process communication with the host.</li>
+            <li>Use shared memory only through secure, scoped means.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#host-namespaces"
