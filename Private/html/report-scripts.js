@@ -8,7 +8,7 @@ window.addEventListener('scroll', function () {
 let isPrinting = false;
 
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('DOM fully loaded, initializing scripts');
+    console.log('DOM fully loaded, initializing scripts'); 
 
     // Navigation Drawer
     try {
@@ -453,32 +453,48 @@ function paginateTable(collapsibleContainer) {
 document.addEventListener('DOMContentLoaded', function(){
     var tabs = document.querySelectorAll('.tabs li');
     var tabContents = document.querySelectorAll('.tab-content');
+    
     tabs.forEach(function(tab){
-      tab.addEventListener('click', function(){
-        tabs.forEach(function(t){ t.classList.remove('active'); });
-        tabContents.forEach(function(tc){ tc.classList.remove('active'); });
-        tab.classList.add('active');
-        var target = tab.getAttribute('data-tab');
-        var content = document.getElementById(target);
-        if(content) { 
-          content.classList.add('active');
-          // Only reinitialize pagination for containers that are already open
-          var containers = content.querySelectorAll('.collapsible-container');
-          containers.forEach(function(container){
-            var details = container.querySelector('details');
-            if(details && details.open) {
-              paginateTable(container);
+        tab.addEventListener('click', function(e){
+            // Material ripple effect
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            const rect = this.getBoundingClientRect();
+            ripple.style.left = (e.clientX - rect.left) + 'px';
+            ripple.style.top = (e.clientY - rect.top) + 'px';
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+
+            // Switch active tab
+            tabs.forEach(function(t){ t.classList.remove('active'); });
+            tabContents.forEach(function(tc){ tc.classList.remove('active'); });
+            tab.classList.add('active');
+            
+            var target = tab.getAttribute('data-tab');
+            var content = document.getElementById(target);
+            if(content) { 
+                content.classList.add('active');
+
+                // Reinitialize pagination
+                var containers = content.querySelectorAll('.collapsible-container');
+                containers.forEach(function(container){
+                    var details = container.querySelector('details');
+                    if(details && details.open) {
+                        paginateTable(container);
+                    }
+                });
             }
-          });
-        }
-      });
+        });
     });
-  });
+});
+
   document.addEventListener('DOMContentLoaded', function () {
     const tabList = document.querySelectorAll('.header .tabs li');
     const navItemsContainer = document.querySelector('#navDrawer .nav-items');
+
     if (navItemsContainer) {
         navItemsContainer.innerHTML = ''; // Clear existing items
+
         tabList.forEach(tab => {
             const target = tab.getAttribute('data-tab') || tab.textContent.trim().toLowerCase();
             const li = document.createElement('li');
@@ -489,8 +505,32 @@ document.addEventListener('DOMContentLoaded', function(){
             li.appendChild(a);
             navItemsContainer.appendChild(li);
         });
+
+        // Bind click handlers after items are added
+        navItemsContainer.querySelectorAll('.nav-item a').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = this.getAttribute('href').substring(1);
+
+                // Activate tab in header
+                const tabToActivate = document.querySelector(`.header .tabs li[data-tab="${target}"]`);
+                if (tabToActivate) tabToActivate.click();
+
+                // Scroll to top of content
+                const tabContent = document.getElementById(target);
+                if (tabContent) {
+                    tabContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+
+                // Close nav drawer
+                document.getElementById('navDrawer').classList.remove('open');
+                document.getElementById('navScrim').classList.remove('open');
+                document.body.style.overflow = '';
+            });
+        });
     }
 });
+
 document.addEventListener('DOMContentLoaded', function () {
     const tabsContainer = document.querySelector('.header .tabs');
     const menuFab = document.getElementById('menuFab');
@@ -510,4 +550,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
     checkTabsOverflow();
     window.addEventListener('resize', checkTabsOverflow);
+
+    const pieChart = document.querySelector('.pie-chart');
+    const pulseDot = document.getElementById('pulseDot');
+  
+    if (pieChart && pulseDot) {
+      const percent = parseFloat(getComputedStyle(pieChart).getPropertyValue('--percent') || '0');
+      const angle = (percent / 100) * 360 - 90;
+      const radius = 15.9155;
+      const center = 18;
+      const rad = angle * Math.PI / 180;
+      const x = center + radius * Math.cos(rad);
+      const y = center + radius * Math.sin(rad);
+  
+      // Wait for arc animation to finish before showing and positioning the dot
+      setTimeout(() => {
+        pulseDot.setAttribute('cx', x.toFixed(2));
+        pulseDot.setAttribute('cy', y.toFixed(2));
+        pulseDot.classList.add('pulse');
+      }, 1000); // match stroke-dasharray transition duration
+    } 
 });
+document.addEventListener('DOMContentLoaded', () => {
+    const progressBars = document.querySelectorAll('.progress-bar');
+  
+    progressBars.forEach(bar => {
+      const score = parseFloat(bar.style.getPropertyValue('--cluster-score')) || 0;
+      const progress = bar.querySelector('.progress');
+      const dot = bar.querySelector('.pulse-dot');
+  
+      // Animate width
+      setTimeout(() => {
+        progress.style.width = `${score}%`;
+      }, 100); // slight delay to trigger transition
+  
+      // Add pulse after animation
+      setTimeout(() => {
+        if (dot) dot.classList.add('pulse');
+      }, 1100); // match the transition duration
+    });
+  });
+  

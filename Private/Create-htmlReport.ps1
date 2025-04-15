@@ -831,24 +831,29 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
   $issuesChecks = $totalChecks - $passedChecks
   $passedPercent = if ($totalChecks -gt 0) { [math]::Round(($passedChecks / $totalChecks) * 100, 2) } else { 0 }
 
+  $donutStroke = $scoreColor
+
   $pieChartHtml = @"
-<svg class="pie-chart" width="120" height="120" viewBox="0 0 36 36">
-  <!-- Background circle path -->
-  <path class="circle-bg"
-        d="M18 2.0845
-           a 15.9155 15.9155 0 0 1 0 31.831
-           a 15.9155 15.9155 0 0 1 0 -31.831"/>
-  <!-- Foreground arc showing passed checks -->
-  <path class="circle"
-        stroke-dasharray="$passedPercent,100"
-        d="M18 2.0845
-           a 15.9155 15.9155 0 0 1 0 31.831
-           a 15.9155 15.9155 0 0 1 0 -31.831"
-        style="stroke: #4CAF50;" />
-  <!-- Text in the center showing 'Passed/Total' -->
-  <text x="18" y="20.35" class="percentage" text-anchor="middle">
-    $passedChecks/$totalChecks
-  </text>
+<svg class="pie-chart donut" width="120" height="120" viewBox="0 0 36 36" style="--percent: $passedPercent">
+  <circle class="donut-ring"
+          cx="18" cy="18" r="15.9155"
+          stroke="#ECEFF1"
+          stroke-width="4"
+          fill="transparent"/>
+  <circle class="donut-segment"
+          cx="18" cy="18" r="15.9155"
+          stroke="$donutStroke"
+          stroke-width="4"
+          stroke-dasharray="$passedPercent, 100"
+          stroke-dashoffset="25"
+          stroke-linecap="round"
+          fill="transparent"
+          style="transition: stroke-dasharray 1s ease;" />
+<text x="18" y="20.5" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#37474F"
+  transform="rotate(90 18 18)">
+  $passedChecks/$totalChecks
+</text>
+  <circle id="pulseDot" r="0.6" fill="$donutStroke" style="opacity: 0;" />
 </svg>
 "@
 
@@ -1159,6 +1164,13 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
         display: inline-block; 
     }
 
+    .nav-item a,
+    .header .tabs li,
+    .nav-item details summary {
+      position: relative; /* required for ripple positioning */
+      overflow: hidden;   /* keeps the ripple inside */
+    }
+
     .nav-drawer { 
         position: fixed; 
         top: 0; 
@@ -1302,17 +1314,24 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
         color: #0071FF; 
     }
 
-    .ripple { 
-        position: absolute; 
-        border-radius: 50%; 
-        background: rgba(0,113,255,0.3); 
-        transform: scale(0); 
-        animation: ripple 0.6s linear; 
-        pointer-events: none; 
+    .ripple {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 50%;
+      transform: scale(0);
+      animation: ripple-effect 600ms linear;
+      pointer-events: none;
+      width: 100px;
+      height: 100px;
+      margin-left: -50px;
+      margin-top: -50px;
     }
 
-    @keyframes ripple { 
-        to { transform: scale(4); opacity: 0; } 
+    @keyframes ripple-effect {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
     }
 
     .hero-metrics { 
@@ -1621,32 +1640,81 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
         }
     }
 
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    .progress-bar {
-      background-color: #e0e0e0;
-      border-radius: 8px;
-      height: 26px;
+    .tab-content { display: none;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 200ms ease, transform 200ms ease;
+      pointer-events: none;
+      position: absolute;
       width: 100%;
-      margin: 0 auto;
-      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     }
-    .progress {
-      height: 100%;
-      width: var(--cluster-score, 0%);
-      background-color: var(--score-color, #4CAF50);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: bold;
-      transition: width 0.3s ease;
+    .tab-content.active { display: block;
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+      position: relative;
     }
-    .progress-text {
-      margin: 0 5px;
-    }
+
+.progress-bar {
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+  height: 20px;
+  position: relative;
+}
+
+.progress {
+  background-color: var(--score-color, #2196F3);
+  width: 0%;
+  height: 100%;
+  position: relative;
+  transition: width 1s ease-out;
+}
+
+.progress-text {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  z-index: 2;
+}
+
+.pulse-dot {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translate(50%, -50%);
+  width: 10px;
+  height: 10px;
+  background: white;
+  border: 2px solid var(--score-color, #2196F3);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pulse-dot.pulse {
+  animation: pulse 1.5s infinite;
+  opacity: 1;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(50%, -50%) scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: translate(50%, -50%) scale(1.5);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
 
     .cluster-health {
         display: flex;
@@ -1657,29 +1725,75 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
     .health-score {
         flex: 1;
     }
-    .pie-chart {
-      display: block;
-      margin: 0 auto;
-    }
-
-    .circle-bg {
-      fill: none;
-      stroke: #F44336;
-      stroke-width: 4;
-    }
-
-    .circle {
-      fill: none;
-      stroke-width: 4;
-      stroke-linecap: round; /* rounded arc edges */
+    .pie-chart.donut {
       transform: rotate(-90deg);
-      transform-origin: center; /* top of arc at 12 o'clock */
+    }
+      .health-pie {
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
-    .percentage {
-      font-size: 10px;
-      fill: #37474f;    /* text color */
+
+.donut-ring {
+  stroke: #ECEFF1; /* light grey background ring */
+  fill: none;
+}
+
+.donut-segment {
+  fill: none;
+  stroke: $scoreColor;
+  stroke-linecap: round;
+  transition: stroke-dasharray 1s ease-out;
+}
+
+  @keyframes fillDonut {
+    from {
+      stroke-dasharray: 0, 100;
     }
+    to {
+      stroke-dasharray: var(--percent, 0), 100;
+    }
+  }
+
+  .donut-segment {
+    animation: fillDonut 1s ease-out forwards;
+  }
+    .centered-donut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+
+  @keyframes pulse {
+  0%, 100% {
+    r: 0.6;
+    opacity: 1;
+  }
+  50% {
+    r: 1.2;
+    opacity: 0.6;
+  }
+}
+
+#pulseDot {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.pulse {
+  animation: pulseAnim 1s ease-out infinite;
+  opacity: 1;
+}
+
+@keyframes pulseAnim {
+  0% { r: 2; opacity: 1; }
+  50% { r: 3.5; opacity: 0.6; }
+  100% { r: 2; opacity: 1; }
+}
+
 
   </style>
 </head>
@@ -1755,10 +1869,10 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
       <h2>Cluster Health Score</h>
         $scoreBarHtml
       </div>
-      <div class="health-pie">
-      <h2>Passed / Failed Checks</h2>
-      $pieChartHtml
-    </div>
+      <div class="health-pie centered-donut">
+        <h2>Passed / Failed Checks</h2>
+        $pieChartHtml
+      </div>
     </div>
     </div>
     <div class="container">
