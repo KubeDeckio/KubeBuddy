@@ -162,94 +162,66 @@ $collapsibleAKSHtml
       $html = "<p>No data available for $($check.Id).</p>"
     }
     $checkResults[$check.Id] = $html
-  
-    # Handle custom checks
+
+    # Inject custom checks into relevant sections
     if ($check.Id -eq "customChecks" -and $html -is [hashtable]) {
       $customChecksBySection = $html
+
       foreach ($section in $customChecksBySection.Keys) {
         $sanitizedId = $section -replace '[^\w]', ''
         $varName = "collapsible" + $sanitizedId + "Html"
+
+        # Extract individual check details from the HTML
         $sectionHtml = $customChecksBySection[$section]
-  
-        # Extract check IDs and Names from HTML
-        $checkIds = [regex]::Matches($sectionHtml, "<h2 id='([^']+)'") | ForEach-Object { $_.Groups[1].Value }
-        $checkNames = [regex]::Matches($sectionHtml, "<h2 id='[^']+'>\s*[^-]+\s*-\s*([^<]+)\s*(?:<span.*?</span>)?\s*</h2>") |
-        ForEach-Object { [string]$_.Groups[1].Value.Trim() }
-  
+        $checkIds = [regex]::Matches($sectionHtml, "<h2 id=''([^'']+)'") | ForEach-Object { $_.Groups[1].Value }
+        $checkNames = [regex]::Matches($sectionHtml, "<h2 id='[^']+'>\s*[^-]+\s*-\s*([^<]+)\s*(?:<span.*?</span>)?\s*</h2>") | ForEach-Object { $_.Groups[1].Value }
+
         # Pair IDs with Names
         $checksInSection = for ($i = 0; $i -lt [Math]::Min($checkIds.Count, $checkNames.Count); $i++) {
           @{
             Id   = $checkIds[$i]
-            Name = $checkNames[$i]
+            Name = $checkNames[$i].Trim()
           }
         }
-  
+
         # Map section to navigation category
-        $navSection = if ($sectionToNavMap.ContainsKey($section)) { $sectionToNavMap[$section] } else { "Custom Checks" }
-  
-        # Store navigation items
+        $navSection = $sectionToNavMap[$section]
+        if (-not $navSection) {
+          $navSection = "Custom Checks"
+        }
+
         if (-not $customNavItems[$navSection]) {
           $customNavItems[$navSection] = @()
         }
         $customNavItems[$navSection] += $checksInSection
-  
-        # Store section HTML
+
+        # Update section HTML variable
         if (Get-Variable -Name $varName -Scope "Script" -ErrorAction SilentlyContinue) {
           Set-Variable -Name $varName -Value (@(
-                  (Get-Variable -Name $varName -ValueOnly)
+                      (Get-Variable -Name $varName -ValueOnly)
               $sectionHtml
             ) -join "`n")
         }
         else {
           Set-Variable -Name $varName -Value $sectionHtml
         }
+
+        # Map built-in checks to sections for menu generation
+        foreach ($section in $sectionToNavMap.Keys) {
+          if ($check.Id -match $section -or $section -eq "Configuration Hygiene" -and $check.Id -match "Configuration") {
+            if (-not $customNavItems[$section]) {
+              $customNavItems[$section] = @()
+            }
+            $customNavItems[$section] += @{
+              Id   = $check.Id
+              Name = ($check.Id -replace '([a-z])([A-Z])', '$1 $2') -replace '-', ' ' -replace '\s+', ' '
+            }
+            break
+          }
+        }
       }
       continue
     }
-  
-    # Extract <p> summary if present
-    $pre = ""
-    if ($html -match '^\s*<p>.*?</p>') {
-      $pre = $matches[0]
-      $html = $html -replace [regex]::Escape($pre), ""
-    }
-    elseif ($html -match '^\s*[^<]+$') {
-      $lines = $html -split "`n", 2
-      $pre = "<p>$($lines[0].Trim())</p>"
-      $html = if ($lines.Count -gt 1) { $lines[1] } else { "" }
-    }
-    else {
-      $pre = "<p>⚠️ $($check.Id) Report</p>"
-    }
-  
-    $hasIssues = $html -match '<tr>.*?<td>.*?</td>.*?</tr>' -and $html -notmatch 'No data available'
-    $noFindings = $pre -match '✅'
-    $recommendation = ""
-  
-    # Special handling for node conditions and resources
-    if ($check.Id -in @("nodeConditions", "nodeResources")) {
-      $warningsCount = 0
-      if ($check.Id -eq "nodeConditions" -and $pre -match "Total Not Ready Nodes: (\d+)") {
-        $warningsCount = [int]$matches[1]
-      }
-      elseif ($check.Id -eq "nodeResources" -and $pre -match "Total Resource Warnings Across All Nodes: (\d+)") {
-        $warningsCount = [int]$matches[1]
-      }
-      $hasIssues = $warningsCount -ge 1
-      $noFindings = $false  # Always show table for these
-    }
-  
-  
-    $defaultText = "Show Findings"
-    $content = if ($noFindings) {
-      "$pre`n"
-    }
-    else {
-      "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText $defaultText -content "$recommendation`n$html")
-    }
-  
-    Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
-  
 
     if ($check.Id -eq "eventSummary") {
       # Special handling for eventSummary, which returns two HTML fragments
@@ -964,6 +936,211 @@ limits:
     $excludedNamespacesHtml = ""
   }
 
+  # Build navigation drawer dynamically
+  $navItems = @"
+<div class="nav-drawer" id="navDrawer">
+<div class="nav-header">
+    <h3>Navigation</h3>
+    <button class="nav-close" id="navClose">✖</button>
+</div>
+<div class="nav-content">
+    <ul class="nav-items">
+        <li class="nav-item"><a href="#summary"><span class="material-icons">dashboard</span> Cluster Summary</a></li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">computer</span> Nodes</summary>
+                <ul>
+                    <li><a href="#nodecon">Node Conditions</a></li>
+                    <li><a href="#noderesource">Node Resources</a></li>
+"@
+  if ($customNavItems["Nodes"]) {
+    foreach ($check in $customNavItems["Nodes"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">folder</span> Namespaces</summary>
+                <ul>
+                    <li><a href="#namespaces">Empty Namespaces</a></li>
+                    <li><a href="#resourceQuotas">ResourceQuotas</a></li>
+                    <li><a href="#namespaceLimitRanges">LimitRanges</a></li>
+"@
+  if ($customNavItems["Namespaces"]) {
+    foreach ($check in $customNavItems["Namespaces"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">build</span> Workloads</summary>
+                <ul>
+                    <li><a href="#daemonsets">DaemonSets</a></li>
+                    <li><a href="#deploymentIssues">Deployment Issues</a></li>
+                    <li><a href="#statefulSetIssues">StatefulSet Issues</a></li>
+                    <li><a href="#HPA">Horizontal Pod Autoscalers</a></li>
+                    <li><a href="#missingResourceLimits">Missing Resource Limits</a></li>
+                    <li><a href="#PDB">PodDisruptionBudgets</a></li>
+                    <li><a href="#missingProbes">Missing Health Probes</a></li>
+"@
+  if ($customNavItems["Workloads"]) {
+    foreach ($check in $customNavItems["Workloads"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">hexagon</span> Pods</summary>
+                <ul>
+                    <li><a href="#podrestarts">Pods with High Restarts</a></li>
+                    <li><a href="#podlong">Long Running Pods</a></li>
+                    <li><a href="#podfail">Failed Pods</a></li>
+                    <li><a href="#podpend">Pending Pods</a></li>
+                    <li><a href="#crashloop">Pods in Crashloop</a></li>
+                    <li><a href="#debugpods">Running Debug Pods</a></li>
+"@
+  if ($customNavItems["Pods"]) {
+    foreach ($check in $customNavItems["Pods"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">work</span> Jobs</summary>
+                <ul>
+                    <li><a href="#stuckjobs">Stuck Jobs</a></li>
+                    <li><a href="#failedjobs">Job Failures</a></li>
+"@
+  if ($customNavItems["Jobs"]) {
+    foreach ($check in $customNavItems["Jobs"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">network_check</span> Networking</summary>
+                <ul>
+                    <li><a href="#servicenoendpoints">Services without Endpoints</a></li>
+                    <li><a href="#publicServices">Public Services</a></li>
+                    <li><a href="#ingressHealth">Ingress Health</a></li>
+"@
+  if ($customNavItems["Networking"]) {
+    foreach ($check in $customNavItems["Networking"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">storage</span> Storage</summary>
+                <ul>
+                    <li><a href="#unmountedpv">Unmounted Persistent Volumes</a></li>
+"@
+  if ($customNavItems["Storage"]) {
+    foreach ($check in $customNavItems["Storage"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item"><a href="#configuration"><span class="material-icons">settings</span> Configuration Hygiene</a></li>
+"@
+  if ($customNavItems["Configuration Hygiene"]) {
+    foreach ($check in $customNavItems["Configuration Hygiene"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">security</span> Security</summary>
+                <ul>
+                    <li><a href="#rbacmisconfig">RBAC Misconfigurations</a></li>
+                    <li><a href="#rbacOverexposure">RBAC Overexposure</a></li>
+                    <li><a href="#orphanedRoles">Unused Roles</a></li>
+                    <li><a href="#orphanedServiceAccounts">Orphaned ServiceAccounts</a></li>
+                    <li><a href="#orphanedconfigmaps">Orphaned ConfigMaps</a></li>
+                    <li><a href="#orphanedsecrets">Orphaned Secrets</a></li>
+                    <li><a href="#podsRoot">Pods Running as Root</a></li>
+                    <li><a href="#privilegedContainers">Privileged Containers</a></li>
+                    <li><a href="#hostPidNet">hostPID / hostNetwork</a></li>
+"@
+  if ($customNavItems["Security"]) {
+    foreach ($check in $customNavItems["Security"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">warning</span> Kubernetes Events</summary>
+                <ul>
+                    <li><a href="#clusterwarnings">Warning Summary</a></li>
+                    <li><a href="#fulleventlog">Full Warning Event Log</a></li>
+"@
+  if ($customNavItems["Kubernetes Events"]) {
+    foreach ($check in $customNavItems["Kubernetes Events"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+  }
+  $navItems += @"
+                </ul>
+            </details>
+        </li>
+"@
+  if ($customNavItems["Custom Checks"]) {
+    $navItems += @"
+        <li class="nav-item">
+            <details>
+                <summary><span class="material-icons">extension</span> Custom Checks</summary>
+                <ul>
+"@
+    foreach ($check in $customNavItems["Custom Checks"]) {
+      $navItems += "<li><a href='#$($check.Id)'>$($check.Name)</a></li>"
+    }
+    $navItems += @"
+                </ul>
+            </details>
+        </li>
+"@
+  }
+  if ($aksMenuItem) {
+    $navItems += $aksMenuItem
+  }
+  $navItems += @"
+    </ul>
+</div>
+</div>
+"@
+
   $htmlTemplate = @"
 <!DOCTYPE html>
 <html lang="en">
@@ -1074,15 +1251,6 @@ limits:
   .nav-item details ul { padding-left: 48px; list-style: none; }
   .nav-item details ul li a { padding: 8px 20px; font-size: 14px; font-weight: 400; color: #455A64; border-radius: 6px; }
   .nav-item details ul li a:hover { background: #f0f4f8; color: #0071FF; }
-  .summary-arrow {
-      margin-left: auto;
-      transition: transform 0.3s ease;
-    }
-
-    details[open] .summary-arrow {
-      transform: rotate(180deg);
-    }
-
   .ripple { position: absolute; border-radius: 50%; background: rgba(0,113,255,0.3); transform: scale(0); animation: ripple 0.6s linear; pointer-events: none; }
   @keyframes ripple { to { transform: scale(4); opacity: 0; } }
   @media (max-width: 800px) {

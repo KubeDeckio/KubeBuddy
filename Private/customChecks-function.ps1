@@ -175,7 +175,7 @@ function Invoke-CustomKubectlChecks {
                     $data = $KubeData.($check.ResourceKind).items
                 }
                 else {
-                    Write-Host "Fetching $($check.ResourceKind) data..." -ForegroundColor Yellow
+                    Write-Host -NoNewline "Fetching $($check.ResourceKind) data..." -ForegroundColor Yellow
                     $kubectlCmd = if ($Namespace) {
                         "$kubectl get $($check.ResourceKind) -n $Namespace -o json"
                     }
@@ -188,6 +188,7 @@ function Invoke-CustomKubectlChecks {
                             throw "kubectl failed: $output"
                         }
                         $data = ($output | ConvertFrom-Json).items
+                        Write-Host "`r$($check.ResourceKind) data fetched.   " -ForegroundColor Green
                     }
                     catch {
                         Write-Host "❌ Failed to fetch $($check.ResourceKind) data: $_" -ForegroundColor Red
