@@ -116,7 +116,7 @@ function Generate-K8sHTMLReport {
   }
 
   $checks = @(
-    @{ Id = "allChecks"; Cmd = { Invoke-CustomKubectlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
+    @{ Id = "allChecks"; Cmd = { Invoke-yamlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
   )
 
   $customNavItems = @{}
@@ -128,18 +128,12 @@ function Generate-K8sHTMLReport {
     if (-not $html) {
       $html = "<p>No data available for $($check.Id).</p>"
     }
-    # # Record pass/fail status
-    # $status = if ($html -match '✅') { 'Passed' } else { 'Failed' }
-    # $checkStatusList += [pscustomobject]@{
-    #   Id     = $check.Id
-    #   Status = $status
-    # }
 
-    # Inject custom checks into sections as before...
     if ($check.Id -eq "allChecks" -and $html -is [hashtable]) {
       $allChecksBySection = $html.HtmlBySection
       $allCheckstatusList = $html.StatusList
       $checkStatusList += $allCheckstatusList
+      $checkScoreList  += $html.ScoreList
 
 
       foreach ($section in $allChecksBySection.Keys) {
@@ -301,7 +295,8 @@ function Generate-K8sHTMLReport {
   }
   $clusterName = "Unknown"
   $k8sVersion = "Unknown"
-  $clusterScore = Get-ClusterHealthScore -Checks $checkStatusList
+
+  $clusterScore = Get-ClusterHealthScore -Checks $checkScoreList
   $scoreColor = if ($clusterScore -ge 80) {
     "#4CAF50"
   }

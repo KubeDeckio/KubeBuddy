@@ -6,7 +6,7 @@ function Show-KubeEvents {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📢 Kubernetes Warnings]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Kubernetes Warnings..." -ForegroundColor Yellow
 
@@ -20,7 +20,7 @@ function Show-KubeEvents {
         Write-Host "`r🤖 ❌ Failed to fetch Kubernetes events." -ForegroundColor Red
         if ($Json) { return [pscustomobject]@{ TotalWarnings = 0; Summary = @(); Events = @(); Error = $_.ToString() } }
         if ($Html) { return "<p><strong>❌ Failed to fetch Kubernetes events: $($_.ToString())</strong></p>" }
-        if ($Global:MakeReport) { Write-ToReport "`n[📢 Kubernetes Warnings]`n❌ Failed to fetch Kubernetes events: $($_.ToString())" }
+        if ($Text) { Write-ToReport "`n[📢 Kubernetes Warnings]`n❌ Failed to fetch Kubernetes events: $($_.ToString())" }
         return
     }
 
@@ -41,8 +41,8 @@ function Show-KubeEvents {
                 EventsHtml  = "<p><strong>✅ No Kubernetes warnings found.</strong></p>"
             }
         }
-        if ($Global:MakeReport) { Write-ToReport "`n[📢 Kubernetes Warnings]`n✅ No warnings found." }
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if ($Text) { Write-ToReport "`n[📢 Kubernetes Warnings]`n✅ No warnings found." }
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -101,7 +101,7 @@ function Show-KubeEvents {
         }
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📢 Kubernetes Warnings]"
         Write-ToReport "`n⚠️ Warnings: $warningCount"
         Write-ToReport "Top Issues:"

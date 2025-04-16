@@ -7,7 +7,7 @@ function Show-ServicesWithoutEndpoints {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[🔍 Services Without Endpoints]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Service Data..." -ForegroundColor Yellow
 
@@ -26,10 +26,10 @@ function Show-ServicesWithoutEndpoints {
     }
     catch {
         Write-Host "`r🤖 ❌ Failed to fetch service or endpoint data: $_" -ForegroundColor Red
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔍 Services Without Endpoints]`n❌ Error: $_"
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -63,10 +63,10 @@ function Show-ServicesWithoutEndpoints {
 
     if ($totalServices -eq 0) {
         Write-Host "`r🤖 ✅ All services have endpoints." -ForegroundColor Green
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔍 Services Without Endpoints]`n✅ All services have endpoints."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         if ($Html) {
@@ -96,7 +96,7 @@ function Show-ServicesWithoutEndpoints {
         return "<p><strong>⚠️ Total Services Without Endpoints:</strong> $totalServices</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔍 Services Without Endpoints]`n⚠️ Total: $totalServices"
         $tableString = $tableData |
             Format-Table Namespace, Service, Type, Status -AutoSize |
@@ -147,7 +147,7 @@ function Check-PubliclyAccessibleServices {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[🌐 Publicly Accessible Services]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Services..." -ForegroundColor Yellow
 
@@ -235,10 +235,10 @@ function Check-PubliclyAccessibleServices {
     if ($totalPublic -eq 0) {
         Write-Host "✅ No publicly accessible services found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No publicly accessible services found.</strong></p>" }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🌐 Publicly Accessible Services]`n✅ No publicly accessible services found."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -255,7 +255,7 @@ function Check-PubliclyAccessibleServices {
         return "<p><strong>⚠️ Total Public Services Found:</strong> $totalPublic</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🌐 Publicly Accessible Services]`n⚠️ Total Public Services Found: $totalPublic"
         $tableString = $tableData | Format-Table Namespace, Service, Type, Ports, ExternalIP -AutoSize | Out-String 
         Write-ToReport $tableString
@@ -300,7 +300,7 @@ function Check-IngressHealth {
         [switch]$ExcludeNamespaces  # Reverted to [switch]
     )
 
-    if (-not $Html -and -not $Json -and -not $Global:MakeReport) { Clear-Host }
+    if (-not $Html -and -not $Json -and -not $Text) { Clear-Host }
     Write-Host "`n[🌐 Ingress Health]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Checking Ingresses..." -ForegroundColor Yellow
 
@@ -323,8 +323,8 @@ function Check-IngressHealth {
             Write-Host "`r🤖 No ingresses found." -ForegroundColor Yellow
             if ($Json) { return @{ Total = 0; Items = @() } }
             if ($Html) { return "<p><strong>✅ No ingresses found in the cluster.</strong></p>" }
-            if ($Global:MakeReport) { Write-ToReport "`n[🌐 Ingress Health]`n✅ No ingresses found in the cluster." }
-            if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Read-Host "🤖 Press Enter to return to the menu" }
+            if ($Text) { Write-ToReport "`n[🌐 Ingress Health]`n✅ No ingresses found in the cluster." }
+            if (-not $Text -and -not $Html -and -not $Json) { Read-Host "🤖 Press Enter to return to the menu" }
             return
         }
 
@@ -516,8 +516,8 @@ function Check-IngressHealth {
             Write-Host "`r🤖 ✅ All Ingresses are valid." -ForegroundColor Green
             if ($Json) { return @{ Total = 0; Items = @() } }
             if ($Html) { return "<p><strong>✅ All Ingresses are valid.</strong></p>" }
-            if ($Global:MakeReport) { Write-ToReport "`n[🌐 Ingress Health]`n✅ All Ingresses are valid." }
-            if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Read-Host "🤖 Press Enter to return to the menu" }
+            if ($Text) { Write-ToReport "`n[🌐 Ingress Health]`n✅ All Ingresses are valid." }
+            if (-not $Text -and -not $Html -and -not $Json) { Read-Host "🤖 Press Enter to return to the menu" }
             return
         }
 
@@ -528,7 +528,7 @@ function Check-IngressHealth {
             return "<p><strong>⚠️ Ingress Issues: $total</strong></p>" +
                 ($results | Sort-Object Namespace | ConvertTo-Html -Fragment -Property Namespace, Ingress, Host, Path, Issue | Out-String)
         }
-        if ($Global:MakeReport) {
+        if ($Text) {
             Write-ToReport "`n[🌐 Ingress Health]`n⚠️ Total: $total"
             $results | Format-Table Namespace, Ingress, Host, Path, Issue -AutoSize | Out-String | Write-ToReport
             return
@@ -567,7 +567,7 @@ function Check-IngressHealth {
         Write-Host "❌ Error: $_" -ForegroundColor Red
         if ($Json) { return @{ Total = 0; Items = @(); Error = $_.ToString() } }
         if ($Html) { return "<p><strong>❌ Error: $($_.ToString())</strong></p>" }
-        if ($Global:MakeReport) { Write-ToReport "`n[🌐 Ingress Health]`n❌ Error: $($_.ToString())" }
+        if ($Text) { Write-ToReport "`n[🌐 Ingress Health]`n❌ Error: $($_.ToString())" }
     }
     finally {
         Write-Progress -Activity "Scanning Ingresses" -Completed

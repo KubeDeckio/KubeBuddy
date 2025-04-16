@@ -3,21 +3,19 @@ function Get-ClusterHealthScore {
         [array]$Checks
     )
 
-    $totalWeight = 0
-    $failedWeight = 0
-
-    foreach ($check in $Checks) {
-        $weight = $check.Weight
-        if (-not $weight) { continue }
-
-        $totalWeight += $weight
-        if ($check.Status -ne 'Passed') {
-            $failedWeight += $weight
-        }
+    $validChecks = $Checks | Where-Object {
+        $_.Weight -ne $null -and $_.Total -ne $null
     }
 
-    if ($totalWeight -eq 0) { return 0 }
 
-    $score = 100 - (($failedWeight / $totalWeight) * 100)
-    return [math]::Round($score, 1)
+    if (-not $validChecks) {
+        Write-Host "⚠️ No valid checks found." -ForegroundColor Red
+        return 0
+    }
+
+    $maxScore = ($validChecks | Measure-Object -Property Weight -Sum).Sum
+    $earnedScore = ($validChecks | Where-Object { $_.Total -eq 0 } | Measure-Object -Property Weight -Sum).Sum
+
+    $score = [math]::Round(($earnedScore / $maxScore) * 100)
+    return $score
 }

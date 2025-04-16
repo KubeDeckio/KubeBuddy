@@ -6,6 +6,7 @@ function Invoke-AKSBestPractices {
         [switch]$FailedOnly,
         [switch]$Html,
         [switch]$json,
+        [switch]$Text,
         [object]$KubeData
     )
 
@@ -26,7 +27,7 @@ function Invoke-AKSBestPractices {
         }
         
 
-        if ($Global:MakeReport) {
+        if ($Text) {
             Write-Host "🔄 Checking Kubernetes context..." -ForegroundColor Cyan
             Write-Host "   - Current context: '$currentContext'" -ForegroundColor Yellow
             Write-Host "   - Expected AKS cluster: '$aksContext'" -ForegroundColor Yellow
@@ -134,10 +135,10 @@ function Invoke-AKSBestPractices {
 
     function Run-Checks {
         param ($clusterInfo)
-        if (-not $HtmlReport -and -not $jsonReport -and -not $Global:MakeReport){
+        if (-not $HtmlReport -and -not $jsonReport -and -not $Text){
         Write-Host -NoNewline "`n🤖 Running best practice checks..." -ForegroundColor Cyan
         }
-        if ($Global:MakeReport) {
+        if ($Text) {
             Write-ToReport "`n[✅ AKS Best Practices Check]`n"
         }
 
@@ -151,7 +152,7 @@ function Invoke-AKSBestPractices {
             "Best Practices"       = @();
         }
 
-        if (-not $Global:MakeReport -and -not $HtmlReport -and -not $jsonReport) { Clear-Host }
+        if (-not $Text -and -not $HtmlReport -and -not $jsonReport) { Clear-Host }
 
         foreach ($check in $checks) {
             try {
@@ -181,7 +182,7 @@ function Invoke-AKSBestPractices {
                     URL            = $check.URL
                 }
 
-                if ($Global:MakeReport) {
+                if ($Text) {
                     Write-ToReport "[$($check.Category)] $($check.Name) - $result"
                     Write-ToReport "   🔹 Severity: $($check.Severity)"
                     Write-ToReport "   🔹 Recommendation: $($categories[$check.Category][-1].Recommendation)"
@@ -215,7 +216,7 @@ function Invoke-AKSBestPractices {
                 $checks = $checks | Where-Object { $_.Status -eq "❌ FAIL" }
             }
     
-            if ($checks.Count -gt 0 -and -not $Html -and -not $jsonReport -and -not $Global:MakeReport) {
+            if ($checks.Count -gt 0 -and -not $Html -and -not $jsonReport -and -not $Text) {
                 Write-Host "`n=== $category ===             " -ForegroundColor Cyan              
                 $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, @{Label="URL";Expression={$_."URL"}} -AutoSize | out-string | write-host
     
@@ -262,7 +263,7 @@ function Invoke-AKSBestPractices {
             default { "Gray" }
         }
     
-        if (-not $Html -and -not $jsonReport -and -not $Global:MakeReport) {
+        if (-not $Html -and -not $jsonReport -and -not $Text) {
             Write-Host "`nSummary & Rating:           " -ForegroundColor Green
     
             $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
@@ -275,7 +276,7 @@ function Invoke-AKSBestPractices {
             Write-Host "$rating" -ForegroundColor $ratingColor
         }
     
-        if ($Global:MakeReport) {
+        if ($Text) {
             Write-ToReport "`nSummary & Rating:           "
             $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
             $separator = "============================================================"
@@ -319,7 +320,7 @@ function Invoke-AKSBestPractices {
     }
 
     # Main Execution Flow
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-Host -NoNewline "`n🤖 Starting AKS Best Practices Check...`n" -ForegroundColor Cyan
     }
 
@@ -333,13 +334,13 @@ function Invoke-AKSBestPractices {
         return Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Html
     } else {
         Display-Results -categories $checkResults -FailedOnly:$FailedOnly
-        if (-not $Global:MakeReport -and -not $json) {
+        if (-not $Text -and -not $json) {
             Write-Host "`nPress Enter to return to the menu..." -ForegroundColor Yellow
             Read-Host
         }
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-Host "``r✅ AKS Best Practices Check Completed." -ForegroundColor Green
     }
 }

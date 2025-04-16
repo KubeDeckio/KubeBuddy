@@ -7,7 +7,7 @@ function Check-OrphanedSecrets {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔑 Orphaned Secrets]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Secrets..." -ForegroundColor Yellow
 
@@ -123,13 +123,13 @@ function Check-OrphanedSecrets {
     
     if ($items.Count -eq 0) {
         Write-Host "🤖 ✅ No orphaned Secrets found." -ForegroundColor Green
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔑 Orphaned Secrets]`n"
             Write-ToReport "✅ No orphaned Secrets found."
         }
         if ($Html) { return "<p><strong>✅ No orphaned Secrets found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
+        if (-not $Text -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -144,7 +144,7 @@ function Check-OrphanedSecrets {
         return "<p><strong>⚠️ Total Orphaned Secrets Found:</strong> $($items.Count)</p>$htmlOutput"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔑 Orphaned Secrets]`n"
         Write-ToReport "⚠️ Total Orphaned Secrets Found: $($items.Count)"
         $tableString = $items | Format-Table Namespace, Type, Name -AutoSize | Out-String
@@ -194,7 +194,7 @@ function Check-RBACOverexposure {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔓 RBAC Overexposure Check]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Analyzing Roles and Bindings..." -ForegroundColor Yellow
 
@@ -398,11 +398,11 @@ function Check-RBACOverexposure {
         Write-Host "✅ No overexposed roles or bindings found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No RBAC overexposure detected.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
             Write-ToReport "✅ No cluster-admin, wildcard, or sensitive resource access detected."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -419,7 +419,7 @@ function Check-RBACOverexposure {
         return "<p><strong>⚠️ Total Overexposed Bindings:</strong> $total</p>$htmlTable"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔓 RBAC Overexposure Check]`n"
         Write-ToReport "⚠️ Total Overexposed Bindings: $total"
         $tableString = $findings | Format-Table Namespace, Binding, Subject, Role, Scope, Risk, Severity, Recommendation -AutoSize | Out-String
@@ -471,7 +471,7 @@ function Check-RBACMisconfigurations {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[RBAC Misconfigurations]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching RoleBindings & ClusterRoleBindings..." -ForegroundColor Yellow
 
@@ -679,11 +679,11 @@ function Check-RBACMisconfigurations {
         Write-Host "`r✅ No RBAC misconfigurations found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No RBAC misconfigurations found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[RBAC Misconfigurations]`n"
             Write-ToReport "✅ No RBAC misconfigurations found."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -700,7 +700,7 @@ function Check-RBACMisconfigurations {
         return "<p><strong>⚠️ Total RBAC Misconfigurations Detected:</strong> $($invalidRBAC.Count)</p>$htmlTable"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[RBAC Misconfigurations]`n"
         Write-ToReport "⚠️ Total RBAC Misconfigurations Detected: $($invalidRBAC.Count)"
         $tableString = $invalidRBAC | Format-Table Namespace, Type, RoleBinding, Subject, Issue, Severity, Recommendation -AutoSize | Out-String
@@ -749,7 +749,7 @@ function Check-HostPidAndNetwork {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔌 Pods with hostPID / hostNetwork]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
@@ -795,11 +795,11 @@ function Check-HostPidAndNetwork {
         if ($Json) {
             return @{ Total = 0; Items = @() }
         }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔌 Pods with hostPID / hostNetwork]`n"
             Write-ToReport "✅ No pods with hostPID or hostNetwork found."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -817,7 +817,7 @@ function Check-HostPidAndNetwork {
         return "<p><strong>⚠️ Total Flagged Pods:</strong> $($flaggedPods.Count)</p>$htmlTable"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔌 Pods with hostPID / hostNetwork]`n"
         Write-ToReport "⚠️ Total Flagged Pods: $($flaggedPods.Count)"
         $tableString = $flaggedPods | Format-Table Namespace, Pod, hostPID, hostNetwork -AutoSize | Out-String
@@ -867,7 +867,7 @@ function Check-PodsRunningAsRoot {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[👑 Pods Running as Root]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
@@ -919,13 +919,13 @@ function Check-PodsRunningAsRoot {
 
     if ($rootPods.Count -eq 0) {
         Write-Host "✅ No pods running as root." -ForegroundColor Green
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[👑 Pods Running as Root]`n"
             Write-ToReport "✅ No pods running as root."
         }
         if ($Html) { return "<p><strong>✅ No pods running as root.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -943,7 +943,7 @@ function Check-PodsRunningAsRoot {
         return @{ Total = $rootPods.Count; Items = $rootPods }
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[👑 Pods Running as Root]`n"
         Write-ToReport "⚠️ Total Pods Running as Root: $($rootPods.Count)"
         $tableString =$rootPods | Format-Table Namespace, Pod, Container, runAsUser -AutoSize | Out-String
@@ -995,7 +995,7 @@ function Check-PrivilegedContainers {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔓 Privileged Containers]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pods..." -ForegroundColor Yellow
 
@@ -1035,13 +1035,13 @@ function Check-PrivilegedContainers {
 
     if ($privileged.Count -eq 0) {
         Write-Host "✅ No privileged containers found." -ForegroundColor Green
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔓 Privileged Containers]`n"
             Write-ToReport "✅ No privileged containers found."
         }
         if ($Html) { return "<p><strong>✅ No privileged containers found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -1059,7 +1059,7 @@ function Check-PrivilegedContainers {
         return @{ Total = $privileged.Count; Items = $privileged }
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔓 Privileged Containers]`n"
         Write-ToReport "⚠️ Total Privileged Containers Found: $($privileged.Count)"
         $tableString = $privileged | Format-Table Namespace, Pod, Container -AutoSize | Out-String
@@ -1110,7 +1110,7 @@ function Check-OrphanedServiceAccounts {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🧾 Orphaned ServiceAccounts]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching ServiceAccount data..." -ForegroundColor Yellow
 
@@ -1205,10 +1205,10 @@ function Check-OrphanedServiceAccounts {
         Write-Host "`r🤖 ✅ No orphaned ServiceAccounts found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No orphaned ServiceAccounts found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🧾 Orphaned ServiceAccounts]`n✅ None found."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -1227,7 +1227,7 @@ function Check-OrphanedServiceAccounts {
         return "<p><strong>⚠️ Orphaned ServiceAccounts:</strong> $total</p>" + $htmlOutput
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🧾 Orphaned ServiceAccounts]`n⚠️ Total: $total"
         $tableString = $items | Format-Table Namespace, Name -AutoSize | Out-String
         Write-ToReport $tableString
@@ -1272,7 +1272,7 @@ function Check-OrphanedRoles {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🗂️ Unused Roles & ClusterRoles]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching RBAC data..." -ForegroundColor Yellow
 
@@ -1425,8 +1425,8 @@ function Check-OrphanedRoles {
     if ($total -eq 0) {
         if ($Html) { return "<p><strong>✅ No unused or ineffective roles/bindings found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) { Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n✅ No unused or ineffective roles/bindings." }
-        if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
+        if ($Text -and -not $Html) { Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n✅ No unused or ineffective roles/bindings." }
+        if (-not $Text -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -1435,7 +1435,7 @@ function Check-OrphanedRoles {
         $htmlOutput = $results | ConvertTo-Html -Fragment -Property Namespace, Role, Type, Issue, Severity, Recommendation | Out-String
         return "<p><strong>⚠️ Unused or Ineffective Roles/Bindings:</strong> $total</p>" + $htmlOutput
     }
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🗂️ Unused Roles & ClusterRoles]`n⚠️ Total: $total"
         $tableString = $results | Format-Table Namespace, Role, Type, Issue, Severity, Recommendation -AutoSize | Out-String
         Write-ToReport $tableString

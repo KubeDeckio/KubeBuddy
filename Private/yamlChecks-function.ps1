@@ -1,9 +1,10 @@
-function Invoke-CustomKubectlChecks {
+function Invoke-yamlChecks {
     param(
         [object]$KubeData,
         [string]$Namespace = "",
         [switch]$Html,
         [switch]$Json,
+        [switch]$Text,
         [switch]$ExcludeNamespaces,
         [string[]]$CheckIDs = @()  # Optional parameter to filter specific check IDs
     )
@@ -41,10 +42,10 @@ function Invoke-CustomKubectlChecks {
         else {
             # Detect valid properties dynamically for unknown/script-based checks
             $properties = $Items |
-                ForEach-Object { $_.PSObject.Properties.Name } |
-                Group-Object |
-                Sort-Object Count -Descending |
-                Select-Object -ExpandProperty Name -Unique
+            ForEach-Object { $_.PSObject.Properties.Name } |
+            Group-Object |
+            Sort-Object Count -Descending |
+            Select-Object -ExpandProperty Name -Unique
         }
     
         $validProps = @()
@@ -96,7 +97,8 @@ function Invoke-CustomKubectlChecks {
 
         if ($resourceKindMap.ContainsKey($ResourceKind)) {
             return $resourceKindMap[$ResourceKind]
-        } else {
+        }
+        else {
             # Default: assume the ResourceKind is singular and append "s" for plural
             return @{
                 Singular = $ResourceKind
@@ -106,9 +108,10 @@ function Invoke-CustomKubectlChecks {
     }
 
     # Fetch thresholds
-    $thresholds = if ($Global:MakeReport -or $Html -or $Json) {
+    $thresholds = if ($Text -or $Html -or $Json) {
         Get-KubeBuddyThresholds -Silent
-    } else {
+    }
+    else {
         Get-KubeBuddyThresholds
     }
 
@@ -151,7 +154,7 @@ function Invoke-CustomKubectlChecks {
                     continue
                 }
 
-                Write-Host "🤖 Processing check: $($check.ID) - $($check.Name)" -ForegroundColor Cyan
+                Write-Host -NoNewline "🤖 Processing check: $($check.ID) - $($check.Name)..." -ForegroundColor Cyan
 
                 # Custom script block execution
                 if ($check.Script) {
@@ -204,7 +207,8 @@ function Invoke-CustomKubectlChecks {
                         # Pass thresholds to the script block for NODE002
                         $scriptResult = if ($check.ID -eq "NODE002") {
                             & $scriptBlock -KubeData $KubeData -Thresholds $thresholds
-                        } else {
+                        }
+                        else {
                             & $scriptBlock -KubeData $KubeData
                         }
 
@@ -250,7 +254,8 @@ function Invoke-CustomKubectlChecks {
                         if ($scriptResult -is [hashtable] -and $scriptResult.Items) {
                             $checkResult.Items = $scriptResult.Items
                             $checkResult.Total = $scriptResult.IssueCount
-                        } elseif ($scriptResult) {
+                        }
+                        elseif ($scriptResult) {
                             $checkResult.Items = $scriptResult
                             $checkResult.Total = $scriptResult.Count
                         }
@@ -260,6 +265,7 @@ function Invoke-CustomKubectlChecks {
                         }
 
                         $allResults += $checkResult
+                        Write-Host "`r✅ Completed check: $($check.ID) - $($check.Name)      " -ForegroundColor Green
                     }
                     catch {
                         Write-Host "❌ Error executing script for $($check.ID): $_" -ForegroundColor Red
@@ -327,6 +333,7 @@ function Invoke-CustomKubectlChecks {
                     Section        = $check.Section
                     ResourceKind   = $check.ResourceKind
                     Severity       = $check.Severity
+                    Weight         = $check.Weight
                     Description    = $check.Description
                     Recommendation = if ($Html) {
                         if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
@@ -404,6 +411,7 @@ function Invoke-CustomKubectlChecks {
                     $checkResult.Message = "No issues detected for $($check.Name)."
                 }
                 $allResults += $checkResult
+                Write-Host "`r✅ Completed check: $($check.ID) - $($check.Name)      " -ForegroundColor Green
             }
         }
         catch {
@@ -436,7 +444,8 @@ function Invoke-CustomKubectlChecks {
 
                 $tooltip = if ($check.Description) {
                     "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$($check.Description)</span></span>"
-                } else { "" }
+                }
+                else { "" }
 
                 $header = "<h2 id='$($check.ID)'>$($check.ID) - $($check.Name) $tooltip</h2>"
 
@@ -447,7 +456,8 @@ function Invoke-CustomKubectlChecks {
 
                 $summary = if ($check.Total -gt 0) {
                     "<p>⚠️ Total $resourceKindPlural with Issues: $($check.Total)</p>"
-                } else {
+                }
+                else {
                     "<p>✅ All $resourceKindPlural are healthy.</p>"
                 }
 
@@ -456,10 +466,12 @@ function Invoke-CustomKubectlChecks {
                     $validProps = Get-ValidProperties -Items $check.Items -CheckID $check.ID
                     if ($validProps) {
                         $check.Items | ConvertTo-Html -Fragment -Property $validProps | Out-String
-                    } else {
+                    }
+                    else {
                         "<p>No valid data to display.</p>"
                     }
-                } else {
+                }
+                else {
                     ""
                 }
 
@@ -473,7 +485,8 @@ $summary
   $tableContent
 </div>
 "@
-                } else {
+                }
+                else {
                     $collapsibleContent = "$recommendationHtml`n$tableContent"
                     $sectionHtml += @"
 $header
@@ -491,12 +504,14 @@ $summary
 
             if ($collapsibleSectionMap.ContainsKey($section)) {
                 $collapsibleSectionMap[$section] += "`n<div class='table-container'>$sectionHtml</div>"
-            } else {
+            }
+            else {
                 $collapsibleSectionMap[$section] = "<div class='table-container'>$sectionHtml</div>"
             }
         }
 
         $checkStatusList = @()
+        $checkScoreList = @()
         foreach ($section in $sectionGroups.Keys) {
             foreach ($check in $sectionGroups[$section]) {
                 $status = if ($check.Total -eq 0) { 'Passed' } else { 'Failed' }
@@ -505,12 +520,18 @@ $summary
                     Status = $status
                     Weight = $check.Weight
                 }
+                $checkScoreList += [pscustomobject]@{
+                    Id     = $check.ID
+                    Weight = $check.Weight
+                    Total  = if ($status -eq 'Passed') { 0 } else { 1 }
+                }                
             }
         }
 
         return @{
             HtmlBySection = $collapsibleSectionMap
             StatusList    = $checkStatusList
+            ScoreList     = $checkScoreList 
         }
     }
 
@@ -527,36 +548,47 @@ $summary
                 $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID
                 if ($validProps) {
                     $result.Items | Format-Table -Property $validProps -AutoSize | Out-Host
-                } else {
+                }
+                else {
                     Write-Host "No valid data to display." -ForegroundColor Yellow
                 }
-            } else {
+            }
+            else {
                 Write-Host "✅ $($result.Message)" -ForegroundColor Green
             }
         }
         return
     }
 
-    # Original console output (unchanged)
-    Write-Host "`r🤖 ✅ Custom checks completed. ($($allResults.Count) checks processed)" -ForegroundColor Green
-    foreach ($result in $allResults) {
-        Write-Host "`n$($result.ID) - $($result.Name)" -ForegroundColor Cyan
-        Write-Host "Total Issues: $($result.Total)" -ForegroundColor Yellow
-        if ($result.Items) {
-            $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID
-            if ($validProps) {
-                $result.Items | Format-Table -Property $validProps -AutoSize | Out-Host
-            } else {
-                Write-Host "No valid data to display." -ForegroundColor Yellow
+    if ($Text) {
+        foreach ($result in $allResults) {
+            Write-ToReport ""
+            Write-ToReport "$($result.ID) - $($result.Name)"
+            Write-ToReport "Total Issues: $($result.Total)"
+    
+            if ($result.Items) {
+                $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID
+                if ($validProps) {
+                    $table = $result.Items | Format-Table -Property $validProps -AutoSize | Out-String
+                    Write-ToReport $table.Trim()
+                }
+                else {
+                    Write-ToReport "No valid data to display."
+                }
             }
-        } else {
-            Write-Host "✅ $($result.Message)" -ForegroundColor Green
+            else {
+                Write-ToReport "✅ $($result.Message)"
+            }
+    
+            Write-ToReport "Category: $($result.Category)"
+            Write-ToReport "Severity: $($result.Severity)"
+            Write-ToReport "Recommendation: $($result.Recommendation)"
+            if ($result.URL) {
+                Write-ToReport "URL: $($result.URL)"
+            }
         }
-        Write-Host "Category: $($result.Category)" -ForegroundColor White
-        Write-Host "Severity: $($result.Severity)" -ForegroundColor White
-        Write-Host "Recommendation: $($result.Recommendation)" -ForegroundColor White
-        if ($result.URL) {
-            Write-Host "URL: $($result.URL)" -ForegroundColor Blue
-        }
+    
+        return  @{ Items = $allResults }
     }
+    
 }

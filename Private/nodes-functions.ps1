@@ -6,7 +6,7 @@ function Show-NodeConditions {
         [switch]$Json
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[🌍 Node Conditions]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Node Conditions..." -ForegroundColor Yellow
 
@@ -21,7 +21,7 @@ function Show-NodeConditions {
 
     if ($totalNodes -eq 0) {
         Write-Host "`r🤖 ❌ No nodes found." -ForegroundColor Red
-        if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
+        if (-not $Text -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -90,7 +90,7 @@ function Show-NodeConditions {
         return $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🌍 Node Conditions]"
         Write-ToReport "`n⚠️ Total Not Ready Nodes in the Cluster: $totalNotReadyNodes"
         Write-ToReport "-----------------------------------------------------------"
@@ -172,14 +172,14 @@ function Show-NodeResourceUsage {
         [switch]$Json
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[📊 Node Resource Usage]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html) {
+    if (-not $Text -and -not $Html) {
         Write-Host -NoNewline "`n🤖 Fetching Node Data & Resource Usage..." -ForegroundColor Yellow
     }
 
     # Get thresholds and node data
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { $thresholds = Get-KubeBuddyThresholds }
+    if (-not $Text -and -not $Html -and -not $json) { $thresholds = Get-KubeBuddyThresholds }
     else {
         $thresholds = Get-KubeBuddyThresholds -Silent
     }
@@ -196,7 +196,7 @@ function Show-NodeResourceUsage {
 
     if ($totalNodes -eq 0) {
         Write-Host "`r🤖 ❌ No nodes found in the cluster." -ForegroundColor Red
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -281,7 +281,7 @@ function Show-NodeResourceUsage {
     }
     
     # If in report mode (MakeReport) or no HTML switch, do normal ASCII printing
-    if ($Global:MakeReport -and -not $Html) {
+    if ($Text -and -not $Html) {
         Write-ToReport "`n[📊 Node Resource Usage]"
         Write-ToReport "`n⚠️ Total Resource Warnings Across All Nodes: $totalWarnings"
         Write-ToReport "--------------------------------------------------------------------------"

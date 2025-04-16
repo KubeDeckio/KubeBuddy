@@ -7,7 +7,7 @@ function Show-DaemonSetIssues {
         [switch]$Json
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔄 DaemonSets Not Fully Running]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Checking DaemonSet status..." -ForegroundColor Yellow
 
@@ -21,10 +21,10 @@ function Show-DaemonSetIssues {
     }
     catch {
         Write-Host "`r🤖 ❌ Failed to retrieve DaemonSet data: $_" -ForegroundColor Red
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n❌ Error: $_"
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -51,12 +51,12 @@ function Show-DaemonSetIssues {
 
     if ($total -eq 0) {
         Write-Host "`r🤖 ✅ All DaemonSets are fully running." -ForegroundColor Green
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n✅ All DaemonSets are fully running."
         }
         if ($Html) { return "<p><strong>✅ All DaemonSets are fully running.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -75,7 +75,7 @@ function Show-DaemonSetIssues {
         return @{ Total = $total; Items = $filtered }
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔄 DaemonSets Not Fully Running]`n⚠️ Total Issues: $total"
         $filtered | Format-Table Namespace, DaemonSet, Desired, Running, Scheduled, Status -AutoSize |
         Out-String | Write-ToReport
@@ -123,7 +123,7 @@ function Check-DeploymentIssues {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Html -and -not $Json -and -not $Global:MakeReport) { Clear-Host }
+    if (-not $Html -and -not $Json -and -not $Text) { Clear-Host }
     Write-Host "`n[🚀 Deployment Issues]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Checking deployments..." -ForegroundColor Yellow
 
@@ -160,12 +160,12 @@ function Check-DeploymentIssues {
 
     if ($total -eq 0) {
         Write-Host "`r🤖 ✅ All deployments are healthy." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ All deployments are healthy.</strong></p>" }
-        if ($Global:MakeReport) {
+        if ($Text) {
             Write-ToReport "`n[🚀 Deployment Issues]`n✅ All deployments are healthy."
         }
         return
@@ -181,7 +181,7 @@ function Check-DeploymentIssues {
             ConvertTo-Html -Fragment -Property Namespace, Deployment, Available, Desired, Issue | Out-String)
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🚀 Deployment Issues]`n⚠️ Total: $total"
         $issues | Format-Table Namespace, Deployment, Available, Desired, Issue -AutoSize |
             Out-String | Write-ToReport
@@ -230,7 +230,7 @@ function Check-StatefulSetIssues {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Html -and -not $Json -and -not $Global:MakeReport) { Clear-Host }
+    if (-not $Html -and -not $Json -and -not $Text) { Clear-Host }
     Write-Host "`n[🏗️ StatefulSet Issues]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Checking StatefulSets..." -ForegroundColor Yellow
 
@@ -267,12 +267,12 @@ function Check-StatefulSetIssues {
 
     if ($total -eq 0) {
         Write-Host "`r🤖 ✅ All StatefulSets are healthy." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ All StatefulSets are healthy.</strong></p>" }
-        if ($Global:MakeReport) {
+        if ($Text) {
             Write-ToReport "`n[🏗️ StatefulSet Issues]`n✅ All StatefulSets are healthy."
         }
         return
@@ -288,7 +288,7 @@ function Check-StatefulSetIssues {
             ConvertTo-Html -Fragment -Property Namespace, StatefulSet, Ready, Desired, Issue | Out-String)
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🏗️ StatefulSet Issues]`n⚠️ Total: $total"
         $results | Format-Table Namespace, StatefulSet, Ready, Desired, Issue -AutoSize |
             Out-String | Write-ToReport
@@ -337,9 +337,9 @@ function Check-HPAStatus {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📉 HorizontalPodAutoscaler Status Check]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Checking HPA status..." -ForegroundColor Yellow
     }
 
@@ -476,7 +476,7 @@ function Check-HPAStatus {
         if ($Html) { return "<p><strong>✅ All HPAs are valid, scaled, and reporting metrics.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ All HPAs are valid, scaled, and reporting metrics." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $json) {
+        if (-not $Text -and -not $Html -and -not $json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -492,7 +492,7 @@ function Check-HPAStatus {
         return "<p><strong>⚠️ HPA Issues:</strong> $total</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📉 HorizontalPodAutoscaler Status Check]`n"
         Write-ToReport "⚠️ Total Issues: $total"
         $tableString = $results | Format-Table Namespace, HPA, Target, Issue -AutoSize | Out-String
@@ -539,7 +539,7 @@ function Check-MissingResourceLimits {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📦 Missing Resource Limits]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Scanning workloads..." -ForegroundColor Yellow
 
@@ -569,7 +569,7 @@ function Check-MissingResourceLimits {
     }
     catch {
         Write-Host "`r🤖 ❌ Failed to fetch workloads: $_" -ForegroundColor Red
-        if (-not $Global:MakeReport -and -not $Html -and -not $json) {
+        if (-not $Text -and -not $Html -and -not $json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -631,10 +631,10 @@ function Check-MissingResourceLimits {
     if ($total -eq 0) {
         if ($Html) { return "<p><strong>✅ All workloads have resource limits.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[📦 Missing Resource Limits]`n✅ All workloads have limits."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -651,7 +651,7 @@ function Check-MissingResourceLimits {
         return "<p><strong>⚠️ Total Containers Missing Requests and/or Limits:</strong> $total</p>$htmlOutput"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📦 Missing Resource Limits]`n⚠️ Total: $total"
         $tableString = $results | Format-Table Namespace, Kind, Workload, Container, Missing -AutoSize | Out-String
         Write-ToReport $tableString
@@ -695,9 +695,9 @@ function Check-PodDisruptionBudgets {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🛡️ PodDisruptionBudget Coverage Check]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Checking PDB coverage of workloads..." -ForegroundColor Yellow
     }
 
@@ -738,7 +738,7 @@ function Check-PodDisruptionBudgets {
         Write-Host "`r🤖 ❌ Error fetching data: $_" -ForegroundColor Red
         if ($Html) { return "<p><strong>❌ Error fetching data.</strong></p>" }
         if ($Json) { return @{ Error = "$_" } }
-        if (-not $Global:MakeReport -and -not $Html -and -not $json) {
+        if (-not $Text -and -not $Html -and -not $json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -830,7 +830,7 @@ function Check-PodDisruptionBudgets {
         if ($Html) { return "<p><strong>✅ All workloads are protected by PDBs.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ All workloads are protected by PDBs." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $json) {
+        if (-not $Text -and -not $Html -and -not $json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -846,7 +846,7 @@ function Check-PodDisruptionBudgets {
         return "<p><strong>⚠️ PDB Issues Detected:</strong> $total</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🛡️ PodDisruptionBudget Coverage Check]`n"
         Write-ToReport "⚠️ Total Issues: $total"
         $tableString = $results | Format-Table Namespace, Name, Kind, Issue -AutoSize | Out-String
@@ -893,7 +893,7 @@ function Check-MissingHealthProbes {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔎 Missing Health Probes]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Scanning workloads for missing readiness and liveness probes..." -ForegroundColor Yellow
 
@@ -924,7 +924,7 @@ function Check-MissingHealthProbes {
     }
     catch {
         Write-Host "`r🤖 ❌ Failed to fetch workload data: $_" -ForegroundColor Red
-        if (-not $Global:MakeReport -and -not $Html -and -not $json) {
+        if (-not $Text -and -not $Html -and -not $json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -963,10 +963,10 @@ function Check-MissingHealthProbes {
     if ($total -eq 0) {
         if ($Html) { return "<p><strong>✅ All containers have health probes defined.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔎 Missing Health Probes]`n✅ All containers have health probes."
         }
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -983,7 +983,7 @@ function Check-MissingHealthProbes {
         return "<p><strong>⚠️ Containers Missing Probes:</strong> $total</p>" + $htmlOutput
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔎 Missing Health Probes]`n⚠️ Total: $total"
         $tableString = $results | Format-Table Namespace, Kind, Workload, Container, Missing -AutoSize | Out-String
         Write-ToReport $tableString

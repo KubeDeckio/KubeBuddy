@@ -8,13 +8,13 @@ function Show-PodsWithHighRestarts {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔁 Pods with High Restarts]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Fetching Pod Restart Data..." -ForegroundColor Yellow
     }
 
-    $thresholds = if ($Global:MakeReport -or $Html -or $Json) {
+    $thresholds = if ($Text -or $Html -or $Json) {
         Get-KubeBuddyThresholds -Silent
     } else {
         Get-KubeBuddyThresholds
@@ -37,7 +37,7 @@ function Show-PodsWithHighRestarts {
                 if ($Html) { return "<p><strong>✅ No pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No pods found." -ForegroundColor Green
-                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                if (-not $Text -and -not $Html -and -not $Json) {
                     Read-Host "🤖 Press Enter to return to the menu"
                 }
                 return
@@ -60,7 +60,7 @@ function Show-PodsWithHighRestarts {
         if ($Html) { return "<p><strong>✅ No pods found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No pods found." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -106,7 +106,7 @@ function Show-PodsWithHighRestarts {
         if ($Html) { return "<p><strong>✅ No pods with excessive restarts detected.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No pods with excessive restarts detected." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -125,7 +125,7 @@ function Show-PodsWithHighRestarts {
         return "<p><strong>⚠️ Total High-Restart Pods:</strong> $totalPods</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔁 Pods with High Restarts]`n"
         Write-ToReport "⚠️ Total High-Restart Pods: $totalPods"
         $tableString = $filteredPods | Format-Table Namespace, Pod, Deployment, Restarts, Status -AutoSize | Out-String
@@ -180,13 +180,13 @@ function Show-LongRunningPods {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[⏳ Long Running Pods]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
     }
 
-    $thresholds = if ($Global:MakeReport -or $Html -or $Json) {
+    $thresholds = if ($Text -or $Html -or $Json) {
         Get-KubeBuddyThresholds -Silent
     } else {
         Get-KubeBuddyThresholds
@@ -209,7 +209,7 @@ function Show-LongRunningPods {
                 if ($Html) { return "<p><strong>✅ No pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No pods found." -ForegroundColor Green
-                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                if (-not $Text -and -not $Html -and -not $Json) {
                     Read-Host "🤖 Press Enter to return to the menu"
                 }
                 return
@@ -262,7 +262,7 @@ function Show-LongRunningPods {
         if ($Html) { return "<p><strong>✅ No long-running pods detected.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No long-running pods detected." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -282,7 +282,7 @@ function Show-LongRunningPods {
         return "<p><strong>⚠️ Total Long-Running Pods:</strong> $totalPods</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[⏳ Long Running Pods]`n"
         Write-ToReport "⚠️ Total Long-Running Pods: $totalPods"
         $tableString = $filteredPods |
@@ -336,7 +336,7 @@ function Show-FailedPods {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔴 Failed Pods]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Failed Pod Data..." -ForegroundColor Yellow
 
@@ -358,7 +358,7 @@ function Show-FailedPods {
                 if ($Html) { return "<p><strong>✅ No failed pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No failed pods found." -ForegroundColor Green
-                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                if (-not $Text -and -not $Html -and -not $Json) {
                     Read-Host "🤖 Press Enter to return to the menu"
                 }
                 return
@@ -383,7 +383,7 @@ function Show-FailedPods {
         if ($Html) { return "<p><strong>✅ No failed pods found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No failed pods found." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -411,7 +411,7 @@ function Show-FailedPods {
         return "<p><strong>⚠️ Total Failed Pods:</strong> $totalPods</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔴 Failed Pods]`n"
         Write-ToReport "⚠️ Total Failed Pods: $totalPods"
         $tableString = $tableData |
@@ -465,7 +465,7 @@ function Show-PendingPods {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[⏳ Pending Pods]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
 
@@ -487,7 +487,7 @@ function Show-PendingPods {
                 if ($Html) { return "<p><strong>✅ No pending pods found.</strong></p>" }
                 if ($Json) { return @{ Total = 0; Items = @() } }
                 Write-Host "`r🤖 ✅ No pending pods found." -ForegroundColor Green
-                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                if (-not $Text -and -not $Html -and -not $Json) {
                     Read-Host "🤖 Press Enter to return to the menu"
                 }
                 return
@@ -512,7 +512,7 @@ function Show-PendingPods {
         if ($Html) { return "<p><strong>✅ No pending pods found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No pending pods found." -ForegroundColor Green
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -544,7 +544,7 @@ function Show-PendingPods {
         return "<p><strong>⚠️ Total Pending Pods Found:</strong> $totalPods</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[⏳ Pending Pods]`n"
         Write-ToReport "⚠️ Total Pending Pods Found: $totalPods"
         $tableString = $tableData |
@@ -598,7 +598,7 @@ function Show-CrashLoopBackOffPods {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🔴 CrashLoopBackOff Pods]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Checking for CrashLoopBackOff pods..." -ForegroundColor Yellow
 
@@ -612,7 +612,7 @@ function Show-CrashLoopBackOffPods {
         }
     } catch {
         Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n❌ Error retrieving pod data: $_"
         }
         if ($Html) { return "<p><strong>❌ Error retrieving pod data.</strong></p>" }
@@ -653,10 +653,10 @@ function Show-CrashLoopBackOffPods {
         Write-Host "`r🤖 ✅ No CrashLoopBackOff pods found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No CrashLoopBackOff pods found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n✅ No CrashLoopBackOff pods found."
         }
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -675,7 +675,7 @@ function Show-CrashLoopBackOffPods {
         return "<p><strong>⚠️ Total CrashLoopBackOff Pods Found:</strong> $totalPods</p>$htmlTable"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🔴 CrashLoopBackOff Pods]`n⚠️ Total CrashLoopBackOff Pods Found: $totalPods"
         $tableString = $crashPods | Format-Table Namespace, Pod, Restarts, Status -AutoSize | Out-String
         Write-ToReport $tableString
@@ -724,7 +724,7 @@ function Show-LeftoverDebugPods {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🐞 Leftover Debug Pods]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Pod Data..." -ForegroundColor Yellow
 
@@ -738,7 +738,7 @@ function Show-LeftoverDebugPods {
         }
     } catch {
         Write-Host "`r🤖 ❌ Error retrieving pod data: $_" -ForegroundColor Red
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🐞 Leftover Debug Pods]`n❌ Error retrieving pod data: $_"
         }
         if ($Html) { return "<p><strong>❌ Error retrieving pod data.</strong></p>" }
@@ -761,10 +761,10 @@ function Show-LeftoverDebugPods {
         Write-Host "`r🤖 ✅ No leftover debug pods detected." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No leftover debug pods detected.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[🐞 Leftover Debug Pods]`n✅ No leftover debug pods detected."
         }
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -796,7 +796,7 @@ function Show-LeftoverDebugPods {
         return "<p><strong>⚠️ Total Leftover Debug Pods Found:</strong> $totalPods</p>$htmlTable"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🐞 Leftover Debug Pods]`n⚠️ Total Leftover Debug Pods Found: $totalPods"
         $tableString = $tableData | Format-Table Namespace, Pod, Node, Status, AgeMinutes -AutoSize | Out-String
         Write-ToReport $tableString

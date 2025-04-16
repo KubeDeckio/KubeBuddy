@@ -7,7 +7,7 @@ function Show-UnusedPVCs {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[💾 Unused Persistent Volume Claims]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching PVC Data..." -ForegroundColor Yellow
 
@@ -19,11 +19,11 @@ function Show-UnusedPVCs {
             if ($raw -match "No resources found") {
                 Write-Host "`r🤖 ✅ No PVCs found in the cluster." -ForegroundColor Green
                 if ($Json) { return @{ Total = 0; Items = @() } }
-                if ($Global:MakeReport -and -not $Html) {
+                if ($Text -and -not $Html) {
                     Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n✅ No PVCs found in the cluster."
                 }
                 if ($Html) { return "<p><strong>✅ No PVCs found in the cluster.</strong></p>" }
-                if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+                if (-not $Text -and -not $Html -and -not $Json) {
                     Read-Host "🤖 Press Enter to return to the menu"
                 }
                 return
@@ -46,7 +46,7 @@ function Show-UnusedPVCs {
         Write-Host "`r🤖 ✅ No PVCs found.   " -ForegroundColor Green
         if ($Json) { return @{ Total = 0; Items = @() } }
         if ($Html) { return "<p><strong>✅ No PVCs found.</strong></p>" }
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -83,10 +83,10 @@ function Show-UnusedPVCs {
         if ($Json) { return @{ Total = 0; Items = @() } }
         Write-Host "`r🤖 ✅ No unused PVCs found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No unused PVCs found.</strong></p>" }
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n✅ No unused PVCs found."
         }
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+        if (-not $Text -and -not $Html -and -not $Json) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         return
@@ -116,7 +116,7 @@ function Show-UnusedPVCs {
         return "<p><strong>⚠️ Total Unused PVCs Found:</strong> $totalPVCs</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[💾 Unused Persistent Volume Claims]`n⚠️ Total Unused PVCs Found: $totalPVCs"
         $tableString = $tableData | Format-Table Namespace, PVC, Storage -AutoSize | Out-Host | Out-String
         Write-ToReport $tableString

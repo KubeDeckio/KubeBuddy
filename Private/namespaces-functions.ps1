@@ -7,7 +7,7 @@ function Show-EmptyNamespaces {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $json) { Clear-Host }
     Write-Host "`n[📂 Empty Namespaces]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Namespace Data..." -ForegroundColor Yellow
 
@@ -64,13 +64,13 @@ function Show-EmptyNamespaces {
             }
         }
 
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[📂 Empty Namespaces]`n"
             Write-ToReport "✅ No empty namespaces found."
         }
 
         # If not in report mode or HTML mode, prompt to continue
-        if (-not $Global:MakeReport -and -not $Html) {
+        if (-not $Text -and -not $Html) {
             Read-Host "🤖 Press Enter to return to the menu"
         }
         if ($Html) {
@@ -112,7 +112,7 @@ function Show-EmptyNamespaces {
     # ----- END HTML SWITCH -----
 
     # ----- If in report mode, but no -Html switch, do original ascii printing -----
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📂 Empty Namespaces]`n"
         Write-ToReport "⚠️ Total Empty Namespaces: $totalNamespaces"
         Write-ToReport "---------------------------------"
@@ -177,9 +177,9 @@ function Check-ResourceQuotas {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📊 Missing or Weak ResourceQuotas]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Fetching ResourceQuota data..." -ForegroundColor Yellow
     }
 
@@ -270,7 +270,7 @@ function Check-ResourceQuotas {
         return "<p><strong>⚠️ Namespaces with ResourceQuota issues:</strong> $total</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📊 Missing or Weak ResourceQuotas]`n"
         Write-ToReport "⚠️ Total Issues: $total"
         $tableString = $results | Format-Table Namespace, Issue -AutoSize | Out-String
@@ -316,9 +316,9 @@ function Check-NamespaceLimitRanges {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📐 Missing LimitRanges]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Fetching LimitRange data..." -ForegroundColor Yellow
     }
 
@@ -381,7 +381,7 @@ function Check-NamespaceLimitRanges {
         return "<p><strong>⚠️ Namespaces missing LimitRanges:</strong> $total</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📐 Missing LimitRanges]`n⚠️ Total: $total"
         $tableString = $results | Format-Table Namespace, Issue -AutoSize | Out-String
         Write-ToReport $tableString

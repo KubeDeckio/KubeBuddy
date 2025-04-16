@@ -16,10 +16,11 @@ function Show-ClusterSummary {
     param(
         [switch]$Html,
         [switch]$Json,
+        [switch]$Text,
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
 
@@ -57,7 +58,7 @@ function Show-ClusterSummary {
         }
     }
 
-    if (-not $Global:MakeReport) {
+    if (-not $Text) {
         Write-Host "`nCluster Name " -NoNewline -ForegroundColor Green
         Write-Host "is " -NoNewline
         Write-Host "$clusterName" -ForegroundColor Yellow
@@ -70,7 +71,7 @@ function Show-ClusterSummary {
         Write-Host "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount" -ForegroundColor Yellow
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "Cluster Name: $clusterName"
         Write-ToReport "Kubernetes Version: $k8sVersion"
         if (-not $KubeData) {
@@ -82,7 +83,7 @@ function Show-ClusterSummary {
         Write-ToReport "`n❌ Errors: $errorCount   ⚠️ Warnings: $warningCount"
     }
 
-    if (-not $Global:MakeReport -and -not $Html) {
+    if (-not $Text -and -not $Html) {
         Read-Host "`nPress Enter to return to the main menu"
     }
 }
@@ -94,7 +95,7 @@ function Show-HeroMetrics {
       [switch]$Json
     )
   
-    $thresholds = if (-not $Global:MakeReport -and -not $Json) {
+    $thresholds = if (-not $Text -and -not $Json) {
       Get-KubeBuddyThresholds
     } else {
       Get-KubeBuddyThresholds -Silent

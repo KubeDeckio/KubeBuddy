@@ -7,7 +7,7 @@ function Check-OrphanedConfigMaps {
         [object]$KubeData
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📜 Orphaned ConfigMaps]" -ForegroundColor Cyan
     Write-Host -NoNewline "`n🤖 Fetching ConfigMaps..." -ForegroundColor Yellow
 
@@ -108,13 +108,13 @@ function Check-OrphanedConfigMaps {
 
     if ($items.Count -eq 0) {
         Write-Host "🤖 ✅ No orphaned ConfigMaps found." -ForegroundColor Green
-        if ($Global:MakeReport -and -not $Html) {
+        if ($Text -and -not $Html) {
             Write-ToReport "`n[📜 Orphaned ConfigMaps]`n"
             Write-ToReport "✅ No orphaned ConfigMaps found."
         }
         if ($Html) { return "<p><strong>✅ No orphaned ConfigMaps found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if (-not $Global:MakeReport -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
+        if (-not $Text -and -not $Html) { Read-Host "🤖 Press Enter to return to the menu" }
         return
     }
 
@@ -130,7 +130,7 @@ function Check-OrphanedConfigMaps {
         return "<p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> $($items.Count)</p>$htmlOutput"
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📜 Orphaned ConfigMaps]`n"
         Write-ToReport "⚠️ Total Orphaned ConfigMaps Found: $($items.Count)"
         $tableString = $items | Format-Table Namespace, Type, Name -AutoSize | Out-String 
@@ -180,9 +180,9 @@ function Check-ConfigMapDuplicates {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[🧬 Duplicate ConfigMap Names]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Fetching ConfigMaps..." -ForegroundColor Yellow
     }
 
@@ -243,7 +243,7 @@ function Check-ConfigMapDuplicates {
         return "<p><strong>⚠️ Total Duplicate ConfigMap Names:</strong> $total</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[🧬 Duplicate ConfigMap Names]`n"
         Write-ToReport "⚠️ Total Duplicate ConfigMap Names: $total"
         $tableString = $results | Format-Table Name, Namespaces -AutoSize | Out-String
@@ -290,9 +290,9 @@ function Check-ConfigMapSize {
         [switch]$ExcludeNamespaces
     )
 
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
+    if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
     Write-Host "`n[📦 Large ConfigMaps]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
+    if (-not $Text -and -not $Html -and -not $Json) {
         Write-Host -NoNewline "`n🤖 Fetching ConfigMaps..." -ForegroundColor Yellow
     }
 
@@ -355,7 +355,7 @@ function Check-ConfigMapSize {
         return "<p><strong>⚠️ Total Large ConfigMaps:</strong> $total</p>" + $htmlTable
     }
 
-    if ($Global:MakeReport) {
+    if ($Text) {
         Write-ToReport "`n[📦 Large ConfigMaps]`n"
         Write-ToReport "⚠️ Total Large ConfigMaps: $total"
         $tableString = $results | Format-Table Namespace, Name, SizeBytes -AutoSize | Out-String
