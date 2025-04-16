@@ -19,10 +19,12 @@ function Check-OrphanedConfigMaps {
     try {
         $configMaps = if ($KubeData -and $KubeData.ConfigMaps) {
             $KubeData.ConfigMaps
-        } else {
+        }
+        else {
             kubectl get configmaps --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
         }
-    } catch {
+    }
+    catch {
         Write-Host "`r🤖 ❌ Failed to fetch ConfigMaps: $_" -ForegroundColor Red
         return
     }
@@ -83,8 +85,11 @@ function Check-OrphanedConfigMaps {
         foreach ($kind in $KubeData.CustomResourcesByKind.Keys) {
             $resources = $KubeData.CustomResourcesByKind[$kind]
             foreach ($res in $resources) {
-                $res.metadata.annotations.Values | Where-Object { $_ -match "configMap" } | ForEach-Object {
-                    $null = $usedConfigMaps.Add($_)
+                $annotations = $res.metadata.annotations
+                if ($annotations -is [hashtable]) {
+                    $annotations.Values | Where-Object { $_ -match "configMap" } | ForEach-Object {
+                        $null = $usedConfigMaps.Add($_)
+                    }
                 }
             }
         }
@@ -124,9 +129,9 @@ function Check-OrphanedConfigMaps {
 
     if ($Html) {
         $htmlOutput = $items |
-            Sort-Object Namespace, Name |
-            ConvertTo-Html -Fragment -Property Namespace, Type, Name -PreContent "<h2>Orphaned ConfigMaps</h2>" |
-            Out-String
+        Sort-Object Namespace, Name |
+        ConvertTo-Html -Fragment -Property Namespace, Type, Name -PreContent "<h2>Orphaned ConfigMaps</h2>" |
+        Out-String
         return "<p><strong>⚠️ Total Orphaned ConfigMaps Found:</strong> $($items.Count)</p>$htmlOutput"
     }
 
@@ -189,10 +194,12 @@ function Check-ConfigMapDuplicates {
     try {
         $configMaps = if ($KubeData -and $KubeData.ConfigMaps) {
             $KubeData.ConfigMaps
-        } else {
+        }
+        else {
             $raw = if ($Namespace) {
                 kubectl get configmaps -n $Namespace -o json 2>&1
-            } else {
+            }
+            else {
                 kubectl get configmaps --all-namespaces -o json 2>&1
             }
             if ($raw -match "No resources found") {
@@ -203,7 +210,8 @@ function Check-ConfigMapDuplicates {
             }
             ($raw | ConvertFrom-Json).items
         }
-    } catch {
+    }
+    catch {
         Write-Host "`r🤖 ❌ Error retrieving ConfigMap data: $_" -ForegroundColor Red
         if ($Html) { return "<p><strong>❌ Error retrieving ConfigMaps.</strong></p>" }
         if ($Json) { return @{ Error = "$_" } }
@@ -239,7 +247,7 @@ function Check-ConfigMapDuplicates {
 
     if ($Html) {
         $htmlTable = $results | Sort-Object -Property Name |
-            ConvertTo-Html -Fragment -Property Name, Namespaces | Out-String
+        ConvertTo-Html -Fragment -Property Name, Namespaces | Out-String
         return "<p><strong>⚠️ Total Duplicate ConfigMap Names:</strong> $total</p>" + $htmlTable
     }
 
@@ -299,10 +307,12 @@ function Check-ConfigMapSize {
     try {
         $configMaps = if ($KubeData -and $KubeData.ConfigMaps) {
             $KubeData.ConfigMaps
-        } else {
+        }
+        else {
             $raw = if ($Namespace) {
                 kubectl get configmaps -n $Namespace -o json 2>&1
-            } else {
+            }
+            else {
                 kubectl get configmaps --all-namespaces -o json 2>&1
             }
             if ($raw -match "No resources found") {
@@ -313,7 +323,8 @@ function Check-ConfigMapSize {
             }
             ($raw | ConvertFrom-Json).items
         }
-    } catch {
+    }
+    catch {
         Write-Host "`r🤖 ❌ Error retrieving ConfigMap data: $_" -ForegroundColor Red
         if ($Html) { return "<p><strong>❌ Error retrieving ConfigMaps.</strong></p>" }
         if ($Json) { return @{ Error = "$_" } }
@@ -351,7 +362,7 @@ function Check-ConfigMapSize {
 
     if ($Html) {
         $htmlTable = $results | Sort-Object -Property SizeBytes -Descending |
-            ConvertTo-Html -Fragment -Property Namespace, Name, SizeBytes | Out-String
+        ConvertTo-Html -Fragment -Property Namespace, Name, SizeBytes | Out-String
         return "<p><strong>⚠️ Total Large ConfigMaps:</strong> $total</p>" + $htmlTable
     }
 
