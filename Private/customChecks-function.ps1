@@ -4,7 +4,8 @@ function Invoke-CustomKubectlChecks {
         [string]$Namespace = "",
         [switch]$Html,
         [switch]$Json,
-        [switch]$ExcludeNamespaces
+        [switch]$ExcludeNamespaces,
+        [string[]]$CheckIDs = @()  # Optional parameter to filter specific check IDs
     )
 
     # Configuration
@@ -24,46 +25,97 @@ function Invoke-CustomKubectlChecks {
 
     function Get-ValidProperties {
         param (
-            [array]$Items
+            [array]$Items,
+            [string]$CheckID
         )
-        $properties = @("Namespace", "Resource", "Value", "Message")
-        $validProps = @()
     
+        # Static table layouts for known checks
+        $checkSpecificProperties = @{
+            "NODE001" = @("Node", "Status", "Issues")
+            "NODE002" = @("Node", "CPU Status", "CPU %", "CPU Used", "CPU Total", "Mem Status", "Mem %", "Mem Used", "Mem Total", "Disk %", "Disk Status")
+        }
+    
+        if ($checkSpecificProperties.ContainsKey($CheckID)) {
+            $properties = $checkSpecificProperties[$CheckID]
+        }
+        else {
+            # Detect valid properties dynamically for unknown/script-based checks
+            $properties = $Items |
+                ForEach-Object { $_.PSObject.Properties.Name } |
+                Group-Object |
+                Sort-Object Count -Descending |
+                Select-Object -ExpandProperty Name -Unique
+        }
+    
+        $validProps = @()
         foreach ($prop in $properties) {
-            $hasData = $false
-            foreach ($item in $Items) {
-                $value = $item.$prop
-                if ($value -ne $null -and $value -ne "" -and $value -ne "-") {
-                    $hasData = $true
-                    break
-                }
+            $hasData = $Items | Where-Object {
+                $_.$prop -ne $null -and $_.$prop -ne "" -and $_.$prop -ne "-"
             }
-            if ($hasData) {
+            if ($hasData.Count -gt 0) {
                 $validProps += $prop
             }
         }
+    
+        # Fallback to static props if NODE check and nothing found
+        if (-not $validProps -and $CheckID -in @("NODE001", "NODE002")) {
+            $validProps = $checkSpecificProperties[$CheckID]
+        }
+    
         return $validProps
     }
+    
 
-    # Header
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) { Clear-Host }
-    Write-Host "`n[🛠️ Custom kubectl Checks]" -ForegroundColor Cyan
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
-        Write-Host -NoNewline "`n🤖 Scanning for custom checks..." -ForegroundColor Yellow
+    function Get-ResourceKindDisplayNames {
+        param (
+            [string]$ResourceKind
+        )
+
+        # Map of ResourceKind values to their singular and plural forms
+        $resourceKindMap = @{
+            "namespaces"              = @{ Singular = "Namespace"; Plural = "Namespaces" }
+            "resourcequotas"          = @{ Singular = "ResourceQuota"; Plural = "ResourceQuotas" }
+            "limitranges"             = @{ Singular = "LimitRange"; Plural = "LimitRanges" }
+            "Service"                 = @{ Singular = "Service"; Plural = "Services" }
+            "Ingress"                 = @{ Singular = "Ingress"; Plural = "Ingresses" }
+            "ClusterRoleBinding"      = @{ Singular = "ClusterRoleBinding"; Plural = "ClusterRoleBindings" }
+            "ServiceAccount"          = @{ Singular = "ServiceAccount"; Plural = "ServiceAccounts" }
+            "Role, ClusterRole"       = @{ Singular = "Role/ClusterRole"; Plural = "Roles/ClusterRoles" }
+            "Secret"                  = @{ Singular = "Secret"; Plural = "Secrets" }
+            "Pod"                     = @{ Singular = "Pod"; Plural = "Pods" }
+            "DaemonSet"               = @{ Singular = "DaemonSet"; Plural = "DaemonSets" }
+            "Deployment"              = @{ Singular = "Deployment"; Plural = "Deployments" }
+            "StatefulSet"             = @{ Singular = "StatefulSet"; Plural = "StatefulSets" }
+            "HorizontalPodAutoscaler" = @{ Singular = "HorizontalPodAutoscaler"; Plural = "HorizontalPodAutoscalers" }
+            "PersistentVolumeClaim"   = @{ Singular = "PersistentVolumeClaim"; Plural = "PersistentVolumeClaims" }
+            "events"                  = @{ Singular = "Event"; Plural = "Events" }
+            "jobs"                    = @{ Singular = "Job"; Plural = "Jobs" }
+            "ConfigMap"               = @{ Singular = "ConfigMap"; Plural = "ConfigMaps" }
+            "Node"                    = @{ Singular = "Node"; Plural = "Nodes" }
+        }
+
+        if ($resourceKindMap.ContainsKey($ResourceKind)) {
+            return $resourceKindMap[$ResourceKind]
+        } else {
+            # Default: assume the ResourceKind is singular and append "s" for plural
+            return @{
+                Singular = $ResourceKind
+                Plural   = "$ResourceKind" + "s"
+            }
+        }
     }
 
-    # Fetch thresholds (if needed)
+    # Fetch thresholds
     $thresholds = if ($Global:MakeReport -or $Html -or $Json) {
         Get-KubeBuddyThresholds -Silent
-    }
-    else {
+    } else {
         Get-KubeBuddyThresholds
     }
 
     # Scan for YAML files
     try {
         if (-not (Test-Path $checksFolder)) {
-            Write-Host "`r🤖 ⚠️ Checks folder $checksFolder does not exist." -ForegroundColor Yellow
+            Write-Host "⚠️ Checks folder $checksFolder does not exist." -ForegroundColor Yellow
             if ($Html) { return "<p><strong>⚠️ Checks folder does not exist.</strong></p>" }
             if ($Json) { return @{ Total = 0; Items = @() } }
             return
@@ -71,19 +123,16 @@ function Invoke-CustomKubectlChecks {
         $checkFiles = Get-ChildItem -Path $checksFolder -Filter "*.yaml" -ErrorAction Stop
     }
     catch {
-        Write-Host "`r🤖 ❌ Error scanning ${checksFolder}: $_" -ForegroundColor Red
+        Write-Host "❌ Error scanning ${checksFolder}: $_" -ForegroundColor Red
         if ($Html) { return "<p><strong>❌ Error scanning checks folder.</strong></p>" }
         if ($Json) { return @{ Error = "Error scanning checks folder: $_" } }
         return
     }
 
     if (-not $checkFiles) {
-        Write-Host "`r🤖 ✅ No custom check YAML files found." -ForegroundColor Green
+        Write-Host "✅ No custom check YAML files found." -ForegroundColor Green
         if ($Html) { return "<p><strong>✅ No custom checks found.</strong></p>" }
         if ($Json) { return @{ Total = 0; Items = @() } }
-        if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
-            Read-Host "🤖 Press Enter to return to the menu"
-        }
         return
     }
 
@@ -93,19 +142,72 @@ function Invoke-CustomKubectlChecks {
         try {
             $yamlContent = Get-Content $file.FullName -Raw | ConvertFrom-Yaml
             if (-not $yamlContent.checks) {
-                Write-Host "`r🤖 ⚠️ No checks defined in $($file.Name)." -ForegroundColor Yellow
                 continue
             }
 
             foreach ($check in $yamlContent.checks) {
-                Write-Host "`r🤖 Processing check: $($check.ID) - $($check.Name)" -ForegroundColor Cyan
+                # Filter checks if CheckIDs specified
+                if ($CheckIDs -and $check.ID -notin $CheckIDs) {
+                    continue
+                }
 
-                # Custom script block execution (overrides default condition/operator logic)
+                Write-Host "🤖 Processing check: $($check.ID) - $($check.Name)" -ForegroundColor Cyan
+
+                # Custom script block execution
                 if ($check.Script) {
                     try {
+                        # Define disallowed kubectl commands (mutating operations)
+                        $disallowedCommands = @(
+                            "create",
+                            "run",
+                            "edit",
+                            "delete",
+                            "patch",
+                            "apply",
+                            "replace",
+                            "scale",
+                            "rollout",
+                            "annotate",
+                            "label",
+                            "taint",
+                            "cordon",
+                            "uncordon",
+                            "drain",
+                            "evict"
+                        )
+
+                        # Check the script for disallowed commands
+                        $scriptContent = $check.Script
+                        $disallowedCommandFound = $false
+                        $foundCommand = $null
+                        foreach ($cmd in $disallowedCommands) {
+                            $pattern = "(?i)\bkubectl\s+$cmd\b"
+                            if ($scriptContent -match $pattern) {
+                                $disallowedCommandFound = $true
+                                $foundCommand = $cmd
+                                break
+                            }
+                        }
+
+                        if ($disallowedCommandFound) {
+                            $errorMessage = "❌ Check $($check.ID) contains disallowed kubectl command '$foundCommand'. Scripts must not modify cluster state (e.g., create, delete, patch)."
+                            Write-Host $errorMessage -ForegroundColor Red
+                            $allResults += @{
+                                ID    = $check.ID
+                                Name  = $check.Name
+                                Error = $errorMessage
+                            }
+                            continue
+                        }
+
                         $scriptBlock = [scriptblock]::Create($check.Script)
-                        $customItems = & $scriptBlock -KubeData $KubeData -Namespace $Namespace
-                
+                        # Pass thresholds to the script block for NODE002
+                        $scriptResult = if ($check.ID -eq "NODE002") {
+                            & $scriptBlock -KubeData $KubeData -Thresholds $thresholds
+                        } else {
+                            & $scriptBlock -KubeData $KubeData
+                        }
+
                         $checkResult = @{
                             ID             = $check.ID
                             Name           = $check.Name
@@ -113,6 +215,7 @@ function Invoke-CustomKubectlChecks {
                             Section        = $check.Section
                             ResourceKind   = $check.ResourceKind
                             Severity       = $check.Severity
+                            Weight         = $check.Weight
                             Description    = $check.Description
                             Recommendation = if ($Html) {
                                 if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
@@ -131,7 +234,7 @@ function Invoke-CustomKubectlChecks {
                                     $check.Recommendation
                                 }
                             }
-                            elseif ($Json -or $Global:MakeReport) {
+                            else {
                                 if ($check.Recommendation -is [hashtable] -and $check.Recommendation.text) {
                                     $check.Recommendation.text
                                 }
@@ -139,23 +242,23 @@ function Invoke-CustomKubectlChecks {
                                     $check.Recommendation
                                 }
                             }
-                            else {
-                                $check.Recommendation
-                            }
                             URL            = $check.URL
                             Items          = @()
                             Total          = 0
                         }
-                
-                        if ($customItems) {
-                            $checkResult.Items = $customItems
-                            $checkResult.Total = $customItems.Count
+
+                        if ($scriptResult -is [hashtable] -and $scriptResult.Items) {
+                            $checkResult.Items = $scriptResult.Items
+                            $checkResult.Total = $scriptResult.IssueCount
+                        } elseif ($scriptResult) {
+                            $checkResult.Items = $scriptResult
+                            $checkResult.Total = $scriptResult.Count
                         }
-                
+
                         if ($checkResult.Total -eq 0) {
                             $checkResult.Message = "No issues detected for $($check.Name)."
                         }
-                
+
                         $allResults += $checkResult
                     }
                     catch {
@@ -167,9 +270,9 @@ function Invoke-CustomKubectlChecks {
                         }
                     }
                     continue
-                }                
+                }
 
-                # Fetch data
+                # Non-script check logic
                 $data = $null
                 if ($KubeData -and $KubeData.($check.ResourceKind)) {
                     $data = $KubeData.($check.ResourceKind).items
@@ -201,22 +304,22 @@ function Invoke-CustomKubectlChecks {
 
                 if (-not $data) {
                     Write-Host "❌ No $($check.ResourceKind) data available." -ForegroundColor Red
-                    if ($Html) { $allResults += @{ ID = $check.ID; Name = $check.Name; Message = "No $($check.ResourceKind) data available." } }
-                    if ($Json) { $allResults += @{ ID = $check.ID; Name = $check.Name; Message = "No $($check.ResourceKind) data available." } }
+                    $allResults += @{
+                        ID      = $check.ID
+                        Name    = $check.Name
+                        Message = "No $($check.ResourceKind) data available."
+                    }
                     continue
                 }
 
-                # Apply namespace filter
                 if ($Namespace -and $data[0].metadata.PSObject.Properties.Name -contains 'namespace') {
                     $data = $data | Where-Object { $_.metadata.namespace -eq $Namespace }
-                }                
+                }
 
-                # Exclude namespaces if specified
                 if ($ExcludeNamespaces) {
                     $data = Exclude-Namespaces -items $data
                 }
 
-                # Evaluate check
                 $checkResult = @{
                     ID             = $check.ID
                     Name           = $check.Name
@@ -242,7 +345,7 @@ function Invoke-CustomKubectlChecks {
                             $check.Recommendation
                         }
                     }
-                    elseif ($Json -or $Global:MakeReport) {
+                    else {
                         if ($check.Recommendation -is [hashtable] -and $check.Recommendation.text) {
                             $check.Recommendation.text
                         }
@@ -250,23 +353,9 @@ function Invoke-CustomKubectlChecks {
                             $check.Recommendation
                         }
                     }
-                    else {
-                        $check.Recommendation
-                    }                    
                     URL            = $check.URL
                     Items          = @()
                     Total          = 0
-                }                
-
-                # Validate required fields before processing each item
-                if (-not $check.ID -or -not $check.Name -or -not $check.ResourceKind -or -not $check.Condition -or -not $check.Operator) {
-                    Write-Host "⚠️ Skipping invalid check: missing required field(s)." -ForegroundColor Yellow
-                    continue
-                }
-                $validOperators = @("not_contains", "contains", "equals", "not_equals", "greater_than", "less_than", "exists", "not_exists", "starts_with", "ends_with")
-                if ($check.Operator -notin $validOperators) {
-                    Write-Host "❌ Skipping check $($check.ID): unsupported operator '$($check.Operator)'" -ForegroundColor Red
-                    continue
                 }
 
                 foreach ($item in $data) {
@@ -283,53 +372,22 @@ function Invoke-CustomKubectlChecks {
                             }
                             if ($null -eq $value) { break }
                         }
-                
+
                         $failed = $false
                         switch ($check.Operator) {
-                            "equals" {
-                                $failed = $value -ne $check.Expected
-                            }
-                            "not_equals" {
-                                $failed = $value -eq $check.Expected
-                            }
-                            "contains" {
-                                $failed = -not ($value -like "*$($check.Expected)*")
-                            }
-                            "not_contains" {
-                                $failed = ($value -like "*$($check.Expected)*")
-                            }
-                            "greater_than" {
-                                $numeric = ($value | Measure-Object -Sum).Sum
-                                $failed = $numeric -le $check.Expected
-                            }
-                            "less_than" {
-                                $numeric = ($value | Measure-Object -Sum).Sum
-                                $failed = $numeric -ge $check.Expected
-                            }
-                            "regex" {
-                                $failed = -not ($value -match $check.Expected)
-                            }
-                            "is_null" {
-                                $failed = $null -ne $value
-                            }
-                            "is_not_null" {
-                                $failed = $null -eq $value
-                            }
-                            default {
-                                Write-Host "❌ Unsupported operator: $($check.Operator)" -ForegroundColor Red
-                                continue
-                            }
+                            "equals" { $failed = $value -ne $check.Expected }
+                            "not_equals" { $failed = $value -eq $check.Expected }
+                            "contains" { $failed = -not ($value -like "*$($check.Expected)*") }
+                            "not_contains" { $failed = ($value -like "*$($check.Expected)*") }
+                            "greater_than" { $failed = ($value | Measure-Object -Sum).Sum -le $check.Expected }
+                            "less_than" { $failed = ($value | Measure-Object -Sum).Sum -ge $check.Expected }
+                            default { OCD Write-Host "❌ Unsupported operator: $($check.Operator)" -ForegroundColor Red; continue }
                         }
-                
+
                         if ($failed) {
                             $flattened = if ($value -is [System.Array]) { $value -join ', ' } else { $value }
                             $checkResult.Items += [PSCustomObject]@{
-                                Namespace = if ($item.metadata.PSObject.Properties.Name -contains 'namespace') {
-                                    $item.metadata.namespace
-                                }
-                                else {
-                                    "(cluster)"
-                                }
+                                Namespace = if ($item.metadata.PSObject.Properties.Name -contains 'namespace') { $item.metadata.namespace } else { "(cluster)" }
                                 Resource  = "$($check.ResourceKind.ToLower())/$($item.metadata.name)"
                                 Value     = $flattened
                                 Message   = $check.FailMessage
@@ -339,7 +397,7 @@ function Invoke-CustomKubectlChecks {
                     catch {
                         Write-Host "❌ Error evaluating condition for $($item.metadata.name): $_" -ForegroundColor Red
                     }
-                }                
+                }
 
                 $checkResult.Total = $checkResult.Items.Count
                 if ($checkResult.Total -eq 0) {
@@ -355,15 +413,12 @@ function Invoke-CustomKubectlChecks {
         }
     }
 
-    # Generate reports
-    if ($Json) {
-        return @{ Total = ($allResults | Measure-Object -Sum -Property Total).Sum; Items = $allResults }
-    }
-
+    # HTML output
     if ($Html) {
         $sectionGroups = @{}
         $collapsibleSectionMap = @{}
-    
+        $targetCheckIDs = @("NODE001", "NODE002")  # Checks to show tables non-collapsed
+
         foreach ($result in $allResults) {
             $section = if ($result.Section) { $result.Section } elseif ($result.Category) { $result.Category } else { "Other" }
             if (-not $sectionGroups.ContainsKey($section)) {
@@ -371,68 +426,76 @@ function Invoke-CustomKubectlChecks {
             }
             $sectionGroups[$section] += $result
         }
-    
+
         foreach ($section in $sectionGroups.Keys) {
             $sectionHtml = ""
-    
+
             foreach ($check in $sectionGroups[$section]) {
-                # Tooltip (if Description present)
+                # Debug: Log the ResourceKind to confirm its value
+                # Write-Host "DEBUG: Check ID: $($check.ID), ResourceKind: $($check.ResourceKind)" -ForegroundColor Yellow
+
                 $tooltip = if ($check.Description) {
                     "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$($check.Description)</span></span>"
-                }
-                else { "" }
-    
-                # Header with tooltip
+                } else { "" }
+
                 $header = "<h2 id='$($check.ID)'>$($check.ID) - $($check.Name) $tooltip</h2>"
-    
-                # Summary line
+
+                # Get the display names for the ResourceKind
+                $resourceKind = $check.ResourceKind
+                $displayNames = Get-ResourceKindDisplayNames -ResourceKind $resourceKind
+                $resourceKindPlural = $displayNames.Plural
+
                 $summary = if ($check.Total -gt 0) {
-                    "<p>⚠️ Total $($check.ResourceKind)s: $($check.Total)</p>"
+                    "<p>⚠️ Total $resourceKindPlural with Issues: $($check.Total)</p>"
+                } else {
+                    "<p>✅ All $resourceKindPlural are healthy.</p>"
                 }
-                else {
-                    "<p>✅ No issues detected for this check.</p>"
-                }
-    
-                # Recommendation (already HTML)
+
                 $recommendationHtml = if ($check.Recommendation) { $check.Recommendation } else { "" }
-    
-                # Findings table (if any)
-                $tableContent = if ($check.Items.Count -gt 0) {
-                    $validProps = Get-ValidProperties -Items $check.Items
+                $tableContent = if ($check.Items) {
+                    $validProps = Get-ValidProperties -Items $check.Items -CheckID $check.ID
                     if ($validProps) {
                         $check.Items | ConvertTo-Html -Fragment -Property $validProps | Out-String
-                    }
-                    else {
+                    } else {
                         "<p>No valid data to display.</p>"
                     }
+                } else {
+                    ""
                 }
-                else { "" }
-    
-                # Append to section HTML
-                $sectionHtml += @"
-<h2 id='$($check.ID)'>$($check.ID) - $($check.Name) $tooltip</h2>
-$summary
-"@
 
-                if ($check.Items.Count -gt 0) {
+                # For NODE001 and NODE002, show table non-collapsed; others use collapsible
+                if ($check.ID -in $targetCheckIDs) {
+                    $sectionHtml += @"
+$header
+$summary
+<div class='table-container'>
+  $recommendationHtml
+  $tableContent
+</div>
+"@
+                } else {
                     $collapsibleContent = "$recommendationHtml`n$tableContent"
                     $sectionHtml += @"
+$header
+$summary
+"@
+                    if ($check.Items) {
+                        $sectionHtml += @"
 <div class='table-container'>
   $(ConvertToCollapsible -Id $check.ID -defaultText "Show Findings" -content $collapsibleContent)
 </div>
 "@
+                    }
                 }
-
             }
-    
+
             if ($collapsibleSectionMap.ContainsKey($section)) {
                 $collapsibleSectionMap[$section] += "`n<div class='table-container'>$sectionHtml</div>"
-            }
-            else {
+            } else {
                 $collapsibleSectionMap[$section] = "<div class='table-container'>$sectionHtml</div>"
             }
         }
-    
+
         $checkStatusList = @()
         foreach ($section in $sectionGroups.Keys) {
             foreach ($check in $sectionGroups[$section]) {
@@ -440,58 +503,53 @@ $summary
                 $checkStatusList += [pscustomobject]@{
                     Id     = $check.ID
                     Status = $status
+                    Weight = $check.Weight
                 }
             }
         }
-                    
+
         return @{
             HtmlBySection = $collapsibleSectionMap
             StatusList    = $checkStatusList
         }
-                    
     }
 
-    if ($Global:MakeReport) {
-        Write-ToReport "`n[🛠️ Custom kubectl Checks]"
+    # JSON output (unchanged)
+    if ($Json) {
+        return @{ Total = ($allResults | Measure-Object -Sum -Property Total).Sum; Items = $allResults }
+    }
+
+    # Console output for specific checks
+    if ($CheckIDs) {
         foreach ($result in $allResults) {
-            Write-ToReport "`n$($result.ID) - $($result.Name)"
-            Write-ToReport "⚠️ Total Issues: $($result.Total)"
+            Write-Host "`n$($result.ID) - $($result.Name)" -ForegroundColor Cyan
             if ($result.Items) {
-                $validProps = Get-ValidProperties -Items $result.Items
+                $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID
                 if ($validProps) {
-                    $tableString = $result.Items | Format-Table -Property $validProps -AutoSize | Out-String
-                    Write-ToReport $tableString
+                    $result.Items | Format-Table -Property $validProps -AutoSize | Out-Host
+                } else {
+                    Write-Host "No valid data to display." -ForegroundColor Yellow
                 }
-                else {
-                    Write-ToReport "No valid data to display."
-                }
+            } else {
+                Write-Host "✅ $($result.Message)" -ForegroundColor Green
             }
-            else {
-                Write-ToReport "✅ $($result.Message)"
-            }
-            Write-ToReport "Category: $($result.Category)"
-            Write-ToReport "Severity: $($result.Severity)"
-            Write-ToReport "Recommendation: $($result.Recommendation)"
-            Write-ToReport "URL: $($result.URL)"
         }
         return
     }
 
-    # Console output
+    # Original console output (unchanged)
     Write-Host "`r🤖 ✅ Custom checks completed. ($($allResults.Count) checks processed)" -ForegroundColor Green
     foreach ($result in $allResults) {
         Write-Host "`n$($result.ID) - $($result.Name)" -ForegroundColor Cyan
         Write-Host "Total Issues: $($result.Total)" -ForegroundColor Yellow
         if ($result.Items) {
-            $validProps = Get-ValidProperties -Items $result.Items
+            $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID
             if ($validProps) {
                 $result.Items | Format-Table -Property $validProps -AutoSize | Out-Host
-            }
-            else {
+            } else {
                 Write-Host "No valid data to display." -ForegroundColor Yellow
             }
-        }
-        else {
+        } else {
             Write-Host "✅ $($result.Message)" -ForegroundColor Green
         }
         Write-Host "Category: $($result.Category)" -ForegroundColor White
@@ -500,9 +558,5 @@ $summary
         if ($result.URL) {
             Write-Host "URL: $($result.URL)" -ForegroundColor Blue
         }
-    }
-
-    if (-not $Global:MakeReport -and -not $Html -and -not $Json) {
-        Read-Host "🤖 Press Enter to return to the menu"
     }
 }

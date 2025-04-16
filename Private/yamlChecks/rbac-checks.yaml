@@ -6,6 +6,7 @@ checks:
     Description: "Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces in RoleBindings and ClusterRoleBindings."
     ResourceKind: "ClusterRoleBinding"  # Trigger resource kind, but the script handles all RBAC objects
     Severity: "High"
+    Weight: 4
     Operator: "script"
     Script: |
       param($KubeData, $Namespace)
@@ -153,6 +154,7 @@ checks:
     Description: "Identifies dangerous RBAC grants such as cluster-admin, wildcard permissions, and sensitive resource access in roles and bindings."
     ResourceKind: "ClusterRoleBinding"  # Used to trigger loading; script uses full RBAC set
     Severity: "Critical"
+    Weight: 5
     Operator: "script"
     Script: |
       param($KubeData, $Namespace)
@@ -311,3 +313,205 @@ checks:
           </ul>
         </div>
     URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+  - ID: "RBAC003"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "Orphaned ServiceAccounts"
+    Description: "Finds ServiceAccounts not used by any pods or referenced in RoleBindings or ClusterRoleBindings."
+    ResourceKind: "ServiceAccount"
+    Severity: "Medium"
+    Weight: 2
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+  
+      $sas = $KubeData.ServiceAccounts
+      $roleBindings = $KubeData.RoleBindings
+      $clusterRoleBindings = $KubeData.ClusterRoleBindings
+      $pods = $KubeData.Pods.items
+  
+      if ($Namespace) {
+        $sas = $sas | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $roleBindings = $roleBindings | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $clusterRoleBindings = $clusterRoleBindings | Where-Object {
+          $_.subjects | Where-Object {
+            $_.kind -eq "ServiceAccount" -and $_.namespace -eq $Namespace
+          }
+        }
+      }
+  
+      $usedSAs = [System.Collections.Generic.HashSet[string]]::new()
+  
+      foreach ($pod in $pods) {
+        $sa = $pod.spec.serviceAccountName
+        if ($sa) {
+          $null = $usedSAs.Add("$($pod.metadata.namespace)/$sa")
+        }
+      }
+  
+      foreach ($rb in $roleBindings) {
+        foreach ($s in $rb.subjects) {
+          if ($s.kind -eq "ServiceAccount" -and $s.name) {
+            $ns = if ($s.namespace) { $s.namespace } else { $rb.metadata.namespace }
+            $null = $usedSAs.Add("$ns/$($s.name)")
+          }
+        }
+      }
+  
+      foreach ($crb in $clusterRoleBindings) {
+        foreach ($s in $crb.subjects) {
+          if ($s.kind -eq "ServiceAccount" -and $s.namespace -and $s.name) {
+            $null = $usedSAs.Add("$($s.namespace)/$($s.name)")
+          }
+        }
+      }
+  
+      $orphaned = $sas | Where-Object {
+        -not $usedSAs.Contains("$($_.metadata.namespace)/$($_.metadata.name)")
+      }
+  
+      $results = foreach ($sa in $orphaned) {
+        [pscustomobject]@{
+          Namespace = $sa.metadata.namespace
+          Resource  = "serviceaccount/$($sa.metadata.name)"
+          Value     = $sa.metadata.name
+          Message   = "ServiceAccount not used by pods or RBAC bindings"
+        }
+      }
+  
+      return $results
+    FailMessage: "ServiceAccount is unused"
+    Recommendation:
+      text: "Clean up unused ServiceAccounts to avoid confusion and reduce RBAC clutter."
+      html: |
+        <div class="recommendation-content">
+          <h4>🧾 Remove Orphaned ServiceAccounts</h4>
+          <ul>
+            <li>Audit ServiceAccounts not referenced in RoleBindings, ClusterRoleBindings, or used by Pods.</li>
+            <li>Delete those not actively used to reduce attack surface.</li>
+            <li>Consider automating SA cleanup with CI/CD or policy enforcement.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/"
+  - ID: "RBAC004"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "Orphaned and Ineffective Roles"
+    Description: "Flags Roles and ClusterRoles that are unused, lack subjects, or define no rules."
+    ResourceKind: "Role, ClusterRole"
+    Severity: "Low"
+    Weight: 1
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+  
+      $roles = $KubeData.Roles
+      $clusterRoles = $KubeData.ClusterRoles
+      $roleBindings = $KubeData.RoleBindings
+      $clusterRoleBindings = $KubeData.ClusterRoleBindings
+  
+      if ($Namespace) {
+        $roles = $roles | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $roleBindings = $roleBindings | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+  
+      $usedRoles = [System.Collections.Generic.HashSet[string]]::new()
+      $usedClusterRoles = [System.Collections.Generic.HashSet[string]]::new()
+      $results = @()
+  
+      foreach ($rb in $roleBindings) {
+        if (-not $rb.subjects -or $rb.subjects.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $rb.metadata.namespace
+            Resource  = "rolebinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "RoleBinding has no subjects"
+          }
+        }
+        if ($rb.roleRef.kind -eq "Role") {
+          $usedRoles.Add("$($rb.metadata.namespace)/$($rb.roleRef.name)") | Out-Null
+        } elseif ($rb.roleRef.kind -eq "ClusterRole") {
+          $usedClusterRoles.Add($rb.roleRef.name) | Out-Null
+        }
+      }
+  
+      foreach ($crb in $clusterRoleBindings) {
+        if (-not $crb.subjects -or $crb.subjects.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = "cluster-wide"
+            Resource  = "clusterrolebinding/$($crb.metadata.name)"
+            Value     = $crb.roleRef.name
+            Message   = "ClusterRoleBinding has no subjects"
+          }
+        }
+        if ($crb.roleRef.kind -eq "ClusterRole") {
+          $usedClusterRoles.Add($crb.roleRef.name) | Out-Null
+        }
+      }
+  
+      $builtIn = @(
+        "cluster-admin", "admin", "edit", "view",
+        "system:*", "system:kube-*", "system:node*",
+        "system:public-info-viewer"
+      )
+  
+      foreach ($r in $roles) {
+        $key = "$($r.metadata.namespace)/$($r.metadata.name)"
+        if (-not $usedRoles.Contains($key)) {
+          $results += [pscustomobject]@{
+            Namespace = $r.metadata.namespace
+            Resource  = "role/$($r.metadata.name)"
+            Value     = $r.metadata.name
+            Message   = "Unused Role"
+          }
+        }
+        if (-not $r.rules -or $r.rules.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $r.metadata.namespace
+            Resource  = "role/$($r.metadata.name)"
+            Value     = $r.metadata.name
+            Message   = "Role has no rules"
+          }
+        }
+      }
+  
+      foreach ($cr in $clusterRoles) {
+        $name = $cr.metadata.name
+        $isSystem = $builtIn | Where-Object { $name -like $_ }
+        $hasBootstrapLabel = $cr.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults'
+  
+        if (-not $isSystem -and -not $hasBootstrapLabel -and -not $usedClusterRoles.Contains($name)) {
+          $results += [pscustomobject]@{
+            Namespace = "cluster-wide"
+            Resource  = "clusterrole/$name"
+            Value     = $name
+            Message   = "Unused ClusterRole"
+          }
+        }
+  
+        if (-not $cr.rules -or $cr.rules.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = "cluster-wide"
+            Resource  = "clusterrole/$name"
+            Value     = $name
+            Message   = "ClusterRole has no rules"
+          }
+        }
+      }
+  
+      return $results
+    FailMessage: "Role or ClusterRole is unused or has no rules"
+    Recommendation:
+      text: "Delete Roles and ClusterRoles that are not bound or do not define any rules."
+      html: |
+        <div class="recommendation-content">
+          <h4>🗂️ Clean up Unused or Ineffective RBAC</h4>
+          <ul>
+            <li>Remove RoleBindings or ClusterRoleBindings without subjects.</li>
+            <li>Prune Roles and ClusterRoles not referenced by any bindings.</li>
+            <li>Remove roles with no defined rules unless planned for future use.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+  

@@ -6,7 +6,9 @@ checks:
     Description: "Detects ConfigMaps that are not referenced by any pod, workload, service, or ingress."
     ResourceKind: "ConfigMap"
     Severity: "Medium"
+    Weight: 1
     FailMessage: "ConfigMap is not referenced by any workloads or services."
+    URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"
     Recommendation:
       text: "Delete unused ConfigMaps to clean up the cluster and reduce confusion."
       html: |
@@ -76,7 +78,9 @@ checks:
     Description: "Detects ConfigMaps with identical names across different namespaces."
     ResourceKind: "ConfigMap"
     Severity: "Medium"
+    Weight: 1
     FailMessage: "ConfigMap name reused in multiple namespaces."
+    URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"
     Recommendation:
       text: "Avoid using the same ConfigMap name across namespaces to reduce confusion and misconfiguration risk."
       html: |
@@ -110,7 +114,9 @@ checks:
     Description: "Finds ConfigMaps larger than 1 MiB, which may impact performance or exceed platform limits."
     ResourceKind: "ConfigMap"
     Severity: "Medium"
+    Weight: 2
     FailMessage: "ConfigMap exceeds 1 MiB in size."
+    URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"
     Recommendation:
       text: "Avoid storing large data in ConfigMaps. Consider using PersistentVolumes or Secrets instead."
       html: |

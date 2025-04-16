@@ -1,0 +1,292 @@
+checks:
+  - ID: "NET001"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Services Without Endpoints"
+    Description: "Identifies services that have no backing endpoints, which means no pods are matched."
+    ResourceKind: "Service"
+    Severity: "High"
+    Weight: 2
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+
+      $services = $KubeData.Services.items | Where-Object { $_.spec.type -ne "ExternalName" }
+      $endpoints = $KubeData.Endpoints.items
+
+      if ($Namespace) {
+        $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $endpoints = $endpoints | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+
+      foreach ($svc in $services) {
+        $key = "$($svc.metadata.namespace)/$($svc.metadata.name)"
+        $ep = $endpoints | Where-Object {
+          $_.metadata.namespace -eq $svc.metadata.namespace -and
+          $_.metadata.name -eq $svc.metadata.name
+        }
+
+        if (-not $ep -or -not $ep.subsets -or $ep.subsets.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $svc.metadata.namespace
+            Resource  = "service/$($svc.metadata.name)"
+            Value     = $svc.metadata.name
+            Message   = "No endpoints available"
+          }
+        }
+      }
+
+      return $results
+    FailMessage: "One or more services have no endpoints"
+    Recommendation:
+      text: "Check if the service selector matches any pods. Ensure the backing pods are running and ready."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔍 Services Without Endpoints</h4>
+          <ul>
+            <li>Verify that your service has a valid selector.</li>
+            <li>Check if pods exist and are ready in the same namespace.</li>
+            <li>Use <code>kubectl describe svc &lt;name&gt;</code> and <code>kubectl get endpoints &lt;name&gt;</code>.</li>
+            <li>Restart affected pods or fix labels as needed.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/services-networking/service/"
+  - ID: "NET002"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Publicly Accessible Services"
+    Description: "Detects services of type LoadBalancer or NodePort that are potentially exposed to the internet."
+    ResourceKind: "Service"
+    Severity: "High"
+    Weight: 4
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+  
+      $services = $KubeData.Services.items
+      if ($Namespace) {
+        $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+  
+      $internalIpPatterns = @(
+        '^10\.', '^172\.(1[6-9]|2[0-9]|3[0-1])\.', '^192\.168\.',
+        '^127\.', '^169\.254\.', '^100\.64\.', '^0\.'
+      )
+  
+      $isInternal = {
+        param($ip)
+        foreach ($pattern in $internalIpPatterns) {
+          if ($ip -match $pattern) { return $true }
+        }
+        return $false
+      }
+  
+      $results = @()
+  
+      foreach ($svc in $services) {
+        if ($svc.spec.type -notin @("LoadBalancer", "NodePort")) { continue }
+  
+        $external = @()
+        if ($svc.status.loadBalancer.ingress) {
+          foreach ($entry in $svc.status.loadBalancer.ingress) {
+            if ($entry.ip -and -not (&$isInternal $entry.ip)) {
+              $external += $entry.ip
+            }
+            elseif ($entry.hostname) {
+              $external += $entry.hostname
+            }
+          }
+        }
+  
+        $isPublic = ($svc.spec.type -eq "NodePort") -or ($external.Count -gt 0)
+  
+        if ($isPublic) {
+          $results += [pscustomobject]@{
+            Namespace  = $svc.metadata.namespace
+            Resource   = "service/$($svc.metadata.name)"
+            Value      = $svc.spec.type
+            Message    = if ($external.Count -gt 0) {
+                           "Exposed via external IP: $($external -join ', ')"
+                         } else {
+                           "Exposed via NodePort"
+                         }
+          }
+        }
+      }
+  
+      return $results
+    FailMessage: "Publicly accessible services found"
+    Recommendation:
+      text: "Audit services of type LoadBalancer or NodePort. Limit exposure with firewalls or internal IP ranges."
+      html: |
+        <div class="recommendation-content">
+          <h4>🌐 Secure Exposed Services</h4>
+          <ul>
+            <li>Use internal IP ranges or private LoadBalancers where possible.</li>
+            <li>Restrict NodePort usage or protect with firewall rules.</li>
+            <li>Disable external exposure for internal-only services.</li>
+            <li>Consider network policies or service mesh for access control.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services"
+  - ID: "NET003"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Ingress Health Validation"
+    Description: "Validates ingress definitions for missing classes, invalid backends, missing TLS secrets, duplicate host/path entries, and incorrect path types."
+    ResourceKind: "Ingress"
+    Severity: "High"
+    Weight: 3
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+  
+      $ingresses = $KubeData.Ingresses.items
+      if ($Namespace) {
+        $ingresses = $ingresses | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+  
+      $services = $KubeData.Services.items
+      $secrets = $KubeData.Secrets
+  
+      $results = @()
+      $hostPathMap = @{}
+  
+      foreach ($i in $ingresses) {
+        $ns = $i.metadata.namespace
+        $name = $i.metadata.name
+  
+        if (-not $i.spec.ingressClassName -and -not $i.metadata.annotations.'kubernetes.io/ingress.class') {
+          $results += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "ingress/$name"
+            Value     = "-"
+            Message   = "Missing ingress class"
+          }
+        }
+  
+        if ($i.spec.tls) {
+          foreach ($tls in $i.spec.tls) {
+            $secret = $secrets | Where-Object {
+              $_.metadata.namespace -eq $ns -and $_.metadata.name -eq $tls.secretName
+            }
+            if (-not $secret) {
+              $results += [pscustomobject]@{
+                Namespace = $ns
+                Resource  = "ingress/$name"
+                Value     = $tls.secretName
+                Message   = "TLS secret not found"
+              }
+            }
+          }
+        }
+  
+        if (-not $i.spec.rules) {
+          if ($i.spec.defaultBackend) {
+            $svcName = $i.spec.defaultBackend.service.name
+            $port = $i.spec.defaultBackend.service.port.number
+            $svc = $services | Where-Object {
+              $_.metadata.namespace -eq $ns -and $_.metadata.name -eq $svcName
+            }
+  
+            if (-not $svc) {
+              $results += [pscustomobject]@{
+                Namespace = $ns
+                Resource  = "ingress/$name"
+                Value     = $svcName
+                Message   = "Default backend service not found"
+              }
+            } elseif ($svc.spec.type -ne "ExternalName") {
+              $match = $svc.spec.ports | Where-Object { $_.port -eq $port -or $_.name -eq $port }
+              if (-not $match) {
+                $results += [pscustomobject]@{
+                  Namespace = $ns
+                  Resource  = "ingress/$name"
+                  Value     = "${svcName}:$port"
+                  Message   = "Backend port missing"
+                }
+              }
+            }
+          } else {
+            $results += [pscustomobject]@{
+              Namespace = $ns
+              Resource  = "ingress/$name"
+              Value     = "-"
+              Message   = "No rules or default backend"
+            }
+          }
+          continue
+        }
+  
+        foreach ($rule in $i.spec.rules) {
+          $host = $rule.host ?? "N/A"
+  
+          foreach ($path in $rule.http.paths) {
+            $pathKey = "$ns|$host|$($path.path)"
+            if ($hostPathMap.ContainsKey($pathKey)) {
+              $results += [pscustomobject]@{
+                Namespace = $ns
+                Resource  = "ingress/$name"
+                Value     = "$host$($path.path)"
+                Message   = "Duplicate host/path (conflicts with ingress $($hostPathMap[$pathKey]))"
+              }
+            } else {
+              $hostPathMap[$pathKey] = $name
+            }
+  
+            if ($path.pathType -and $path.pathType -notin @("Exact", "Prefix", "ImplementationSpecific")) {
+              $results += [pscustomobject]@{
+                Namespace = $ns
+                Resource  = "ingress/$name"
+                Value     = $path.pathType
+                Message   = "Invalid pathType"
+              }
+            }
+  
+            $svcName = $path.backend.service.name
+            $port = $path.backend.service.port.number
+            $svc = $services | Where-Object {
+              $_.metadata.namespace -eq $ns -and $_.metadata.name -eq $svcName
+            }
+  
+            if (-not $svc) {
+              $results += [pscustomobject]@{
+                Namespace = $ns
+                Resource  = "ingress/$name"
+                Value     = $svcName
+                Message   = "Service not found"
+              }
+            } elseif ($svc.spec.type -ne "ExternalName") {
+              $match = $svc.spec.ports | Where-Object { $_.port -eq $port -or $_.name -eq $port }
+              if (-not $match) {
+                $results += [pscustomobject]@{
+                  Namespace = $ns
+                  Resource  = "ingress/$name"
+                  Value     = "${svcName}:$port"
+                  Message   = "Service missing port"
+                }
+              }
+            }
+          }
+        }
+      }
+  
+      return $results
+    FailMessage: "Ingress configuration issues found"
+    Recommendation:
+      text: "Fix invalid ingress definitions including missing TLS secrets, backend services, and path issues."
+      html: |
+        <div class="recommendation-content">
+          <h4>🌐 Ingress Health Remediation</h4>
+          <ul>
+            <li>Add <code>spec.ingressClassName</code> or annotations if missing.</li>
+            <li>Validate all backend services and ports exist.</li>
+            <li>Fix missing TLS secrets or use valid ones.</li>
+            <li>Avoid duplicate host/path combinations.</li>
+            <li>Use only valid pathTypes: Exact, Prefix, or ImplementationSpecific.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/services-networking/ingress/"
+  

@@ -1,0 +1,74 @@
+checks:
+  - ID: EVENT001
+    Name: Grouped Warning Events
+    Section: Kubernetes Events
+    Category: Events
+    ResourceKind: events
+    Severity: medium
+    Weight: 2
+    Description: Groups recent Warning events by Reason and Message.
+    FailMessage: "Recurring warning events detected"
+    URL: "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#event-v1-core"
+    Recommendation:
+      text: Check for recurring issues. Investigate sources using `kubectl describe` or logs.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Group similar warnings to spot patterns.</li>
+            <li>Use <code>kubectl describe</code> and logs to investigate.</li>
+          </ul>
+        </div>
+    Script: |
+      param($KubeData, $Namespace)
+      $events = if ($KubeData?.Events) { $KubeData.Events } else {
+        (kubectl get events -A -o json | ConvertFrom-Json).items
+      }
+      $warnings = $events | Where-Object { $_.type -eq "Warning" }
+      $warnings | ForEach-Object {
+        [PSCustomObject]@{
+          Reason  = $_.reason
+          Message = $_.message
+          Source  = $_.source.component
+        }
+      } | Group-Object Reason, Message | Sort-Object Count -Descending | ForEach-Object {
+        [PSCustomObject]@{
+          Reason  = $_.Group[0].Reason
+          Message = $_.Group[0].Message
+          Source  = $_.Group[0].Source
+          Count   = $_.Count
+        }
+      }
+  - ID: EVENT002
+    Name: Full Warning Event Log
+    Section: Kubernetes Events
+    Category: Events
+    ResourceKind: events
+    Severity: medium
+    Weight: 1
+    Description: Lists all recent Warning events in the cluster.
+    FailMessage: "Warning events found in recent Kubernetes logs"
+    URL: "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#event-v1-core"
+    Recommendation:
+      text: Review recent warnings. Correlate events with impacted resources.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Use <code>kubectl describe</code> to get full context.</li>
+            <li>Check logs for root cause.</li>
+          </ul>
+        </div>
+    Script: |
+      param($KubeData, $Namespace)
+      $events = if ($KubeData?.Events) { $KubeData.Events } else {
+        (kubectl get events -A -o json | ConvertFrom-Json).items
+      }
+      $events | Where-Object { $_.type -eq "Warning" } | ForEach-Object {
+        [PSCustomObject]@{
+          Timestamp = $_.metadata.creationTimestamp
+          Namespace = $_.metadata.namespace
+          Object    = "$($_.involvedObject.kind)/$($_.involvedObject.name)"
+          Source    = $_.source.component
+          Reason    = $_.reason
+          Message   = $_.message
+        }
+      } | Sort-Object Timestamp -Descending

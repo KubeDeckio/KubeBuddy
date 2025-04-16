@@ -1,0 +1,85 @@
+checks:
+  - ID: JOB001
+    Name: Stuck Kubernetes Jobs
+    Section: Jobs
+    Category: Jobs
+    ResourceKind: jobs
+    Severity: medium
+    Weight: 2
+    Description: Finds Jobs that have started but not completed within a threshold.
+    FailMessage: "Job appears stuck (not completed within expected time)"
+    URL: "https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy"
+    Recommendation:
+      text: Jobs that haven't completed may be stuck due to node issues, misconfiguration, or missing pods.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Check pod status for the job using <code>kubectl describe job <name></code>.</li>
+            <li>Verify resources and restart policies.</li>
+            <li>Check logs with <code>kubectl logs job/<name></code>.</li>
+          </ul>
+        </div>
+    Script: |
+      param($KubeData, $Namespace)
+      $thresholds = Get-KubeBuddyThresholds -Silent
+      $jobs = if ($KubeData?.Jobs) { $KubeData.Jobs.items } else {
+        (kubectl get jobs -A -o json | ConvertFrom-Json).items
+      }
+
+      $jobs | Where-Object {
+        $s = $_.status
+        if (-not $s) { return $false }
+        $old = $s.startTime -and ((New-TimeSpan -Start $s.startTime -End (Get-Date)).TotalHours -gt $thresholds.stuck_job_hours)
+        $notDone = -not $s.conditions -or (-not ($s.conditions | Where-Object { $_.type -eq "Complete" -and $_.status -eq "True" }))
+        $old -and $notDone
+      } | ForEach-Object {
+        [pscustomobject]@{
+          Namespace = $_.metadata.namespace
+          Job       = $_.metadata.name
+          Age_Hours = [int](New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours
+          Status    = "🟡 Stuck"
+        }
+      }
+  - ID: JOB002
+    Name: Failed Kubernetes Jobs
+    Section: Jobs
+    Category: Jobs
+    ResourceKind: jobs
+    Severity: high
+    Weight: 3
+    Description: Detects jobs with failures and no successful completions.
+    FailMessage: "Job failed with no successful completions"
+    URL: "https://kubernetes.io/docs/concepts/workloads/controllers/job/#handling-pod-and-container-failures"
+    Recommendation:
+      text: Review job logs and resource constraints to identify cause of failure.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Inspect job with <code>kubectl describe job <name></code>.</li>
+            <li>Check logs for errors using <code>kubectl logs job/<name></code>.</li>
+            <li>Review pod events and resource limits.</li>
+          </ul>
+        </div>
+    Script: |
+      param($KubeData, $Namespace)
+      $thresholds = Get-KubeBuddyThresholds -Silent
+      $jobs = if ($KubeData?.Jobs) { $KubeData.Jobs.items } else {
+        (kubectl get jobs -A -o json | ConvertFrom-Json).items
+      }
+
+      $jobs | Where-Object {
+        $s = $_.status
+        if (-not $s) { return $false }
+        $fail = $s.failed -gt 0
+        $nosuccess = (-not $s.PSObject.Properties.Name -contains 'succeeded') -or $s.succeeded -eq 0
+        $old = $s.startTime -and ((New-TimeSpan -Start $s.startTime -End (Get-Date)).TotalHours -gt $thresholds.failed_job_hours)
+        $fail -and $nosuccess -and $old
+      } | ForEach-Object {
+        [pscustomobject]@{
+          Namespace = $_.metadata.namespace
+          Job       = $_.metadata.name
+          Age_Hours = [int](New-TimeSpan -Start $_.status.startTime -End (Get-Date)).TotalHours
+          Failures  = $_.status.failed
+          Status    = "🔴 Failed"
+        }
+      }

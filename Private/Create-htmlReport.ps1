@@ -116,42 +116,7 @@ function Generate-K8sHTMLReport {
   }
 
   $checks = @(
-    @{ Id = "nodeConditions"; Cmd = { Show-NodeConditions -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "nodeResources"; Cmd = { Show-NodeResourceUsage -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "emptyNamespace"; Cmd = { Show-EmptyNamespaces -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "resourceQuotas"; Cmd = { Check-ResourceQuotas -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "namespaceLimitRanges"; Cmd = { Check-NamespaceLimitRanges -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "daemonSetIssues"; Cmd = { Show-DaemonSetIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "HPA"; Cmd = { Check-HPAStatus -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "missingResourceLimits"; Cmd = { Check-MissingResourceLimits -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "PDB"; Cmd = { Check-PodDisruptionBudgets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "missingProbes"; Cmd = { Check-MissingHealthProbes -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "podsRestart"; Cmd = { Show-PodsWithHighRestarts -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "podLongRunning"; Cmd = { Show-LongRunningPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "podFail"; Cmd = { Show-FailedPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "podPending"; Cmd = { Show-PendingPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "crashloop"; Cmd = { Show-CrashLoopBackOffPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "leftoverDebug"; Cmd = { Show-LeftoverDebugPods -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "stuckJobs"; Cmd = { Show-StuckJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "jobFail"; Cmd = { Show-FailedJobs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "servicesWithoutEndpoints"; Cmd = { Show-ServicesWithoutEndpoints -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "publicServices"; Cmd = { Check-PubliclyAccessibleServices -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "unmountedPV"; Cmd = { Show-UnusedPVCs -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "rbacMisconfig"; Cmd = { Check-RBACMisconfigurations -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "rbacOverexposure"; Cmd = { Check-RBACOverexposure -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "orphanedServiceAccounts"; Cmd = { Check-OrphanedServiceAccounts -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "orphanedRoles"; Cmd = { Check-OrphanedRoles -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "orphanedConfigMaps"; Cmd = { Check-OrphanedConfigMaps -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "orphanedSecrets"; Cmd = { Check-OrphanedSecrets -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "podsRoot"; Cmd = { Check-PodsRunningAsRoot -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "privilegedContainers"; Cmd = { Check-PrivilegedContainers -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "hostPidNet"; Cmd = { Check-HostPidAndNetwork -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "eventSummary"; Cmd = { Show-KubeEvents -Html -PageSize 999 -KubeData:$KubeData } },
-    @{ Id = "deploymentIssues"; Cmd = { Check-DeploymentIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "statefulSetIssues"; Cmd = { Check-StatefulSetIssues -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    @{ Id = "ingressHealth"; Cmd = { Check-IngressHealth -Html -PageSize 999 -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } },
-    # Add custom kubectl checks
-    @{ Id = "customChecks"; Cmd = { Invoke-CustomKubectlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
+    @{ Id = "allChecks"; Cmd = { Invoke-CustomKubectlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
   )
 
   $customNavItems = @{}
@@ -163,24 +128,24 @@ function Generate-K8sHTMLReport {
     if (-not $html) {
       $html = "<p>No data available for $($check.Id).</p>"
     }
-    # Record pass/fail status
-    $status = if ($html -match '✅') { 'Passed' } else { 'Failed' }
-    $checkStatusList += [pscustomobject]@{
-      Id     = $check.Id
-      Status = $status
-    }
+    # # Record pass/fail status
+    # $status = if ($html -match '✅') { 'Passed' } else { 'Failed' }
+    # $checkStatusList += [pscustomobject]@{
+    #   Id     = $check.Id
+    #   Status = $status
+    # }
 
     # Inject custom checks into sections as before...
-    if ($check.Id -eq "customChecks" -and $html -is [hashtable]) {
-      $customChecksBySection = $html.HtmlBySection
-      $customCheckStatusList = $html.StatusList
-      $checkStatusList += $customCheckStatusList
+    if ($check.Id -eq "allChecks" -and $html -is [hashtable]) {
+      $allChecksBySection = $html.HtmlBySection
+      $allCheckstatusList = $html.StatusList
+      $checkStatusList += $allCheckstatusList
 
 
-      foreach ($section in $customChecksBySection.Keys) {
+      foreach ($section in $allChecksBySection.Keys) {
         $sanitizedId = $section -replace '[^\w]', ''
         $varName = "collapsible" + $sanitizedId + "Html"
-        $sectionHtml = $customChecksBySection[$section]
+        $sectionHtml = $allChecksBySection[$section]
         # Inject into appropriate section variable for rendering in correct tab
         $htmlVarName = "collapsible" + ($section -replace '[^\w]', '') + "Html"
         if (Get-Variable -Name $htmlVarName -ErrorAction SilentlyContinue) {
@@ -318,473 +283,14 @@ function Generate-K8sHTMLReport {
     }
 
     $hasIssues = $html -match '<tr>.*?<td>.*?</td>.*?</tr>' -and $html -notmatch 'No data available'
-    $recommendation = ""
-    $noFindings = $pre -match '✅'
 
-    if ($check.Id -in @("nodeConditions", "nodeResources")) {
-      $warningsCount = 0
-      if ($check.Id -eq "nodeConditions" -and $pre -match "Total Not Ready Nodes: (\d+)") {
-        $warningsCount = [int]$matches[1]
-      }
-      elseif ($check.Id -eq "nodeResources" -and $pre -match "Total Resource Warnings Across All Nodes: (\d+)") {
-        $warningsCount = [int]$matches[1]
-      }
-      $hasIssues = $warningsCount -ge 1
-      $noFindings = $warningsCount -eq 0
-      if ($check.Id -in @("nodeConditions", "nodeResources")) {
-        $noFindings = $false
-      }
-    }
-
-    if ($hasIssues) {
-      $recommendationText = switch ($check.Id) {
-        "nodeConditions" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Fix Node Issues</h4>
-  <ul>
-    <li><strong>Check Node Status:</strong> Use <code>kubectl describe node <node-name></code> to inspect conditions.</li>
-    <li><strong>Taints and Tolerations:</strong> Verify if pods have proper tolerations.</li>
-    <li><strong>Resource Exhaustion:</strong> Scale the cluster or rebalance pods.</li>
-    <li><strong>Logs:</strong> Review system logs via <code>kubectl logs -n kube-system</code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "nodeResources" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Optimize Resource Usage</h4>
-  <ul>
-    <li><strong>Monitor Usage:</strong> Use <code>kubectl top nodes</code> to find overloaded nodes.</li>
-    <li><strong>Scale Nodes:</strong> Add nodes if capacity is exceeded.</li>
-    <li><strong>Pod Limits:</strong> Set appropriate resource requests/limits.</li>
-    <li><strong>Horizontal Scaling:</strong> Deploy a HorizontalPodAutoscaler.</li>
-  </ul>
-</div>
-"@
-        }
-        "emptyNamespace" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Clean Up Empty Namespaces</h4>
-  <ul>
-    <li><strong>Verify Usage:</strong> Check if namespaces are truly unused.</li>
-    <li><strong>Delete:</strong> Remove empty namespaces with <code>kubectl delete ns <namespace></code>.</li>
-    <li><strong>Document:</strong> Record purpose if retained.</li>
-    <li><strong>Automate:</strong> Consider periodic cleanup jobs.</li>
-  </ul>
-</div>
-"@
-        }
-        "resourceQuotas" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Set ResourceQuotas</h4>
-  <ul>
-    <li><strong>Define:</strong> Create ResourceQuota objects with limits.</li>
-    <li><strong>Example:</strong> Use a quota YAML for CPU, memory and pods.</li>
-    <li><strong>Scope:</strong> Apply different quotas for environments.</li>
-    <li><strong>Monitor:</strong> Use <code>kubectl describe quota</code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "namespaceLimitRanges" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Add LimitRanges</h4>
-  <ul>
-    <li><strong>Define Defaults:</strong> Set default requests and limits per container.</li>
-    <li><strong>Example:</strong> Use a LimitRange YAML file.</li>
-    <li><strong>Purpose:</strong> Prevent pods from overconsumption.</li>
-    <li><strong>Apply:</strong> <code>kubectl apply -f limitrange.yaml -n <namespace></code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "daemonSetIssues" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Resolve DaemonSet Issues</h4>
-  <ul>
-    <li><strong>Inspect Logs:</strong> Use <code>kubectl logs</code> for error details.</li>
-    <li><strong>Node Affinity:</strong> Verify DaemonSet spec matches node conditions.</li>
-    <li><strong>Tolerations:</strong> Add if nodes are tainted.</li>
-    <li><strong>Rollout:</strong> Restart the DaemonSet if necessary.</li>
-  </ul>
-</div>
-"@
-        }
-        "HPA" {
-          @"
-<div class='recommendation-content'>
-  <h4>🛠️ Configure Horizontal Pod Autoscalers</h4>
-  <ul>
-    <li><strong>Enable Scaling:</strong> Use <code>kubectl autoscale deploy</code> for workloads.</li>
-    <li><strong>CPU/Memory Metrics:</strong> Ensure the metrics server is running.</li>
-    <li><strong>Custom Metrics:</strong> Configure if needed.</li>
-    <li><strong>Validation:</strong> Monitor with <code>kubectl describe hpa</code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "missingResourceLimits" {
-          @"
-<div class='recommendation-content'>
-  <h4>🛠️ Add Resource Requests and Limits</h4>
-  <ul>
-    <li><strong>Define Requests:</strong> Set minimum resource requirements.</li>
-    <li><strong>Define Limits:</strong> Limit maximum resource usage.</li>
-    <li><strong>Example:</strong> Include sample YAML in your pod spec.</li>
-    <li><strong>Policy:</strong> Enforce via LimitRanges.</li>
-  </ul>
-</div>
-"@
-        }
-        "PDB" {
-          @"
-<div class='recommendation-content'>
-  <h4>🛠️ Improve PDB Coverage</h4>
-  <ul>
-    <li><strong>Apply PDBs:</strong> Create for critical workloads.</li>
-    <li><strong>Avoid Weak PDBs:</strong> Do not set ineffective limits.</li>
-    <li><strong>Label Matching:</strong> Ensure selectors match pods.</li>
-    <li><strong>Dry Run:</strong> Verify with <code>kubectl get pdb</code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "missingProbes" {
-          @"
-<div class='recommendation-content'>
-  <h4>🛠️ Add Health Probes</h4>
-  <ul>
-    <li><strong>Readiness Probes:</strong> Indicate when containers are ready.</li>
-    <li><strong>Liveness Probes:</strong> Detect crashed apps.</li>
-    <li><strong>Startup Probes:</strong> Avoid premature termination.</li>
-    <li><strong>Validation:</strong> Test with <code>kubectl describe pod</code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "podsRestart" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Fix High Restart Pods</h4>
-  <ul>
-    <li><strong>Logs:</strong> Check <code>kubectl logs</code> for crash details.</li>
-    <li><strong>Resources:</strong> Increase limits if needed.</li>
-    <li><strong>Liveness Probes:</strong> Adjust if causing restarts.</li>
-    <li><strong>App Debugging:</strong> Investigate application exit codes.</li>
-  </ul>
-</div>
-"@
-        }
-        "podLongRunning" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Handle Long-Running Pods</h4>
-  <ul>
-    <li><strong>Verify Intent:</strong> Confirm if pods should run indefinitely.</li>
-    <li><strong>Jobs:</strong> Check if linked to a Job and inspect status.</li>
-    <li><strong>Timeouts:</strong> Consider disruption budgets.</li>
-    <li><strong>Monitoring:</strong> Setup alerts for abnormal runtimes.</li>
-  </ul>
-</div>
-"@
-        }
-        "podFail" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Resolve Failed Pods</h4>
-  <ul>
-    <li><strong>Events:</strong> Review pod events for failures.</li>
-    <li><strong>Logs:</strong> Inspect previous logs (<code>--previous</code>).</li>
-    <li><strong>Exit Codes:</strong> Check exit status and adjust resources.</li>
-    <li><strong>Restart Policy:</strong> Verify the pod’s restart policy.</li>
-  </ul>
-</div>
-"@
-        }
-        "podPending" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Fix Pending Pods</h4>
-  <ul>
-    <li><strong>Resources:</strong> Check cluster capacity.</li>
-    <li><strong>Taints:</strong> Verify node tolerations.</li>
-    <li><strong>Scheduling:</strong> Inspect node selectors.</li>
-    <li><strong>Scale:</strong> Add nodes if needed.</li>
-  </ul>
-</div>
-"@
-        }
-        "crashloop" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Fix CrashLoopBackOff Pods</h4>
-  <ul>
-    <li><strong>Logs:</strong> Check logs for crash reasons.</li>
-    <li><strong>Resources:</strong> Increase limits if pods are OOMKilled.</li>
-    <li><strong>Probes:</strong> Adjust if probes are too strict.</li>
-    <li><strong>App Fix:</strong> Debug application issues.</li>
-  </ul>
-</div>
-"@
-        }
-        "leftoverDebug" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Remove Debug Pods</h4>
-  <ul>
-    <li><strong>Identify:</strong> Verify pods are for debugging.</li>
-    <li><strong>Delete:</strong> Remove debug pods manually.</li>
-    <li><strong>Policy:</strong> Automate cleanup of debug pods.</li>
-    <li><strong>Monitoring:</strong> Alert on lingering debug pods.</li>
-  </ul>
-</div>
-"@
-        }
-        "stuckJobs" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Resolve Stuck Jobs</h4>
-  <ul>
-    <li><strong>Status:</strong> Check the Job’s pod failures.</li>
-    <li><strong>Pods:</strong> Inspect logs for errors.</li>
-    <li><strong>Delete:</strong> Remove stuck jobs if needed.</li>
-    <li><strong>Backoff:</strong> Adjust <code>backoffLimit</code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "jobFail" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Fix Failed Jobs</h4>
-  <ul>
-    <li><strong>Logs:</strong> Check logs for job failure details.</li>
-    <li><strong>Spec:</strong> Inspect the job specification.</li>
-    <li><strong>Resources:</strong> Ensure adequate CPU/memory.</li>
-    <li><strong>Retry:</strong> Increase retry settings or fix issues.</li>
-  </ul>
-</div>
-"@
-        }
-        "servicesWithoutEndpoints" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Fix Services Without Endpoints</h4>
-  <ul>
-    <li><strong>Selectors:</strong> Ensure service selectors match pods.</li>
-    <li><strong>Pods:</strong> Deploy missing pods if needed.</li>
-    <li><strong>Network:</strong> Check network policies.</li>
-    <li><strong>Debug:</strong> Use <code>kubectl get endpoints</code> to verify.</li>
-  </ul>
-</div>
-"@
-        }
-        "publicServices" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Secure Public Services</h4>
-  <ul>
-    <li><strong>Check Exposure:</strong> List services exposed via LoadBalancer.</li>
-    <li><strong>Restrict:</strong> Apply network policies to limit access.</li>
-    <li><strong>Internal:</strong> Use internal load balancer annotations if available.</li>
-    <li><strong>Review:</strong> Audit public exposure regularly.</li>
-  </ul>
-</div>
-"@
-        }
-        "ingress" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Validate Ingress Resources</h4>
-  <ul>
-    <li><strong>Backend Services:</strong> Verify Ingress routes to healthy pods.</li>
-    <li><strong>Annotations:</strong> Check correct ingress class.</li>
-    <li><strong>TLS:</strong> Ensure valid TLS configuration.</li>
-    <li><strong>Check Errors:</strong> Look for HTTP errors in logs.</li>
-  </ul>
-</div>
-"@
-        }
-        "unmountedPV" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Handle Unmounted PVs</h4>
-  <ul>
-    <li><strong>Verify:</strong> Check PVC status and pod mounts.</li>
-    <li><strong>Reclaim:</strong> Delete unused PVCs if not needed.</li>
-    <li><strong>Reattach:</strong> Mount them if required.</li>
-    <li><strong>Cleanup:</strong> Change reclaim policy if necessary.</li>
-  </ul>
-</div>
-"@
-        }
-        "rbacMisconfig" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Fix RBAC Misconfigurations</h4>
-  <ul>
-    <li><strong>Audit:</strong> List role bindings using <code>kubectl get</code>.</li>
-    <li><strong>Subjects:</strong> Add missing subjects if necessary.</li>
-    <li><strong>Remove:</strong> Delete unused roles or bindings.</li>
-    <li><strong>Test:</strong> Verify with <code>kubectl auth can-i</code>.</li>
-  </ul>
-</div>
-"@
-        }
-        "rbacOverexposure" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Reduce RBAC Overexposure</h4>
-  <ul>
-    <li><strong>Audit:</strong> Check permissions with <code>kubectl auth can-i</code>.</li>
-    <li><strong>Scope:</strong> Replace cluster-wide roles with namespace-specific ones.</li>
-    <li><strong>Least Privilege:</strong> Limit verbs/resources accordingly.</li>
-    <li><strong>Review:</strong> Regularly audit your RBAC settings.</li>
-  </ul>
-</div>
-"@
-        }
-        "orphanedConfigMaps" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Clean Up Orphaned ConfigMaps</h4>
-  <ul>
-    <li><strong>Verify:</strong> Check if ConfigMaps are used.</li>
-    <li><strong>Delete:</strong> Remove unused ConfigMaps.</li>
-    <li><strong>Documentation:</strong> Annotate if retained.</li>
-    <li><strong>Automation:</strong> Consider script-based cleanup.</li>
-  </ul>
-</div>
-"@
-        }
-        "orphanedSecrets" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Handle Orphaned Secrets</h4>
-  <ul>
-    <li><strong>Check:</strong> Verify if Secrets are in use.</li>
-    <li><strong>Delete:</strong> Remove unused Secrets.</li>
-    <li><strong>Mount:</strong> Confirm Secrets are mounted where needed.</li>
-    <li><strong>Security:</strong> Rotate if exposed unnecessarily.</li>
-  </ul>
-</div>
-"@
-        }
-        "podsRoot" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Secure Root Pods</h4>
-  <ul>
-    <li><strong>Config:</strong> Set <code>securityContext.runAsNonRoot: true</code>.</li>
-    <li><strong>User:</strong> Specify a non-zero UID.</li>
-    <li><strong>Verify:</strong> Use <code>kubectl exec</code> to check user.</li>
-    <li><strong>Policy:</strong> Enforce via admission controller.</li>
-  </ul>
-</div>
-"@
-        }
-        "privilegedContainers" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Remove Privileged Containers</h4>
-  <ul>
-    <li><strong>Check:</strong> Inspect the pod spec for <code>privileged: true</code>.</li>
-    <li><strong>Fix:</strong> Remove the privileged flag and set capabilities.</li>
-    <li><strong>Audit:</strong> Block with policy if needed.</li>
-  </ul>
-</div>
-"@
-        }
-        "hostPidNet" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Disable Host PID/Network</h4>
-  <ul>
-    <li><strong>Inspect:</strong> Check for usage of host PID or network.</li>
-    <li><strong>Fix:</strong> Set <code>hostPID: false</code> and <code>hostNetwork: false</code>.</li>
-    <li><strong>Justify:</strong> Only enable if absolutely required.</li>
-    <li><strong>Enforce:</strong> Use admission controllers to block such settings.</li>
-  </ul>
-</div>
-"@
-        }
-        "orphanedServiceAccounts" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Clean Up Orphaned ServiceAccounts</h4>
-  <ul>
-    <li><strong>Verify:</strong> List ServiceAccounts across namespaces.</li>
-    <li><strong>Delete:</strong> Remove unused ServiceAccounts.</li>
-    <li><strong>Audit:</strong> Confirm no pods or bindings use the ServiceAccount.</li>
-    <li><strong>Policy:</strong> Regularly review and clean up.</li>
-  </ul>
-</div>
-"@
-        }
-        "orphanedRoles" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Remove Unused Roles and ClusterRoles</h4>
-  <ul>
-    <li><strong>List:</strong> Get all roles and clusterroles.</li>
-    <li><strong>Bindings:</strong> Verify if they are in use.</li>
-    <li><strong>Prune:</strong> Remove those not bound.</li>
-    <li><strong>Review:</strong> Clean up for better auditing.</li>
-  </ul>
-</div>
-"@
-        }
-        "eventSummary" {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Address Cluster Events</h4>
-  <ul>
-    <li><strong>Correlate:</strong> Match events to resources.</li>
-    <li><strong>Root Cause:</strong> Investigate via logs/metrics.</li>
-    <li><strong>Fix:</strong> Adjust resources or configurations.</li>
-    <li><strong>Monitor:</strong> Alert on recurring issues.</li>
-  </ul>
-</div>
-"@
-        }
-        default {
-          @"
-<div class="recommendation-content">
-  <h4>🛠️ Generic Fix</h4>
-  <ul>
-    <li><strong>Inspect:</strong> Use <code>kubectl describe</code> on affected resources.</li>
-    <li><strong>Logs:</strong> Check logs for details.</li>
-    <li><strong>Config:</strong> Review YAML manifests.</li>
-    <li><strong>Docs:</strong> Consult Kubernetes documentation.</li>
-  </ul>
-</div>
-"@
-        }
-      }
-      $recommendation = @"
-<div class="recommendation-card">
-  <details style='margin-bottom: 10px;'>
-      <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
-      $recommendationText
-  </details>
-</div>
-<div style='height: 15px;'></div>
-"@
-    }
-
-    $defaultText = if ($check.Id -eq "eventSummary") { "Show Event Findings" } else { "Show Findings" }
     $content = if ($noFindings) {
       "$pre`n"
     }
     else {
-      "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText $defaultText -content "$recommendation`n$html")
+      "$pre`n" + (ConvertToCollapsible -Id $check.Id -defaultText $defaultText -content $html)
     }
+    
 
     Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
   }
@@ -810,7 +316,7 @@ function Generate-K8sHTMLReport {
 <div class="score-container">
   <p>Score: <strong>$clusterScore / 100</strong></p>
   <div class="progress-bar" style="--cluster-score: $clusterScore%; --score-color: $scoreColor;">
-    <div class="progress">
+    <div class="progress" style="width: $clusterScore%;">
       <span class="progress-text">$clusterScore%</span>
     </div>
   </div>
@@ -1665,7 +1171,6 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
 
 .progress {
   background-color: var(--score-color, #2196F3);
-  width: 0%;
   height: 100%;
   position: relative;
   transition: width 1s ease-out;
@@ -1843,7 +1348,7 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
         <li class="tab" data-tab="configuration">Configuration</li>
         <li class="tab" data-tab="security">Security</li>
         <li class="tab" data-tab="events">Kubernetes Events</li>
-        <li class="tab" data-tab="customChecks">Custom Checks</li>
+        <li class="tab" data-tab="allChecks">Custom Checks</li>
         $(if ($aks) { '<li class="tab" data-tab="aks">AKS Best Practices</li>' })
       </ul>
     </div>
@@ -1866,7 +1371,7 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
     <h1 id="Health">Cluster Overview</h1>
     <div class="cluster-health">
       <div class="health-score">
-      <h2>Cluster Health Score</h>
+      <h2>Cluster Health Score</h2>
         $scoreBarHtml
       </div>
       <div class="health-pie centered-donut">
@@ -1910,60 +1415,27 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
   <div class="tab-content" id="nodes">
     <div class="container">
       <h1>Node Conditions & Resources</h1>
-      <h2 id="nodecon">Node Conditions <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Displays node readiness, taints, and schedulability.</span></span></h2>
-      <div class="table-container">$collapsibleNodeConditionsHtml</div>
-      <h2 id="noderesource">Node Resources <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Shows CPU and memory usage across nodes.</span></span></h2>
-      <div class="table-container">$collapsibleNodeResourcesHtml</div>
+      <div class="table-container">$collapsibleNodesHtml</div>
     </div>
   </div>
   
   <div class="tab-content" id="namespaces">
     <div class="container">
       <h1>Namespaces</h1>
-      <h2>Empty Namespaces <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Namespaces without any active workloads.</span></span></h2>
-      <div class="table-container">$collapsibleEmptyNamespaceHtml</div>
-      <h2 id="resourceQuotas">ResourceQuota Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces lacking quota definitions.</span></span></h2>
-      <div class="table-container">$collapsibleResourceQuotasHtml</div>
-      <h2 id="namespaceLimitRanges">LimitRange Checks <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects namespaces missing default resource limits.</span></span></h2>
-      <div class="table-container">$collapsibleNamespaceLimitRangesHtml</div>
+      <div class="table-container">$collapsibleNamespacesHtml</div>
     </div>
   </div>
   
   <div class="tab-content" id="workloads">
     <div class="container">
       <h1>Workloads</h1>
-      <h2 id="daemonsets">DaemonSets Not Fully Running <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies DaemonSets with rollout issues.</span></span></h2>
-      <div class="table-container">$collapsibleDaemonSetIssuesHtml</div>
-      <h2 id="deploymentIssues">Deployment Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Identifies Deployments with unhealthy replicas or rollout problems.</span></span></h2>
-      <div class="table-container">$collapsibleDeploymentIssuesHtml</div>
-      <h2 id="statefulSetIssues">StatefulSet Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects StatefulSets with replica mismatches or unavailable pods.</span></span></h2>
-      <div class="table-container">$collapsibleStatefulSetIssuesHtml</div>
-      <h2 id="HPA">Horizontal Pod Autoscalers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Checks for presence and effectiveness of HPAs.</span></span></h2>
-      <div class="table-container">$collapsibleHPAHtml</div>
-      <h2 id="missingResourceLimits">Missing Resource Requests & Limits <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Finds containers missing CPU/memory requests or limits.</span></span></h2>
-      <div class="table-container">$collapsibleMissingResourceLimitsHtml</div>
-      <h2 id="PDB">PodDisruptionBudgets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detects missing or ineffective PDBs.</span></span></h2>
-      <div class="table-container">$collapsiblePDBHtml</div>
-      <h2 id="missingProbes">Missing Health Probes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Reports containers without readiness/liveness/startup probes.</span></span></h2>
-      <div class="table-container">$collapsibleMissingProbesHtml</div>
+      <div class="table-container">$collapsibleWorkloadsHtml</div>
     </div>
   </div>
   
   <div class="tab-content" id="pods">
     <div class="container">
       <h1>Pods</h1>
-      <h2 id="podrestarts">Pods with High Restarts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods restarting frequently.</span></span></h2>
-      <div class="table-container">$collapsiblePodsRestartHtml</div>
-      <h2 id="podlong">Long Running Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods running longer than expected.</span></span></h2>
-      <div class="table-container">$collapsiblePodLongRunningHtml</div>
-      <h2 id="podfail">Failed Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods that exited with a non-zero status.</span></span></h2>
-      <div class="table-container">$collapsiblePodFailHtml</div>
-      <h2 id="podpend">Pending Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods waiting for resources.</span></span></h2>
-      <div class="table-container">$collapsiblePodPendingHtml</div>
-      <h2 id="crashloop">CrashLoopBackOff Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Pods in a continuous crash loop.</span></span></h2>
-      <div class="table-container">$collapsibleCrashloopHtml</div>
-      <h2 id="debugpods">Running Debug Pods <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ephemeral or debug pods that remain running.</span></span></h2>
-      <div class="table-container">$collapsibleLeftoverdebugHtml</div>
       <div class="table-container">$collapsiblePodsHtml</div>
     </div>
   </div>
@@ -1971,30 +1443,21 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
   <div class="tab-content" id="jobs">
     <div class="container">
       <h1>Jobs</h1>
-      <h2 id="stuckjobs">Stuck Jobs <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that haven't progressed as expected.</span></span></h2>
-      <div class="table-container">$collapsibleStuckJobsHtml</div>
-      <h2 id="failedjobs">Job Failures <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Jobs that failed execution.</span></span></h2>
-      <div class="table-container">$collapsibleJobFailHtml</div>
+      <div class="table-container">$collapsibleJobsHtml</div>
     </div>
   </div>
   
   <div class="tab-content" id="networking">
     <div class="container">
       <h1>Networking</h1>
-      <h2 id="servicenoendpoints">Services without Endpoints <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services with no active backend pods.</span></span></h2>
-      <div class="table-container">$collapsibleServicesWithoutEndpointsHtml</div>
-      <h2 id="publicServices">Publicly Accessible Services <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Services exposed externally.</span></span></h2>
-      <div class="table-container">$collapsiblePublicServicesHtml</div>
-      <h2 id="ingressHealth">Ingress Configuration Issues <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Ingress misconfigurations or missing backends.</span></span></h2>
-      <div class="table-container">$collapsibleIngressHealthHtml</div>
+      <div class="table-container">$collapsibleNetworkingHtml</div>
     </div>
   </div>
   
   <div class="tab-content" id="storage">
     <div class="container">
       <h1>Storage</h1>
-      <h2 id="unmountedpv">Unmounted Persistent Volumes <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Persistent volumes not mounted to any pod.</span></span></h2>
-      <div class="table-container">$collapsibleUnmountedpvHtml</div>
+      <div class="table-container">$collapsibleStorageHtml</div>
     </div>
   </div>
   
@@ -2008,24 +1471,6 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
   <div class="tab-content" id="security">
     <div class="container">
       <h1>Security</h1>
-      <h2 id="rbacmisconfig">RBAC Misconfigurations <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">RoleBindings or ClusterRoleBindings missing subjects.</span></span></h2>
-      <div class="table-container">$collapsibleRbacmisconfigHtml</div>
-      <h2 id="rbacOverexposure">RBAC Overexposure <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Excessive privileges assigned.</span></span></h2>
-      <div class="table-container">$collapsibleRbacOverexposureHtml</div>
-      <h2 id="orphanedRoles">Unused Roles & ClusterRoles <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Roles with no bindings.</span></span></h2>
-      <div class="table-container">$collapsibleOrphanedRolesHtml</div>
-      <h2 id="orphanedServiceAccounts">Orphaned ServiceAccounts <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ServiceAccounts not used by any pod or binding.</span></span></h2>
-      <div class="table-container">$collapsibleOrphanedServiceAccountsHtml</div>
-      <h2 id="orphanedconfigmaps">Orphaned ConfigMaps <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">ConfigMaps not referenced by any workload.</span></span></h2>
-      <div class="table-container">$collapsibleOrphanedConfigMapsHtml</div>
-      <h2 id="orphanedsecrets">Orphaned Secrets <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Secrets that are unused or unmounted.</span></span></h2>
-      <div class="table-container">$collapsibleOrphanedSecretsHtml</div>
-      <h2 id="podsRoot">Pods Running as Root <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers running as UID 0.</span></span></h2>
-      <div class="table-container">$collapsiblePodsRootHtml</div>
-      <h2 id="privilegedContainers">Privileged Containers <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers with privileged security context.</span></span></h2>
-      <div class="table-container">$collapsiblePrivilegedContainersHtml</div>
-      <h2 id="hostPidNet">hostPID / hostNetwork Enabled <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Containers sharing host PID or network namespaces.</span></span></h2>
-      <div class="table-container">$collapsibleHostPidNetHtml</div>
       <div class="table-container">$collapsibleSecurityHtml</div>
     </div>
   </div>
@@ -2033,16 +1478,13 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
   <div class="tab-content" id="events">
     <div class="container">
       <h1>Kubernetes Warning Events</h1>
-      <h2 id="clusterwarnings">Warning Summary (Grouped) <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Grouped summary of recent warnings and errors.</span></span></h2>
-      <div class="table-container">$collapsibleEventSummaryWarningsHtml</div>
-      <h2 id="fulleventlog">Full Warning Event Log <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Detailed log of warning and error events.</span></span></h2>
-      <div class="table-container">$collapsibleEventSummaryFullLogHtml</div>
+      <div class="table-container">$collapsibleKubernetesEventsHtml</div>
     </div>
   </div>
   
   <div class="tab-content" id="customChecks">
     <div class="container">
-      <h1>Custom Kubectl Checks</h1>
+      <h1>Custom Checks</h1>
       <div class="table-container">$collapsibleCustomChecksHtml</div>
     </div>
   </div>

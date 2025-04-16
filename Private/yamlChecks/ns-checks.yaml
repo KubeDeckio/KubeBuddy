@@ -1,0 +1,153 @@
+checks:
+  - ID: NS001
+    Name: Empty Namespaces
+    Section: Namespaces
+    Category: Namespaces
+    ResourceKind: namespaces
+    Severity: low
+    Weight: 1
+    Description: Finds namespaces with no running pods.
+    Recommendation:
+      text: These may be stale or unused and safe to delete after verifying they contain no critical resources.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Check if any other resources (PVCs, Secrets) exist before deleting.</li>
+            <li>Use <code>kubectl get all -n &lt;namespace&gt;</code> to inspect.</li>
+            <li>Clean up empty namespaces to reduce clutter.</li>
+          </ul>
+        </div>
+    Script: |
+      param($KubeData, $Namespace)
+      $allNamespaces = if ($KubeData?.Namespaces) {
+        $KubeData.Namespaces
+      } else {
+        (kubectl get namespaces -o json | ConvertFrom-Json).items
+      }
+
+      $allNsNames = $allNamespaces | ForEach-Object { $_.metadata.name.Trim() }
+
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items | Where-Object { $_.metadata.namespace } | Group-Object { $_.metadata.namespace }
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items | Group-Object { $_.metadata.namespace }
+      }
+
+      $used = $pods | ForEach-Object { $_.Name.Trim() }
+      $empty = $allNsNames | Where-Object { $_ -notin $used }
+
+      $empty | ForEach-Object {
+        [pscustomobject]@{
+          Namespace = $_
+          Status    = "📂 Empty"
+        }
+      }
+    URL: "https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/"
+  - ID: NS002
+    Name: Missing or Weak ResourceQuotas
+    Section: Namespaces
+    Category: Namespaces
+    ResourceKind: resourcequotas
+    Severity: medium
+    Weight: 3
+    Description: Detects namespaces with missing or incomplete ResourceQuota definitions.
+    Recommendation:
+      text: Apply CPU, memory, and pod quotas to enforce fair resource usage.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Define limits using <code>ResourceQuota</code> for pods, memory, and CPU.</li>
+            <li>Helps avoid over-provisioning and noisy neighbor issues.</li>
+            <li>Review quotas using <code>kubectl describe quota -n &lt;namespace&gt;</code>.</li>
+          </ul>
+        </div>
+    Script: |
+      param($KubeData, $Namespace)
+      $quotas = if ($KubeData?.ResourceQuotas) {
+        $KubeData.ResourceQuotas
+      } else {
+        (kubectl get resourcequotas -A -o json | ConvertFrom-Json).items
+      }
+
+      $namespaces = if ($KubeData?.Namespaces) {
+        $KubeData.Namespaces
+      } else {
+        (kubectl get namespaces -o json | ConvertFrom-Json).items
+      }
+
+      $results = @()
+      foreach ($ns in $namespaces) {
+        $nsName = $ns.metadata.name
+        $q = $quotas | Where-Object { $_.metadata.namespace -eq $nsName }
+
+        if (-not $q) {
+          $results += [pscustomobject]@{ Namespace = $nsName; Issue = "❌ No ResourceQuota" }
+        } else {
+          $hasCPU = $false; $hasMemory = $false; $hasPods = $false
+          foreach ($item in $q) {
+            $p = $item.status.hard.PSObject.Properties.Name
+            if ($p -contains "requests.cpu" -or $p -contains "limits.cpu") { $hasCPU = $true }
+            if ($p -contains "requests.memory" -or $p -contains "limits.memory") { $hasMemory = $true }
+            if ($p -contains "pods") { $hasPods = $true }
+          }
+          if (-not ($hasCPU -and $hasMemory -and $hasPods)) {
+            $missing = @()
+            if (-not $hasCPU) { $missing += "CPU" }
+            if (-not $hasMemory) { $missing += "Memory" }
+            if (-not $hasPods) { $missing += "Pods" }
+            $results += [pscustomobject]@{
+              Namespace = $nsName
+              Issue     = "⚠️ Missing: $($missing -join ', ')"
+            }
+          }
+        }
+      }
+
+      $results
+    URL: "https://kubernetes.io/docs/concepts/policy/resource-quotas/"
+  - ID: NS003
+    Name: Missing LimitRanges
+    Section: Namespaces
+    Category: Namespaces
+    ResourceKind: limitranges
+    Severity: medium
+    Weight: 2
+    Description: Detects namespaces without a defined LimitRange.
+    Recommendation:
+      text: Define default CPU and memory limits to avoid unbounded pod usage.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>LimitRanges define default and max values for CPU/memory.</li>
+            <li>Prevents pods from using unlimited resources.</li>
+            <li>Use <code>kubectl create limitrange ...</code> or <code>kubectl describe limitrange -n &lt;namespace&gt;</code>.</li>
+          </ul>
+        </div>
+    Script: |
+      param($KubeData, $Namespace)
+      $limitRanges = if ($KubeData?.LimitRanges) {
+        $KubeData.LimitRanges
+      } else {
+        (kubectl get limitranges -A -o json | ConvertFrom-Json).items
+      }
+
+      $namespaces = if ($KubeData?.Namespaces) {
+        $KubeData.Namespaces
+      } else {
+        (kubectl get namespaces -o json | ConvertFrom-Json).items
+      }
+
+      $results = @()
+      foreach ($ns in $namespaces) {
+        $nsName = $ns.metadata.name
+        $hasLimit = $limitRanges | Where-Object { $_.metadata.namespace -eq $nsName }
+        if (-not $hasLimit) {
+          $results += [pscustomobject]@{
+            Namespace = $nsName
+            Issue     = "❌ No LimitRange"
+          }
+        }
+      }
+
+      $results
+    URL: "https://kubernetes.io/docs/concepts/policy/limit-range/"

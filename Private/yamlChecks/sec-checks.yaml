@@ -6,6 +6,7 @@ checks:
     Description: "Detects Secrets not used by any workloads, ingresses, service accounts, or known custom resources."
     ResourceKind: "Secret"
     Severity: "Medium"
+    Weight: 2
     Operator: "script"
     Script: |
       param($KubeData, $Namespace)
@@ -98,13 +99,14 @@ checks:
           </ul>
         </div>
     URL: "https://kubernetes.io/docs/concepts/configuration/secret/"
-  - ID: "POD001"
+  - ID: "SEC002"
     Category: "Pods"
     Section: "Security"
     Name: "Pods using hostPID or hostNetwork"
     Description: "Flags pods that share the host's PID or network namespace, which can compromise isolation and node security."
     ResourceKind: "Pod"
     Severity: "High"
+    Weight: 4
     Operator: "script"
     Script: |
       param($KubeData, $Namespace)
@@ -151,13 +153,120 @@ checks:
           </ul>
         </div>
     URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
-  - ID: "POD005"
+  - ID: "SEC003"
     Category: "Pod Security"
-    Section: "Isolation"
+    Section: "Security"
+    Name: "Pods Running as Root"
+    Description: "Detects pods running with UID 0 or no explicit runAsUser setting (defaults to root)."
+    ResourceKind: "Pod"
+    Severity: "High"
+    Weight: 5
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+  
+      $pods = $KubeData.Pods.items
+  
+      if ($Namespace) {
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+  
+      $results = @()
+  
+      foreach ($pod in $pods) {
+        $podUser = $pod.spec.securityContext.runAsUser
+  
+        foreach ($container in $pod.spec.containers) {
+          $containerUser = $container.securityContext.runAsUser
+          $isRoot = -not $containerUser -and -not $podUser
+  
+          if (($containerUser -eq 0) -or ($podUser -eq 0) -or $isRoot) {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Resource  = "pod/$($pod.metadata.name)"
+              Value     = if ($containerUser) {
+                $containerUser
+              } elseif ($podUser) {
+                $podUser
+              } else {
+                "Not Set (Defaults to root)"
+              }
+              Message   = "Container $($container.name) runs as root or has no runAsUser set"
+            }
+          }
+        }
+      }
+  
+      return $results
+    FailMessage: "Pod runs as root user or has no runAsUser set"
+    Recommendation:
+      text: "Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 RunAsUser Hardening</h4>
+          <ul>
+            <li>Set <code>runAsUser: non-zero UID</code> at pod or container level.</li>
+            <li>Avoid relying on container defaults — define securityContext explicitly.</li>
+            <li>Use Pod Security Policies (PSPs) or Gatekeeper policies to enforce non-root UID usage.</li>
+            <li>Validate any custom base images that may default to root.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
+  - ID: "SEC004"
+    Category: "Pod Security"
+    Section: "Security"
+    Name: "Privileged Containers"
+    Description: "Detects containers running with privileged mode enabled."
+    ResourceKind: "Pod"
+    Severity: "High"
+    Weight: 5
+    Operator: "script"
+    Script: |
+      param($KubeData, $Namespace)
+  
+      $pods = $KubeData.Pods.items
+      if ($Namespace) {
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+  
+      $results = @()
+  
+      foreach ($pod in $pods) {
+        foreach ($container in $pod.spec.containers) {
+          if ($container.securityContext.privileged -eq $true) {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Resource  = "pod/$($pod.metadata.name)"
+              Value     = "privileged=true"
+              Message   = "Container '$($container.name)' is running in privileged mode"
+            }
+          }
+        }
+      }
+  
+      return $results
+    FailMessage: "Privileged container found"
+    Recommendation:
+      text: "Avoid using privileged containers unless absolutely necessary, as they grant broad access to host resources."
+      html: |
+        <div class="recommendation-content">
+          <h4>🚫 Disable Privileged Containers</h4>
+          <ul>
+            <li>Remove <code>securityContext.privileged: true</code> from container specs.</li>
+            <li>Refactor workloads to avoid needing host-level access.</li>
+            <li>Enforce restrictions using Pod Security Policies or OPA/Gatekeeper.</li>
+            <li>Limit use to dedicated namespaces with strict controls.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted"
+  - ID: "SEC005"
+    Category: "Pod Security"
+    Section: "Security"
     Name: "Pods Using hostIPC"
     Description: "Detects pods that use hostIPC, which can compromise pod isolation and allow access to shared memory on the host."
     ResourceKind: "Pod"
     Severity: "High"
+    Weight: 3
     Operator: "script"
     Script: |
       param($KubeData, $Namespace)
