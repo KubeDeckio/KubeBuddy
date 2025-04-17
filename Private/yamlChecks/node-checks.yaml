@@ -18,10 +18,22 @@ checks:
             <li>Verify cluster networking and node resource pressure.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 Checking node readiness and conditions."
+        - ""
+        - "📌 This check looks for:"
+        - "   - Nodes not in 'Ready' state"
+        - "   - Warnings in other condition types"
+        - ""
+        - "⚠️ Nodes not ready may prevent scheduling or disrupt workloads."
     URL: "https://kubernetes.io/docs/concepts/architecture/nodes/"
     Script: |
       param($KubeData)
-      $nodes = $KubeData.Nodes.items
+      $nodes = if ($KubeData?.Nodes) {
+        $KubeData.Nodes.items
+      } else {
+        (kubectl get nodes -o json | ConvertFrom-Json).items
+      }
       $results = @()
       $notReadyCount = 0
   
@@ -75,11 +87,28 @@ checks:
             <li>Scale node pool or optimize workloads if necessary.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for high CPU, memory, or disk usage on nodes."
+      - ""
+      - "📌 This check compares usage against configured thresholds."
+      - "   - CPU, memory: from metrics-server"
+      - "   - Disk: estimated from node summary"
+      - ""
+      - "⚠️ High usage may lead to evictions or degraded performance."
     URL: "https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/"
     Script: |
       param($KubeData, $Thresholds)
-      $nodes = $KubeData.Nodes.items
-      $top = $KubeData.TopNodes
+      $nodes = if ($KubeData?.Nodes) {
+        $KubeData.Nodes.items
+      } else {
+        (kubectl get nodes -o json | ConvertFrom-Json).items
+      }
+      
+      $top = if ($KubeData?.TopNodes) {
+        $KubeData.TopNodes
+      } else {
+        kubectl top nodes | Out-String -Stream
+      }
       $results = @()
       $issueCount = 0
   

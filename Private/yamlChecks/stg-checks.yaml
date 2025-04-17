@@ -15,8 +15,8 @@ checks:
         <div class="recommendation-content">
           <h4>💾 Clean Up Unused PVCs</h4>
           <ul>
-            <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n &lt;namespace&gt;</code>.</li>
-            <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc &lt;name&gt;</code>.</li>
+            <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n <namespace></code>.</li>
+            <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc <name></code>.</li>
             <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>
           </ul>
         </div>
@@ -26,37 +26,45 @@ checks:
         - "These are NOT in use by any pod."
         - "Check before deleting."
     Script: |
-      param(
-        [object]$KubeData,
-        [switch]$ExcludeNamespaces
-      )
-
-      $pvcs = if ($null -ne $KubeData) {
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      $pvcs = if ($KubeData -and $KubeData.PersistentVolumeClaims) {
         $KubeData.PersistentVolumeClaims.items
       } else {
-        (kubectl get pvc --all-namespaces -o json | ConvertFrom-Json).items
+        Get-KubeJson "pvc"
       }
-
       if ($ExcludeNamespaces) {
         $pvcs = Exclude-Namespaces -items $pvcs
       }
-
+      
+      $pods = if ($KubeData -and $KubeData.Pods) {
+        $KubeData.Pods.items
+      } else {
+        Get-KubeJson "pods"
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+      
+      if ($Namespace) {
+        $pvcs = $pvcs | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
       if (-not $pvcs -or $pvcs.Count -eq 0) {
         return @()
       }
-
-      $pods = if ($null -ne $KubeData) {
-        $KubeData.Pods.items
-      } else {
-        (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items
-      }
-
+      
       $attachedPVCs = $pods |
         ForEach-Object { $_.spec.volumes | Where-Object { $_.persistentVolumeClaim } } |
         Select-Object -ExpandProperty persistentVolumeClaim
-
+      
       $unusedPVCs = $pvcs | Where-Object { $_.metadata.name -notin $attachedPVCs.name }
-
+      
       $unusedPVCs | ForEach-Object {
         [PSCustomObject]@{
           Namespace = $_.metadata.namespace

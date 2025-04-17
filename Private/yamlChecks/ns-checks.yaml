@@ -13,25 +13,39 @@ checks:
         <div class="recommendation-content">
           <ul>
             <li>Check if any other resources (PVCs, Secrets) exist before deleting.</li>
-            <li>Use <code>kubectl get all -n &lt;namespace&gt;</code> to inspect.</li>
+            <li>Use <code>kubectl get all -n <namespace></code> to inspect.</li>
             <li>Clean up empty namespaces to reduce clutter.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 Checking for empty namespaces."
+        - ""
+        - "📌 This check finds namespaces that have no running pods."
+        - ""
+        - "⚠️ These might be stale or unused but check for other resources like Secrets or PVCs before deleting."
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
       $allNamespaces = if ($KubeData?.Namespaces) {
         $KubeData.Namespaces
       } else {
         (kubectl get namespaces -o json | ConvertFrom-Json).items
       }
+      if ($ExcludeNamespaces) {
+        $allNamespaces = Exclude-Namespaces -items $allNamespaces
+      }
 
       $allNsNames = $allNamespaces | ForEach-Object { $_.metadata.name.Trim() }
 
       $pods = if ($KubeData?.Pods) {
-        $KubeData.Pods.items | Where-Object { $_.metadata.namespace } | Group-Object { $_.metadata.namespace }
+        $KubeData.Pods.items | Where-Object { $_.metadata.namespace }
       } else {
-        (kubectl get pods -A -o json | ConvertFrom-Json).items | Group-Object { $_.metadata.namespace }
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
       }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $pods = $pods | Group-Object { $_.metadata.namespace }
 
       $used = $pods | ForEach-Object { $_.Name.Trim() }
       $empty = $allNsNames | Where-Object { $_ -notin $used }
@@ -58,21 +72,36 @@ checks:
           <ul>
             <li>Define limits using <code>ResourceQuota</code> for pods, memory, and CPU.</li>
             <li>Helps avoid over-provisioning and noisy neighbor issues.</li>
-            <li>Review quotas using <code>kubectl describe quota -n &lt;namespace&gt;</code>.</li>
+            <li>Review quotas using <code>kubectl describe quota -n <namespace></code>.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for missing or incomplete ResourceQuotas."
+      - ""
+      - "📌 This check flags namespaces that lack ResourceQuota settings or are missing limits for:"
+      - "   - CPU"
+      - "   - Memory"
+      - "   - Pods"
+      - ""
+      - "⚠️ Incomplete quotas can lead to resource abuse and noisy neighbors."
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
       $quotas = if ($KubeData?.ResourceQuotas) {
         $KubeData.ResourceQuotas
       } else {
         (kubectl get resourcequotas -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $quotas = Exclude-Namespaces -items $quotas
       }
 
       $namespaces = if ($KubeData?.Namespaces) {
         $KubeData.Namespaces
       } else {
         (kubectl get namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $namespaces = Exclude-Namespaces -items $namespaces
       }
 
       $results = @()
@@ -120,21 +149,33 @@ checks:
           <ul>
             <li>LimitRanges define default and max values for CPU/memory.</li>
             <li>Prevents pods from using unlimited resources.</li>
-            <li>Use <code>kubectl create limitrange ...</code> or <code>kubectl describe limitrange -n &lt;namespace&gt;</code>.</li>
+            <li>Use <code>kubectl create limitrange ...</code> or <code>kubectl describe limitrange -n <namespace></code>.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for namespaces missing LimitRanges."
+      - ""
+      - "📌 LimitRanges define default and maximum CPU/memory for pods and containers."
+      - ""
+      - "⚠️ Without them, workloads may consume unbounded resources."
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
       $limitRanges = if ($KubeData?.LimitRanges) {
         $KubeData.LimitRanges
       } else {
         (kubectl get limitranges -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $limitRanges = Exclude-Namespaces -items $limitRanges
       }
 
       $namespaces = if ($KubeData?.Namespaces) {
         $KubeData.Namespaces
       } else {
         (kubectl get namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $namespaces = Exclude-Namespaces -items $namespaces
       }
 
       $results = @()

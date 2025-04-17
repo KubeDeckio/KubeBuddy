@@ -15,26 +15,48 @@ checks:
         <div class="recommendation-content">
           <h4>🛠️ Clean Up Orphaned ConfigMaps</h4>
           <ul>
-            <li><strong>Verify:</strong> Check usage (<code>kubectl describe cm &lt;name&gt;</code>).</li>
-            <li><strong>Delete:</strong> <code>kubectl delete cm &lt;name&gt;</code> if unused.</li>
+            <li><strong>Verify:</strong> Check usage (<code>kubectl describe cm <name></code>).</li>
+            <li><strong>Delete:</strong> <code>kubectl delete cm <name></code> if unused.</li>
             <li><strong>Automation:</strong> Schedule periodic scans.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some ConfigMaps are not used anywhere."
+      - ""
+      - "📌 This includes Pods, Deployments, Services, Ingresses, and CRDs."
+      - ""
+      - "⚠️ Review and delete unused ones to keep your cluster tidy."
     Script: |
       param (
         $KubeData,
-        $Namespace
+        $Namespace,
+        [switch]$ExcludeNamespaces
       )
 
       $excludedPatterns = "^sh\.helm\.release\.v1\.|^kube-root-ca\.crt$"
-      $configMaps = if ($KubeData.ConfigMaps) { $KubeData.ConfigMaps } else { @() }
+      $configMaps = if ($KubeData?.ConfigMaps) {
+        $KubeData.ConfigMaps
+      } else {
+        (kubectl get configmaps -A -o json | ConvertFrom-Json).items
+      }
+
+      if ($ExcludeNamespaces) {
+          $configMaps = Exclude-Namespaces -items $configMaps
+      }
+
       $configMaps = $configMaps | Where-Object { $_.metadata.name -notmatch $excludedPatterns }
 
       $used = [System.Collections.Generic.HashSet[string]]::new()
 
-      $pods = $KubeData.Pods.items
-      $workloads = @("deployments", "statefulsets", "daemonsets", "cronjobs", "jobs", "replicasets") | ForEach-Object {
-        $KubeData[$_].items
+      $pods = if ($KubeData -and $KubeData.Pods) { $KubeData.Pods.items } else {
+        kubectl get pods --all-namespaces -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
+      }
+  
+      $workloadTypes = @("deployments", "statefulsets", "daemonsets", "cronjobs", "jobs", "replicasets")
+      $workloads = $workloadTypes | ForEach-Object {
+          if ($KubeData -and $KubeData[$_]) { $KubeData[$_].items } else {
+              kubectl get $_ --all-namespaces -o json 2>$null | ConvertFrom-Json | Select-Object -ExpandProperty items
+          }
       }
 
       foreach ($item in $pods + $workloads) {
@@ -92,10 +114,25 @@ checks:
             <li><strong>Automation:</strong> Use policies or linting tools to catch duplicates pre-deploy.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some ConfigMaps share the same name across multiple namespaces."
+      - ""
+      - "📌 This can cause confusion or deployment errors in shared tooling."
+      - ""
+      - "⚠️ Consider using a naming convention that avoids conflicts."
     Script: |
-      param ($KubeData)
+      param ($KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
-      $configMaps = if ($KubeData.ConfigMaps) { $KubeData.ConfigMaps } else { @() }
+      $configMaps = if ($KubeData?.ConfigMaps) {
+        $KubeData.ConfigMaps
+      } else {
+        (kubectl get configmaps -A -o json | ConvertFrom-Json).items
+      }
+
+      if ($ExcludeNamespaces) {
+          $configMaps = Exclude-Namespaces -items $configMaps
+      }
+
       $grouped = $configMaps | Group-Object { $_.metadata.name } | Where-Object { $_.Count -gt 1 }
 
       foreach ($g in $grouped) {
@@ -128,10 +165,25 @@ checks:
             <li><strong>Review:</strong> Check for secrets or binary blobs mistakenly stored in ConfigMaps.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some ConfigMaps are larger than 1 MiB."
+      - ""
+      - "📌 This can lead to performance issues or hit platform limits."
+      - ""
+      - "⚠️ Avoid putting big data or binaries in ConfigMaps."
     Script: |
-      param ($KubeData)
+      param ($KubeData, $Namespace, [switch]$ExcludeNamespaces)
     
-      $configMaps = if ($KubeData.ConfigMaps) { $KubeData.ConfigMaps } else { @() }
+      $configMaps = if ($KubeData?.ConfigMaps) {
+        $KubeData.ConfigMaps
+      } else {
+        (kubectl get configmaps -A -o json | ConvertFrom-Json).items
+      }
+
+      if ($ExcludeNamespaces) {
+          $configMaps = Exclude-Namespaces -items $configMaps
+      }
+
       $threshold = 1048576
     
       foreach ($cm in $configMaps) {
@@ -152,4 +204,3 @@ checks:
           }
         }
       }
-

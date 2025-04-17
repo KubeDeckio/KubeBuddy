@@ -56,5 +56,3 @@ This page lists all the checks KubeBuddy performs when generating a cluster repo
 - **Severity** indicates how much the issue could impact your cluster.
 - **Weight** affects the cluster health score. Higher weight checks contribute more.
 - You can selectively disable checks by editing the YAML definitions in `yamlChecks/`.
-
-This list is current as of your latest YAML check definitions.

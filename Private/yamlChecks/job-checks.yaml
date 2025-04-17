@@ -19,13 +19,21 @@ checks:
             <li>Check logs with <code>kubectl logs job/<name></code>.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for stuck Kubernetes Jobs."
+      - ""
+      - "📌 These jobs started but didn’t complete within $($thresholds.stuck_job_hours) hours."
+      - ""
+      - "⚠️ They may be stuck due to crashes, backoff, or resource limits."
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
       $thresholds = Get-KubeBuddyThresholds -Silent
       $jobs = if ($KubeData?.Jobs) { $KubeData.Jobs.items } else {
         (kubectl get jobs -A -o json | ConvertFrom-Json).items
       }
-
+      if ($ExcludeNamespaces) {
+          $jobs = Exclude-Namespaces -items $jobs
+      }
       $jobs | Where-Object {
         $s = $_.status
         if (-not $s) { return $false }
@@ -60,13 +68,21 @@ checks:
             <li>Review pod events and resource limits.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for failed Kubernetes Jobs."
+      - ""
+      - "📌 These jobs failed with no successful completions."
+      - ""
+      - "⚠️ Review logs, resource limits, and pod status to investigate."
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
       $thresholds = Get-KubeBuddyThresholds -Silent
       $jobs = if ($KubeData?.Jobs) { $KubeData.Jobs.items } else {
         (kubectl get jobs -A -o json | ConvertFrom-Json).items
       }
-
+      if ($ExcludeNamespaces) {
+          $jobs = Exclude-Namespaces -items $jobs
+      }
       $jobs | Where-Object {
         $s = $_.status
         if (-not $s) { return $false }

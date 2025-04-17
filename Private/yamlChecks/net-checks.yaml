@@ -9,10 +9,25 @@ checks:
     Weight: 2
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
-      $services = $KubeData.Services.items | Where-Object { $_.spec.type -ne "ExternalName" }
-      $endpoints = $KubeData.Endpoints.items
+      $services = if ($KubeData?.Services) {
+        $KubeData.Services.items | Where-Object { $_.spec.type -ne "ExternalName" }
+      } else {
+        (kubectl get services --all-namespaces -o json | ConvertFrom-Json).items | Where-Object { $_.spec.type -ne "ExternalName" }
+      }
+      if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+      }
+      
+      $endpoints = if ($KubeData?.Endpoints) {
+        $KubeData.Endpoints.items
+      } else {
+        (kubectl get endpoints --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $endpoints = Exclude-Namespaces -items $endpoints
+      }
 
       if ($Namespace) {
         $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
@@ -48,10 +63,16 @@ checks:
           <ul>
             <li>Verify that your service has a valid selector.</li>
             <li>Check if pods exist and are ready in the same namespace.</li>
-            <li>Use <code>kubectl describe svc &lt;name&gt;</code> and <code>kubectl get endpoints &lt;name&gt;</code>.</li>
+            <li>Use <code>kubectl describe svc <name></code> and <code>kubectl get endpoints <name></code>.</li>
             <li>Restart affected pods or fix labels as needed.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for services without endpoints."
+      - ""
+      - "📌 This means the service isn't routing to any pods."
+      - ""
+      - "⚠️ Often caused by label mismatches or no pods running."
     URL: "https://kubernetes.io/docs/concepts/services-networking/service/"
   - ID: "NET002"
     Category: "Networking"
@@ -63,9 +84,17 @@ checks:
     Weight: 4
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
   
-      $services = $KubeData.Services.items
+      $services = if ($KubeData?.Services) {
+        $KubeData.Services.items
+      } else {
+        (kubectl get services --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+      }
+
       if ($Namespace) {
         $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
@@ -130,6 +159,12 @@ checks:
             <li>Consider network policies or service mesh for access control.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for services exposed to the internet."
+      - ""
+      - "📌 Flags LoadBalancer and NodePort types with external IPs."
+      - ""
+      - "⚠️ Public exposure may allow untrusted access."
     URL: "https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services"
   - ID: "NET003"
     Category: "Networking"
@@ -141,15 +176,38 @@ checks:
     Weight: 3
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
   
-      $ingresses = $KubeData.Ingresses.items
+      $ingresses = if ($KubeData?.Ingresses) {
+        $KubeData.Ingresses.items
+      } else {
+        (kubectl get ingress --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $ingresses = Exclude-Namespaces -items $ingresses
+      }
+      
+      $services = if ($KubeData?.Services) {
+        $KubeData.Services.items
+      } else {
+        (kubectl get services --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+      }
+      
+      $secrets = if ($KubeData?.Secrets) {
+        $KubeData.Secrets
+      } else {
+        (kubectl get secrets --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $secrets = Exclude-Namespaces -items $secrets
+      }
+
       if ($Namespace) {
         $ingresses = $ingresses | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
-  
-      $services = $KubeData.Services.items
-      $secrets = $KubeData.Secrets
   
       $results = @()
       $hostPathMap = @{}
@@ -288,5 +346,13 @@ checks:
             <li>Use only valid pathTypes: Exact, Prefix, or ImplementationSpecific.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking Ingress definitions for configuration issues."
+      - ""
+      - "📌 This includes:"
+      - "   - missing ingress class or TLS secrets"
+      - "   - backend services or ports not found"
+      - "   - duplicate paths or invalid pathTypes"
+      - ""
+      - "⚠️ These issues can break routing or expose services incorrectly."
     URL: "https://kubernetes.io/docs/concepts/services-networking/ingress/"
-  

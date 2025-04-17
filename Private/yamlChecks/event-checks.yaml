@@ -18,10 +18,19 @@ checks:
             <li>Use <code>kubectl describe</code> and logs to investigate.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Grouping recent Kubernetes warning events."
+      - ""
+      - "📌 These show recurring problems like image pull errors or failed scheduling."
+      - ""
+      - "⚠️ Investigate grouped reasons to find common sources."
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
       $events = if ($KubeData?.Events) { $KubeData.Events } else {
         (kubectl get events -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+          $events = Exclude-Namespaces -items $events
       }
       $warnings = $events | Where-Object { $_.type -eq "Warning" }
       $warnings | ForEach-Object {
@@ -57,11 +66,22 @@ checks:
             <li>Check logs for root cause.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Showing full warning event log from the cluster."
+      - ""
+      - "📌 These events may signal resource issues, scheduling problems, or configuration errors."
+      - ""
+      - "⚠️ Review affected resources and logs for more detail."
     Script: |
-      param($KubeData, $Namespace)
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
       $events = if ($KubeData?.Events) { $KubeData.Events } else {
         (kubectl get events -A -o json | ConvertFrom-Json).items
       }
+
+      if ($ExcludeNamespaces) {
+          $events = Exclude-Namespaces -items $events
+      }
+
       $events | Where-Object { $_.type -eq "Warning" } | ForEach-Object {
         [PSCustomObject]@{
           Timestamp = $_.metadata.creationTimestamp

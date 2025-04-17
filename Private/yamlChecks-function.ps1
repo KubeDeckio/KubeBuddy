@@ -21,6 +21,7 @@ function Invoke-yamlChecks {
         Write-Host "❌ Failed to load powershell-yaml module: $_" -ForegroundColor Red
         if ($Html) { return "<p><strong>❌ Failed to load powershell-yaml module.</strong></p>" }
         if ($Json) { return @{ Error = "Failed to load powershell-yaml module: $_" } }
+        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
         return
     }
 
@@ -129,6 +130,7 @@ function Invoke-yamlChecks {
         Write-Host "❌ Error scanning ${checksFolder}: $_" -ForegroundColor Red
         if ($Html) { return "<p><strong>❌ Error scanning checks folder.</strong></p>" }
         if ($Json) { return @{ Error = "Error scanning checks folder: $_" } }
+        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
         return
     }
 
@@ -204,6 +206,7 @@ function Invoke-yamlChecks {
                                 Name  = $check.Name
                                 Error = $errorMessage
                             }
+                            Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                             continue
                         }
 
@@ -213,7 +216,7 @@ function Invoke-yamlChecks {
                             & $scriptBlock -KubeData $KubeData -Thresholds $thresholds
                         }
                         else {
-                            & $scriptBlock -KubeData $KubeData
+                            & $scriptBlock -KubeData $KubeData -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
                         }
 
                         $checkResult = @{
@@ -281,6 +284,7 @@ function Invoke-yamlChecks {
                             Name  = $check.Name
                             Error = "Script block execution failed: $_"
                         }
+                        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                     }
                     continue
                 }
@@ -311,6 +315,7 @@ function Invoke-yamlChecks {
                             Name  = $check.Name
                             Error = "Failed to fetch data: $_"
                         }
+                        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                         continue
                     }
                 }
@@ -322,6 +327,7 @@ function Invoke-yamlChecks {
                         Name    = $check.Name
                         Message = "No $($check.ResourceKind) data available."
                     }
+                    Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                     continue
                 }
 
@@ -410,6 +416,7 @@ function Invoke-yamlChecks {
                     }
                     catch {
                         Write-Host "❌ Error evaluating condition for $($item.metadata.name): $_" -ForegroundColor Red
+                        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                     }
                 }
 
@@ -428,14 +435,16 @@ function Invoke-yamlChecks {
             Write-Host "❌ Error processing $($file.Name): $_" -ForegroundColor Red
             if ($Html) { $allResults += @{ ID = "Unknown"; Name = $file.Name; Message = "Error processing file: $_" } }
             if ($Json) { $allResults += @{ ID = "Unknown"; Name = $file.Name; Message = "Error processing file: $_" } }
+            Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
         }
     }
+
 
     # HTML output
     if ($Html) {
         $sectionGroups = @{}
         $collapsibleSectionMap = @{}
-        $targetCheckIDs = @("NODE001", "NODE002")  # Checks to show tables non-collapsed
+        $alwaysCollapsibleCheckIDs = @("NODE001", "NODE002")  # Checks to always include collapsible section, even if no issues
 
         foreach ($result in $allResults) {
             $section = if ($result.Section) { $result.Section } elseif ($result.Category) { $result.Category } else { "Other" }
@@ -449,9 +458,6 @@ function Invoke-yamlChecks {
             $sectionHtml = ""
 
             foreach ($check in $sectionGroups[$section]) {
-                # Debug: Log the ResourceKind to confirm its value
-                # Write-Host "DEBUG: Check ID: $($check.ID), ResourceKind: $($check.ResourceKind)" -ForegroundColor Yellow
-
                 $tooltip = if ($check.Description) {
                     "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$($check.Description)</span></span>"
                 }
@@ -482,33 +488,36 @@ function Invoke-yamlChecks {
                     }
                 }
                 else {
-                    ""
+                    # Always include a table or placeholder for NODE001 and NODE002, even if no issues
+                    if ($check.ID -in $alwaysCollapsibleCheckIDs) {
+                        $validProps = Get-ValidProperties -Items @() -CheckID $check.ID  # Get static properties for NODE checks
+                        if ($validProps) {
+                            # Create an empty table with headers only
+                            $emptyTable = [PSCustomObject]@{} | Select-Object $validProps | ConvertTo-Html -Fragment | Out-String
+                            $emptyTable -replace '<tr><td></td></tr>', ''  # Remove empty data row
+                        }
+                        else {
+                            "<p>No data available for this check.</p>"
+                        }
+                    }
+                    else {
+                        ""  # Other checks don't show a table if no items
+                    }
                 }
 
-                # For NODE001 and NODE002, show table non-collapsed; others use collapsible
-                if ($check.ID -in $targetCheckIDs) {
-                    $sectionHtml += @"
-$header
-$summary
-<div class='table-container'>
-  $recommendationHtml
-  $tableContent
-</div>
-"@
-                }
-                else {
-                    $collapsibleContent = "$recommendationHtml`n$tableContent"
-                    $sectionHtml += @"
+                # Always use collapsible section for all checks
+                $collapsibleContent = "$recommendationHtml`n$tableContent"
+                $sectionHtml += @"
 $header
 $summary
 "@
-                    if ($check.Items) {
-                        $sectionHtml += @"
+                # Include collapsible section if there are items or if it's NODE001/NODE002
+                if ($check.Items -or ($check.ID -in $alwaysCollapsibleCheckIDs -and $tableContent)) {
+                    $sectionHtml += @"
 <div class='table-container'>
   $(ConvertToCollapsible -Id $check.ID -defaultText "Show Findings" -content $collapsibleContent)
 </div>
 "@
-                    }
                 }
             }
 

@@ -2,6 +2,7 @@ function Create-JsonReport {
     param (
         [string]$OutputPath,
         [object]$KubeData,
+        [switch]$excludedNamespaces,
         [switch]$aks,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
@@ -14,7 +15,7 @@ function Create-JsonReport {
     $generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
     # Run YAML-based checks
-    $yamlCheckResults = Invoke-yamlChecks -Json -KubeData $KubeData
+    $yamlCheckResults = Invoke-yamlChecks -Json -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
 
     # Flatten checks so each check ID is a top-level property
     $checksMap = @{}

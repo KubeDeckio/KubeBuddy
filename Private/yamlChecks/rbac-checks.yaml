@@ -4,21 +4,60 @@ checks:
     Section: "Security"
     Name: "RBAC Misconfigurations"
     Description: "Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces in RoleBindings and ClusterRoleBindings."
-    ResourceKind: "ClusterRoleBinding"  # Trigger resource kind, but the script handles all RBAC objects
+    ResourceKind: "ClusterRoleBinding"
     Severity: "High"
     Weight: 4
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
       $invalid = @()
-      $roleBindings = $KubeData.RoleBindings
-      $clusterRoleBindings = $KubeData.ClusterRoleBindings
-      $roles = $KubeData.Roles
-      $clusterRoles = $KubeData.ClusterRoles
-      $namespaces = $KubeData.Namespaces | ForEach-Object { $_.metadata.name }
-      $serviceAccounts = $KubeData.ServiceAccounts
+      
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      # Get excluded namespaces
+      $excludedNamespaces = if ($ExcludeNamespaces) { Get-ExcludedNamespaces -Silent } else { @() }
+      
+      # Get RoleBindings
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { Get-KubeJson "rolebindings" }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      # Get ClusterRoleBindings (no namespace filtering)
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { Get-KubeJson "clusterrolebindings" }
+      
+      # Get Roles
+      $roles = if ($KubeData -and $KubeData.Roles) { $KubeData.Roles } else { Get-KubeJson "roles" }
+      if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+      }
+      
+      # Get ClusterRoles (no namespace filtering)
+      $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) { $KubeData.ClusterRoles } else { Get-KubeJson "clusterroles" }
+      
+      # Get all namespaces for validation (unfiltered)
+      $allNamespaces = if ($KubeData -and $KubeData.Namespaces) { 
+        $KubeData.Namespaces | ForEach-Object { $_.metadata.name } 
+      } else { 
+        (kubectl get namespaces -o json | ConvertFrom-Json).items | ForEach-Object { $_.metadata.name } 
+      }
+      
+      # Get filtered namespaces for RoleBindings
+      $namespaces = $allNamespaces
+      if ($ExcludeNamespaces) {
+        $namespaces = Exclude-Namespaces -items $namespaces
+      }
+      
+      # Get ServiceAccounts
+      $serviceAccounts = if ($KubeData -and $KubeData.ServiceAccounts) { $KubeData.ServiceAccounts } else { Get-KubeJson "serviceaccounts" }
+      if ($ExcludeNamespaces) {
+        $serviceAccounts = Exclude-Namespaces -items $serviceAccounts
+      }
 
+      # Process RoleBindings
       foreach ($rb in $roleBindings) {
         if (-not $rb.roleRef) {
           $invalid += [pscustomobject]@{
@@ -83,6 +122,7 @@ checks:
         }
       }
 
+      # Process ClusterRoleBindings
       foreach ($crb in $clusterRoleBindings) {
         if (-not $crb.roleRef) {
           $invalid += [pscustomobject]@{
@@ -107,7 +147,13 @@ checks:
               continue
             }
 
-            if ($subjectNs -notin $namespaces) {
+            # Skip validation for excluded namespaces
+            if ($ExcludeNamespaces -and $subjectNs -in $excludedNamespaces) {
+              continue
+            }
+
+            # Validate namespace existence
+            if ($subjectNs -notin $allNamespaces) {
               $invalid += [pscustomobject]@{
                 Namespace = "(unknown)"
                 Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
@@ -117,6 +163,7 @@ checks:
               continue
             }
 
+            # Check ServiceAccount existence (only for non-excluded namespaces)
             $found = $serviceAccounts | Where-Object {
               $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
             }
@@ -146,25 +193,43 @@ checks:
             <li>Remove or correct subjects pointing to non-existent namespaces.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 Checking for RBAC misconfigurations in your bindings."
+        - ""
+        - "📌 This includes:"
+        - "   - RoleBindings referencing missing Roles or ClusterRoles"
+        - "   - ClusterRoleBindings with undefined namespaces"
+        - "   - Bindings missing ServiceAccount subjects"
+        - ""
+        - "⚠️ These issues can silently break access or expose resources."
     URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
   - ID: "RBAC002"
     Category: "RBAC"
     Section: "Security"
     Name: "RBAC Overexposure"
     Description: "Identifies dangerous RBAC grants such as cluster-admin, wildcard permissions, and sensitive resource access in roles and bindings."
-    ResourceKind: "ClusterRoleBinding"  # Used to trigger loading; script uses full RBAC set
+    ResourceKind: "ClusterRoleBinding"
     Severity: "Critical"
     Weight: 5
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
       $findings = @()
 
-      $roles = $KubeData.Roles
-      $clusterRoles = $KubeData.ClusterRoles
-      $roleBindings = $KubeData.RoleBindings
-      $clusterRoleBindings = $KubeData.ClusterRoleBindings
+      $roles = if ($KubeData -and $KubeData.Roles) { $KubeData.Roles } else { (kubectl get roles --all-namespaces -o json | ConvertFrom-Json).items }
+      if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+      }
+      
+      $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) { $KubeData.ClusterRoles } else { (kubectl get clusterroles -o json | ConvertFrom-Json).items }
+      
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { (kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json).items }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { (kubectl get clusterrolebindings -o json | ConvertFrom-Json).items }
 
       $wildcardRoles = @{}
       $sensitiveResourceRoles = @{}
@@ -312,6 +377,15 @@ checks:
             <li>Document use of any built-in roles used in production.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 Checking for RBAC overexposure risks."
+        - ""
+        - "📌 This flags:"
+        - "   - cluster-admin bindings"
+        - "   - wildcard permissions (* on resources/verbs)"
+        - "   - access to secrets and exec APIs"
+        - ""
+        - "⚠️ These configurations can grant dangerous access."
     URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
   - ID: "RBAC003"
     Category: "RBAC"
@@ -323,13 +397,29 @@ checks:
     Weight: 2
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
   
-      $sas = $KubeData.ServiceAccounts
-      $roleBindings = $KubeData.RoleBindings
-      $clusterRoleBindings = $KubeData.ClusterRoleBindings
-      $pods = $KubeData.Pods.items
-  
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      $sas = if ($KubeData -and $KubeData.ServiceAccounts) { $KubeData.ServiceAccounts } else { Get-KubeJson "serviceaccounts" }
+      if ($ExcludeNamespaces) {
+        $sas = Exclude-Namespaces -items $sas
+      }
+      
+      $pods = if ($KubeData -and $KubeData.Pods) { $KubeData.Pods.items } else { Get-KubeJson "pods" }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+      
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { Get-KubeJson "rolebindings" }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { Get-KubeJson "clusterrolebindings" }
+
       if ($Namespace) {
         $sas = $sas | Where-Object { $_.metadata.namespace -eq $Namespace }
         $roleBindings = $roleBindings | Where-Object { $_.metadata.namespace -eq $Namespace }
@@ -393,6 +483,14 @@ checks:
             <li>Consider automating SA cleanup with CI/CD or policy enforcement.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Checking for orphaned ServiceAccounts."
+      - ""
+      - "📌 These are not used by:"
+      - "   - any Pod"
+      - "   - any RoleBinding or ClusterRoleBinding"
+      - ""
+      - "⚠️ Unused ServiceAccounts create RBAC noise and potential confusion."
     URL: "https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/"
   - ID: "RBAC004"
     Category: "RBAC"
@@ -404,13 +502,26 @@ checks:
     Weight: 1
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
   
-      $roles = $KubeData.Roles
-      $clusterRoles = $KubeData.ClusterRoles
-      $roleBindings = $KubeData.RoleBindings
-      $clusterRoleBindings = $KubeData.ClusterRoleBindings
-  
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      $roles = if ($KubeData -and $KubeData.Roles) { $KubeData.Roles } else { Get-KubeJson "roles" }
+      if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+      }
+      
+      $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) { $KubeData.ClusterRoles } else { Get-KubeJson "clusterroles" }
+      
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { Get-KubeJson "rolebindings" }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { Get-KubeJson "clusterrolebindings" }
+
       if ($Namespace) {
         $roles = $roles | Where-Object { $_.metadata.namespace -eq $Namespace }
         $roleBindings = $roleBindings | Where-Object { $_.metadata.namespace -eq $Namespace }
@@ -513,5 +624,13 @@ checks:
             <li>Remove roles with no defined rules unless planned for future use.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Auditing Roles and ClusterRoles for effectiveness."
+      - ""
+      - "📌 This flags:"
+      - "   - bindings with no subjects"
+      - "   - roles that aren’t used"
+      - "   - roles that define no rules"
+      - ""
+      - "⚠️ These are usually safe to delete and clean up."
     URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
-  

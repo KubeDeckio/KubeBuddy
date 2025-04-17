@@ -14,18 +14,32 @@ checks:
       html: |
         <div class="recommendation-content">
           <ul>
-            <li>Use <code>kubectl logs &lt;pod&gt; -n &lt;namespace&gt;</code> to view logs and identify crash causes.</li>
-            <li>Run <code>kubectl describe pod &lt;pod&gt; -n &lt;namespace&gt;</code> to check events and probe failures.</li>
+            <li>Use <code>kubectl logs <pod> -n <namespace></code> to view logs and identify crash causes.</li>
+            <li>Run <code>kubectl describe pod <pod> -n <namespace></code> to check events and probe failures.</li>
             <li>Verify readiness and liveness probes are configured properly.</li>
             <li>Check for missing config, secrets, or volume mounts.</li>
             <li>Adjust resource requests/limits to avoid OOM kills.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some pods are restarting too often."
+      - ""
+      - "📌 This may be due to crashes, failing probes, or missing dependencies."
+      - ""
+      - "⚠️ Investigate logs and events to find the root cause."
     Script: |
-      param ([object]$KubeData)
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
       $thresholds = Get-KubeBuddyThresholds -Silent
-      $pods = $KubeData.Pods.items
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
       $results = @()
 
       foreach ($pod in $pods) {
@@ -82,11 +96,24 @@ checks:
             <li>Check if the workload is intended to be static or ephemeral.</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some pods have been running longer than expected."
+      - ""
+      - "📌 These may be skipped during rolling updates or unmanaged workloads."
+      - ""
+      - "⚠️ Review if they still reflect your intended state."
     Script: |
-      param ([object]$KubeData)
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
       $thresholds = Get-KubeBuddyThresholds -Silent
-      $pods = $KubeData.Pods.items
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
       $results = @()
 
       foreach ($pod in $pods) {
@@ -133,16 +160,31 @@ checks:
       html: |
         <div class="recommendation-content">
           <ul>
-            <li>Check the pod events with <code>kubectl describe pod &lt;pod&gt; -n &lt;ns&gt;</code></li>
-            <li>Review logs using <code>kubectl logs &lt;pod&gt; -n &lt;ns&gt;</code></li>
+            <li>Check the pod events with <code>kubectl describe pod <pod> -n <ns></code></li>
+            <li>Review logs using <code>kubectl logs <pod> -n <ns></code></li>
             <li>Validate container specs, resource limits, and init containers</li>
             <li>Check node availability or taints</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some pods are in a 'Failed' state."
+      - ""
+      - "📌 These workloads didn’t start or crashed unexpectedly."
+      - ""
+      - "⚠️ Check pod status and logs to troubleshoot the issue."
     Script: |
-      param ([object]$KubeData)
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
-      $failed = $KubeData.Pods.items | Where-Object { $_.status.phase -eq "Failed" }
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $failed = $pods | Where-Object { $_.status.phase -eq "Failed" }
 
       $failed | ForEach-Object {
         [PSCustomObject]@{
@@ -167,16 +209,31 @@ checks:
       html: |
         <div class="recommendation-content">
           <ul>
-            <li>Run <code>kubectl describe pod &lt;pod&gt; -n &lt;namespace&gt;</code> to check scheduling events</li>
+            <li>Run <code>kubectl describe pod <pod> -n <namespace></code> to check scheduling events</li>
             <li>Check if nodes meet the pod's resource requests and tolerations</li>
             <li>Look for unresolved PVCs, Secrets, or ConfigMaps</li>
             <li>Check cluster-wide CPU and memory availability</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some pods are stuck in 'Pending'."
+      - ""
+      - "📌 This usually means scheduling is blocked."
+      - ""
+      - "⚠️ Check if nodes meet resource, affinity, or PVC requirements."
     Script: |
-      param ([object]$KubeData)
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
-      $KubeData.Pods.items | Where-Object {
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $pods | Where-Object {
         $_.status.phase -eq "Pending"
       } | ForEach-Object {
         [PSCustomObject]@{
@@ -201,15 +258,30 @@ checks:
       html: |
         <div class="recommendation-content">
           <ul>
-            <li>Run <code>kubectl logs &lt;pod-name&gt; -n &lt;namespace&gt;</code> to see error output</li>
-            <li>Describe the pod for events and messages: <code>kubectl describe pod &lt;pod&gt; -n &lt;ns&gt;</code></li>
+            <li>Run <code>kubectl logs <pod-name> -n <namespace></code> to see error output</li>
+            <li>Describe the pod for events and messages: <code>kubectl describe pod <pod> -n <ns></code></li>
             <li>Check init containers, config errors, and resource limits</li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some pods are stuck in a CrashLoopBackOff."
+      - ""
+      - "📌 This means containers keep crashing and restarting."
+      - ""
+      - "⚠️ Investigate logs and config to fix the root issue."
     Script: |
-      param ([object]$KubeData)
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
-      $KubeData.Pods.items | Where-Object {
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $pods | Where-Object {
         $_.status.containerStatuses |
         Where-Object { $_.state.waiting.reason -eq "CrashLoopBackOff" }
       } | ForEach-Object {
@@ -239,14 +311,29 @@ checks:
       html: |
         <div class="recommendation-content">
           <ul>
-            <li>Run <code>kubectl delete pod &lt;pod-name&gt; -n &lt;namespace&gt;</code> to remove them</li>
+            <li>Run <code>kubectl delete pod <pod-name> -n <namespace></code> to remove them</li>
             <li>Ensure automation or users clean up after using <code>kubectl debug</code></li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Found some debug pods left behind."
+      - ""
+      - "📌 These are usually created with 'kubectl debug'."
+      - ""
+      - "⚠️ Clean them up if no longer needed."
     Script: |
-      param ([object]$KubeData)
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
-      $KubeData.Pods.items |
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $pods |
       Where-Object { $_.metadata.name -match "debugger" } |
       ForEach-Object {
         [PSCustomObject]@{
@@ -281,4 +368,10 @@ checks:
             <li><strong>Docs:</strong> <a href="https://kubernetes.io/docs/concepts/containers/images/#image-tags" target="_blank">Kubernetes Image Tagging</a></li>
           </ul>
         </div>
+    SpeechBubble:
+      - "🤖 Some containers are using the ':latest' image tag."
+      - ""
+      - "📌 This causes unpredictable behavior across deployments."
+      - ""
+      - "⚠️ Always use explicit version tags (e.g., :v1.2.3)."
     URL: "https://kubernetes.io/docs/concepts/containers/images/#image-tags"

@@ -537,13 +537,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function checkTabsOverflow() {
         if (tabsContainer && menuFab) {
-            // If the tabs scroll, hide them and show the menu button.
-            if (tabsContainer.scrollWidth > tabsContainer.clientWidth) {
+            // Always show menuFab
+            menuFab.style.display = 'flex';
+
+            // Hide tabs if they overflow or on small screens
+            if (tabsContainer.scrollWidth > tabsContainer.clientWidth || window.innerWidth <= 600) {
                 tabsContainer.style.display = 'none';
-                menuFab.style.display = 'flex';
             } else {
                 tabsContainer.style.display = 'flex';
-                menuFab.style.display = 'none';
             }
         }
     }

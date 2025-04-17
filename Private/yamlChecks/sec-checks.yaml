@@ -9,27 +9,46 @@ checks:
     Weight: 2
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
-      $excludedSecretPatterns = @(
-        "^sh\.helm\.release\.v1\.",
-        "^bootstrap-token-",
-        "^default-token-",
-        "^kube-root-ca\.crt$"
-      )
+      $excludedSecretPatterns = @("^sh\.helm\.release\.v1\.", "^bootstrap-token-", "^default-token-", "^kube-root-ca\.crt$")
 
-      $secrets = $KubeData.Secrets | Where-Object {
+      $secrets = if ($KubeData -and $KubeData.Secrets) {
+        $KubeData.Secrets
+      } else {
+        (kubectl get secrets --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $secrets = Exclude-Namespaces -items $secrets
+      }
+
+      $secrets = $secrets | Where-Object {
         $_.metadata.name -notmatch ($excludedSecretPatterns -join "|")
       }
 
       $usedSecrets = [System.Collections.Generic.HashSet[string]]::new()
+      $pods = if ($KubeData -and $KubeData.Pods) { $KubeData.Pods.items } else { (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
 
-      $pods = $KubeData.Pods.items
       $workloadTypes = @("deployments", "statefulsets", "daemonsets")
-      $workloads = foreach ($type in $workloadTypes) { $KubeData[$type] }
+      $workloads = foreach ($type in $workloadTypes) {
+        if ($KubeData -and $KubeData[$type]) { $KubeData[$type] }
+      }
+      if ($ExcludeNamespaces) {
+        $workloads = Exclude-Namespaces -items $workloads
+      }
 
-      $ingresses = $KubeData.Ingresses
-      $serviceAccounts = $KubeData.ServiceAccounts
+      $ingresses = if ($KubeData -and $KubeData.Ingresses) { $KubeData.Ingresses } else { (kubectl get ing --all-namespaces -o json | ConvertFrom-Json).items }
+      if ($ExcludeNamespaces) {
+        $ingresses = Exclude-Namespaces -items $ingresses
+      }
+
+      $serviceAccounts = if ($KubeData -and $KubeData.ServiceAccounts) { $KubeData.ServiceAccounts } else { (kubectl get sa --all-namespaces -o json | ConvertFrom-Json).items }
+      if ($ExcludeNamespaces) {
+        $serviceAccounts = Exclude-Namespaces -items $serviceAccounts
+      }
 
       foreach ($resource in $pods + $workloads) {
         $resource.spec.volumes | Where-Object { $_.secret } | ForEach-Object {
@@ -63,7 +82,7 @@ checks:
         }
       }
 
-      if ($KubeData.CustomResourcesByKind) {
+      if ($KubeData -and $KubeData.CustomResourcesByKind) {
         foreach ($kind in $KubeData.CustomResourcesByKind.Keys) {
           foreach ($res in $KubeData.CustomResourcesByKind[$kind]) {
             if ($res.spec -and $res.spec.PSObject.Properties.Name -contains "secretName") {
@@ -98,6 +117,16 @@ checks:
             <li>Regularly prune Secrets as part of security hygiene.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 Secrets store sensitive data such as API keys and credentials."
+        - ""
+        - "📌 This check identifies Secrets that are NOT used by:"
+        - "   - Pods, Deployments, StatefulSets, DaemonSets."
+        - "   - Ingress TLS, ServiceAccounts, and Custom Resources."
+        - ""
+        - "⚠️ Unused Secrets may indicate outdated credentials or misconfigurations."
+        - ""
+        - "⚠️ Total Orphaned Secrets Found: $total" 
     URL: "https://kubernetes.io/docs/concepts/configuration/secret/"
   - ID: "SEC002"
     Category: "Pods"
@@ -109,31 +138,33 @@ checks:
     Weight: 4
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = if ($KubeData -and $KubeData.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
 
-      $flagged = @()
-
-      $pods = $KubeData.Pods.items
       if ($Namespace) {
         $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
 
+      $flagged = @()
       foreach ($pod in $pods) {
-          $hostPID = $pod.spec.hostPID
-          if ($hostPID -ne $true) { $hostPID = $false }
-
-          $hostNetwork = $pod.spec.hostNetwork
-          if ($hostNetwork -ne $true) { $hostNetwork = $false }
-
-
+        $hostPID = $pod.spec.hostPID -eq $true
+        $hostNetwork = $pod.spec.hostNetwork -eq $true
         if ($hostPID -or $hostNetwork) {
           $flagged += [pscustomobject]@{
-            Namespace   = $pod.metadata.namespace
-            Resource    = "pod/$($pod.metadata.name)"
-            Value       = "hostPID=$hostPID, hostNetwork=$hostNetwork"
-            Message = ("Pod uses " + (($hostPID -eq $true) ? "hostPID" : "") +
-           (($hostPID -eq $true -and $hostNetwork -eq $true) ? " and " : "") +
-           (($hostNetwork -eq $true) ? "hostNetwork" : ""))
+            Namespace = $pod.metadata.namespace
+            Resource  = "pod/$($pod.metadata.name)"
+            Value     = "hostPID=$hostPID, hostNetwork=$hostNetwork"
+            Message   = "Pod uses " +
+              (($hostPID) ? "hostPID" : "") +
+              (($hostPID -and $hostNetwork) ? " and " : "") +
+              (($hostNetwork) ? "hostNetwork" : "")
           }
         }
       }
@@ -152,6 +183,16 @@ checks:
             <li>Consider using PSPs or OPA/Gatekeeper policies to prevent usage cluster-wide.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 Some pods use host-level process or network namespaces."
+        - ""
+        - "📌 This check identifies pods with:"
+        - "   - hostPID = true"
+        - "   - hostNetwork = true"
+        - ""
+        - "⚠️ These settings can bypass isolation and expose the node."
+        - ""
+        - "⚠️ Total Flagged Pods: $($flaggedPods.Count)"
     URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
   - ID: "SEC003"
     Category: "Pod Security"
@@ -163,12 +204,15 @@ checks:
     Weight: 5
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
     
       $pods = if ($null -ne $KubeData -and $KubeData.Pods) {
         $KubeData.Pods.items
       } else {
         (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
       }
     
       if ($Namespace) {
@@ -202,7 +246,6 @@ checks:
       }
     
       return $results
-
     FailMessage: "Pod runs as root user or has no runAsUser set"
     Recommendation:
       text: "Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext."
@@ -236,15 +279,21 @@ checks:
     Weight: 5
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
-  
-      $pods = $KubeData.Pods.items
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = if ($KubeData -and $KubeData.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
       if ($Namespace) {
         $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
-  
+
       $results = @()
-  
       foreach ($pod in $pods) {
         foreach ($container in $pod.spec.containers) {
           if ($container.securityContext.privileged -eq $true) {
@@ -257,7 +306,6 @@ checks:
           }
         }
       }
-  
       return $results
     FailMessage: "Privileged container found"
     Recommendation:
@@ -272,6 +320,12 @@ checks:
             <li>Limit use to dedicated namespaces with strict controls.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 One or more containers are running with <code>privileged: true</code>."
+        - ""
+        - "📌 This bypasses container isolation and exposes the host."
+        - ""
+        - "⚠️ Only use privileged mode when absolutely necessary."
     URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted"
   - ID: "SEC005"
     Category: "Pod Security"
@@ -283,16 +337,21 @@ checks:
     Weight: 3
     Operator: "script"
     Script: |
-      param($KubeData, $Namespace)
-
-      $pods = $KubeData.Pods.items
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = if ($KubeData -and $KubeData.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
 
       if ($Namespace) {
         $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
 
       $results = @()
-
       foreach ($pod in $pods) {
         if ($pod.spec.hostIPC -eq $true) {
           $results += [pscustomobject]@{
@@ -303,7 +362,6 @@ checks:
           }
         }
       }
-
       return $results
     FailMessage: "Pods with hostIPC enabled found"
     Recommendation:
@@ -317,4 +375,10 @@ checks:
             <li>Use shared memory only through secure, scoped means.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 hostIPC allows containers to share memory with the host."
+        - ""
+        - "📌 This check identifies pods with <code>hostIPC: true</code>."
+        - ""
+        - "⚠️ Sharing IPC with the host can leak data and break isolation."
     URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#host-namespaces"

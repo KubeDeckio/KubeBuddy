@@ -85,6 +85,5 @@ function Show-YamlCheckInteractive {
             $currentPage = $newPage
         } while ($true)
 
-        Read-Host "`n🤖 Press Enter to continue"
     }
 }
