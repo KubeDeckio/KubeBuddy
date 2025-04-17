@@ -166,13 +166,15 @@ function Get-KubeData {
     Write-Host -NoNewline "`n🤖 Fetching Custom Resource Instances..." -ForegroundColor Yellow
     $data.CustomResourcesByKind = @{}
     try {
-        $crds = kubectl get crds -o json | ConvertFrom-Json
-        foreach ($crd in $crds.items) {
-            $kind = $crd.spec.names.kind
-            $plural = $crd.spec.names.plural
-            $group = $crd.spec.group
-            $version = ($crd.spec.versions | Where-Object { $_.served -and $_.storage } | Select-Object -First 1).name
-            if (-not $version) { $version = $crd.spec.versions[0].name }
+        $crdsRaw = kubectl get crds -o json
+        $crds = $crdsRaw | ConvertFrom-Json -AsHashtable
+
+        foreach ($crd in $crds["items"]) {
+            $kind = $crd["spec"]["names"]["kind"]
+            $plural = $crd["spec"]["names"]["plural"]
+            $group = $crd["spec"]["group"]
+            $version = ($crd["spec"]["versions"] | Where-Object { $_["served"] -and $_["storage"] } | Select-Object -First 1)["name"]
+            if (-not $version) { $version = $crd["spec"]["versions"][0]["name"] }
 
             $apiVersion = "$group/$version"
             try {
@@ -181,6 +183,7 @@ function Get-KubeData {
             }
             catch {}
         }
+
         Write-Host "`r✅ Custom Resource Instances fetched.   " -ForegroundColor Green
     }
     catch {
@@ -188,13 +191,19 @@ function Get-KubeData {
         return $false
     }
 
+
     # AKS Metadata
     if ($AKS) {
-        if ($ResourceGroup -and $ClusterName -and $SubscriptionId ) {
+        if ($ResourceGroup -and $ClusterName -and $SubscriptionId) {
             Write-Host -NoNewline "`n🤖 Fetching AKS Metadata..." -ForegroundColor Yellow
     
             try {
+            try {
     
+                if (-not $ClusterName -or $ClusterName -match "^\s*$" -or $ClusterName -match "[^\w-]" -or $ClusterName.Length -gt 63) {
+                    Write-Host "`r❌ ClusterName is missing, empty, or invalid (alphanumeric, hyphens only, max 63 chars)." -ForegroundColor Red
+                    return $false
+                }
                 if (-not $ClusterName -or $ClusterName -match "^\s*$" -or $ClusterName -match "[^\w-]" -or $ClusterName.Length -gt 63) {
                     Write-Host "`r❌ ClusterName is missing, empty, or invalid (alphanumeric, hyphens only, max 63 chars)." -ForegroundColor Red
                     return $false
@@ -204,11 +213,26 @@ function Get-KubeData {
                 $spnProvided = $env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
                 $apiVersion = "2025-01-01"
                 $uri = "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.ContainerService/managedClusters/${ClusterName}?api-version=${apiVersion}"
+                $isContainer = Test-IsContainer
+                $spnProvided = $env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
+                $apiVersion = "2025-01-01"
+                $uri = "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.ContainerService/managedClusters/${ClusterName}?api-version=${apiVersion}"
     
                 try {
                     if ($spnProvided) {
                         Write-Host "`r🔐 Using SPN credentials to acquire token..." -ForegroundColor Yellow
+                try {
+                    if ($spnProvided) {
+                        Write-Host "`r🔐 Using SPN credentials to acquire token..." -ForegroundColor Yellow
     
+                        $tokenUrl = "https://login.microsoftonline.com/$($env:AZURE_TENANT_ID)/oauth2/token"
+                        $headers = @{ "Content-Type" = "application/x-www-form-urlencoded" }
+                        $body = @{
+                            grant_type    = "client_credentials"
+                            client_id     = $env:AZURE_CLIENT_ID
+                            client_secret = $env:AZURE_CLIENT_SECRET
+                            resource      = "https://management.azure.com/"
+                        }
                         $tokenUrl = "https://login.microsoftonline.com/$($env:AZURE_TENANT_ID)/oauth2/token"
                         $headers = @{ "Content-Type" = "application/x-www-form-urlencoded" }
                         $body = @{
@@ -226,11 +250,23 @@ function Get-KubeData {
                             Write-Host "`r❌ Azure CLI not found, and SPN not provided." -ForegroundColor Red
                             return $false
                         }
+                        $tokenResponse = Invoke-RestMethod -Uri $tokenUrl -Method POST -Headers $headers -Body $body -UseBasicParsing
+                        $accessToken = $tokenResponse.access_token
+                    }
+                    else {
+                        if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
+                            Write-Host "`r❌ Azure CLI not found, and SPN not provided." -ForegroundColor Red
+                            return $false
+                        }
     
                         Write-Host "`r🔐 Using Azure CLI to get user token..." -ForegroundColor Yellow
                         $accessToken = az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv
                     }
+                        Write-Host "`r🔐 Using Azure CLI to get user token..." -ForegroundColor Yellow
+                        $accessToken = az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv
+                    }
     
+                    $headers = @{ Authorization = "Bearer $accessToken" }
                     $headers = @{ Authorization = "Bearer $accessToken" }
     
                     $data.AksCluster = Invoke-RestMethod -Uri $uri -Headers $headers -UseBasicParsing
@@ -240,7 +276,35 @@ function Get-KubeData {
                     Write-Host "`r❌ Failed to fetch AKS Metadata: $($_.Exception.Message)" -ForegroundColor Red
                     return $false
                 }
+                    $data.AksCluster = Invoke-RestMethod -Uri $uri -Headers $headers -UseBasicParsing
+                    Write-Host "`r✅ AKS Metadata fetched via REST API." -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "`r❌ Failed to fetch AKS Metadata: $($_.Exception.Message)" -ForegroundColor Red
+                    return $false
+                }
     
+                Write-Host -NoNewline "`n🤖 Fetching Constraints..." -ForegroundColor Yellow
+                try {
+                    $data.ConstraintTemplates = @( (kubectl get constrainttemplates -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items ?? @() )
+                    $data.Constraints = @( (kubectl get constraints -A -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items ?? @() )
+                    Write-Host "`r✅ Constraints fetched.   " -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "`r⚠️ Constraints not found, continuing with empty data: $($_.Exception.Message)" -ForegroundColor Yellow
+                    $data.ConstraintTemplates = @()
+                    $data.Constraints = @()
+                }
+            }
+            catch {
+                Write-Host "`r❌ Unexpected error during AKS metadata fetch: $($_.Exception.Message)" -ForegroundColor Red
+                return $false
+            }
+        }
+        else {
+            Write-Host "`r❌ Required parameters missing. Set AKS, ResourceGroup, ClusterName, and SubscriptionId." -ForegroundColor Red
+            return $false
+        }
                 Write-Host -NoNewline "`n🤖 Fetching Constraints..." -ForegroundColor Yellow
                 try {
                     $data.ConstraintTemplates = @( (kubectl get constrainttemplates -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items ?? @() )

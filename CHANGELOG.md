@@ -34,8 +34,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **File Path Scoping in `Write-ToReport`**:
   - Updated `Write-ToReport` to accept a file path parameter, ensuring proper scoping and avoiding reliance on a global `$ReportFile` variable.
 
+## [0.0.16] - 2025-04-16
 
-## [0.0.15] - xxx-xx-xx
+### Fixed
+- **CRD JSON Parsing Error**: Fixed an issue when fetching Custom Resource Definitions (CRDs) where `ConvertFrom-Json` failed due to key casing conflicts (`proxyUrl` vs `proxyURL`). CRDs are now parsed using `-AsHashtable` to avoid this conflict and allow consistent key access.
+- **AKS Parameter Logic**: Fixed incorrect AKS metadata fetch behavior. Previously, AKS metadata was fetched even if the `-AKS` switch was not passed. Now the call only runs when `-AKS` is explicitly set.
+
+
+## [0.0.15] - 2025-04-14
 
 ### Added
 - **Docker Container Support for KubeBuddy**:
