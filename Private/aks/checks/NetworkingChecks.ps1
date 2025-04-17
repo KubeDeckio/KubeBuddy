@@ -1,6 +1,6 @@
 $networkingChecks = @(
     @{
-        ID          = "NET001";
+        ID          = "AKSNET001";
         Category    = "Networking";
         Name        = "Authorized IP Ranges";
         Value       = { ($clusterInfo.properties.apiServerAccessProfile.authorizedIpRanges).count };
@@ -11,7 +11,7 @@ $networkingChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/operator-best-practices-cluster-security#secure-access-to-the-api-server-and-cluster-nodes";
     },
     @{
-        ID          = "NET002";
+        ID          = "AKSNET002";
         Category    = "Networking";
         Name        = "Network Policy Check";
         Value       = { $clusterInfo.properties.networkProfile.networkPolicy -ne "none" };
@@ -22,7 +22,7 @@ $networkingChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/operator-best-practices-network#control-traffic-flow-with-network-policies";
     },
     @{
-        ID          = "NET003";
+        ID          = "AKSNET003";
         Category    = "Networking";
         Name        = "Web App Routing Enabled";
         Value       = { ($clusterInfo.properties.ingressProfile.webAppRouting).enabled };
@@ -33,7 +33,7 @@ $networkingChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/web-app-routing";
     },
     @{
-        ID          = "NET004";
+        ID          = "AKSNET004";
         Category    = "Networking";
         Name        = "Azure CNI Networking Recommended";
         Value       = { ($clusterInfo.properties.networkProfile.networkPlugin -ne "kubenet") };

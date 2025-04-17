@@ -1,13 +1,12 @@
 ---
 title: CreatingAlerts
+parent: Documentation
 nav_order: 2
 layout: default
 ---
 
-
 # Creating Alerts
 
-## Overview
 
 Kubebuddy is a Kubernetes auditing and monitoring tool that helps identify misconfigurations, resource issues, and potential security risks in your cluster.
 
@@ -20,7 +19,6 @@ Alerts in Kubebuddy are generated from **checks**—rules that evaluate cluster 
 
 Kubebuddy processes checks using `Invoke-yamlChecks`, which outputs results suitable for Prometheus, Grafana, or custom tools like Slack/email.
 
----
 
 ## Alert Types
 
@@ -37,7 +35,6 @@ These use PowerShell for dynamic logic. Example checks:
 - Use `$KubeData`, `kubectl`, optional `$Namespace`, `$ExcludeNamespaces`
 - Output: `[pscustomobject]` with `Namespace`, `Resource`, `Value`, `Message`
 
----
 
 ### 2. Declarative Checks
 
@@ -51,7 +48,6 @@ Simpler checks defined with `Path`, `Operator`, and `Value`.
 - Evaluated directly by `Invoke-yamlChecks`
 - Less flexible, easier to write
 
----
 
 ## YAML Configuration Fields
 
@@ -77,15 +73,12 @@ Simpler checks defined with `Path`, `Operator`, and `Value`.
 
 \* `Operator`, `Path`, `Value` required for declarative. `Script` required for script-based.
 
----
 
 ## Script Parameters
 
 - `$KubeData`: Cached resource data
 - `$Namespace`: Optional namespace scope
 - `$ExcludeNamespaces`: Exclude system namespaces like `kube-system`
-
----
 
 ## Example: Script-Based Alert
 
@@ -136,8 +129,6 @@ checks:
       return $results
 ```
 
----
-
 ## Example: Declarative Alert
 
 ```yaml
@@ -168,7 +159,6 @@ checks:
       - "📌 CPU usage above 80% can impact performance."
 ```
 
----
 
 ## Best Practices
 
@@ -178,37 +168,7 @@ checks:
 - **Test checks thoroughly:** Especially for edge cases
 - **Use unique IDs:** Prevent collisions
 
----
 
-## Integration
-
-Use Kubebuddy output with:
-
-- **Prometheus/Alertmanager**: Export as metrics
-- **Grafana**: Visualize with dashboards
-- **Slack/Discord**: Send alerts with webhooks
-- **Custom scripts**: Trigger emails, PagerDuty, etc.
-
-Run checks like:
-
-```bash
-./Invoke-yamlChecks.ps1 -CheckFiles custom.yaml
-```
-
----
-
-## Example Output
-
-```json
-{
-  "Namespace": "default",
-  "Resource": "secret/my-secret",
-  "Value": "my-secret",
-  "Message": "Secret appears unused across workloads, ingresses, service accounts, or CRs"
-}
-```
-
----
 
 ## Troubleshooting
 
@@ -218,8 +178,6 @@ Run checks like:
 | False positives        | Refine conditions, use `$ExcludeNamespaces` |
 | YAML syntax errors     | Use a linter (`yq`, `yamllint`) |
 | Integration not working| Verify output format and ingestion pipeline |
-
----
 
 ## Conclusion
 

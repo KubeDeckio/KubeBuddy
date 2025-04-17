@@ -102,22 +102,24 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 
     $collapsibleAKSHtml = ConvertToCollapsible -Id "aksSummary" -defaultText "Show Findings" -content $aksReportData
 
+
     $ratingColorClass = switch ($aksRating) {
-      "A" { "normal" }
-      "B" { "warning" }
-      "C" { "warning" }
-      "D" { "critical" }
-      "F" { "critical" }
-      default { "unknown" }
+        "A" { "normal" }
+        "B" { "warning" }
+        "C" { "warning" }
+        "D" { "critical" }
+        "F" { "critical" }
+        default { "unknown" }
     }
 
+    # Use ScoreColor directly for the score box (hex color for inline style)
     $heroRatingHtml = @"
 <h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
 <div class="metric-card normal">✅ Passed: <strong>$aksPass</strong></div>
 <div class="metric-card critical">❌ Failed: <strong>$aksFail</strong></div>
 <div class="metric-card default">📊 Total Checks: <strong>$aksTotal</strong></div>
-<div class="metric-card $ratingColorClass">🎯 Score: <strong>$aksScore%</strong></div>
+<div class="metric-card default">🎯 Score: <strong>$aksScore%</strong></div>
 <div class="metric-card $ratingColorClass">⭐ Rating: <strong>$aksRating</strong></div>
 </div>
 "@
@@ -136,7 +138,7 @@ $heroRatingHtml
     $aksMenuItem = @"
 <li class="nav-item"><a href="#aks"><span class="material-icons">verified</span> AKS Best Practices</a></li>
 "@
-  }
+}
 
   $checks = @(
     @{ Id = "allChecks"; Cmd = { Invoke-yamlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }

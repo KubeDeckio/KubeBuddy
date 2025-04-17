@@ -1,6 +1,6 @@
 $identityChecks = @(
     @{
-        ID         = "IAM001";
+        ID         = "AKSIAM001";
         Category   = "Identity & Access";
         Name       = "RBAC Enabled";
         Value      = { $clusterInfo.properties.enableRbac };
@@ -11,7 +11,7 @@ $identityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli";
     },
     @{
-        ID         = "IAM002";
+        ID         = "AKSIAM002";
         Category   = "Identity & Access";
         Name       = "Managed Identity";
         Value      = { $clusterInfo.identity.type };
@@ -22,7 +22,7 @@ $identityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/use-managed-identity";
     },
     @{
-        ID         = "IAM003";
+        ID         = "AKSIAM003";
         Category   = "Identity & Access";
         Name       = "Workload Identity Enabled";
         Value      = { $clusterInfo.properties.securityProfile.workloadIdentity.enabled };
@@ -33,7 +33,7 @@ $identityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/workload-identity-overview";
     },
     @{
-        ID         = "IAM004";
+        ID         = "AKSIAM004";
         Category   = "Identity & Access";
         Name       = "Managed Identity Used";
         Value      = { $clusterInfo.identity.type };
@@ -44,7 +44,7 @@ $identityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/use-managed-identity";
     },
     @{
-        ID         = "IAM005";
+        ID         = "AKSIAM005";
         Category   = "Identity & Access";
         Name       = "AAD RBAC Authorization Integrated";
         Value      = { $clusterInfo.properties.aadProfile.enableAzureRBAC };
@@ -55,7 +55,7 @@ $identityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/enable-authentication-microsoft-entra-id";
     },
     @{
-        ID         = "IAM006";
+        ID         = "AKSIAM006";
         Category   = "Identity & Access";
         Name       = "AAD Managed Authentication Enabled";
         Value      = { $clusterInfo.properties.aadProfile.managed };
@@ -66,7 +66,7 @@ $identityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli";
     },
     @{
-        ID         = "IAM007";
+        ID         = "AKSIAM007";
         Category   = "Identity & Access";
         Name       = "Local Accounts Disabled";
         Value      = { $clusterInfo.properties.disableLocalAccounts };

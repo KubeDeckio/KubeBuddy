@@ -1,6 +1,6 @@
 $resourceManagementChecks = @(
     @{
-        ID          = "RES001";
+        ID          = "AKSRES001";
         Category    = "Resource Management";
         Name        = "Cluster Autoscaler";
         Value       = { $clusterInfo.properties.autoScalerProfile -ne $null };
@@ -11,7 +11,7 @@ $resourceManagementChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/cluster-autoscaler";
     },
     @{
-        ID             = "RES002";
+        ID             = "AKSRES002";
         Category       = "Resource Management";
         Name           = "AKS Built-in Cost Tooling Enabled";
         Value          = { $clusterInfo.properties.metricsProfile.costAnalysis.enabled };
@@ -22,7 +22,7 @@ $resourceManagementChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/cost-analysis";
     },
     @{
-        ID             = "RES003";
+        ID             = "AKSRES003";
         Category       = "Resource Management";
         Name           = "Vertical Pod Autoscaler (VPA) is enabled";
         Value          = { $clusterInfo.properties.workloadAutoScalerProfile.verticalPodAutoscaler.enabled };

@@ -1,6 +1,6 @@
 $disasterRecoveryChecks = @(
     @{
-        ID          = "DR001";
+        ID          = "AKSDR001";
         Category    = "Disaster Recovery";
         Name        = "Agent Pools with Availability Zones";
         Value       = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.availabilityZones.Count -lt 3 }).Count };
@@ -11,7 +11,7 @@ $disasterRecoveryChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/availability-zones";
     },
     @{
-        ID          = "DR002";
+        ID          = "AKSDR002";
         Category    = "Disaster Recovery";
         Name        = "Control Plane SLA";
         Value       = { $clusterInfo.sku.tier -eq "Standard" };
