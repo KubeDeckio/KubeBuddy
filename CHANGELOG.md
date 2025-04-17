@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.17] - 2025-04-17
+
+### Added
+- **Migrated to YAML-based Checks**:
+  - Replaced pure PowerShell checks with YAML-defined checks for better maintainability and scalability.
+  - Each check now has a unique `ID` for easier identification and referencing in reports (e.g., `AKSNET001`, `NS001`).
+- **New Alerts**:
+  - Added new YAML-based alerts to enhance cluster monitoring.
+- **Custom Checks HTML Tab**  
+  Automatically gathers any YAML‑defined checks whose section names aren’t in the standard list (Nodes, Namespaces, Workloads, etc.) into a new “Custom Checks” tab. Only shows the tab if there’s at least one real `<tr>…</tr>` snippet.
+- **Multi-Architecture Docker Container**:
+  - Updated the Dockerfile to support both `linux/amd64` and `linux/arm64` architectures using Docker Buildx.
+  - Dynamically downloads architecture-specific `kubectl` and `kubelogin` binaries based on the target platform (`$TARGETARCH`).
+- **Updated GitHub Action for Multi-Architecture Builds**:
+  - Modified the GitHub Action workflow to use Docker Buildx for building and pushing multi-architecture images (`linux/amd64` and `linux/arm64`) to GHCR.
+  - Added support for tagging and pushing a `latest` tag for multi-architecture images.
+
+### Changed
+- **AKS Results in Text Report**:
+  - Updated `Generate-K8sTextReport` to properly capture and write AKS results to the text report, including detailed check results and the summary table ("Summary & Rating").
+  - Ensured the AKS summary table is consistently included in the text report output.
+- **Improved Check Processing**:
+  - Refactored `Invoke-AKSBestPractices` to return structured data for text reports, removing direct `Write-ToReport` calls and allowing the caller (`Generate-K8sTextReport`) to handle file writing.
+
+### Fixed
+- **Text Report AKS Summary Table**:
+  - Fixed an issue where the AKS summary table was not appearing in the text report by ensuring the `TextOutput` property is correctly written to the file.
+- **File Path Scoping in `Write-ToReport`**:
+  - Updated `Write-ToReport` to accept a file path parameter, ensuring proper scoping and avoiding reliance on a global `$ReportFile` variable.
+
+
 ## [0.0.15] - xxx-xx-xx
 
 ### Added
