@@ -1,5 +1,5 @@
 # Build stage: Use Ubuntu 24.04 for setup
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-Ubuntu-24.04 AS builder
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-ubuntu-24.04 AS builder
 
 # Install required utilities for file operations and dependency installation
 RUN apt-get update && \
@@ -44,7 +44,7 @@ COPY --chown=10001:10001 Public /usr/local/share/powershell/Modules/KubeBuddy/Pu
 COPY --chown=10001:10001 run.ps1 /app/run.ps1
 
 # Runtime stage: Use Ubuntu 24.04 for the final image
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-Ubuntu-24.04
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-ubuntu-24.04
 
 # Install minimal runtime dependencies
 RUN apt-get update && \
