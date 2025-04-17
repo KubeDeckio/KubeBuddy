@@ -1,6 +1,6 @@
 $bestPracticesChecks = @(
     @{
-        ID             = "BP001";
+        ID             = "AKSBP001";
         Category       = "Best Practices";
         Name           = "Allowed Container Images Policy Enforcement";
         Value          = { ($clusterInfo.properties.kubeData.Constraints.items | Where-Object { $_.kind -eq "K8sAzureV2ContainerAllowedImages"}).spec.enforcementAction -contains "deny" };
@@ -11,7 +11,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/policy-reference";
     },    
     @{
-        ID             = "BP002";
+        ID             = "AKSBP002";
         Category       = "Best Practices";
         Name           = "No Privileged Containers Policy Enforcement";
         Value          = { ($clusterInfo.properties.kubeData.Constraints.items | Where-Object { $_.kind -eq "K8sAzureV2NoPrivilege"}).spec.enforcementAction -contains "deny" };
@@ -22,7 +22,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/policy-reference";
     },
     @{
-        ID          = "BP003";
+        ID          = "AKSBP003";
         Category    = "Best Practices";
         Name        = "Multiple Node Pools";
         Value       = { $clusterInfo.properties.agentPoolProfiles.Count -gt 1 };
@@ -33,7 +33,7 @@ $bestPracticesChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/use-multiple-node-pools";
     },
     @{
-        ID             = "BP004";
+        ID             = "AKSBP004";
         Category       = "Best Practices";
         Name           = "Azure Linux as Host OS";
         Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.osType -eq "Linux" -and $_.osSKU -ne "AzureLinux" }).Count };
@@ -44,7 +44,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/use-azure-linux";
     },    
     @{
-        ID             = "BP005";
+        ID             = "AKSBP005";
         Category       = "Best Practices";
         Name           = "Ephemeral OS Disks Enabled";
         Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.osDiskType -ne "Ephemeral" }).Count };
@@ -55,7 +55,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/concepts-storage#ephemeral-os-disk";
     },
     @{
-        ID             = "BP006";
+        ID             = "AKSBP006";
         Category       = "Best Practices";
         Name           = "Non-Ephemeral Disks with Adequate Size";
         Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.osDiskType -ne "Ephemeral" -and $_.osDiskSizeGb -lt 128 }).Count };
@@ -66,7 +66,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/concepts-storage#managed-os-disks";
     },
     @{
-        ID             = "BP007";
+        ID             = "AKSBP007";
         Category       = "Best Practices";
         Name           = "System Node Pool Taint";
         Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.mode -eq "System" }).nodeTaints -contains "CriticalAddonsOnly=true:NoSchedule" };
@@ -77,7 +77,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#system-and-user-node-pools";
     },
     @{
-        ID             = "BP008";
+        ID             = "AKSBP008";
         Category       = "Best Practices";
         Name           = "Auto Upgrade Channel Configured";
         Value          = { $clusterInfo.properties.autoUpgradeProfile.upgradeChannel -ne "none" };
@@ -88,7 +88,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/auto-upgrade-cluster?tabs=azure-cli";
     },    
     @{
-        ID             = "BP009";
+        ID             = "AKSBP009";
         Category       = "Best Practices";
         Name           = "Node OS Upgrade Channel Configured";
         Value          = { ($clusterInfo.properties.autoUpgradeProfile.nodeOSUpgradeChannel -ne "None") };
@@ -99,7 +99,7 @@ $bestPracticesChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/auto-upgrade-node-os-image?tabs=azure-cli";
     },
     @{
-        ID             = "BP010";
+        ID             = "AKSBP010";
         Category       = "Best Practices";
         Name           = "Customized MC_ Resource Group Name";
         Value          =  { -not ($clusterInfo.properties.nodeResourceGroup -like "MC_*") };

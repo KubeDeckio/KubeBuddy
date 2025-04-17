@@ -5,7 +5,8 @@ function Invoke-AKSBestPractices {
         [string]$ClusterName,
         [switch]$FailedOnly,
         [switch]$Html,
-        [switch]$json,
+        [switch]$Json,
+        [switch]$Text,
         [object]$KubeData
     )
 
@@ -24,9 +25,8 @@ function Invoke-AKSBestPractices {
             Write-Error "❌ Error fetching AKS context: $_"
             throw "Critical error: Unable to continue without AKS context."
         }
-        
 
-        if ($Global:MakeReport) {
+        if ($Text) {
             Write-Host "🔄 Checking Kubernetes context..." -ForegroundColor Cyan
             Write-Host "   - Current context: '$currentContext'" -ForegroundColor Yellow
             Write-Host "   - Expected AKS cluster: '$aksContext'" -ForegroundColor Yellow
@@ -34,9 +34,9 @@ function Invoke-AKSBestPractices {
             if ($currentContext -eq $aksContext) {
                 Write-Host "✅ Kubernetes context matches. Proceeding with the scan." -ForegroundColor Green
                 return $true
-            } else {
+            }
+            else {
                 Write-Host "⚠️ WARNING: Context mismatch." -ForegroundColor Red
-                Write-ToReport "   - Skipping validation due to mismatched context."
                 return $false
             }
         }
@@ -53,7 +53,8 @@ function Invoke-AKSBestPractices {
             $msg += @("✅ The context is correct.")
             Write-SpeechBubble -msg $msg -color "Green" -icon "🤖"
             return $true
-        } else {
+        }
+        else {
             $msg += @(
                 "⚠️ WARNING: Context mismatch!",
                 "",
@@ -62,17 +63,14 @@ function Invoke-AKSBestPractices {
                 "💡 Run: kubectl config use-context $aksContext"
             )
             Write-SpeechBubble -msg $msg -color "Yellow" -icon "🤖" -lastColor "Red"
-            if ($yes) {
-                Write-SpeechBubble -msg @("🤖 Skipping context confirmation.") -color "Red" -icon "🤖"
-                return $true
-            }
             Write-SpeechBubble -msg @("🤖 Please confirm if you want to continue.") -color "Yellow" -icon "🤖"
             $confirmation = Read-Host "🤖 Continue anyway? (yes/no)"
             Clear-Host
             if ($confirmation -match "^(y|yes)$") {
                 Write-SpeechBubble -msg @("⚠️ Proceeding despite mismatch...") -color "Yellow" -icon "🤖"
                 return $true
-            } else {
+            }
+            else {
                 Write-SpeechBubble -msg @("❌ Exiting to prevent incorrect execution.") -color "Red" -icon "🤖"
                 exit 1
             }
@@ -97,8 +95,8 @@ function Invoke-AKSBestPractices {
                 $clusterInfo = $KubeData.AksCluster
                 $constraints = $KubeData.Constraints
                 Write-Host "`r🤖 Using cached AKS cluster data. " -ForegroundColor Green
-            } else {
-                # Use Azure CLI to get an access token
+            }
+            else {
                 $accessToken = az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv
                 if (-not $accessToken) { throw "Access token not retrieved." }
     
@@ -114,7 +112,6 @@ function Invoke-AKSBestPractices {
                 Write-Host "`r🤖 Constraints fetched." -ForegroundColor Green
             }
     
-            # Attach constraints regardless of source
             $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints }
     
             return $clusterInfo
@@ -123,76 +120,134 @@ function Invoke-AKSBestPractices {
             Write-Host "`r❌ Error retrieving AKS or constraint data: $($_.Exception.Message)" -ForegroundColor Red
             return $null
         }
-    }    
-
-    # Collect all checks
-    $checks = @()
-    Get-Variable -Name "*Checks" | ForEach-Object {
-        $checks += $_.Value
     }
-    $checks = $checks | Group-Object -Property ID | ForEach-Object { $_.Group[0] }
+
+    # Load AKS check files from checks/
+    $checksFolder = Join-Path -Path $PSScriptRoot -ChildPath "checks/"
+    $checks = @()
+    if (Test-Path $checksFolder) {
+        $checkFiles = Get-ChildItem -Path $checksFolder -Filter "*.ps1" -ErrorAction SilentlyContinue
+        foreach ($file in $checkFiles) {
+            try {
+                # Dot-source the file to define *Checks variables
+                . $file.FullName
+            }
+            catch {
+                Write-Warning "Failed to load $($file.Name): $_"
+            }
+        }
+        # Collect all *Checks variables
+        Get-Variable -Name "*Checks" -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.Value -is [array]) {
+                foreach ($check in $_.Value) {
+                    # Validate required fields
+                    if (-not $check.ID) { $check.ID = "UNKNOWN_$($checks.Count + 1)" }
+                    if (-not $check.Name) { $check.Name = "Unnamed Check $($check.ID)" }
+                    if (-not $check.Category) { $check.Category = "Unknown" }
+                    if (-not $check.Severity) { $check.Severity = "Medium" }
+                    if (-not $check.FailMessage) { $check.FailMessage = "Check failed." }
+                    if (-not $check.Recommendation) { $check.Recommendation = $check.FailMessage }
+                    $checks += $check
+                }
+            }
+        }
+        $checks = $checks | Group-Object -Property ID | ForEach-Object { $_.Group[0] }
+    }
+    else {
+        Write-Warning "No AKS checks folder found at $checksFolder."
+        $checks = @()
+    }
+
+    # Fallback if no checks are loaded
+    if ($checks.Count -eq 0) {
+        Write-Warning "No AKS checks loaded. Using empty check set."
+        $checks = @()
+    }
 
     function Run-Checks {
         param ($clusterInfo)
-        if (-not $HtmlReport -and -not $jsonReport -and -not $Global:MakeReport){
-        Write-Host -NoNewline "`n🤖 Running best practice checks..." -ForegroundColor Cyan
-        }
-        if ($Global:MakeReport) {
-            Write-ToReport "`n[✅ AKS Best Practices Check]`n"
+        if (-not $Html -and -not $Json -and -not $Text) {
+            Write-Host -NoNewline "`n🤖 Running best practice checks..." -ForegroundColor Cyan
         }
 
         $categories = @{
-            "Security"             = @();
-            "Networking"           = @();
-            "Resource Management"  = @();
-            "Monitoring & Logging" = @();
-            "Identity & Access"    = @();
-            "Disaster Recovery"    = @();
-            "Best Practices"       = @();
+            "Security"             = @()
+            "Networking"           = @()
+            "Resource Management"  = @()
+            "Monitoring & Logging" = @()
+            "Identity & Access"    = @()
+            "Disaster Recovery"    = @()
+            "Best Practices"       = @()
         }
 
-        if (-not $Global:MakeReport -and -not $HtmlReport -and -not $jsonReport) { Clear-Host }
+        if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
 
+        $checkResults = @()
         foreach ($check in $checks) {
             try {
+                # Evaluate Value scriptblock
                 $value = if ($check.Value -is [scriptblock]) {
                     $vars = [System.Collections.Generic.List[System.Management.Automation.PSVariable]]::new()
                     $vars.Add([System.Management.Automation.PSVariable]::new('clusterInfo', $clusterInfo))
                     $check.Value.InvokeWithContext($null, $vars)
-                } elseif ($check.Value -match "^(True|False|[0-9]+)$") {
+                }
+                elseif ($check.Value -match "^(True|False|[0-9]+)$") {
                     [bool]([System.Convert]::ChangeType($check.Value, [boolean]))
-                } else {
+                }
+                else {
                     Invoke-Expression ($check.Value -replace '\$clusterInfo', '$clusterInfo')
                 }
-        
-                $result = if ($value -eq $check.Expected) { "✅ PASS" } else { "❌ FAIL" }
-        
-                if (-not $categories.ContainsKey($check.Category)) {
-                    $categories[$check.Category] = @()
+
+                # Evaluate Expected scriptblock or value
+                $expected = if ($check.Expected -is [scriptblock]) {
+                    & $check.Expected $value
                 }
-        
-                $categories[$check.Category] += [PSCustomObject]@{
-                    ID             = $check.ID;
-                    Check          = $check.Name;
-                    Severity       = $check.Severity;
-                    Category       = $check.Category;
-                    Status         = $result;
-                    Recommendation = if ($result -eq "✅ PASS") { "$($check.Name) is enabled." } else { $check.FailMessage }
-                    URL            = $check.URL
+                else {
+                    $check.Expected
                 }
 
-                if ($Global:MakeReport) {
-                    Write-ToReport "[$($check.Category)] $($check.Name) - $result"
-                    Write-ToReport "   🔹 Severity: $($check.Severity)"
-                    Write-ToReport "   🔹 Recommendation: $($categories[$check.Category][-1].Recommendation)"
-                    Write-ToReport "   🔹 Info: $($check.URL)`n"
+                $result = if ($value -eq $expected) { "✅ PASS" } else { "❌ FAIL" }
+        
+                $checkResult = [PSCustomObject]@{
+                    ID             = $check.ID
+                    Name           = $check.Name
+                    Severity       = $check.Severity
+                    Category       = $check.Category
+                    Status         = $result
+                    Recommendation = if ($result -eq "✅ PASS") { "$($check.Name) is enabled." } else { $check.Recommendation }
+                    URL            = $check.URL
+                    Items          = if ($result -eq "❌ FAIL") { @(@{ Resource = $check.Name; Issue = $check.FailMessage }) } else { @() }
+                    Total          = if ($result -eq "❌ FAIL") { 1 } else { 0 }
                 }
+
+                $categories[$check.Category] += $checkResult
+                $checkResults += $checkResult
+
             }
             catch {
-                Write-Host "Error processing check: $($check.Name). $_" -ForegroundColor Red
+                Write-Host "Error processing check $($check.ID): $_" -ForegroundColor Red
+                $checkResult = [PSCustomObject]@{
+                    ID             = $check.ID
+                    Name           = $check.Name ? $check.Name : "Unnamed Check $($check.ID)"
+                    Severity       = $check.Severity ? $check.Severity : "Medium"
+                    Category       = $check.Category ? $check.Category : "Unknown"
+                    Status         = "❌ ERROR"
+                    Recommendation = "Error processing check: $_"
+                    URL            = $check.URL
+                    Items          = @(@{ Resource = $check.Name ? $check.Name : $check.ID; Issue = "Error: $_" })
+                    Total          = 1
+                }
+                $categories[$check.Category] += $checkResult
+                $checkResults += $checkResult
             }
         }
 
+        if ($Json) {
+            return @{
+                Total = ($checkResults | Measure-Object -Sum Total).Sum
+                Items = $checkResults
+            }
+        }
         return $categories
     }
 
@@ -201,23 +256,22 @@ function Invoke-AKSBestPractices {
             [hashtable]$categories,
             [switch]$FailedOnly,
             [switch]$Html,
-            [switch]$json
+            [switch]$Json
         )
     
         $passCount = 0
         $failCount = 0
         $reportData = @()
-        
     
         foreach ($category in $categories.Keys) {
             $checks = $categories[$category]
             if ($FailedOnly) {
-                $checks = $checks | Where-Object { $_.Status -eq "❌ FAIL" }
+                $checks = $checks | Where-Object { $_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR" }
             }
     
-            if ($checks.Count -gt 0 -and -not $Html -and -not $jsonReport -and -not $Global:MakeReport) {
+            if ($checks.Count -gt 0 -and -not $Html -and -not $Json -and -not $Text) {
                 Write-Host "`n=== $category ===             " -ForegroundColor Cyan              
-                $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, @{Label="URL";Expression={$_."URL"}} -AutoSize | out-string | write-host
+                $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, @{Label = "URL"; Expression = { $_."URL" } } -AutoSize | Out-String | Write-Host
     
                 Write-Host "`nPress any key to continue..." -ForegroundColor Magenta -NoNewline
                 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -231,16 +285,14 @@ function Invoke-AKSBestPractices {
                     Write-Host "`e[1A`e[2K" -NoNewline
                 }
             }
-            else {
-                # Format URL as hyperlink for HTML output
-                $reportData += $checks | Select-Object ID, Check, Severity, Category, Status, Recommendation, @{
-                    Name = 'URL';
-                    Expression = { if ($_.URL) { "<a href='$($_.URL)' target='_blank'>Learn More</a>" } else { "" } }
-                }
+    
+            $reportData += $checks | Select-Object ID, @{Name = "Check"; Expression = { $_.Name } }, Severity, Category, Status, Recommendation, @{
+                Name       = 'URL'
+                Expression = { if ($_.URL) { "<a href='$($_.URL)' target='_blank'>Learn More</a>" } else { "" } }
             }
     
-            $passCount += ($categories[$category] | Where-Object { $_.Status -eq "✅ PASS" }).Count
-            $failCount += ($categories[$category] | Where-Object { $_.Status -eq "❌ FAIL" }).Count
+            $passCount += ($checks | Where-Object { $_.Status -eq "✅ PASS" }).Count
+            $failCount += ($checks | Where-Object { $_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR" }).Count
         }
     
         $total = $passCount + $failCount
@@ -262,7 +314,7 @@ function Invoke-AKSBestPractices {
             default { "Gray" }
         }
     
-        if (-not $Html -and -not $jsonReport -and -not $Global:MakeReport) {
+        if (-not $Html -and -not $Json -and -not $Text) {
             Write-Host "`nSummary & Rating:           " -ForegroundColor Green
     
             $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
@@ -275,21 +327,43 @@ function Invoke-AKSBestPractices {
             Write-Host "$rating" -ForegroundColor $ratingColor
         }
     
-        if ($Global:MakeReport) {
-            Write-ToReport "`nSummary & Rating:           "
+        if ($Text) {
+            $textOutput = @()
+            $textOutput += "`nSummary & Rating:           "
             $header = "{0,-12} {1,-12} {2,-12} {3,-12} {4,-8}" -f "Passed", "Failed", "Total", "Score (%)", "Rating"
             $separator = "============================================================"
             $row = "{0,-12} {1,-12} {2,-12} {3,-12}" -f "✅ $passCount", "❌ $failCount", "$total", "$score"
-            Write-ToReport $header
-            Write-ToReport $separator
-            Write-ToReport "$row " -NoNewline
-            Write-ToReport "$rating"
+            $textOutput += $header
+            $textOutput += $separator
+            $textOutput += "$row $rating"
+    
+            # Return the results as an object for the caller to handle
+            return [PSCustomObject]@{
+                Passed     = $passCount
+                Failed     = $failCount
+                Total      = $total
+                Score      = $score
+                Rating     = $rating
+                Items      = $reportData | ForEach-Object {
+                    [PSCustomObject]@{
+                        ID             = $_.ID
+                        Name           = $_.Check
+                        Severity       = $_.Severity
+                        Category       = $_.Category
+                        Status         = $_.Status
+                        Recommendation = $_.Recommendation
+                        URL            = $_.URL -replace '<a href=''([^'']+)'' target=''_blank''>Learn More</a>', '$1'
+                        Total          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { 1 } else { 0 }
+                        Items          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { @(@{ Resource = $_.Check; Issue = $_.Recommendation }) } else { @() }
+                    }
+                }
+                TextOutput = $textOutput
+            }
         }
     
         if ($Html) {
             $htmlTable = if ($reportData.Count -gt 0) {
-                $sortedReportData = $reportData | Sort-Object @{Expression = { $_.Status -eq "❌ FAIL" } ; Descending = $true }, Category
-                # Generate HTML table manually to prevent escaping of HTML in the URL column
+                $sortedReportData = $reportData | Sort-Object @{Expression = { $_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR" }; Descending = $true }, Category
                 $htmlRows = $sortedReportData | ForEach-Object {
                     $id = $_.ID
                     $check = $_.Check
@@ -297,11 +371,10 @@ function Invoke-AKSBestPractices {
                     $category = $_.Category
                     $status = $_.Status
                     $recommendation = $_.Recommendation
-                    $url = $_.URL  # This is already an HTML anchor tag, do not escape
+                    $url = $_.URL
                     "<tr><td>$id</td><td>$check</td><td>$severity</td><td>$category</td><td>$status</td><td>$recommendation</td><td>$url</td></tr>"
                 }
-                $htmlTableContent = "<table>`n<thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Recommendation</th><th>URL</th></tr></thead>`n<tbody>`n" + ($htmlRows -join "`n") + "`n</tbody>`n</table>"
-                $htmlTableContent
+                "<table>`n<thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Recommendation</th><th>URL</th></tr></thead>`n<tbody>`n" + ($htmlRows -join "`n") + "`n</tbody>`n</table>"
             }
             else {
                 "<p><strong>No best practice violations detected.</strong></p>"
@@ -316,30 +389,77 @@ function Invoke-AKSBestPractices {
                 Data   = $htmlTable
             }
         }
-    }
-
-    # Main Execution Flow
-    if ($Global:MakeReport) {
-        Write-Host -NoNewline "`n🤖 Starting AKS Best Practices Check...`n" -ForegroundColor Cyan
-    }
-
-    Validate-Context -ResourceGroup $ResourceGroup -ClusterName $ClusterName
-    $clusterInfo = Get-AKSClusterInfo -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData $KubeData
-
-    $checkResults = Run-Checks -clusterInfo $clusterInfo
-
-
-    if ($Html) {
-        return Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Html
-    } else {
-        Display-Results -categories $checkResults -FailedOnly:$FailedOnly
-        if (-not $Global:MakeReport -and -not $json) {
-            Write-Host "`nPress Enter to return to the menu..." -ForegroundColor Yellow
-            Read-Host
+    
+        if ($Json) {
+            return @{
+                Total = $total
+                Items = $reportData | ForEach-Object {
+                    @{
+                        ID             = $_.ID
+                        Name           = $_.Check
+                        Severity       = $_.Severity
+                        Category       = $_.Category
+                        Status         = $_.Status
+                        Recommendation = $_.Recommendation
+                        URL            = $_.URL -replace '<a href=''([^'']+)'' target=''_blank''>Learn More</a>', '$1'
+                        Items          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { @(@{ Resource = $_.Check; Issue = $_.Recommendation }) } else { @() }
+                        Total          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { 1 } else { 0 }
+                    }
+                }
+            }
         }
     }
 
-    if ($Global:MakeReport) {
-        Write-Host "``r✅ AKS Best Practices Check Completed." -ForegroundColor Green
+    # Main Execution Flow
+    if ($Text) {
+        Write-Host -NoNewline "`n🤖 Starting AKS Best Practices Check...`n" -ForegroundColor Cyan
+    }
+
+    try {
+        Validate-Context -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+        $clusterInfo = Get-AKSClusterInfo -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData $KubeData
+        if (-not $clusterInfo) {
+            throw "Failed to retrieve AKS cluster info."
+        }
+
+        $checkResults = Run-Checks -clusterInfo $clusterInfo
+
+        if ($Json) {
+            return Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Json
+        }
+        elseif ($Html) {
+            return Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Html
+        }
+        elseif ($Text) {
+            $results = Display-Results -categories $checkResults -FailedOnly:$FailedOnly -Text
+            return $results  # Return the results for the caller to handle
+        }
+        else {
+            Display-Results -categories $checkResults -FailedOnly:$FailedOnly
+            if (-not $Text) {
+                Write-Host "`nPress Enter to return to the menu..." -ForegroundColor Yellow
+                Read-Host
+            }
+        }
+    }
+    catch {
+        Write-Error "❌ Error running AKS Best Practices: $_"
+        if ($Json) {
+            return @{
+                Total = 0
+                Items = @(@{
+                        ID      = "AKSBestPractices"
+                        Name    = "AKS Best Practices"
+                        Message = "Error running AKS checks: $_"
+                        Total   = 0
+                        Items   = @()
+                    })
+            }
+        }
+        throw
+    }
+
+    if ($Text) {
+        Write-Host "`r✅ AKS Best Practices Check Completed." -ForegroundColor Green
     }
 }

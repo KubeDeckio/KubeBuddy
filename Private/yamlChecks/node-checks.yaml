@@ -1,0 +1,186 @@
+checks:
+  - ID: NODE001
+    Name: Node Readiness and Conditions
+    Section: Nodes
+    Category: Nodes
+    ResourceKind: Node
+    Severity: High
+    Weight: 8
+    Description: Detects nodes that are not in Ready state or reporting other warning conditions.
+    FailMessage: One or more nodes are not Ready.
+    Recommendation:
+      text: Investigate NotReady nodes to avoid workload disruption.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Use <code>kubectl describe node <name></code> to check conditions and taints.</li>
+            <li>Check kubelet and container runtime status.</li>
+            <li>Verify cluster networking and node resource pressure.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "🤖 Checking node readiness and conditions."
+        - ""
+        - "📌 This check looks for:"
+        - "   - Nodes not in 'Ready' state"
+        - "   - Warnings in other condition types"
+        - ""
+        - "⚠️ Nodes not ready may prevent scheduling or disrupt workloads."
+    URL: "https://kubernetes.io/docs/concepts/architecture/nodes/"
+    Script: |
+      param($KubeData)
+      $nodes = if ($KubeData?.Nodes) {
+        $KubeData.Nodes.items
+      } else {
+        (kubectl get nodes -o json | ConvertFrom-Json).items
+      }
+      $results = @()
+      $notReadyCount = 0
+  
+      foreach ($node in $nodes) {
+        $name = $node.metadata.name
+        $conditions = $node.status.conditions
+        $ready = $conditions | Where-Object { $_.type -eq "Ready" }
+        $issues = $conditions | Where-Object { $_.type -ne "Ready" -and $_.status -ne "False" }
+  
+        if ($ready.status -eq "True") {
+          $results += [pscustomobject]@{
+            Node   = $name
+            Status = "✅ Healthy"
+            Issues = "None"
+          }
+        } else {
+          $msg = if ($issues) {
+            ($issues | ForEach-Object { "$($_.type): $($_.message)" }) -join " | "
+          } else {
+            "Unknown Issue"
+          }
+          $results += [pscustomobject]@{
+            Node   = $name
+            Status = "❌ Not Ready"
+            Issues = $msg
+          }
+          $notReadyCount++
+        }
+      }
+  
+      return @{
+        Items = $results
+        IssueCount = $notReadyCount
+      }
+  - ID: NODE002
+    Name: Node Resource Pressure
+    Section: Nodes
+    Category: Nodes
+    ResourceKind: Node
+    Severity: Medium
+    Weight: 6
+    Description: Detects nodes under high CPU, memory, or disk pressure.
+    FailMessage: One or more nodes are under high resource usage.
+    Recommendation:
+      text: Investigate and rebalance workloads on nodes with high resource usage.
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Review node workloads with <code>kubectl top nodes</code>.</li>
+            <li>Move resource-hungry pods to less loaded nodes.</li>
+            <li>Scale node pool or optimize workloads if necessary.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking for high CPU, memory, or disk usage on nodes."
+      - ""
+      - "📌 This check compares usage against configured thresholds."
+      - "   - CPU, memory: from metrics-server"
+      - "   - Disk: estimated from node summary"
+      - ""
+      - "⚠️ High usage may lead to evictions or degraded performance."
+    URL: "https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/"
+    Script: |
+      param($KubeData, $Thresholds)
+      $nodes = if ($KubeData?.Nodes) {
+        $KubeData.Nodes.items
+      } else {
+        (kubectl get nodes -o json | ConvertFrom-Json).items
+      }
+      
+      $top = if ($KubeData?.TopNodes) {
+        $KubeData.TopNodes
+      } else {
+        kubectl top nodes | Out-String -Stream
+      }
+      $results = @()
+      $issueCount = 0
+  
+      # Use thresholds from Get-KubeBuddyThresholds
+      $cpu_warn = $Thresholds.cpu_warning
+      $cpu_crit = $Thresholds.cpu_critical
+      $mem_warn = $Thresholds.mem_warning
+      $mem_crit = $Thresholds.mem_critical
+      # Disk thresholds are not provided by Get-KubeBuddyThresholds, so use hardcoded values
+      $disk_warn = 60
+      $disk_crit = 80
+  
+      foreach ($node in $nodes) {
+        $name = $node.metadata.name
+        $cpuAlloc = [int]($node.status.allocatable.cpu -replace "m", "")
+        $memAlloc = [math]::Round(([int]($node.status.allocatable.memory -replace "Ki", "")) / 1024)
+        $stat = $top | Where-Object { $_ -match "^$name\s" }
+  
+        # Default values if no stats available
+        $cpuUsed = 0
+        $cpuPct = 0
+        $cpuStatus = "✅ Normal"
+        $memUsed = 0
+        $memPct = 0
+        $memStatus = "✅ Normal"
+        $diskPct = "<unknown>"
+        $diskStatus = "⚠️ Unknown"
+  
+        if ($stat) {
+          $split = $stat -split "\s+"
+          $cpuUsed = [int]($split[1] -replace "m", "")
+          $memUsed = [math]::Round([int]($split[3] -replace "Mi", ""))
+  
+          $cpuPct = [math]::Round(($cpuUsed / $cpuAlloc) * 100, 2)
+          $memPct = [math]::Round(($memUsed / $memAlloc) * 100, 2)
+  
+          # CPU status
+          if ($cpuPct -gt $cpu_crit) { $cpuStatus = "🔴 Critical"; $issueCount++ }
+          elseif ($cpuPct -gt $cpu_warn) { $cpuStatus = "🟡 Warning"; $issueCount++ }
+          else { $cpuStatus = "✅ Normal" }
+  
+          # Memory status
+          if ($memPct -gt $mem_crit) { $memStatus = "🔴 Critical"; $issueCount++ }
+          elseif ($memPct -gt $mem_warn) { $memStatus = "🟡 Warning"; $issueCount++ }
+          else { $memStatus = "✅ Normal" }
+  
+          # Disk usage (if available)
+          if ($split.Length -ge 5 -and $split[4] -match "^\d+%$") {
+            $diskPct = [int]($split[4] -replace "%", "")
+            if ($diskPct -gt $disk_crit) { $diskStatus = "🔴 Critical"; $issueCount++ }
+            elseif ($diskPct -gt $disk_warn) { $diskStatus = "🟡 Warning"; $issueCount++ }
+            else { $diskStatus = "✅ Normal" }
+            $diskPct = "$diskPct%"
+          }
+        }
+  
+        $results += [pscustomobject]@{
+          Node        = $name
+          "CPU Status"= $cpuStatus
+          "CPU %"     = "$cpuPct%"
+          "CPU Used"  = "$cpuUsed mC"
+          "CPU Total" = "$cpuAlloc mC"
+          "Mem Status"= $memStatus
+          "Mem %"     = "$memPct%"
+          "Mem Used"  = "$memUsed Mi"
+          "Mem Total" = "$memAlloc Mi"
+          "Disk %"    = $diskPct
+          "Disk Status" = $diskStatus
+        }
+      }
+  
+      return @{
+        Items = $results
+        IssueCount = $issueCount
+      }

@@ -1,0 +1,75 @@
+checks:
+  - ID: PVC001
+    Name: Unused Persistent Volume Claims
+    Section: Storage
+    Category: Volumes
+    ResourceKind: PersistentVolumeClaim
+    Severity: Medium
+    Weight: 2
+    Description: Detects PVCs not attached to any pod.
+    FailMessage: PVC is not used by any running pod.
+    URL: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+    Recommendation:
+      text: Review and delete unused PVCs to reclaim storage.
+      html: |
+        <div class="recommendation-content">
+          <h4>💾 Clean Up Unused PVCs</h4>
+          <ul>
+            <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n <namespace></code>.</li>
+            <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc <name></code>.</li>
+            <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "PVCs reserve storage in your cluster."
+        - ""
+        - "These are NOT in use by any pod."
+        - "Check before deleting."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      $pvcs = if ($KubeData -and $KubeData.PersistentVolumeClaims) {
+        $KubeData.PersistentVolumeClaims.items
+      } else {
+        Get-KubeJson "pvc"
+      }
+      if ($ExcludeNamespaces) {
+        $pvcs = Exclude-Namespaces -items $pvcs
+      }
+      
+      $pods = if ($KubeData -and $KubeData.Pods) {
+        $KubeData.Pods.items
+      } else {
+        Get-KubeJson "pods"
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+      
+      if ($Namespace) {
+        $pvcs = $pvcs | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      if (-not $pvcs -or $pvcs.Count -eq 0) {
+        return @()
+      }
+      
+      $attachedPVCs = $pods |
+        ForEach-Object { $_.spec.volumes | Where-Object { $_.persistentVolumeClaim } } |
+        Select-Object -ExpandProperty persistentVolumeClaim
+      
+      $unusedPVCs = $pvcs | Where-Object { $_.metadata.name -notin $attachedPVCs.name }
+      
+      $unusedPVCs | ForEach-Object {
+        [PSCustomObject]@{
+          Namespace = $_.metadata.namespace
+          Resource  = "pvc/$($_.metadata.name)"
+          Value     = $_.spec.resources.requests.storage
+          Message   = "PVC is not used by any running pod"
+        }
+      }

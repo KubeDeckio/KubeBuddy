@@ -1,0 +1,636 @@
+checks:
+  - ID: "RBAC001"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "RBAC Misconfigurations"
+    Description: "Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces in RoleBindings and ClusterRoleBindings."
+    ResourceKind: "ClusterRoleBinding"
+    Severity: "High"
+    Weight: 4
+    Operator: "script"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $invalid = @()
+      
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      # Get excluded namespaces
+      $excludedNamespaces = if ($ExcludeNamespaces) { Get-ExcludedNamespaces -Silent } else { @() }
+      
+      # Get RoleBindings
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { Get-KubeJson "rolebindings" }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      # Get ClusterRoleBindings (no namespace filtering)
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { Get-KubeJson "clusterrolebindings" }
+      
+      # Get Roles
+      $roles = if ($KubeData -and $KubeData.Roles) { $KubeData.Roles } else { Get-KubeJson "roles" }
+      if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+      }
+      
+      # Get ClusterRoles (no namespace filtering)
+      $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) { $KubeData.ClusterRoles } else { Get-KubeJson "clusterroles" }
+      
+      # Get all namespaces for validation (unfiltered)
+      $allNamespaces = if ($KubeData -and $KubeData.Namespaces) { 
+        $KubeData.Namespaces | ForEach-Object { $_.metadata.name } 
+      } else { 
+        (kubectl get namespaces -o json | ConvertFrom-Json).items | ForEach-Object { $_.metadata.name } 
+      }
+      
+      # Get filtered namespaces for RoleBindings
+      $namespaces = $allNamespaces
+      if ($ExcludeNamespaces) {
+        $namespaces = Exclude-Namespaces -items $namespaces
+      }
+      
+      # Get ServiceAccounts
+      $serviceAccounts = if ($KubeData -and $KubeData.ServiceAccounts) { $KubeData.ServiceAccounts } else { Get-KubeJson "serviceaccounts" }
+      if ($ExcludeNamespaces) {
+        $serviceAccounts = Exclude-Namespaces -items $serviceAccounts
+      }
+
+      # Process RoleBindings
+      foreach ($rb in $roleBindings) {
+        if (-not $rb.roleRef) {
+          $invalid += [pscustomobject]@{
+            Namespace = $rb.metadata.namespace
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = "-"
+            Message   = "Missing roleRef in RoleBinding"
+          }
+          continue
+        }
+
+        $ns = $rb.metadata.namespace
+        $roleExists = $roles | Where-Object {
+          $_.metadata.name -eq $rb.roleRef.name -and $_.metadata.namespace -eq $ns
+        }
+
+        if (-not $roleExists -and $rb.roleRef.kind -eq "Role") {
+          $invalid += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "Missing Role: $($rb.roleRef.name)"
+          }
+        }
+
+        if ($rb.roleRef.kind -eq "ClusterRole") {
+          $invalid += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "RoleBinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "RoleBinding references ClusterRole"
+          }
+        }
+
+        foreach ($subject in $rb.subjects) {
+          if ($subject.kind -eq "ServiceAccount") {
+            $subjectNs = $subject.namespace
+            if (-not $subjectNs) { $subjectNs = $ns }
+
+            if ($subjectNs -notin $namespaces) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(unknown)"
+                Resource  = "RoleBinding/$($rb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Namespace does not exist: $subjectNs"
+              }
+            }
+            else {
+              $found = $serviceAccounts | Where-Object {
+                $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
+              }
+              if (-not $found) {
+                $invalid += [pscustomobject]@{
+                  Namespace = $subjectNs
+                  Resource  = "RoleBinding/$($rb.metadata.name)"
+                  Value     = "$($subject.kind)/$($subject.name)"
+                  Message   = "ServiceAccount not found"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      # Process ClusterRoleBindings
+      foreach ($crb in $clusterRoleBindings) {
+        if (-not $crb.roleRef) {
+          $invalid += [pscustomobject]@{
+            Namespace = "(cluster)"
+            Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+            Value     = "-"
+            Message   = "Missing roleRef in ClusterRoleBinding"
+          }
+          continue
+        }
+
+        foreach ($subject in $crb.subjects) {
+          if ($subject.kind -eq "ServiceAccount") {
+            $subjectNs = $subject.namespace
+            if (-not $subjectNs) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(cluster)"
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Missing namespace in ClusterRoleBinding subject"
+              }
+              continue
+            }
+
+            # Skip validation for excluded namespaces
+            if ($ExcludeNamespaces -and $subjectNs -in $excludedNamespaces) {
+              continue
+            }
+
+            # Validate namespace existence
+            if ($subjectNs -notin $allNamespaces) {
+              $invalid += [pscustomobject]@{
+                Namespace = "(unknown)"
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "Namespace does not exist: $subjectNs"
+              }
+              continue
+            }
+
+            # Check ServiceAccount existence (only for non-excluded namespaces)
+            $found = $serviceAccounts | Where-Object {
+              $_.metadata.name -eq $subject.name -and $_.metadata.namespace -eq $subjectNs
+            }
+            if (-not $found) {
+              $invalid += [pscustomobject]@{
+                Namespace = $subjectNs
+                Resource  = "ClusterRoleBinding/$($crb.metadata.name)"
+                Value     = "$($subject.kind)/$($subject.name)"
+                Message   = "ServiceAccount not found"
+              }
+            }
+          }
+        }
+      }
+
+      return $invalid
+    FailMessage: "RBAC misconfiguration detected"
+    Recommendation:
+      text: "Fix missing roleRefs, service accounts, and invalid namespaces in RoleBindings and ClusterRoleBindings."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 RBAC Misconfiguration Fixes</h4>
+          <ul>
+            <li>Don't leave roleRef blank in bindings.</li>
+            <li>Use valid Roles/ClusterRoles that exist in the correct namespace.</li>
+            <li>Verify ServiceAccounts exist in the namespace specified.</li>
+            <li>Remove or correct subjects pointing to non-existent namespaces.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "🤖 Checking for RBAC misconfigurations in your bindings."
+        - ""
+        - "📌 This includes:"
+        - "   - RoleBindings referencing missing Roles or ClusterRoles"
+        - "   - ClusterRoleBindings with undefined namespaces"
+        - "   - Bindings missing ServiceAccount subjects"
+        - ""
+        - "⚠️ These issues can silently break access or expose resources."
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+  - ID: "RBAC002"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "RBAC Overexposure"
+    Description: "Identifies dangerous RBAC grants such as cluster-admin, wildcard permissions, and sensitive resource access in roles and bindings."
+    ResourceKind: "ClusterRoleBinding"
+    Severity: "Critical"
+    Weight: 5
+    Operator: "script"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $findings = @()
+
+      $roles = if ($KubeData -and $KubeData.Roles) { $KubeData.Roles } else { (kubectl get roles --all-namespaces -o json | ConvertFrom-Json).items }
+      if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+      }
+      
+      $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) { $KubeData.ClusterRoles } else { (kubectl get clusterroles -o json | ConvertFrom-Json).items }
+      
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { (kubectl get rolebindings --all-namespaces -o json | ConvertFrom-Json).items }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { (kubectl get clusterrolebindings -o json | ConvertFrom-Json).items }
+
+      $wildcardRoles = @{}
+      $sensitiveResourceRoles = @{}
+
+      $builtInClusterRoles = @(
+        "cluster-admin", "admin", "edit", "view",
+        "system:kube-scheduler", "system:kube-controller-manager", "system:node", 
+        "system:node-proxier", "system:monitoring", "system:service-account-issuer-discovery",
+        "system:auth-delegator", "system:heapster", "system:kube-dns", 
+        "system:metrics-server", "system:public-info-viewer"
+      )
+
+      foreach ($cr in $clusterRoles) {
+        foreach ($rule in $cr.rules) {
+          if ($rule.verbs -contains "*" -and $rule.resources -contains "*" -and $rule.apiGroups -contains "*") {
+            $wildcardRoles[$cr.metadata.name] = "ClusterRole"
+            break
+          }
+
+          $sensitiveResources = @("secrets", "pods/exec", "roles", "clusterroles", "bindings", "clusterrolebindings")
+          $dangerousVerbs = @("*", "create", "update", "delete")
+          if ($rule.resources | Where-Object { $_ -in $sensitiveResources }) {
+            if ($rule.verbs | Where-Object { $_ -in $dangerousVerbs }) {
+              $sensitiveResourceRoles[$cr.metadata.name] = "ClusterRole"
+              break
+            }
+          }
+        }
+      }
+
+      foreach ($r in $roles) {
+        foreach ($rule in $r.rules) {
+          if ($rule.verbs -contains "*" -and $rule.resources -contains "*" -and $rule.apiGroups -contains "*") {
+            $key = "$($r.metadata.namespace)/$($r.metadata.name)"
+            $wildcardRoles[$key] = "Role"
+            break
+          }
+
+          $sensitiveResources = @("secrets", "pods/exec", "roles", "clusterroles", "bindings", "clusterrolebindings")
+          $dangerousVerbs = @("*", "create", "update", "delete")
+          if ($rule.resources | Where-Object { $_ -in $sensitiveResources }) {
+            if ($rule.verbs | Where-Object { $_ -in $dangerousVerbs }) {
+              $key = "$($r.metadata.namespace)/$($r.metadata.name)"
+              $sensitiveResourceRoles[$key] = "Role"
+              break
+            }
+          }
+        }
+      }
+
+      foreach ($crb in $clusterRoleBindings) {
+        $roleName = $crb.roleRef.name
+        $isClusterAdmin = ($roleName -eq "cluster-admin")
+        $isWildcard = $wildcardRoles.ContainsKey($roleName)
+        $isSensitive = $sensitiveResourceRoles.ContainsKey($roleName)
+
+        $isBuiltIn = $false
+        if ($roleName -like "system:*" -or $roleName -in $builtInClusterRoles) {
+          $isBuiltIn = $true
+        } elseif ($clusterRoles | Where-Object { $_.metadata.name -eq $roleName -and $_.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults' }) {
+          $isBuiltIn = $true
+        }
+
+        if ($isClusterAdmin -or $isWildcard -or $isSensitive) {
+          foreach ($subject in $crb.subjects) {
+            $isDefaultSA = ($subject.kind -eq "ServiceAccount" -and $subject.name -eq "default")
+            $finding = [pscustomobject]@{
+              Namespace     = "🌍 Cluster-Wide"
+              Resource      = "ClusterRoleBinding/$($crb.metadata.name)"
+              Value         = "$($subject.kind)/$($subject.name)"
+              Message       = if ($isClusterAdmin) {
+                                "cluster-admin binding"
+                              } elseif ($isWildcard) {
+                                "Wildcard permission role"
+                              } else {
+                                "Access to sensitive resources"
+                              }
+            }
+            if ($isBuiltIn) {
+              $finding.Message += " (built-in)"
+            }
+            if ($isDefaultSA) {
+              $finding.Message += " (default ServiceAccount)"
+            }
+            $findings += $finding
+          }
+        }
+      }
+
+      foreach ($rb in $roleBindings) {
+        $roleName = $rb.roleRef.name
+        $ns = $rb.metadata.namespace
+        $key = "$ns/$roleName"
+        $isClusterAdmin = ($roleName -eq "cluster-admin")
+        $isWildcard = $wildcardRoles.ContainsKey($key)
+        $isSensitive = $sensitiveResourceRoles.ContainsKey($key)
+
+        $isBuiltIn = $false
+        if ($rb.roleRef.kind -eq "ClusterRole") {
+          if ($roleName -like "system:*" -or $roleName -in $builtInClusterRoles) {
+            $isBuiltIn = $true
+          } elseif ($clusterRoles | Where-Object { $_.metadata.name -eq $roleName -and $_.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults' }) {
+            $isBuiltIn = $true
+          }
+        }
+
+        if ($isClusterAdmin -or $isWildcard -or $isSensitive) {
+          foreach ($subject in $rb.subjects) {
+            $isDefaultSA = ($subject.kind -eq "ServiceAccount" -and $subject.name -eq "default")
+            $finding = [pscustomobject]@{
+              Namespace     = $ns
+              Resource      = "RoleBinding/$($rb.metadata.name)"
+              Value         = "$($subject.kind)/$($subject.name)"
+              Message       = if ($isClusterAdmin) {
+                                "cluster-admin binding"
+                              } elseif ($isWildcard) {
+                                "Wildcard permission role"
+                              } else {
+                                "Access to sensitive resources"
+                              }
+            }
+            if ($isBuiltIn) {
+              $finding.Message += " (built-in)"
+            }
+            if ($isDefaultSA) {
+              $finding.Message += " (default ServiceAccount)"
+            }
+            $findings += $finding
+          }
+        }
+      }
+
+      return $findings
+    FailMessage: "RBAC overexposure risk detected"
+    Recommendation:
+      text: "Avoid cluster-admin, wildcard, and sensitive resource access in roles. Use least privilege."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 RBAC Hardening Tips</h4>
+          <ul>
+            <li>Avoid using <code>cluster-admin</code> directly in bindings.</li>
+            <li>Don’t assign Roles or ClusterRoles with wildcard verbs/resources/apiGroups.</li>
+            <li>Restrict access to sensitive resources like <code>secrets</code> or <code>pods/exec</code>.</li>
+            <li>Minimize privileges for default ServiceAccounts.</li>
+            <li>Document use of any built-in roles used in production.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "🤖 Checking for RBAC overexposure risks."
+        - ""
+        - "📌 This flags:"
+        - "   - cluster-admin bindings"
+        - "   - wildcard permissions (* on resources/verbs)"
+        - "   - access to secrets and exec APIs"
+        - ""
+        - "⚠️ These configurations can grant dangerous access."
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+  - ID: "RBAC003"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "Orphaned ServiceAccounts"
+    Description: "Finds ServiceAccounts not used by any pods or referenced in RoleBindings or ClusterRoleBindings."
+    ResourceKind: "ServiceAccount"
+    Severity: "Medium"
+    Weight: 2
+    Operator: "script"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+  
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      $sas = if ($KubeData -and $KubeData.ServiceAccounts) { $KubeData.ServiceAccounts } else { Get-KubeJson "serviceaccounts" }
+      if ($ExcludeNamespaces) {
+        $sas = Exclude-Namespaces -items $sas
+      }
+      
+      $pods = if ($KubeData -and $KubeData.Pods) { $KubeData.Pods.items } else { Get-KubeJson "pods" }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+      
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { Get-KubeJson "rolebindings" }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { Get-KubeJson "clusterrolebindings" }
+
+      if ($Namespace) {
+        $sas = $sas | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $roleBindings = $roleBindings | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $clusterRoleBindings = $clusterRoleBindings | Where-Object {
+          $_.subjects | Where-Object {
+            $_.kind -eq "ServiceAccount" -and $_.namespace -eq $Namespace
+          }
+        }
+      }
+  
+      $usedSAs = [System.Collections.Generic.HashSet[string]]::new()
+  
+      foreach ($pod in $pods) {
+        $sa = $pod.spec.serviceAccountName
+        if ($sa) {
+          $null = $usedSAs.Add("$($pod.metadata.namespace)/$sa")
+        }
+      }
+  
+      foreach ($rb in $roleBindings) {
+        foreach ($s in $rb.subjects) {
+          if ($s.kind -eq "ServiceAccount" -and $s.name) {
+            $ns = if ($s.namespace) { $s.namespace } else { $rb.metadata.namespace }
+            $null = $usedSAs.Add("$ns/$($s.name)")
+          }
+        }
+      }
+  
+      foreach ($crb in $clusterRoleBindings) {
+        foreach ($s in $crb.subjects) {
+          if ($s.kind -eq "ServiceAccount" -and $s.namespace -and $s.name) {
+            $null = $usedSAs.Add("$($s.namespace)/$($s.name)")
+          }
+        }
+      }
+  
+      $orphaned = $sas | Where-Object {
+        -not $usedSAs.Contains("$($_.metadata.namespace)/$($_.metadata.name)")
+      }
+  
+      $results = foreach ($sa in $orphaned) {
+        [pscustomobject]@{
+          Namespace = $sa.metadata.namespace
+          Resource  = "serviceaccount/$($sa.metadata.name)"
+          Value     = $sa.metadata.name
+          Message   = "ServiceAccount not used by pods or RBAC bindings"
+        }
+      }
+  
+      return $results
+    FailMessage: "ServiceAccount is unused"
+    Recommendation:
+      text: "Clean up unused ServiceAccounts to avoid confusion and reduce RBAC clutter."
+      html: |
+        <div class="recommendation-content">
+          <h4>🧾 Remove Orphaned ServiceAccounts</h4>
+          <ul>
+            <li>Audit ServiceAccounts not referenced in RoleBindings, ClusterRoleBindings, or used by Pods.</li>
+            <li>Delete those not actively used to reduce attack surface.</li>
+            <li>Consider automating SA cleanup with CI/CD or policy enforcement.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking for orphaned ServiceAccounts."
+      - ""
+      - "📌 These are not used by:"
+      - "   - any Pod"
+      - "   - any RoleBinding or ClusterRoleBinding"
+      - ""
+      - "⚠️ Unused ServiceAccounts create RBAC noise and potential confusion."
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/"
+  - ID: "RBAC004"
+    Category: "RBAC"
+    Section: "Security"
+    Name: "Orphaned and Ineffective Roles"
+    Description: "Flags Roles and ClusterRoles that are unused, lack subjects, or define no rules."
+    ResourceKind: "Role, ClusterRole"
+    Severity: "Low"
+    Weight: 1
+    Operator: "script"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+  
+      function Get-KubeJson($kind) {
+        (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      
+      $roles = if ($KubeData -and $KubeData.Roles) { $KubeData.Roles } else { Get-KubeJson "roles" }
+      if ($ExcludeNamespaces) {
+        $roles = Exclude-Namespaces -items $roles
+      }
+      
+      $clusterRoles = if ($KubeData -and $KubeData.ClusterRoles) { $KubeData.ClusterRoles } else { Get-KubeJson "clusterroles" }
+      
+      $roleBindings = if ($KubeData -and $KubeData.RoleBindings) { $KubeData.RoleBindings } else { Get-KubeJson "rolebindings" }
+      if ($ExcludeNamespaces) {
+        $roleBindings = Exclude-Namespaces -items $roleBindings
+      }
+      
+      $clusterRoleBindings = if ($KubeData -and $KubeData.ClusterRoleBindings) { $KubeData.ClusterRoleBindings } else { Get-KubeJson "clusterrolebindings" }
+
+      if ($Namespace) {
+        $roles = $roles | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $roleBindings = $roleBindings | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+  
+      $usedRoles = [System.Collections.Generic.HashSet[string]]::new()
+      $usedClusterRoles = [System.Collections.Generic.HashSet[string]]::new()
+      $results = @()
+  
+      foreach ($rb in $roleBindings) {
+        if (-not $rb.subjects -or $rb.subjects.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $rb.metadata.namespace
+            Resource  = "rolebinding/$($rb.metadata.name)"
+            Value     = $rb.roleRef.name
+            Message   = "RoleBinding has no subjects"
+          }
+        }
+        if ($rb.roleRef.kind -eq "Role") {
+          $usedRoles.Add("$($rb.metadata.namespace)/$($rb.roleRef.name)") | Out-Null
+        } elseif ($rb.roleRef.kind -eq "ClusterRole") {
+          $usedClusterRoles.Add($rb.roleRef.name) | Out-Null
+        }
+      }
+  
+      foreach ($crb in $clusterRoleBindings) {
+        if (-not $crb.subjects -or $crb.subjects.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = "cluster-wide"
+            Resource  = "clusterrolebinding/$($crb.metadata.name)"
+            Value     = $crb.roleRef.name
+            Message   = "ClusterRoleBinding has no subjects"
+          }
+        }
+        if ($crb.roleRef.kind -eq "ClusterRole") {
+          $usedClusterRoles.Add($crb.roleRef.name) | Out-Null
+        }
+      }
+  
+      $builtIn = @(
+        "cluster-admin", "admin", "edit", "view",
+        "system:*", "system:kube-*", "system:node*",
+        "system:public-info-viewer"
+      )
+  
+      foreach ($r in $roles) {
+        $key = "$($r.metadata.namespace)/$($r.metadata.name)"
+        if (-not $usedRoles.Contains($key)) {
+          $results += [pscustomobject]@{
+            Namespace = $r.metadata.namespace
+            Resource  = "role/$($r.metadata.name)"
+            Value     = $r.metadata.name
+            Message   = "Unused Role"
+          }
+        }
+        if (-not $r.rules -or $r.rules.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $r.metadata.namespace
+            Resource  = "role/$($r.metadata.name)"
+            Value     = $r.metadata.name
+            Message   = "Role has no rules"
+          }
+        }
+      }
+  
+      foreach ($cr in $clusterRoles) {
+        $name = $cr.metadata.name
+        $isSystem = $builtIn | Where-Object { $name -like $_ }
+        $hasBootstrapLabel = $cr.metadata.labels.'kubernetes.io/bootstrapping' -eq 'rbac-defaults'
+  
+        if (-not $isSystem -and -not $hasBootstrapLabel -and -not $usedClusterRoles.Contains($name)) {
+          $results += [pscustomobject]@{
+            Namespace = "cluster-wide"
+            Resource  = "clusterrole/$name"
+            Value     = $name
+            Message   = "Unused ClusterRole"
+          }
+        }
+  
+        if (-not $cr.rules -or $cr.rules.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = "cluster-wide"
+            Resource  = "clusterrole/$name"
+            Value     = $name
+            Message   = "ClusterRole has no rules"
+          }
+        }
+      }
+  
+      return $results
+    FailMessage: "Role or ClusterRole is unused or has no rules"
+    Recommendation:
+      text: "Delete Roles and ClusterRoles that are not bound or do not define any rules."
+      html: |
+        <div class="recommendation-content">
+          <h4>🗂️ Clean up Unused or Ineffective RBAC</h4>
+          <ul>
+            <li>Remove RoleBindings or ClusterRoleBindings without subjects.</li>
+            <li>Prune Roles and ClusterRoles not referenced by any bindings.</li>
+            <li>Remove roles with no defined rules unless planned for future use.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Auditing Roles and ClusterRoles for effectiveness."
+      - ""
+      - "📌 This flags:"
+      - "   - bindings with no subjects"
+      - "   - roles that aren’t used"
+      - "   - roles that define no rules"
+      - ""
+      - "⚠️ These are usually safe to delete and clean up."
+    URL: "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"

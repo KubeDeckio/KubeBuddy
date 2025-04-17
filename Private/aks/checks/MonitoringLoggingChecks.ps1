@@ -1,6 +1,6 @@
 $monitoringLoggingChecks = @(
     @{
-        ID          = "MON001";
+        ID          = "AKSMON001";
         Category    = "Monitoring & Logging";
         Name        = "Azure Monitor";
         Value       = { ($clusterInfo.properties.addonProfiles.omsagent).enabled };
@@ -11,7 +11,7 @@ $monitoringLoggingChecks = @(
         URL         = "https://learn.microsoft.com/azure/azure-monitor/containers/container-insights-overview";
     },
     @{
-        ID             = "MON002";
+        ID             = "AKSMON002";
         Category       = "Monitoring & Logging";
         Name           = "Managed Prometheus Enabled";
         Value          = { $clusterInfo.properties.azureMonitorProfile.metrics.enabled };

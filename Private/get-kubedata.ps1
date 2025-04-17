@@ -163,13 +163,27 @@ function Get-KubeData {
     }
 
     # Custom Resources
+    # Custom Resources
     Write-Host -NoNewline "`n🤖 Fetching Custom Resource Instances..." -ForegroundColor Yellow
     $data.CustomResourcesByKind = @{}
     try {
         $crdsRaw = kubectl get crds -o json
         $crds = $crdsRaw | ConvertFrom-Json -AsHashtable
 
+        # Get the total number of CRDs for progress calculation
+        $totalCrds = $crds["items"].Count
+        $currentCrd = 0
+
+        # Initialize the progress bar
+        Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Starting..." -PercentComplete 0
+
         foreach ($crd in $crds["items"]) {
+            # Update progress
+            $currentCrd++
+            $percentComplete = [math]::Round(($currentCrd / $totalCrds) * 100)
+            $crdName = $crd["metadata"]["name"]
+            Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Processing CRD: $crdName" -PercentComplete $percentComplete
+
             $kind = $crd["spec"]["names"]["kind"]
             $plural = $crd["spec"]["names"]["plural"]
             $group = $crd["spec"]["group"]
@@ -184,9 +198,12 @@ function Get-KubeData {
             catch {}
         }
 
+        # Complete the progress bar
+        Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Completed" -PercentComplete 100 -Completed
         Write-Host "`r✅ Custom Resource Instances fetched.   " -ForegroundColor Green
     }
     catch {
+        Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Failed" -PercentComplete 100 -Completed
         Write-Host "`r❌ Failed to fetch CRDs: $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }
