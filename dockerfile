@@ -1,5 +1,5 @@
 # Build stage: Use Ubuntu 24.04 for setup
-FROM mcr.microsoft.com/powershell:7.5-ubuntu-24.04 AS builder
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-Ubuntu-24.04 AS builder
 
 # Install required utilities for file operations and dependency installation
 RUN apt-get update && \
@@ -10,15 +10,18 @@ RUN apt-get update && \
 # Create app directory
 WORKDIR /app
 
-# Install kubectl and kubelogin
-RUN curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+# Determine the architecture and set the appropriate binary suffix
+ARG TARGETARCH
+RUN echo "Building for architecture: $TARGETARCH" && \
+    # Install kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
     # Install kubelogin
-    curl -LO "https://github.com/Azure/kubelogin/releases/download/v0.2.7/kubelogin-linux-amd64.zip" && \
-    unzip kubelogin-linux-amd64.zip && \
-    install -o root -g root -m 0755 bin/linux_amd64/kubelogin /usr/local/bin/kubelogin && \
+    curl -LO "https://github.com/Azure/kubelogin/releases/download/v0.2.7/kubelogin-linux-${TARGETARCH}.zip" && \
+    unzip kubelogin-linux-${TARGETARCH}.zip && \
+    install -o root -g root -m 0755 bin/linux_${TARGETARCH}/kubelogin /usr/local/bin/kubelogin && \
     # Clean up
-    rm -f kubectl kubelogin-linux-amd64.zip && \
+    rm -f kubectl kubelogin-linux-${TARGETARCH}.zip && \
     rm -rf bin && \
     apt-get remove -y curl unzip && \
     apt-get autoremove -y && \
@@ -41,7 +44,7 @@ COPY --chown=10001:10001 Public /usr/local/share/powershell/Modules/KubeBuddy/Pu
 COPY --chown=10001:10001 run.ps1 /app/run.ps1
 
 # Runtime stage: Use Ubuntu 24.04 for the final image
-FROM mcr.microsoft.com/powershell:7.5-ubuntu-24.04
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-Ubuntu-24.04
 
 # Install minimal runtime dependencies
 RUN apt-get update && \

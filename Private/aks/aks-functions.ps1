@@ -357,6 +357,7 @@ function Invoke-AKSBestPractices {
                         Items          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { @(@{ Resource = $_.Check; Issue = $_.Recommendation }) } else { @() }
                     }
                 }
+                TextOutput = $textOutput
             }
         }
     
