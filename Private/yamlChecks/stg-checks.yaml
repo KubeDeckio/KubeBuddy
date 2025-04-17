@@ -20,12 +20,14 @@ checks:
             <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "PVCs reserve storage in your cluster."
+        - ""
+        - "These are NOT in use by any pod."
+        - "Check before deleting."
     Script: |
       param(
         [object]$KubeData,
-        [int]$PageSize = 10,
-        [switch]$Html,
-        [switch]$Json,
         [switch]$ExcludeNamespaces
       )
 

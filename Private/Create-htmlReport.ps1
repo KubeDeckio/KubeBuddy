@@ -1476,13 +1476,17 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
       <div class="table-container">$collapsibleKubernetesEventsHtml</div>
     </div>
   </div>
-  
+  $(if ($collapsibleCustomChecksHtml.count -gt 0) {
+    @"
   <div class="tab-content" id="customChecks">
     <div class="container">
       <h1>Custom Checks</h1>
       <div class="table-container">$collapsibleCustomChecksHtml</div>
     </div>
   </div>
+"@
+  })
+
   
   $(if ($aks) {
     @"

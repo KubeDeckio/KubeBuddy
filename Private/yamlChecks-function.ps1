@@ -160,40 +160,44 @@ function Invoke-yamlChecks {
                 if ($check.Script) {
                     try {
                         # Define disallowed kubectl commands (mutating operations)
-                        $disallowedCommands = @(
-                            "create",
-                            "run",
-                            "edit",
-                            "delete",
-                            "patch",
-                            "apply",
-                            "replace",
-                            "scale",
-                            "rollout",
-                            "annotate",
-                            "label",
-                            "taint",
-                            "cordon",
-                            "uncordon",
-                            "drain",
-                            "evict"
+                        # Hardened disallowed CLI command check
+                        $disallowedPatterns = @(
+                            # kubectl mutating commands
+                            '\bkubectl\s+(create|run|edit|delete|patch|apply|replace|scale|rollout|annotate|label|taint|cordon|uncordon|drain|evict)\b',
+                            '\bkubectl\s+.*\s--force\b',
+                            '\bkubectl\s+.*\s--overwrite\b',
+                            '\bkubectl\s+.*\s--grace-period\b',
+
+                            # helm commands that install or change things
+                            '\bhelm\s+(install|upgrade|uninstall|rollback|delete|dep\s+update|template)\b',
+
+                            # PowerShell commands that write/delete
+                            '\bRemove-Item\b',
+                            '\bSet-Content\b',
+                            '\bNew-Item\b',
+                            '\bStop-Process\b',
+                            '\bStart-Process\b',
+
+                            # General anti-patterns
+                            '[;\|]\s*kubectl\s+', # pipes or chained commands
+                            '[;\|]\s*helm\s+',
+                            'kubectl\s+.*[`\\]\s*.*' # backtick/newline tricks
                         )
 
-                        # Check the script for disallowed commands
                         $scriptContent = $check.Script
                         $disallowedCommandFound = $false
-                        $foundCommand = $null
-                        foreach ($cmd in $disallowedCommands) {
-                            $pattern = "(?i)\bkubectl\s+$cmd\b"
+                        $matchedPattern = $null
+
+                        foreach ($pattern in $disallowedPatterns) {
                             if ($scriptContent -match $pattern) {
                                 $disallowedCommandFound = $true
-                                $foundCommand = $cmd
+                                $matchedPattern = $pattern
                                 break
                             }
                         }
 
                         if ($disallowedCommandFound) {
-                            $errorMessage = "❌ Check $($check.ID) contains disallowed kubectl command '$foundCommand'. Scripts must not modify cluster state (e.g., create, delete, patch)."
+                            $errorMessage = "❌ Check $($check.ID) contains disallowed command pattern: `$matchedPattern`. Blocking execution."
                             Write-Host $errorMessage -ForegroundColor Red
                             $allResults += @{
                                 ID    = $check.ID
@@ -266,6 +270,9 @@ function Invoke-yamlChecks {
 
                         $allResults += $checkResult
                         Write-Host "`r✅ Completed check: $($check.ID) - $($check.Name)      " -ForegroundColor Green
+                        if (-not $Text -and -not $Html -and -not $Json) {
+                            Clear-Host
+                        }
                     }
                     catch {
                         Write-Host "❌ Error executing script for $($check.ID): $_" -ForegroundColor Red
@@ -412,6 +419,9 @@ function Invoke-yamlChecks {
                 }
                 $allResults += $checkResult
                 Write-Host "`r✅ Completed check: $($check.ID) - $($check.Name)      " -ForegroundColor Green
+                if (-not $Text -and -not $Html -and -not $Json) {
+                    Clear-Host
+                }
             }
         }
         catch {
@@ -540,26 +550,6 @@ $summary
         return @{ Total = ($allResults | Measure-Object -Sum -Property Total).Sum; Items = $allResults }
     }
 
-    # Console output for specific checks
-    if ($CheckIDs) {
-        foreach ($result in $allResults) {
-            Write-Host "`n$($result.ID) - $($result.Name)" -ForegroundColor Cyan
-            if ($result.Items) {
-                $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID
-                if ($validProps) {
-                    $result.Items | Format-Table -Property $validProps -AutoSize | Out-Host
-                }
-                else {
-                    Write-Host "No valid data to display." -ForegroundColor Yellow
-                }
-            }
-            else {
-                Write-Host "✅ $($result.Message)" -ForegroundColor Green
-            }
-        }
-        return
-    }
-
     if ($Text) {
         foreach ($result in $allResults) {
             Write-ToReport ""
@@ -590,5 +580,8 @@ $summary
     
         return  @{ Items = $allResults }
     }
-    
+
+    if (-not $Text -and -not $Html -and -not $Json) {
+        return @{ Items = $allResults }
+    }
 }

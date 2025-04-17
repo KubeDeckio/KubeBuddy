@@ -164,22 +164,26 @@ checks:
     Operator: "script"
     Script: |
       param($KubeData, $Namespace)
-  
-      $pods = $KubeData.Pods.items
-  
+    
+      $pods = if ($null -ne $KubeData -and $KubeData.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items
+      }
+    
       if ($Namespace) {
         $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
-  
+    
       $results = @()
-  
+    
       foreach ($pod in $pods) {
         $podUser = $pod.spec.securityContext.runAsUser
-  
+    
         foreach ($container in $pod.spec.containers) {
           $containerUser = $container.securityContext.runAsUser
           $isRoot = -not $containerUser -and -not $podUser
-  
+    
           if (($containerUser -eq 0) -or ($podUser -eq 0) -or $isRoot) {
             $results += [pscustomobject]@{
               Namespace = $pod.metadata.namespace
@@ -191,13 +195,14 @@ checks:
               } else {
                 "Not Set (Defaults to root)"
               }
-              Message   = "Container $($container.name) runs as root or has no runAsUser set"
+              Message = "Container $($container.name) runs as root or has no runAsUser set"
             }
           }
         }
       }
-  
+    
       return $results
+
     FailMessage: "Pod runs as root user or has no runAsUser set"
     Recommendation:
       text: "Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext."
@@ -211,6 +216,15 @@ checks:
             <li>Validate any custom base images that may default to root.</li>
           </ul>
         </div>
+      SpeechBubble:
+        - "🤖 Some pods are running as root (UID 0) or without explicit user settings."
+        - ""
+        - "📌 This check looks for:"
+        - "   - container or pod runAsUser = 0"
+        - "   - runAsUser not set (defaults to root)"
+        - ""
+        - "⚠️ Running as root bypasses container security boundaries."
+        - "   Review and correct these containers."
     URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
   - ID: "SEC004"
     Category: "Pod Security"

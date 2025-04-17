@@ -344,16 +344,15 @@ function Show-StorageMenu {
         Clear-Host
 
         switch ($storageChoice) {
-            "1" { 
-                Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces
+            "1" {
+                Show-YamlCheckInteractive -CheckIDs "PVC001" -ExcludeNamespaces:$ExcludeNamespaces
             }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
         Clear-Host
-
     } while ($true)
 }
 
@@ -388,7 +387,7 @@ function Show-RBACMenu {
             "4" { Check-OrphanedRoles -ExcludeNamespaces:$ExcludeNamespaces }
             "5" { Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces }
             "6" { Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces }
-            "7" { Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces }
+            "7" { Show-YamlCheckInteractive -CheckIDs "SEC003" -ExcludeNamespaces:$ExcludeNamespaces }
             "8" { Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces }
             "9" { Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
