@@ -1,7 +1,7 @@
 ---
 title: CreatingAlerts
 parent: Documentation
-nav_order: 2
+nav_order: 4
 layout: default
 ---
 

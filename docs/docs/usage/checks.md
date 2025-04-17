@@ -11,7 +11,7 @@ KubeBuddy runs a suite of checks to detect issues and misconfigurations in Kuber
 
 ## Overview
 
-Each check evaluates a specific aspect of your cluster, such as node performance, pod stability, or security settings. Defined in YAML files in the `yamlChecks/` directory, checks are customizable to suit your needs. The tables below group checks by category, making it easy to explore their purpose, severity (impact level), and weight (contribution to the health score).
+Each check evaluates a specific aspect of your cluster, such as node performance, pod stability, or security settings. The tables below group checks by category, making it easy to explore their purpose, severity (impact level), and weight (contribution to the health score).
 
 ## Checks by Category
 
@@ -135,22 +135,7 @@ Checks for workload issues that could affect application deployment or scaling.
   - Higher weights (e.g., 3 for `NODE001`) reflect greater importance to cluster stability.
   - Example: Fixing `POD003` (weight 3) improves the score more than `EVENT001` (weight 1).
 
-- **Customizing Checks**:
-  - Edit YAML files in `yamlChecks/` to modify or disable checks.
-  - To skip a check, comment out its YAML definition or use a `disabled: true` flag (see documentation).
-  - Adjust thresholds or recommendations to match your cluster’s needs.
-  - Example: To ignore `POD007`, edit `POD007.yaml` to exclude it from processing.
-
 - **Reading Reports**:
   - **Passed** checks indicate no issues and list no items in the report.
   - **Failed** checks detail affected resources and provide fix recommendations.
   - Use the report’s URLs and suggestions to resolve issues efficiently.
-
-## Next Steps
-
-- **Generate a Report**: Run KubeBuddy to analyze your cluster and review check results.
-- **Focus on Critical Issues**: Tackle High-severity and high-weight checks first.
-- **Tailor Checks**: Modify YAML files to exclude irrelevant checks or adjust thresholds.
-- **Monitor Consistently**: Schedule regular reports to catch issues early.
-
-For details on running reports or editing checks, visit the [Usage](/usage) section.
