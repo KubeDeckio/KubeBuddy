@@ -10,6 +10,10 @@ RUN apt-get update && \
 # Create app directory
 WORKDIR /app
 
+# Install powershell-yaml module
+RUN pwsh -Command "Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop" && \
+    pwsh -Command "Install-Module -Name powershell-yaml -Scope AllUsers -Force -ErrorAction Stop"
+
 # Determine the architecture and set the appropriate binary suffix
 ARG TARGETARCH
 RUN echo "Building for architecture: $TARGETARCH" && \
@@ -66,7 +70,7 @@ ENV KUBECONFIG=/home/kubeuser/.kube/config
 # Copy binaries, modules, and files from builder
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/kubelogin /usr/local/bin/kubelogin
-COPY --from=builder /usr/local/share/powershell/Modules/KubeBuddy /usr/local/share/powershell/Modules/KubeBuddy
+COPY --from=builder /usr/local/share/powershell/Modules /usr/local/share/powershell/Modules
 COPY --from=builder /app/run.ps1 /app/run.ps1
 COPY --from=builder /app/Reports /app/Reports
 
