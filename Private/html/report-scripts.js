@@ -205,73 +205,76 @@ document.addEventListener('DOMContentLoaded', function () {
 // Sorting Function
 function sortTable(collapsibleContainer, columnIndex) {
     try {
-        const id = collapsibleContainer.id;
-        console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
-        const table = collapsibleContainer.querySelector('table');
-        if (!table) {
-            console.error(`Table not found in collapsible container: ${id}`);
-            return;
+      const id = collapsibleContainer.id;
+      console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
+      const table = collapsibleContainer.querySelector('table');
+      if (!table) {
+        console.error(`Table not found in collapsible container: ${id}`);
+        return;
+      }
+  
+      const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
+      const headerRow = allRows.find(row => row.querySelector('th')) || null;
+      const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
+  
+      // Determine sort direction
+      const sortState = collapsibleContainer.sortState;
+      if (sortState.columnIndex === columnIndex) {
+        sortState.ascending = !sortState.ascending; // Toggle direction
+      } else {
+        sortState.columnIndex = columnIndex;
+        sortState.ascending = true;
+      }
+  
+      // Update header to show sort direction
+      const headers = table.querySelectorAll('th');
+      headers.forEach((header, idx) => {
+        // Remove existing arrows
+        header.innerHTML = header.innerHTML.replace(/ <span class="sort-arrow">.*<\/span>$/, '');
+        if (idx === columnIndex) {
+          // Add arrow with .sort-arrow class
+          header.innerHTML += ` <span class="sort-arrow">${sortState.ascending ? '↑' : '↓'}</span>`;
         }
-
-        const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
-        const headerRow = allRows.find(row => row.querySelector('th')) || null;
-        const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
-
-        // Determine sort direction
-        const sortState = collapsibleContainer.sortState;
-        if (sortState.columnIndex === columnIndex) {
-            sortState.ascending = !sortState.ascending; // Toggle direction
+      });
+  
+      // Sort the rows
+      dataRows.sort((rowA, rowB) => {
+        let cellA = rowA.cells[columnIndex].textContent.trim();
+        let cellB = rowB.cells[columnIndex].textContent.trim();
+  
+        // Handle special cases for specific columns (e.g., Status, Severity)
+        if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
+          return sortState.ascending ? -1 : 1;
+        } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
+          return sortState.ascending ? 1 : -1;
+        }
+  
+        if (columnIndex === 2) { // Severity column
+          const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+          const valA = severityOrder[cellA] || 0;
+          const valB = severityOrder[cellB] || 0;
+          return sortState.ascending ? valA - valB : valB - valA;
+        }
+  
+        // Default sorting (alphabetical or numerical)
+        const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
+        if (isNumeric) {
+          return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
         } else {
-            sortState.columnIndex = columnIndex;
-            sortState.ascending = true;
+          return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
         }
-
-        // Update header to show sort direction
-        const headers = table.querySelectorAll('th');
-        headers.forEach((header, idx) => {
-            header.innerHTML = header.innerHTML.replace(/ (↑|↓)$/, ''); // Remove existing arrows
-            if (idx === columnIndex) {
-                header.innerHTML += sortState.ascending ? ' ↑' : ' ↓'; // Add arrow
-            }
-        });
-
-        // Sort the rows
-        dataRows.sort((rowA, rowB) => {
-            let cellA = rowA.cells[columnIndex].textContent.trim();
-            let cellB = rowB.cells[columnIndex].textContent.trim();
-
-            // Handle special cases for specific columns (e.g., Status, Severity)
-            if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
-                return sortState.ascending ? -1 : 1;
-            } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
-                return sortState.ascending ? 1 : -1;
-            }
-
-            if (columnIndex === 2) { // Severity column
-                const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
-                const valA = severityOrder[cellA] || 0;
-                const valB = severityOrder[cellB] || 0;
-                return sortState.ascending ? valA - valB : valB - valA;
-            }
-
-            // Default sorting (alphabetical or numerical)
-            const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
-            if (isNumeric) {
-                return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
-            } else {
-                return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
-            }
-        });
-
-        // Rebuild the table body with sorted rows
-        const tbody = table.querySelector('tbody') || table;
-        dataRows.forEach(row => tbody.appendChild(row));
-
-        console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
+      });
+  
+      // Rebuild the table body with sorted rows
+      const tbody = table.querySelector('tbody') || table;
+      dataRows.forEach(row => tbody.appendChild(row));
+  
+      console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
     } catch (e) {
-        console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
+      console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
     }
 }
+
 
 // Pagination Function with Sliding Window
 function paginateTable(collapsibleContainer) {

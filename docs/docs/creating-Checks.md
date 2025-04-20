@@ -1,16 +1,16 @@
 ---
-title: CreatingAlerts
+title: Creating Checks
 parent: Documentation
 nav_order: 4
 layout: default
 ---
 
-# Creating Alerts
+# Creating Checks
 
 
 Kubebuddy is a Kubernetes auditing and monitoring tool that helps identify misconfigurations, resource issues, and potential security risks in your cluster.
 
-Alerts in Kubebuddy are generated from **checks**—rules that evaluate cluster resources and produce issues when conditions are met.
+Checks in Kubebuddy are generated from **checks**—rules that evaluate cluster resources and produce issues when conditions are met.
 
 ### Types of Checks
 
@@ -174,14 +174,14 @@ checks:
 
 | Issue                  | Fix |
 |------------------------|-----|
-| No alerts              | Check script logic or `$KubeData` availability |
+| Check did not run              | Check script logic or `$KubeData` availability |
 | False positives        | Refine conditions, use `$ExcludeNamespaces` |
 | YAML syntax errors     | Use a linter (`yq`, `yamllint`) |
 | Integration not working| Verify output format and ingestion pipeline |
 
 ## Conclusion
 
-Kubebuddy alerts help monitor your cluster by using declarative or script-based checks. Define checks, test them with `Invoke-yamlChecks`, and integrate the output with your monitoring stack.
+Kubebuddy Checks help monitor your cluster by using declarative or script-based checks. Define checks, test them with `Invoke-yamlChecks`, and integrate the output with your monitoring stack.
 
 For more help:
 

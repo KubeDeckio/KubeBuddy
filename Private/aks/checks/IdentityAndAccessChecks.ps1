@@ -26,9 +26,9 @@ $identityChecks = @(
         Category   = "Identity & Access";
         Name       = "Workload Identity Enabled";
         Value      = { $clusterInfo.properties.securityProfile.workloadIdentity.enabled };
-        Expected   = { $_ -eq $true };
+        Expected   = $true;
         FailMessage = "Workload Identity is not enabled, reducing security for Kubernetes workloads.";
-        Severity    = "Medium";
+        Severity   = "Medium";
         Recommendation = "Enable Workload Identity to securely bind Kubernetes workloads to Azure identities.";
         URL         = "https://learn.microsoft.com/azure/aks/workload-identity-overview";
     },

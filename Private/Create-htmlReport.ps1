@@ -86,8 +86,10 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
   Write-Host "`n[🌐 Cluster Summary]" -ForegroundColor Cyan
   Write-Host -NoNewline "`n🤖 Fetching Cluster Information..." -ForegroundColor Yellow
   $clusterSummaryRaw = Show-ClusterSummary -Html -KubeData:$KubeData *>&1
+  $apiHealthHtml = Show-ApiServerHealth -html
   Write-Host "`r🤖 Cluster Information fetched.   " -ForegroundColor Green
 
+  
   if ($aks) {
     Write-Host -NoNewline "`n🤖 Running AKS Best Practices Checklist..." -ForegroundColor Cyan
     $aksBestPractices = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Html -KubeData:$KubeData
@@ -104,12 +106,12 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 
 
     $ratingColorClass = switch ($aksRating) {
-        "A" { "normal" }
-        "B" { "warning" }
-        "C" { "warning" }
-        "D" { "critical" }
-        "F" { "critical" }
-        default { "unknown" }
+      "A" { "normal" }
+      "B" { "warning" }
+      "C" { "warning" }
+      "D" { "critical" }
+      "F" { "critical" }
+      default { "unknown" }
     }
 
     # Use ScoreColor directly for the score box (hex color for inline style)
@@ -138,15 +140,15 @@ $heroRatingHtml
     $aksMenuItem = @"
 <li class="nav-item"><a href="#aks"><span class="material-icons">verified</span> AKS Best Practices</a></li>
 "@
-}
+  }
 
   $checks = @(
     @{ Id = "allChecks"; Cmd = { Invoke-yamlChecks -Html -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData } }
   )
 
-  $customNavItems   = @{}
-  $checkStatusList  = @()
-  $hasCustomChecks  = $false
+  $customNavItems = @{}
+  $checkStatusList = @()
+  $hasCustomChecks = $false
 
   foreach ($check in $checks) {
     $html = & $check.Cmd
@@ -154,17 +156,17 @@ $heroRatingHtml
 
     if ($check.Id -eq 'allChecks' -and $html -is [hashtable]) {
       $allChecksBySection = $html.HtmlBySection
-      $checkStatusList   += $html.StatusList
-      $checkScoreList    += $html.ScoreList
+      $checkStatusList += $html.StatusList
+      $checkScoreList += $html.ScoreList
 
       $knownSections = $sectionToNavMap.Keys
 
       foreach ($section in $allChecksBySection.Keys) {
         # --- build your checksInSection exactly as you had it ---
         $sectionHtml = $allChecksBySection[$section]
-        $checkIds   = [regex]::Matches($sectionHtml, "<h2 id='([^']+)'")            | ForEach-Object { $_.Groups[1].Value }
+        $checkIds = [regex]::Matches($sectionHtml, "<h2 id='([^']+)'")            | ForEach-Object { $_.Groups[1].Value }
         $checkNames = [regex]::Matches($sectionHtml, "<h2 id='[^']+'>\s*[^-]+-\s*([^<]+)") | ForEach-Object { $_.Groups[1].Value.Trim() }
-        $checksInSection = for ($i = 0; $i -lt [Math]::Min($checkIds.Count,$checkNames.Count); $i++) {
+        $checksInSection = for ($i = 0; $i -lt [Math]::Min($checkIds.Count, $checkNames.Count); $i++) {
           @{ Id = $checkIds[$i]; Name = $checkNames[$i] }
         }
 
@@ -299,6 +301,7 @@ $passedChecks/$totalChecks
 </svg>
 "@
 
+
   for ($i = 0; $i -lt $clusterSummaryRaw.Count; $i++) {
     $line = [string]$clusterSummaryRaw[$i] -replace "`r", "" -replace "`n", ""
     if ($line -match "Cluster Name\s*$") { $clusterName = [string]$clusterSummaryRaw[$i + 2] -replace "`r", "" -replace "`n", "" }
@@ -425,6 +428,10 @@ $passedChecks/$totalChecks
       <div class="health-score">
         <h2>Cluster Health Score</h2>
         $scoreBarHtml
+      </div>
+      <div class="api-summary">
+        <h2>API Server Health</h2>
+        $apiHealthHtml
       </div>
       <div class="health-pie centered-donut">
         <h2>Passed / Failed Checks</h2>
