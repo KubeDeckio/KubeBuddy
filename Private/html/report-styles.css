@@ -294,7 +294,6 @@ body {
 .health-pie {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
 }
 
 .health-score p,
@@ -306,26 +305,28 @@ body {
 }
 
 .health-pie {
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   position: relative;
 }
 
 .health-pie h2 {
-  text-align: center;
+  width: 100%;
+  text-align: left;
   margin-bottom: var(--spacing-md);
 }
 
 .health-pie svg {
-  width: 150px;
-  height: 150px;
+  width: 200px;
+  height: 200px;
   display: block;
   margin: 0 auto;
-  transition: transform var(--transition);
 }
 
-.health-pie:hover svg {
+/* .health-pie:hover svg {
   transform: scale(1.05);
-}
+} */
 
 /* Center the Passed/Failed Checks text inside the donut chart */
 .health-pie .centered-text {
@@ -335,7 +336,7 @@ body {
   transform: translate(-50%, -50%);
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--text-dark);
+  color: var(--brand-blue);
   text-align: center;
 }
 
@@ -433,7 +434,7 @@ body {
 .progress-bar {
   background: #eee;
   border-radius: 10px;
-  height: 20px;
+  height: 30px;
   overflow: hidden;
   position: relative;
   transition: background var(--transition);

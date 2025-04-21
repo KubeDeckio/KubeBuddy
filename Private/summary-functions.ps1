@@ -82,42 +82,43 @@ function Show-ApiServerHealth {
             }
         }
         catch {
-            Write-Warning "Error computing p 99 latency: $_"
+            Write-Warning "Error computing p99 latency: $_"
         }
     }
     else {
         Write-Warning "No valid metrics data to parse"
     }
 
-    # 4. Output
-    if ($Html) {
-        $latLine = if ($p99Ms) {
-            '<p><strong style="color:#0071FF">p 99 GET latency (ms):</strong> ' + $p99Ms + ' ms</p>'
-        }
-        else {
-            '<p style="color:#999">Metrics endpoint unavailable</p>'
-        }
+# 4. Output
+if ($Html) {
+    if ($p99Ms) {
+        $latLine = "<p><strong>latency (p99):</strong> " +
+                   "<span style='color:#0071FF'>$p99Ms ms</span></p>"
+    }
+    else {
+        $latLine = "<p style='color:#999'>Metrics endpoint unavailable</p>"
+    }
 
         return @"
-<div class="health-checks" style="flex:1;">
-  $latLine
+<div class="health-checks">
+$latLine
 
-<details>
-  <summary>
-    <span class="label">Liveness:</span>
-    <span class="status">$lastLivez</span>
-    <span class="material-icons">expand_more</span>
-  </summary>
-  <pre class="health-output">$livez</pre>
+<details style="width: 100%;">
+ <summary>
+ <span class="label">Liveness:</span>
+ <span class="status">$lastLivez</span>
+ <span class="material-icons">expand_more</span>
+</summary>
+<pre class="health-output">$livez</pre>
 </details>
 
-<details>
-  <summary>
-    <span class="label">Readiness:</span>
-    <span class="status">$lastReadyz</span>
-    <span class="material-icons">expand_more</span>
-  </summary>
-  <pre class="health-output">$readyz</pre>
+<details style="width: 100%;">
+<summary>
+ <span class="label">Readiness:</span>
+ <span class="status">$lastReadyz</span>
+ <span class="material-icons">expand_more</span>
+ </summary>
+ <pre class="health-output">$readyz</pre>
 </details>
 </div>
 "@
