@@ -16,11 +16,15 @@ function Invoke-yamlChecks {
     # Ensure required modules
     try {
         Import-Module powershell-yaml -ErrorAction Stop
+        # Import all PowerShell modules from $PSScriptRoot
+        Get-ChildItem -Path $PSScriptRoot -Filter "*.ps1" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            Import-Module $_.FullName -ErrorAction Stop
+        }
     }
     catch {
-        Write-Host "❌ Failed to load powershell-yaml module: $_" -ForegroundColor Red
-        if ($Html) { return "<p><strong>❌ Failed to load powershell-yaml module.</strong></p>" }
-        if ($Json) { return @{ Error = "Failed to load powershell-yaml module: $_" } }
+        Write-Host "❌ Failed to load required module: $_" -ForegroundColor Red
+        if ($Html) { return "<p><strong>❌ Failed to load required module.</strong></p>" }
+        if ($Json) { return @{ Error = "Failed to load required module: $_" } }
         Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
         return
     }
@@ -43,10 +47,10 @@ function Invoke-yamlChecks {
         else {
             # Detect valid properties dynamically for unknown/script-based checks
             $properties = $Items |
-            ForEach-Object { $_.PSObject.Properties.Name } |
-            Group-Object |
-            Sort-Object Count -Descending |
-            Select-Object -ExpandProperty Name -Unique
+                ForEach-Object { $_.PSObject.Properties.Name } |
+                Group-Object |
+                Sort-Object Count -Descending |
+                Select-Object -ExpandProperty Name -Unique
         }
     
         $validProps = @()
@@ -66,7 +70,6 @@ function Invoke-yamlChecks {
     
         return $validProps
     }
-    
 
     function Get-ResourceKindDisplayNames {
         param (
@@ -141,49 +144,63 @@ function Invoke-yamlChecks {
         return
     }
 
-    # Process checks
-    $allResults = @()
-    foreach ($file in $checkFiles) {
+    # Initialize thread-safe collection for results
+    $allResults = [System.Collections.Concurrent.ConcurrentBag[PSObject]]::new()
+
+    # Process checks in parallel and collect results
+    $parallelResults = $checkFiles | ForEach-Object -Parallel {
+        # Re-import required modules in parallel scope
         try {
-            $yamlContent = Get-Content $file.FullName -Raw | ConvertFrom-Yaml
+            Import-Module powershell-yaml -ErrorAction Stop
+            # Import all PowerShell modules from $using:PSScriptRoot
+            Get-ChildItem -Path $using:PSScriptRoot -Filter "*.ps1" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                Import-Module $_.FullName -ErrorAction Stop
+            }
+        }
+        catch {
+            $errorMessage = "❌ Failed to load required module in parallel scope: $_"
+            Write-Host $errorMessage -ForegroundColor Red
+            return @{
+                ID    = "Unknown"
+                Name  = $_.Name
+                Error = $errorMessage
+            }
+        }
+
+        $localResults = @()
+
+        try {
+            $yamlContent = Get-Content $_.FullName -Raw | ConvertFrom-Yaml
             if (-not $yamlContent.checks) {
-                continue
+                return
             }
 
             foreach ($check in $yamlContent.checks) {
                 # Filter checks if CheckIDs specified
-                if ($CheckIDs -and $check.ID -notin $CheckIDs) {
+                if ($using:CheckIDs -and $check.ID -notin $using:CheckIDs) {
                     continue
                 }
 
-                Write-Host -NoNewline "🤖 Processing check: $($check.ID) - $($check.Name)..." -ForegroundColor Cyan
+                Write-Host "🤖 Processing check: $($check.ID) - $($check.Name)..." -ForegroundColor Cyan
 
                 # Custom script block execution
                 if ($check.Script) {
                     try {
-                        # Define disallowed kubectl commands (mutating operations)
-                        # Hardened disallowed CLI command check
+                        # Define disallowed kubectl commands
                         $disallowedPatterns = @(
-                            # kubectl mutating commands
                             '\bkubectl\s+(create|run|edit|delete|patch|apply|replace|scale|rollout|annotate|label|taint|cordon|uncordon|drain|evict)\b',
                             '\bkubectl\s+.*\s--force\b',
                             '\bkubectl\s+.*\s--overwrite\b',
                             '\bkubectl\s+.*\s--grace-period\b',
-
-                            # helm commands that install or change things
                             '\bhelm\s+(install|upgrade|uninstall|rollback|delete|dep\s+update|template)\b',
-
-                            # PowerShell commands that write/delete
                             '\bRemove-Item\b',
                             '\bSet-Content\b',
                             '\bNew-Item\b',
                             '\bStop-Process\b',
                             '\bStart-Process\b',
-
-                            # General anti-patterns
-                            '[;\|]\s*kubectl\s+', # pipes or chained commands
+                            '[;\|]\s*kubectl\s+',
                             '[;\|]\s*helm\s+',
-                            'kubectl\s+.*[`\\]\s*.*' # backtick/newline tricks
+                            'kubectl\s+.*[`\\]\s*.*'
                         )
 
                         $scriptContent = $check.Script
@@ -201,22 +218,20 @@ function Invoke-yamlChecks {
                         if ($disallowedCommandFound) {
                             $errorMessage = "❌ Check $($check.ID) contains disallowed command pattern: `$matchedPattern`. Blocking execution."
                             Write-Host $errorMessage -ForegroundColor Red
-                            $allResults += @{
+                            $localResults += @{
                                 ID    = $check.ID
                                 Name  = $check.Name
                                 Error = $errorMessage
                             }
-                            Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                             continue
                         }
 
                         $scriptBlock = [scriptblock]::Create($check.Script)
-                        # Pass thresholds to the script block for NODE002
                         $scriptResult = if ($check.ID -eq "NODE002") {
-                            & $scriptBlock -KubeData $KubeData -Thresholds $thresholds
+                            & $scriptBlock -KubeData $using:KubeData -Thresholds $using:thresholds
                         }
                         else {
-                            & $scriptBlock -KubeData $KubeData -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces
+                            & $scriptBlock -KubeData $using:KubeData -Namespace $using:Namespace -ExcludeNamespaces:$using:ExcludeNamespaces
                         }
 
                         $checkResult = @{
@@ -228,7 +243,7 @@ function Invoke-yamlChecks {
                             Severity       = $check.Severity
                             Weight         = $check.Weight
                             Description    = $check.Description
-                            Recommendation = if ($Html) {
+                            Recommendation = if ($using:Html) {
                                 if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
                                     $recContent = $check.Recommendation.html
                                     @"
@@ -271,35 +286,32 @@ function Invoke-yamlChecks {
                             $checkResult.Message = "No issues detected for $($check.Name)."
                         }
 
-                        $allResults += $checkResult
-                        Write-Host "`r✅ Completed check: $($check.ID) - $($check.Name)      " -ForegroundColor Green
-                        if (-not $Text -and -not $Html -and -not $Json) {
-                            Clear-Host
-                        }
+                        $localResults += $checkResult
+                        Write-Host "`✅ Completed check: $($check.ID) - $($check.Name)                     " -ForegroundColor Green
                     }
                     catch {
                         Write-Host "❌ Error executing script for $($check.ID): $_" -ForegroundColor Red
-                        $allResults += @{
+                        $localResults += @{
                             ID    = $check.ID
                             Name  = $check.Name
                             Error = "Script block execution failed: $_"
                         }
-                        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                     }
                     continue
                 }
 
                 # Non-script check logic
                 $data = $null
-                if ($KubeData -and $KubeData.($check.ResourceKind)) {
-                    $data = $KubeData.($check.ResourceKind).items
+                $kubeData = $using:KubeData  # Assign to local variable to avoid $using: in expressions
+                if ($kubeData -and $check.ResourceKind -in $kubeData.PSObject.Properties.Name) {
+                    $data = $kubeData.($check.ResourceKind).items
                 }
                 else {
-                    $kubectlCmd = if ($Namespace) {
-                        "$kubectl get $($check.ResourceKind) -n $Namespace -o json"
+                    $kubectlCmd = if ($using:Namespace) {
+                        "$($using:kubectl) get $($check.ResourceKind) -n $($using:Namespace) -o json"
                     }
                     else {
-                        "$kubectl get $($check.ResourceKind) --all-namespaces -o json"
+                        "$($using:kubectl) get $($check.ResourceKind) --all-namespaces -o json"
                     }
                     try {
                         $output = Invoke-Expression $kubectlCmd 2>&1
@@ -310,32 +322,30 @@ function Invoke-yamlChecks {
                     }
                     catch {
                         Write-Host "❌ Failed to fetch $($check.ResourceKind) data: $_" -ForegroundColor Red
-                        $allResults += @{
+                        $localResults += @{
                             ID    = $check.ID
                             Name  = $check.Name
                             Error = "Failed to fetch data: $_"
                         }
-                        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                         continue
                     }
                 }
 
                 if (-not $data) {
                     Write-Host "❌ No $($check.ResourceKind) data available." -ForegroundColor Red
-                    $allResults += @{
+                    $localResults += @{
                         ID      = $check.ID
                         Name    = $check.Name
                         Message = "No $($check.ResourceKind) data available."
                     }
-                    Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                     continue
                 }
 
-                if ($Namespace -and $data[0].metadata.PSObject.Properties.Name -contains 'namespace') {
-                    $data = $data | Where-Object { $_.metadata.namespace -eq $Namespace }
+                if ($using:Namespace -and $data[0].metadata.PSObject.Properties.Name -contains 'namespace') {
+                    $data = $data | Where-Object { $_.metadata.namespace -eq $using:Namespace }
                 }
 
-                if ($ExcludeNamespaces) {
+                if ($using:ExcludeNamespaces) {
                     $data = Exclude-Namespaces -items $data
                 }
 
@@ -348,17 +358,17 @@ function Invoke-yamlChecks {
                     Severity       = $check.Severity
                     Weight         = $check.Weight
                     Description    = $check.Description
-                    Recommendation = if ($Html) {
+                    Recommendation = if ($using:Html) {
                         if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
                             $recContent = $check.Recommendation.html
                             @"
 <div class="recommendation-card">
   <details style='margin-bottom: 10px;'>
     <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
-    $recContent
-  </details>
-</div>
-<div style='height: 15px;'></div>
+                            $recContent
+                        </details>
+                    </div>
+                    <div style='height: 15px;'></div>
 "@
                         }
                         else {
@@ -401,7 +411,7 @@ function Invoke-yamlChecks {
                             "not_contains" { $failed = ($value -like "*$($check.Expected)*") }
                             "greater_than" { $failed = ($value | Measure-Object -Sum).Sum -le $check.Expected }
                             "less_than" { $failed = ($value | Measure-Object -Sum).Sum -ge $check.Expected }
-                            default { OCD Write-Host "❌ Unsupported operator: $($check.Operator)" -ForegroundColor Red; continue }
+                            default { Write-Host "❌ Unsupported operator: $($check.Operator)" -ForegroundColor Red; continue }
                         }
 
                         if ($failed) {
@@ -416,7 +426,6 @@ function Invoke-yamlChecks {
                     }
                     catch {
                         Write-Host "❌ Error evaluating condition for $($item.metadata.name): $_" -ForegroundColor Red
-                        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
                     }
                 }
 
@@ -424,27 +433,43 @@ function Invoke-yamlChecks {
                 if ($checkResult.Total -eq 0) {
                     $checkResult.Message = "No issues detected for $($check.Name)."
                 }
-                $allResults += $checkResult
+                $localResults += $checkResult
                 Write-Host "`r✅ Completed check: $($check.ID) - $($check.Name)      " -ForegroundColor Green
-                if (-not $Text -and -not $Html -and -not $Json) {
-                    Clear-Host
-                }
             }
         }
         catch {
-            Write-Host "❌ Error processing $($file.Name): $_" -ForegroundColor Red
-            if ($Html) { $allResults += @{ ID = "Unknown"; Name = $file.Name; Message = "Error processing file: $_" } }
-            if ($Json) { $allResults += @{ ID = "Unknown"; Name = $file.Name; Message = "Error processing file: $_" } }
-            Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
+            Write-Host "❌ Error processing $($_.Name): $_" -ForegroundColor Red
+            $localResults += @{
+                ID    = "Unknown"
+                Name  = $_.Name
+                Error = "Error processing file: $_"
+            }
+        }
+
+        # Return results from this parallel iteration
+        $localResults
+    } -ThrottleLimit 5
+
+    # Aggregate results into ConcurrentBag
+    foreach ($result in $parallelResults) {
+        if ($result) {
+            if ($result -is [array]) {
+                $result | ForEach-Object { $allResults.Add($_) }
+            }
+            else {
+                $allResults.Add($result)
+            }
         }
     }
 
+    # Convert ConcurrentBag to array and sort by Check ID
+    $allResults = $allResults.ToArray() | Sort-Object -Property ID
 
     # HTML output
     if ($Html) {
         $sectionGroups = @{}
         $collapsibleSectionMap = @{}
-        $alwaysCollapsibleCheckIDs = @("NODE001", "NODE002")  # Checks to always include collapsible section, even if no issues
+        $alwaysCollapsibleCheckIDs = @("NODE001", "NODE002")
 
         foreach ($result in $allResults) {
             $section = if ($result.Section) { $result.Section } elseif ($result.Category) { $result.Category } else { "Other" }
@@ -465,7 +490,6 @@ function Invoke-yamlChecks {
 
                 $header = "<h2 id='$($check.ID)'>$($check.ID) - $($check.Name) $tooltip</h2>"
 
-                # Get the display names for the ResourceKind
                 $resourceKind = $check.ResourceKind
                 $displayNames = Get-ResourceKindDisplayNames -ResourceKind $resourceKind
                 $resourceKindPlural = $displayNames.Plural
@@ -488,30 +512,26 @@ function Invoke-yamlChecks {
                     }
                 }
                 else {
-                    # Always include a table or placeholder for NODE001 and NODE002, even if no issues
                     if ($check.ID -in $alwaysCollapsibleCheckIDs) {
-                        $validProps = Get-ValidProperties -Items @() -CheckID $check.ID  # Get static properties for NODE checks
+                        $validProps = Get-ValidProperties -Items @() -CheckID $check.ID
                         if ($validProps) {
-                            # Create an empty table with headers only
                             $emptyTable = [PSCustomObject]@{} | Select-Object $validProps | ConvertTo-Html -Fragment | Out-String
-                            $emptyTable -replace '<tr><td></td></tr>', ''  # Remove empty data row
+                            $emptyTable -replace '<tr><td></td></tr>', ''
                         }
                         else {
                             "<p>No data available for this check.</p>"
                         }
                     }
                     else {
-                        ""  # Other checks don't show a table if no items
+                        ""
                     }
                 }
 
-                # Always use collapsible section for all checks
                 $collapsibleContent = "$recommendationHtml`n$tableContent"
                 $sectionHtml += @"
 $header
 $summary
 "@
-                # Include collapsible section if there are items or if it's NODE001/NODE002
                 if ($check.Items -or ($check.ID -in $alwaysCollapsibleCheckIDs -and $tableContent)) {
                     $sectionHtml += @"
 <div class='table-container'>
@@ -554,7 +574,7 @@ $summary
         }
     }
 
-    # JSON output (unchanged)
+    # JSON output
     if ($Json) {
         return @{ Total = ($allResults | Measure-Object -Sum -Property Total).Sum; Items = $allResults }
     }
@@ -587,7 +607,7 @@ $summary
             }
         }
     
-        return  @{ Items = $allResults }
+        return @{ Items = $allResults }
     }
 
     if (-not $Text -and -not $Html -and -not $Json) {
