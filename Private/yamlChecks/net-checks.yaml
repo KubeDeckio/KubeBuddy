@@ -383,10 +383,11 @@ checks:
       - "Unrestricted traffic between pods could be a security risk."
     Script: |
       param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
       $namespaces = $KubeData?.Namespaces?.items ?? (kubectl get ns -o json | ConvertFrom-Json).items
-      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
-      $netpols = $KubeData?.NetworkPolicies?.items ?? (kubectl get networkpolicy -A -o json | ConvertFrom-Json).items
-
+      $pods       = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      $netpols    = $KubeData?.NetworkPolicies?.items ?? (kubectl get networkpolicy -A -o json | ConvertFrom-Json).items
+      
       if ($ExcludeNamespaces) {
         $namespaces = Exclude-Namespaces -items $namespaces
         $pods = Exclude-Namespaces -items $pods
@@ -397,21 +398,25 @@ checks:
         $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
         $netpols = $netpols | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
-
+      
       $results = @()
       foreach ($ns in $namespaces) {
         $nsName = $ns.metadata.name
         $nsPods = $pods | Where-Object { $_.metadata.namespace -eq $nsName }
         $nsPols = $netpols | Where-Object { $_.metadata.namespace -eq $nsName }
-
+      
         if ($nsPods.Count -gt 0 -and $nsPols.Count -eq 0) {
           $results += [pscustomobject]@{
             Namespace = $nsName
-            Resource  = "namespace/$nsName"
-            Value     = "No NetworkPolicy"
-            Message   = "Namespace '$nsName' has pods but no NetworkPolicy defined."
+            Pods      = $nsPods.Count
+            Policies  = 0
+            Issue     = "No NetworkPolicy in active namespace"
           }
         }
       }
+      
+      return @{
+        Items = $results | Sort-Object Namespace
+        IssueCount = $results.Count
+      }
 
-      return $results

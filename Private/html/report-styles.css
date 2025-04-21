@@ -550,6 +550,7 @@ th {
   background: var(--brand-blue);
   color: var(--text-light);
   font-weight: 500;
+  text-align: left;
   cursor: pointer;
   position: relative;
   height: 48px;

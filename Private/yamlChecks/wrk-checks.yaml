@@ -641,3 +641,59 @@ checks:
       }
 
       return $results
+  - ID: "WRK008"
+    Name: "Deployment Selector Without Matching Pods"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "Deployment"
+    Severity: "Medium"
+    Weight: 2
+    Description: "Detects Deployments whose spec.selector does not match any existing Pods. This results in 0 replicas running."
+    FailMessage: "Deployment selector does not match any Pods"
+    Recommendation:
+      text: "Ensure that pod labels match the Deployment selector."
+      html: |
+        <ul>
+          <li>Check that Deployment's <code>spec.selector.matchLabels</code> matches the pod template's labels.</li>
+          <li>Fix any label mismatches to allow pods to be created.</li>
+        </ul>
+    URL: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $deployments = $KubeData?.deployments ?? (kubectl get deployments -A -o json | ConvertFrom-Json).items
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+
+      if ($ExcludeNamespaces) {
+        $deployments = Exclude-Namespaces -items $deployments
+        $pods = Exclude-Namespaces -items $pods
+      }
+      if ($Namespace) {
+        $deployments = $deployments | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+      foreach ($dep in $deployments) {
+        $selector = $dep.spec?.selector?.matchLabels
+        if (-not $selector) { continue }
+        $ns = $dep.metadata.namespace
+
+        if (-not $selector) { continue }
+
+        $matchingPods = $pods | Where-Object {
+          $_.metadata.namespace -eq $ns -and
+          ($selector.Keys | ForEach-Object { $_ -in $_.metadata.labels.Keys -and $_.metadata.labels[$_] -eq $selector[$_] }) -contains $false -eq $false
+        }
+
+        if ($matchingPods.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "deployment/$($dep.metadata.name)"
+            Value     = "0 matching pods"
+            Message   = "Deployment selector does not match any pods"
+          }
+        }
+      }
+
+      return @{ Items = $results; IssueCount = $results.Count }
