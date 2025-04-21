@@ -356,3 +356,62 @@ checks:
       - ""
       - "⚠️ These issues can break routing or expose services incorrectly."
     URL: "https://kubernetes.io/docs/concepts/services-networking/ingress/"
+  - ID: "NET004"
+    Name: "Namespace Missing Network Policy"
+    Category: "Security"
+    Section: "Networking"
+    ResourceKind: "Namespace"
+    Severity: "Medium"
+    Weight: 3
+    Description: >
+      Detects namespaces that have running pods but no associated NetworkPolicy resources.
+      This could allow unrestricted pod-to-pod communication.
+    FailMessage: >
+      One or more namespaces have workloads but no NetworkPolicies.
+    URL: "https://kubernetes.io/docs/concepts/services-networking/network-policies/"
+    Recommendation:
+      text: >
+        Apply a default deny-all ingress/egress NetworkPolicy in each namespace
+        that hosts workloads, then selectively allow traffic as needed.
+      html: |
+        <ul>
+          <li>Apply a default <code>deny-all</code> NetworkPolicy for ingress and egress.</li>
+          <li>Use additional policies to allow traffic between required pods/services.</li>
+        </ul>
+    SpeechBubble:
+      - "Some namespaces have pods but no NetworkPolicy."
+      - "Unrestricted traffic between pods could be a security risk."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $namespaces = $KubeData?.Namespaces?.items ?? (kubectl get ns -o json | ConvertFrom-Json).items
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      $netpols = $KubeData?.NetworkPolicies?.items ?? (kubectl get networkpolicy -A -o json | ConvertFrom-Json).items
+
+      if ($ExcludeNamespaces) {
+        $namespaces = Exclude-Namespaces -items $namespaces
+        $pods = Exclude-Namespaces -items $pods
+        $netpols = Exclude-Namespaces -items $netpols
+      }
+      if ($Namespace) {
+        $namespaces = $namespaces | Where-Object { $_.metadata.name -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $netpols = $netpols | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+      foreach ($ns in $namespaces) {
+        $nsName = $ns.metadata.name
+        $nsPods = $pods | Where-Object { $_.metadata.namespace -eq $nsName }
+        $nsPols = $netpols | Where-Object { $_.metadata.namespace -eq $nsName }
+
+        if ($nsPods.Count -gt 0 -and $nsPols.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $nsName
+            Resource  = "namespace/$nsName"
+            Value     = "No NetworkPolicy"
+            Message   = "Namespace '$nsName' has pods but no NetworkPolicy defined."
+          }
+        }
+      }
+
+      return $results

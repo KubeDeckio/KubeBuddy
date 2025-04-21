@@ -382,3 +382,107 @@ checks:
         - ""
         - "⚠️ Sharing IPC with the host can leak data and break isolation."
     URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#host-namespaces"
+  - ID: "SEC006"
+    Name: "Pods Missing Secure Defaults"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Pod"
+    Severity: "Medium"
+    Weight: 3
+    Description: >
+      Checks if pods are missing recommended securityContext fields such as runAsNonRoot,
+      readOnlyRootFilesystem, or allowPrivilegeEscalation.
+    FailMessage: >
+      One or more pods are missing recommended security settings.
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
+    Recommendation:
+      text: >
+        Set runAsNonRoot=true, readOnlyRootFilesystem=true, and allowPrivilegeEscalation=false
+        for all pods and containers.
+      html: |
+        <ul>
+          <li>Set <code>securityContext.runAsNonRoot: true</code></li>
+          <li>Set <code>securityContext.readOnlyRootFilesystem: true</code></li>
+          <li>Set <code>securityContext.allowPrivilegeEscalation: false</code></li>
+        </ul>
+    SpeechBubble:
+      - "Some pods are missing secure defaults like runAsNonRoot or readOnlyRootFilesystem."
+      - "Lock down your pod security context to reduce attack surface."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
+      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        $containers = $pod.spec.containers
+        foreach ($container in $containers) {
+          $ctx = $container.securityContext
+          if (-not $ctx) {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Resource  = "pod/$($pod.metadata.name)"
+              Value     = "Missing securityContext"
+              Message   = "Container $($container.name) has no securityContext defined."
+            }
+            continue
+          }
+          if ($ctx.runAsNonRoot -ne $true -or
+              $ctx.readOnlyRootFilesystem -ne $true -or
+              $ctx.allowPrivilegeEscalation -ne $false) {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Resource  = "pod/$($pod.metadata.name)"
+              Value     = "runAsNonRoot=$($ctx.runAsNonRoot), readOnlyRootFilesystem=$($ctx.readOnlyRootFilesystem), allowPrivilegeEscalation=$($ctx.allowPrivilegeEscalation)"
+              Message   = "Container $($container.name) is missing one or more secure defaults."
+            }
+          }
+        }
+      }
+      return $results
+  - ID: "SEC007"
+    Name: "Missing Pod Security Admission Labels"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Namespace"
+    Severity: "Low"
+    Weight: 2
+    Description: >
+      Checks if namespaces are missing the 'pod-security.kubernetes.io/enforce' label
+      required for Pod Security Admission enforcement.
+    FailMessage: >
+      One or more namespaces are missing Pod Security Admission enforcement labels.
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-admission/"
+    Recommendation:
+      text: >
+        Add 'pod-security.kubernetes.io/enforce' labels to your namespaces to enforce Pod Security standards.
+        Use values like 'baseline' or 'restricted'.
+      html: |
+        <ul>
+          <li>Set <code>pod-security.kubernetes.io/enforce=restricted</code> on sensitive namespaces.</li>
+          <li>Optionally use <code>enforce-version</code> and <code>audit</code> labels.</li>
+        </ul>
+    SpeechBubble:
+      - "Some namespaces are missing Pod Security labels."
+      - "Without them, Kubernetes won't enforce Pod Security Admission policies."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $namespaces = $KubeData?.Namespaces?.items ?? (kubectl get ns -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $namespaces = Exclude-Namespaces -items $namespaces }
+      if ($Namespace) { $namespaces = $namespaces | Where-Object { $_.metadata.name -eq $Namespace } }
+
+      $results = @()
+      foreach ($ns in $namespaces) {
+        $labels = $ns.metadata.labels
+        if (-not $labels.ContainsKey("pod-security.kubernetes.io/enforce")) {
+          $results += [pscustomobject]@{
+            Namespace = $ns.metadata.name
+            Resource  = "namespace/$($ns.metadata.name)"
+            Value     = "No enforce label"
+            Message   = "Namespace '$($ns.metadata.name)' is missing pod-security.kubernetes.io/enforce label."
+          }
+        }
+      }
+
+      return $results
