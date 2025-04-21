@@ -102,6 +102,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
 
+                let tabContents = [], originalActiveTab = null, originalActiveContent = null;
+
+                try {
+                    tabContents = document.querySelectorAll('.tab-content');
+                    originalActiveTab = document.querySelector('.tabs li.active');
+                    originalActiveContent = document.querySelector('.tab-content.active');
+                    tabContents.forEach(tc => tc.classList.add('active'));
+                } catch (e) {
+                    console.warn('Tab printing adjustment failed:', e);
+                }                
+
                 setTimeout(() => {
                     window.print();
                 }, 1500);
@@ -109,6 +120,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 window.onafterprint = function () {
                     console.log('PDF print complete, restoring original state');
                     isPrinting = false;
+                    // Restore original tab state after print
+                    tabContents.forEach(tc => {
+                        if (tc !== originalActiveContent) {
+                            tc.classList.remove('active');
+                        }
+                    });
+                    document.querySelectorAll('.tabs li').forEach(tab => tab.classList.remove('active'));
+                    if (originalActiveTab) originalActiveTab.classList.add('active');
+
                     detailsElements.forEach(detail => detail.open = detailsStates.get(detail));
                     tableContainers.forEach((container, index) => {
                         container.style.overflow = originalStyles[index].overflow;

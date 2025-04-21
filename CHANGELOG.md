@@ -22,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Added support for tagging and pushing a `latest` tag for multi-architecture images.
 
 ### Changed
+- **Updated HTML Report**:
+  - Replaced single-page layout with a tab-based interface for better structure and usability.
+  - Improved visuals, section separation, and print/export support.
 - **AKS Results in Text Report**:
   - Updated `Generate-K8sTextReport` to properly capture and write AKS results to the text report, including detailed check results and the summary table ("Summary & Rating").
   - Ensured the AKS summary table is consistently included in the text report output.

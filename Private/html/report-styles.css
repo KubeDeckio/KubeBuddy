@@ -1075,28 +1075,52 @@ table a:hover {
   #backToTop {
     display: none !important;
   }
+
+  .header .tabs {
+    display: none !important;
+  }
+
+  html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   details {
     display: block;
   }
-  table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
+
+  .tab-content,
+  .container,
+  .table-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
-  th,
-  td {
+
+  table {
+    width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse;
+    word-break: break-word;
+  }
+
+  th, td {
     padding: var(--spacing-sm) !important;
     border: 1px solid #ddd;
     white-space: normal !important;
-    overflow: visible !important;
-    word-wrap: break-word;
+    overflow-wrap: break-word !important;
+    background-color: inherit !important;
+    color: inherit !important;
   }
+
   th {
     height: auto;
-  }
-  .table-container {
-    height: auto !important;
-    width: 100%;
-    max-width: 100%;
   }
 }
