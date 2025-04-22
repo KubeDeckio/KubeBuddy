@@ -81,5 +81,17 @@ $securityChecks = @(
         Severity       = "High";
         Recommendation = "Disable the Kubernetes dashboard using: az aks disable-addons --addons kube-dashboard --resource-group <RG_NAME> --name <CLUSTER_NAME>.";
         URL            = "https://learn.microsoft.com/azure/aks/kubernetes-dashboard";
+    },
+    @{
+        ID             = "AKSSEC08";
+        Category       = "Security";
+        Name           = "Pod Security Admission Enabled";
+        Value          = { $clusterInfo.properties.podSecurityAdmissionConfiguration -ne $null };
+        Expected       = $true;
+        FailMessage    = "Pod Security Admission is not enabled on this cluster. This may reduce baseline pod security.";
+        Severity       = "High";
+        Recommendation = "Enable Pod Security Admission by setting 'podSecurityAdmissionConfiguration' during cluster creation or via supported upgrade path.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/use-psa"
     }
+    
 )

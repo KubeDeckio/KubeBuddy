@@ -106,7 +106,6 @@ function Generate-K8sTextReport {
     Write-ToReport "`n🩺 Cluster Health Score: $score / 100"
 }
 
-
 function Get-KubeBuddyThresholds {
     param(
         [switch]$Silent  # Suppress output when set
@@ -114,50 +113,61 @@ function Get-KubeBuddyThresholds {
 
     $configPath = "$HOME/.kube/kubebuddy-config.yaml"
 
+    $defaults = @{
+        thresholds = @{
+            cpu_warning             = 50
+            cpu_critical            = 75
+            mem_warning             = 50
+            mem_critical            = 75
+            restarts_warning        = 3
+            restarts_critical       = 5
+            pod_age_warning         = 15
+            pod_age_critical        = 40
+            stuck_job_hours         = 2
+            failed_job_hours        = 2
+            event_errors_warning    = 10
+            event_errors_critical   = 20
+            event_warnings_warning  = 50
+            event_warnings_critical = 100
+        }
+        trusted_registries = @(
+            "mcr.microsoft.com/"
+        )
+    }
+
     if (Test-Path $configPath) {
         try {
-            # Read the YAML file and convert it to a PowerShell object
             $configContent = Get-Content -Raw $configPath | ConvertFrom-Yaml
-            
-            if ($configContent -and $configContent.thresholds) {
-                return $configContent.thresholds
-            }
-            else {
+            if (-not $configContent) {
                 if (-not $Silent) {
-                    Write-Host "`n⚠️ Config found, but missing 'thresholds' section. Using defaults..." -ForegroundColor Yellow
+                    Write-Host "`n⚠️ Config file is empty or invalid. Using defaults..." -ForegroundColor Yellow
                 }
+                return $defaults
+            }
+
+            $thresholds = $configContent.thresholds
+            $registries = $configContent.trusted_registries
+
+            return @{
+                thresholds        = if ($thresholds) { $thresholds } else { $defaults.thresholds }
+                trusted_registries = if ($registries) { $registries } else { $defaults.trusted_registries }
             }
         }
         catch {
             if (-not $Silent) {
                 Write-Host "`n❌ Failed to parse config file. Using defaults..." -ForegroundColor Red
             }
+            return $defaults
         }
     }
     else {
         if (-not $Silent) {
-            Write-Host "`n⚠️ No config found. Using default thresholds..." -ForegroundColor Yellow
+            Write-Host "`n⚠️ No config found. Using default thresholds and registries..." -ForegroundColor Yellow
         }
-    }
-
-    # Return default thresholds if no valid config is found
-    return @{
-        cpu_warning             = 50
-        cpu_critical            = 75
-        mem_warning             = 50
-        mem_critical            = 75
-        restarts_warning        = 3
-        restarts_critical       = 5
-        pod_age_warning         = 15
-        pod_age_critical        = 40
-        stuck_job_hours         = 2
-        failed_job_hours        = 2
-        event_errors_warning    = 10
-        event_errors_critical   = 20
-        event_warnings_warning  = 50
-        event_warnings_critical = 100
+        return $defaults
     }
 }
+
 
 function Get-ExcludedNamespaces {
     $config = Get-KubeBuddyThresholds -Silent

@@ -806,8 +806,15 @@ table a:hover {
   margin-bottom: var(--spacing-sm);
 }
 
-.recommendation-content code {
-  background: #e0e0e0;
+/* .recommendation-content code {
+  background: #e0e0e069;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+} */
+
+code {
+  background: #e0e0e03f;
   padding: 2px 4px;
   border-radius: 4px;
   font-family: 'Courier New', Courier, monospace;

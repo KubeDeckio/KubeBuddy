@@ -62,16 +62,18 @@ function Show-WorkloadMenu {
         Write-Host "------------------------------------------" -ForegroundColor DarkGray
 
         $options = @(
-            "[1] Check DaemonSet Health 🛠️"
-            "[2] Check Deployment Issues 🚀"
-            "[3] Check StatefulSet Issues 🏗️"
-            "[4] Check ReplicaSet Health 📈"
-            "[5] Check HPA Status ⚖️"
-            "[6] Check Missing Resources & Limits 🛟"
-            "[7] Check missing or weak PodDisruptionBudgets 🛡️"
-            "[8] Check containers missing health probes 🔎"
+            "[1]  Check DaemonSet Health 🛠️",
+            "[2]  Check Deployment Issues 🚀",
+            "[3]  Check StatefulSet Issues 🏗️",
+            "[4]  Check ReplicaSet Health 📈",
+            "[5]  Check HPA Status ⚖️",
+            "[6]  Check Missing Resources & Limits 🛟",
+            "[7]  Check missing or weak PodDisruptionBudgets 🛡️",
+            "[8]  Check containers missing health probes 🔎",
+            "[9]  Check Deployment selectors with no matching pods ❌",
             "🔙  Back [B] | ❌ Exit [Q]"
         )
+
 
         foreach ($option in $options) { Write-Host $option }
 
@@ -90,17 +92,17 @@ function Show-WorkloadMenu {
                     "   - Coming soon! 📈"
                 )
                 Write-SpeechBubble -msg $msg -color "Cyan" -icon "🤖" -lastColor "Cyan" -delay 50
-
                 Read-Host "🤖 Press Enter to return to the menu"
             }
             "5" { Show-YamlCheckInteractive -CheckIDs "WRK004" -ExcludeNamespaces:$ExcludeNamespaces }
             "6" { Show-YamlCheckInteractive -CheckIDs "WRK005" -ExcludeNamespaces:$ExcludeNamespaces }
             "7" { Show-YamlCheckInteractive -CheckIDs "WRK006" -ExcludeNamespaces:$ExcludeNamespaces }
             "8" { Show-YamlCheckInteractive -CheckIDs "WRK007" -ExcludeNamespaces:$ExcludeNamespaces }
+            "9" { Show-YamlCheckInteractive -CheckIDs "WRK008" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
-        }
+        }        
 
     } while ($true)
 }
@@ -164,7 +166,7 @@ function show-NamespaceMenu {
             "2" { Show-YamlCheckInteractive -CheckIDs "NS002" -ExcludeNamespaces:$ExcludeNamespaces }
             "3" { Show-YamlCheckInteractive -CheckIDs "NS003" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
@@ -251,7 +253,7 @@ function Show-PodMenu {
                 "6" { Show-YamlCheckInteractive -CheckIDs "POD006" -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces }
                 "7" { Show-YamlCheckInteractive -CheckIDs "POD007" -Namespace $Namespace -ExcludeNamespaces:$ExcludeNamespaces }
                 "B" { return }
-                "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
+                "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
                 default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
             }
 
@@ -269,11 +271,13 @@ function Show-ServiceMenu {
         Write-Host "------------------------------------"
 
         $serviceOptions = @(
-            "[1]  Show services without Endpoints"
-            "[2]  Show publicly accessible Services"
-            "[3]  Show Ingress configuration issues"
+            "[1]  Show services without Endpoints",
+            "[2]  Show publicly accessible Services",
+            "[3]  Show Ingress configuration issues",
+            "[4]  Show namespaces missing NetworkPolicy 🛡️",
             "🔙  Back [B] | ❌ Exit [Q]"
         )
+
 
         foreach ($option in $serviceOptions) { Write-Host $option }
 
@@ -284,10 +288,11 @@ function Show-ServiceMenu {
             "1" { Show-YamlCheckInteractive -CheckIDs "NET001" -ExcludeNamespaces:$ExcludeNamespaces }
             "2" { Show-YamlCheckInteractive -CheckIDs "NET002" -ExcludeNamespaces:$ExcludeNamespaces }
             "3" { Show-YamlCheckInteractive -CheckIDs "NET003" -ExcludeNamespaces:$ExcludeNamespaces }
+            "4" { Show-YamlCheckInteractive -CheckIDs "NET004" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
-        }
+        }        
 
         Clear-Host
     } while ($true)
@@ -329,17 +334,26 @@ function Show-RBACMenu {
         Write-Host "------------------------------------"
 
         $rbacOptions = @(
-            "[1]  Check RBAC misconfigurations"
-            "[2]  Check RBAC overexposure"
-            "[3]  Check orphaned Service Accounts"
-            "[4]  Show unused Roles & ClusterRoles"
-            "[5]  Show orphaned Secrets"
-            "[6]  Check Pods running as root"
-            "[7]  Check privileged containers"
-            "[8]  Check hostPID / hostNetwork usage"
-            "[9]  Check hostIPC usage"
+            "[1]  Check RBAC misconfigurations",
+            "[2]  Check RBAC overexposure",
+            "[3]  Check orphaned Service Accounts",
+            "[4]  Show unused Roles & ClusterRoles",
+            "[5]  Show orphaned Secrets",
+            "[6]  Check Pods running as root",
+            "[7]  Check privileged containers",
+            "[8]  Check hostPID / hostNetwork usage",
+            "[9]  Check hostIPC usage",
+            "[10] Check secrets exposed via env vars",
+            "[11] Check containers missing 'drop ALL' caps",
+            "[12] Check use of hostPath volumes",
+            "[13] Check UID 0 containers",
+            "[14] Check added Linux capabilities",
+            "[15] Check use of emptyDir volumes",
+            "[16] Check untrusted image registries",
+            "[17] Check use of default ServiceAccount",
+            "[18] Check references to missing Secrets",
             "🔙  Back [B] | ❌ Exit [Q]"
-        )
+        )        
 
         foreach ($option in $rbacOptions) { Write-Host $option }
 
@@ -356,11 +370,20 @@ function Show-RBACMenu {
             "7" { Show-YamlCheckInteractive -CheckIDs "SEC004" -ExcludeNamespaces:$ExcludeNamespaces }
             "8" { Show-YamlCheckInteractive -CheckIDs "SEC002" -ExcludeNamespaces:$ExcludeNamespaces }
             "9" { Show-YamlCheckInteractive -CheckIDs "SEC005" -ExcludeNamespaces:$ExcludeNamespaces }
+            "10" { Show-YamlCheckInteractive -CheckIDs "SEC008" -ExcludeNamespaces:$ExcludeNamespaces }
+            "11" { Show-YamlCheckInteractive -CheckIDs "SEC009" -ExcludeNamespaces:$ExcludeNamespaces }
+            "12" { Show-YamlCheckInteractive -CheckIDs "SEC010" -ExcludeNamespaces:$ExcludeNamespaces }
+            "13" { Show-YamlCheckInteractive -CheckIDs "SEC011" -ExcludeNamespaces:$ExcludeNamespaces }
+            "14" { Show-YamlCheckInteractive -CheckIDs "SEC012" -ExcludeNamespaces:$ExcludeNamespaces }
+            "15" { Show-YamlCheckInteractive -CheckIDs "SEC013" -ExcludeNamespaces:$ExcludeNamespaces }
+            "16" { Show-YamlCheckInteractive -CheckIDs "SEC014" -ExcludeNamespaces:$ExcludeNamespaces }
+            "17" { Show-YamlCheckInteractive -CheckIDs "SEC015" -ExcludeNamespaces:$ExcludeNamespaces }
+            "18" { Show-YamlCheckInteractive -CheckIDs "SEC016" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
-
+        
         Clear-Host
     } while ($true)
 }
@@ -386,7 +409,7 @@ function Show-JobsMenu {
             "1" { Show-YamlCheckInteractive -CheckIDs "JOB001" -ExcludeNamespaces:$ExcludeNamespaces }
             "2" { Show-YamlCheckInteractive -CheckIDs "JOB002" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 
@@ -489,7 +512,7 @@ function Show-InfraBestPracticesMenu {
                 
             }
             "B" { return }  # Back to main menu
-            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit"  }
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
         }
 

@@ -1,7 +1,7 @@
 ---
 title: AKS Best Practices Checks
 parent: Usage
-nav_order: 3
+nav_order: 4
 layout: default
 ---
 
@@ -27,6 +27,8 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 | AKSBP008 | Auto Upgrade Channel Configured        | Medium   |
 | AKSBP009 | Node OS Upgrade Channel Configured     | Medium   |
 | AKSBP010 | Customized MC_ Resource Group Name     | Medium   |
+| AKSBP011 | System Node Pool Minimum Size          | High     |
+| AKSBP012 | Node Pool Version Matches Control Plane| Medium   |
 
 ### Disaster Recovery
 
@@ -82,5 +84,6 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 | AKSSEC005| Azure Key Vault Integration            | High     |
 | AKSSEC006| Image Cleaner Enabled                  | Medium   |
 | AKSSEC007| Kubernetes Dashboard Disabled          | High     |
+| AKSSEC008| Pod Security Admission Enabled         | High     |
 
 Each check provides insights into security, performance, and cost optimization.

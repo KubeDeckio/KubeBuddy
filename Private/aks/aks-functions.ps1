@@ -208,17 +208,28 @@ function Invoke-AKSBestPractices {
 
                 $result = if ($value -eq $expected) { "✅ PASS" } else { "❌ FAIL" }
         
+                $failMsg = ""
+                if ($result -eq "❌ FAIL") {
+                    $failMsg = if ($check.FailMessage -is [scriptblock]) {
+                        & $check.FailMessage $value
+                    }
+                    else {
+                        $check.FailMessage
+                    }
+                }
+                
                 $checkResult = [PSCustomObject]@{
                     ID             = $check.ID
                     Name           = $check.Name
                     Severity       = $check.Severity
                     Category       = $check.Category
                     Status         = $result
+                    FailMessage    = $failMsg
                     Recommendation = if ($result -eq "✅ PASS") { "$($check.Name) is enabled." } else { $check.Recommendation }
                     URL            = $check.URL
-                    Items          = if ($result -eq "❌ FAIL") { @(@{ Resource = $check.Name; Issue = $check.FailMessage }) } else { @() }
+                    Items          = if ($result -eq "❌ FAIL") { @(@{ Resource = $check.Name; Issue = $failMsg }) } else { @() }
                     Total          = if ($result -eq "❌ FAIL") { 1 } else { 0 }
-                }
+                }                
 
                 $categories[$check.Category] += $checkResult
                 $checkResults += $checkResult
@@ -286,7 +297,7 @@ function Invoke-AKSBestPractices {
                 }
             }
     
-            $reportData += $checks | Select-Object ID, @{Name = "Check"; Expression = { $_.Name } }, Severity, Category, Status, Recommendation, @{
+            $reportData += $checks | Select-Object ID, @{Name = "Check"; Expression = { $_.Name } }, Severity, Category, Status, FailMessage, Recommendation, @{
                 Name       = 'URL'
                 Expression = { if ($_.URL) { "<a href='$($_.URL)' target='_blank'>Learn More</a>" } else { "" } }
             }
@@ -351,10 +362,19 @@ function Invoke-AKSBestPractices {
                         Severity       = $_.Severity
                         Category       = $_.Category
                         Status         = $_.Status
+                        FailMessage    = $_.FailMessage
                         Recommendation = $_.Recommendation
                         URL            = $_.URL -replace '<a href=''([^'']+)'' target=''_blank''>Learn More</a>', '$1'
                         Total          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { 1 } else { 0 }
-                        Items          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { @(@{ Resource = $_.Check; Issue = $_.Recommendation }) } else { @() }
+                        Items          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") {
+                            @(@{
+                                    Resource = $_.Check
+                                    Issue    = $_.FailMessage
+                                })
+                        }
+                        else {
+                            @()
+                        }
                     }
                 }
                 TextOutput = $textOutput
@@ -370,11 +390,12 @@ function Invoke-AKSBestPractices {
                     $severity = $_.Severity
                     $category = $_.Category
                     $status = $_.Status
+                    $failMessage = $_.FailMessage
                     $recommendation = $_.Recommendation
                     $url = $_.URL
-                    "<tr><td>$id</td><td>$check</td><td>$severity</td><td>$category</td><td>$status</td><td>$recommendation</td><td>$url</td></tr>"
+                    "<tr><td>$id</td><td>$check</td><td>$severity</td><td>$category</td><td>$status</td><td>$failMessage</td><td>$recommendation</td><td>$url</td></tr>"
                 }
-                "<table>`n<thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Recommendation</th><th>URL</th></tr></thead>`n<tbody>`n" + ($htmlRows -join "`n") + "`n</tbody>`n</table>"
+                "<table>`n<thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Fail Message</th><th>Recommendation</th><th>URL</th></tr></thead>`n<tbody>`n" + ($htmlRows -join "`n") + "`n</tbody>`n</table>"
             }
             else {
                 "<p><strong>No best practice violations detected.</strong></p>"
@@ -400,6 +421,7 @@ function Invoke-AKSBestPractices {
                         Severity       = $_.Severity
                         Category       = $_.Category
                         Status         = $_.Status
+                        FailMessage    = $_.FailMessage
                         Recommendation = $_.Recommendation
                         URL            = $_.URL -replace '<a href=''([^'']+)'' target=''_blank''>Learn More</a>', '$1'
                         Items          = if ($_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR") { @(@{ Resource = $_.Check; Issue = $_.Recommendation }) } else { @() }

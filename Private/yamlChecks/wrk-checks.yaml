@@ -663,7 +663,7 @@ checks:
 
       $deployments = $KubeData?.deployments ?? (kubectl get deployments -A -o json | ConvertFrom-Json).items
       $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
-
+  
       if ($ExcludeNamespaces) {
         $deployments = Exclude-Namespaces -items $deployments
         $pods = Exclude-Namespaces -items $pods
@@ -672,28 +672,34 @@ checks:
         $deployments = $deployments | Where-Object { $_.metadata.namespace -eq $Namespace }
         $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
-
+  
+      function Matches-Selector {
+        param($pod, $selector)
+        foreach ($key in $selector.Keys) {
+          if (-not $pod.metadata.labels.ContainsKey($key)) { return $false }
+          if ($pod.metadata.labels[$key] -ne $selector[$key]) { return $false }
+        }
+        return $true
+      }
+  
       $results = @()
       foreach ($dep in $deployments) {
         $selector = $dep.spec?.selector?.matchLabels
         if (-not $selector) { continue }
         $ns = $dep.metadata.namespace
-
-        if (-not $selector) { continue }
-
+  
         $matchingPods = $pods | Where-Object {
-          $_.metadata.namespace -eq $ns -and
-          ($selector.Keys | ForEach-Object { $_ -in $_.metadata.labels.Keys -and $_.metadata.labels[$_] -eq $selector[$_] }) -contains $false -eq $false
+          $_.metadata.namespace -eq $ns -and (Matches-Selector $_ $selector)
         }
-
+  
         if ($matchingPods.Count -eq 0) {
           $results += [pscustomobject]@{
-            Namespace = $ns
-            Resource  = "deployment/$($dep.metadata.name)"
-            Value     = "0 matching pods"
-            Message   = "Deployment selector does not match any pods"
+            "Namespace"       = $ns
+            "Deployment"        = "$($dep.metadata.name)"
+            "Matched Pod"           = "0 matching pods"
+            "Issue Summary"         = "Deployment selector does not match any pods"
           }
         }
       }
-
-      return @{ Items = $results; IssueCount = $results.Count }
+  
+      return $results

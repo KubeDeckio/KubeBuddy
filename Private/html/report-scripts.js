@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 setTimeout(() => {
                     window.print();
-                }, 1500);
+                }, 500);
 
                 window.onafterprint = function () {
                     console.log('PDF print complete, restoring original state');

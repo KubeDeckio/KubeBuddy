@@ -227,8 +227,61 @@ To apply the exclusion in any CLI command:
 Invoke-KubeBuddy -HtmlReport -ExcludeSystem
 ```
 
+Here’s the updated docs with the trusted registries config section added under **Thresholds**, and a new example of how to override it:
 
-## 8. Additional Parameters
+---
+
+Here’s the new **Section 8** for the trusted registries, ready to drop into the docs:
+
+---
+
+## 8. Configuring Trusted Registries
+
+KubeBuddy powered by KubeDeck includes checks to detect container images pulled from untrusted registries.
+
+By default, only this registry is considered trusted:
+```yaml
+mcr.microsoft.com/
+```
+
+To customize the list, add a `trusted_registries` section in your `kubebuddy-config.yaml` file:
+
+```yaml
+trusted_registries:
+  - mcr.microsoft.com/
+  - mycompanyregistry.com/
+  - ghcr.io/approved-org/
+```
+
+### Notes:
+- Only prefixes are matched. For example, `mcr.microsoft.com/` will match any image starting with that string.
+- If `trusted_registries` is missing from the config, the default list applies.
+- This setting affects checks like `Untrusted Image Registries`.
+
+### Example Config
+
+```yaml
+thresholds:
+  cpu_warning: 50
+  cpu_critical: 75
+  restarts_critical: 5
+
+trusted_registries:
+  - mcr.microsoft.com/
+  - ghcr.io/example-org/
+  - docker.io/library/
+```
+
+### To apply:
+Just add the file to:
+```
+~/.kube/kubebuddy-config.yaml
+```
+
+This allows you to lock down image sources and surface any pods using unapproved registries.
+
+
+## 9. Additional Parameters
 
 | Parameter                 | Type      | Default                              | Description                                                                                  |
 |---------------------------|----------|--------------------------------------|----------------------------------------------------------------------------------------------|

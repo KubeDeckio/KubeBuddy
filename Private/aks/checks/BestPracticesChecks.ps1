@@ -108,5 +108,43 @@ $bestPracticesChecks = @(
         Severity       = "Medium";
         Recommendation = "Specify a custom node resource group name during AKS cluster creation for better organization and clarity.";
         URL            = "https://learn.microsoft.com/azure/aks/faq#can-i-provide-my-own-name-for-the-aks-node-resource-group-";
-    }
+    },
+    @{
+        ID             = "AKSBP011";
+        Category       = "Best Practices";
+        Name           = "System Node Pool Minimum Size";
+        Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.mode -eq "System" }).count -ge 2 };
+        Expected       = $true;
+        FailMessage    = "System node pool has fewer than 2 nodes. This may impact reliability and cluster operations.";
+        Severity       = "High";
+        Recommendation = "Set the system node pool to have at least 2 nodes to meet HA and AKS supportability guidance.";
+        URL            = "https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#recommendations";
+    },
+    @{
+        ID             = "AKSBP012";
+        Category       = "Best Practices";
+        Name           = "Node Pool Version Matches Control Plane";
+        Value          = {
+            $controlPlaneVersion = $clusterInfo.properties.currentKubernetesVersion
+            $mismatches = $clusterInfo.properties.agentPoolProfiles | Where-Object {
+                $_.currentOrchestratorVersion -ne $controlPlaneVersion
+            }
+    
+            # Save mismatch info for fail message
+            Set-Variable -Name 'AKSBP012_MismatchDetails' -Value $mismatches -Scope Script
+    
+            return ($mismatches.Count -eq 0)
+        };
+        Expected       = $true;
+        FailMessage    = {
+            $details = $script:AKSBP012_MismatchDetails | ForEach-Object {
+                "$($_.name): $($_.currentOrchestratorVersion)"
+            } -join ", "
+            $controlPlaneVersion = $clusterInfo.properties.currentKubernetesVersion
+            "Node pools out of sync with control plane version ($controlPlaneVersion): $details"
+        };
+        Severity       = "Medium";
+        Recommendation = "Align all node pool versions with the control plane to simplify upgrades and reduce risk.";
+        URL            = "https://learn.microsoft.com/azure/aks/upgrade-cluster#check-the-current-kubernetes-version"
+    }    
 )

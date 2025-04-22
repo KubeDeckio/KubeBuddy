@@ -551,7 +551,7 @@ checks:
     Severity: "High"
     Weight: 4
     Description: >
-      Detects secrets injected into pods via environment variables using env.valueFrom.secretKeyRef.
+      Detects secrets injected into pods via environment variables using env.valueFrom.secretKeyRef. `n
       This makes secrets easier to leak through logs or /proc inspection.
     FailMessage: "Secret exposed in environment variables"
     Recommendation:
@@ -837,19 +837,20 @@ checks:
         </ul>
     URL: "https://kubernetes.io/docs/concepts/containers/images/"
     Script: |
-      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
       $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
       if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
       if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
-  
-      # Replace with your actual list of trusted registries
-      $trustedPrefixes = @("myregistry.io/", "ghcr.io/", "gcr.io/", "docker.io/library/")
-  
+      
+      # Load config to check for trusted registries override
+      $trusted = (Get-KubeBuddyThresholds -Silent).trusted_registries
+      
       $results = @()
       foreach ($pod in $pods) {
         foreach ($container in $pod.spec.containers) {
           $image = $container.image
-          if (-not ($trustedPrefixes | Where-Object { $image.StartsWith($_) })) {
+          if (-not ($trusted | Where-Object { $image.StartsWith($_) })) {
             $results += [pscustomobject]@{
               Namespace = $pod.metadata.namespace
               Pod       = $pod.metadata.name
@@ -860,11 +861,12 @@ checks:
           }
         }
       }
-  
+      
       return @{
         Items = $results
         IssueCount = $results.Count
       }
+
   - ID: "SEC015"
     Name: "Pods Using Default ServiceAccount"
     Category: "Pod Security"
