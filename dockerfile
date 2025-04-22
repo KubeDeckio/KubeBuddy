@@ -1,62 +1,43 @@
-# Build stage: Use Ubuntu 24.04 for setup
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-ubuntu-24.04 AS builder
+# Build stage
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-11-slim AS builder
 
-# Install required utilities for file operations and dependency installation
 RUN apt-get update && \
-    apt-get install -y curl ca-certificates unzip && \
+    apt-get install -y curl unzip ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Create app directory
 WORKDIR /app
 
-# Install powershell-yaml module
 RUN pwsh -Command "Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop" && \
     pwsh -Command "Install-Module -Name powershell-yaml -Scope AllUsers -Force -ErrorAction Stop"
 
-# Determine the architecture and set the appropriate binary suffix
 ARG TARGETARCH
 RUN echo "Building for architecture: $TARGETARCH" && \
-    # Install kubectl
     curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-    # Install kubelogin
     curl -LO "https://github.com/Azure/kubelogin/releases/download/v0.2.7/kubelogin-linux-${TARGETARCH}.zip" && \
     unzip kubelogin-linux-${TARGETARCH}.zip && \
     install -o root -g root -m 0755 bin/linux_${TARGETARCH}/kubelogin /usr/local/bin/kubelogin && \
-    # Clean up
     rm -f kubectl kubelogin-linux-${TARGETARCH}.zip && \
-    rm -rf bin && \
-    apt-get remove -y curl unzip && \
-    apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf bin
 
-# Create directories and set permissions for UID/GID 10001
-RUN mkdir -p /app/Reports && \
-    mkdir -p /usr/local/share/powershell/Modules/KubeBuddy && \
+RUN mkdir -p /app/Reports /usr/local/share/powershell/Modules/KubeBuddy && \
     chown -R 10001:10001 /app/Reports /usr/local/share/powershell/Modules/KubeBuddy && \
     chmod -R 775 /app/Reports
 
-# Copy KubeBuddy module files
-COPY --chown=10001:10001 KubeBuddy.psm1 /usr/local/share/powershell/Modules/KubeBuddy/KubeBuddy.psm1
-COPY --chown=10001:10001 KubeBuddy.psd1 /usr/local/share/powershell/Modules/KubeBuddy/KubeBuddy.psd1
-COPY --chown=10001:10001 Private /usr/local/share/powershell/Modules/KubeBuddy/Private
-COPY --chown=10001:10001 Public /usr/local/share/powershell/Modules/KubeBuddy/Public
+COPY --chown=10001:10001 KubeBuddy.psm1 /usr/local/share/powershell/Modules/KubeBuddy/
+COPY --chown=10001:10001 KubeBuddy.psd1 /usr/local/share/powershell/Modules/KubeBuddy/
+COPY --chown=10001:10001 Private Public /usr/local/share/powershell/Modules/KubeBuddy/
+COPY --chown=10001:10001 run.ps1 /app/
 
-# Copy run script
-COPY --chown=10001:10001 run.ps1 /app/run.ps1
+# Final image
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-11-slim
 
-# Runtime stage: Use Ubuntu 24.04 for the final image
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-ubuntu-24.04
-
-# Install minimal runtime dependencies
 RUN apt-get update && \
     apt-get install -y ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up non-root user
 WORKDIR /app
 RUN groupadd --gid 10001 kubeuser && \
     useradd --uid 10001 --gid kubeuser --shell /bin/false kubeuser && \
@@ -64,24 +45,17 @@ RUN groupadd --gid 10001 kubeuser && \
     chown -R kubeuser:kubeuser /home/kubeuser && \
     chmod -R 770 /home/kubeuser/.kube
 
-# Set KUBECONFIG to default location
 ENV KUBECONFIG=/home/kubeuser/.kube/config
+ENV TERM=xterm
 
-# Copy binaries, modules, and files from builder
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/kubelogin /usr/local/bin/kubelogin
 COPY --from=builder /usr/local/share/powershell/Modules /usr/local/share/powershell/Modules
 COPY --from=builder /app/run.ps1 /app/run.ps1
 COPY --from=builder /app/Reports /app/Reports
 
-# Fix permissions
-RUN chown -R kubeuser:kubeuser /app/Reports && \
-    chmod -R 775 /app/Reports
+RUN chown -R kubeuser:kubeuser /app/Reports && chmod -R 775 /app/Reports
 
-# Switch to non-root user
 USER kubeuser
 
-ENV TERM=xterm
-
-# Entry point
 CMD ["pwsh", "/app/run.ps1"]
