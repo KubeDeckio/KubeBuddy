@@ -1,5 +1,5 @@
 # Build stage
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-11-slim AS builder
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-12 AS builder
 
 RUN apt-get update && \
     apt-get install -y curl unzip ca-certificates && \
@@ -31,7 +31,7 @@ COPY --chown=10001:10001 Private Public /usr/local/share/powershell/Modules/Kube
 COPY --chown=10001:10001 run.ps1 /app/
 
 # Final image
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-11-slim
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-12
 
 RUN apt-get update && \
     apt-get install -y ca-certificates && \
