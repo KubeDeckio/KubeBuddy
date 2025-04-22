@@ -183,8 +183,15 @@ function Invoke-AKSBestPractices {
         if (-not $Text -and -not $Html -and -not $Json) { Clear-Host }
 
         $checkResults = @()
+        $thresholds = Get-KubeBuddyThresholds -Silent
+        $excludedCheckIDs = $thresholds.excluded_checks
+
         foreach ($check in $checks) {
             try {
+                if ($excludedCheckIDs -contains $check.ID) {
+                    Write-Host "⏭️  Skipping excluded AKS check: $($check.ID)" -ForegroundColor DarkGray
+                    continue
+                }                
                 # Evaluate Value scriptblock
                 $value = if ($check.Value -is [scriptblock]) {
                     $vars = [System.Collections.Generic.List[System.Management.Automation.PSVariable]]::new()

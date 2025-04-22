@@ -47,10 +47,10 @@ function Invoke-yamlChecks {
         else {
             # Detect valid properties dynamically for unknown/script-based checks
             $properties = $Items |
-                ForEach-Object { $_.PSObject.Properties.Name } |
-                Group-Object |
-                Sort-Object Count -Descending |
-                Select-Object -ExpandProperty Name -Unique
+            ForEach-Object { $_.PSObject.Properties.Name } |
+            Group-Object |
+            Sort-Object Count -Descending |
+            Select-Object -ExpandProperty Name -Unique
         }
     
         $validProps = @()
@@ -175,7 +175,14 @@ function Invoke-yamlChecks {
                 return
             }
 
+            $excludedCheckIDs = $using:thresholds.excluded_checks
+     
             foreach ($check in $yamlContent.checks) {
+                # Skip if excluded AND not explicitly requested by -CheckIDs
+                if ($excludedCheckIDs -contains $check.ID -and -not ($using:CheckIDs -and $check.ID -in $using:CheckIDs)) {
+                    Write-Host "⏭️  Skipping excluded check: $($check.ID)" -ForegroundColor DarkGray
+                    continue
+                }
                 # Filter checks if CheckIDs specified
                 if ($using:CheckIDs -and $check.ID -notin $using:CheckIDs) {
                     continue
