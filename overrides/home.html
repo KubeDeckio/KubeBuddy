@@ -28,25 +28,17 @@
 
     .hero-wrap p {
       font-size: 1.25rem;
-      margin-bottom: 2rem;
+      margin-bottom: 2.5rem;
     }
 
-    .hero-wrap .hero-buttons a {
-      margin: 0 1rem;
-      padding: 0.75rem 1.5rem;
-      font-size: 1rem;
-      border-radius: 4px;
-      text-decoration: none;
-    }
-
-    .hero-wrap .hero-buttons .primary {
+    .hero-wrap .cta-button {
+      display: inline-block;
       background: var(--md-primary-fg-color);
       color: #fff;
-    }
-
-    .hero-wrap .hero-buttons .secondary {
-      border: 1px solid #fff;
-      color: #fff;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      text-decoration: none;
     }
 
     .landing-grid {
@@ -63,13 +55,22 @@
     .landing-table {
       width: 100%;
       border-collapse: collapse;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px #ddd;
     }
 
     .landing-table th,
     .landing-table td {
-      padding: 0.5rem;
-      border-bottom: 1px solid #ddd;
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
       text-align: left;
+      background: #fff;
+    }
+
+    .landing-table th {
+      background: #f5f5f5;
+      font-weight: 600;
     }
 
     .callout {
@@ -83,15 +84,26 @@
       margin: 3rem 0;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
+
+    @media screen and (max-width: 768px) {
+      .hero-wrap h1 {
+        font-size: 2.25rem;
+      }
+
+      .hero-wrap p {
+        font-size: 1rem;
+      }
+
+      .landing-grid {
+        flex-direction: column;
+      }
+    }
   </style>
 
   <section class="hero-wrap">
-    <h1>Kubernetes says your cluster is healthy. It's probably not.</h1>
-    <p>KubeBuddy runs fast, deep, and local—no agents, no setup, just answers.</p>
-    <div class="hero-buttons">
-      <a href="{{ page.next_page.url | url }}" class="primary">Quick start</a>
-      <a href="{{ 'insiders/' | url }}" class="secondary">Get Insiders</a>
-    </div>
+    <h1>Cluster looks fine? It’s not.</h1>
+    <p>KubeBuddy runs outside your cluster to catch what the dashboard misses.</p>
+    <a href="{{ 'usage/' | url }}" class="cta-button">View usage</a>
   </section>
 {% endblock %}
 
@@ -100,29 +112,30 @@
 
   <div class="landing-grid">
     <div class="landing-column">
-      <h2>🚀 What It Does</h2>
+      <h2>What It Checks</h2>
       <ul>
-        <li><strong>Node and Pod Health</strong>: Find failed nodes, pending pods, crash loops</li>
-        <li><strong>Workload Issues</strong>: Spot stuck jobs, terminating pods, bad restarts</li>
-        <li><strong>Security Gaps</strong>: Review RBAC, roles, bindings, and risky permissions</li>
-        <li><strong>AKS Checks</strong>: Run Microsoft-aligned checks with one flag</li>
-        <li><strong>Event Summaries</strong>: Catch warnings, crash loops, controller errors</li>
-        <li><strong>Networking and Storage</strong>: Inspect PVCs, services, network policies</li>
-        <li><strong>Exportable Reports</strong>: HTML, JSON, CLI output for audits and automation</li>
+        <li><strong>Node and Pod Health</strong>: Failed nodes, pending pods, crash loops</li>
+        <li><strong>Workloads</strong>: Stuck jobs, terminating pods, bad restart policies</li>
+        <li><strong>Security</strong>: Risky roles, excessive bindings, exposed permissions</li>
+        <li><strong>AKS Best Practices</strong>: Microsoft-guided checks with a single flag</li>
+        <li><strong>Events</strong>: Warnings, crash loops, controller errors</li>
+        <li><strong>Networking + Storage</strong>: PVCs, services, policies, and reachability</li>
+        <li><strong>Docker Option</strong>: Use without PowerShell by running it in a container</li>
+        <li><strong>Reports</strong>: Export HTML, JSON, or CLI summaries</li>
       </ul>
     </div>
     <div class="landing-column">
-      <h2>💡 Why Use It</h2>
-      <p>You don’t need more metrics. You need answers.</p>
+      <h2>Why You Need It</h2>
+      <p>KubeBuddy finds what `kubectl` doesn’t explain.</p>
       <table class="landing-table">
         <thead>
-          <tr><th>What You Use Today</th><th>What You Miss</th></tr>
+          <tr><th>What You Use</th><th>What You Miss</th></tr>
         </thead>
         <tbody>
           <tr><td><code>kubectl get pods</code></td><td>Why they're failing</td></tr>
-          <tr><td>Readiness probes</td><td>Root service and config issues</td></tr>
-          <tr><td>Dashboards</td><td>Silent RBAC issues, warnings</td></tr>
-          <tr><td>Manual reviews</td><td>Gaps in consistency and coverage</td></tr>
+          <tr><td>Readiness probes</td><td>Underlying config issues</td></tr>
+          <tr><td>Dashboards</td><td>RBAC problems, unreported warnings</td></tr>
+          <tr><td>Manual reviews</td><td>Inconsistencies and gaps</td></tr>
         </tbody>
       </table>
     </div>
@@ -131,23 +144,24 @@
   <div class="callout">
     <span style="font-size: 1.5rem;">🧭</span>
     <div>
-      <strong>KubeBuddy runs entirely outside the cluster.</strong><br>
-      No setup inside Kubernetes. Works with any K8s distro. PowerShell 7+ required.
+      <strong>No agents. No Helm charts. No cluster access required.</strong><br>
+      KubeBuddy runs entirely from your terminal. It’s fast, portable, and clean.
     </div>
   </div>
 
-  <h2>👥 Who It's For</h2>
+  <h2>Who Uses It</h2>
   <ul>
-    <li><strong>SREs</strong> reviewing incidents and outages</li>
-    <li><strong>Platform engineers</strong> auditing environments regularly</li>
-    <li><strong>DevOps teams</strong> integrating health checks into CI/CD</li>
-    <li><strong>Operators</strong> without internal observability tooling</li>
+    <li><strong>SREs</strong> troubleshooting incidents</li>
+    <li><strong>Platform teams</strong> enforcing environment standards</li>
+    <li><strong>DevOps pipelines</strong> integrating pre-deploy checks</li>
+    <li><strong>Operators</strong> without built-in observability</li>
   </ul>
 
-  <h2>🛠️ Install and Run</h2>
-  <p><strong>Install with PowerShell 7+:</strong></p>
+  <h2>Install & Run</h2>
+  <p><strong>PowerShell 7+</strong>:</p>
   <pre><code>Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser</code></pre>
-  <p>Runs on macOS, Linux, and Windows. Requires <code>PowerShell 7+</code> and access to your kubeconfig.</p>
+  <p>Or run the <strong>Docker image</strong>:</p>
+  <pre><code>docker run --rm -v ~/.kube:/root/.kube ghcr.io/kubedeckio/kubebuddy</code></pre>
 
 </div>
 {% endblock %}
