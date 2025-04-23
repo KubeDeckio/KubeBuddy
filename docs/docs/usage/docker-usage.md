@@ -40,22 +40,17 @@ Run **KubeBuddy powered by KubeDeck** in Docker to scan your Kubernetes cluster 
 
 ## 🐳 Pull the Docker Image
 
-{% tabs %}
-{% tab Bash %}
+### Bash
 ```bash
 export tagId="latest"
 docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
-{% endtab %}
 
-{% tab PowerShell %}
+### PowerShell
 ```powershell
 $tagId = "latest"
 docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
-{% endtab %}
-{% endtabs %}
-
 
 ## 🌐 Environment Variables
 
@@ -79,8 +74,7 @@ docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
 
 ## ▶️ Run KubeBuddy (Non-AKS)
 
-{% tabs %}
-{% tab Bash %}
+### Bash
 ```bash
 docker run -it --rm \
   -e KUBECONFIG="/home/kubeuser/.kube/config" \
@@ -89,9 +83,8 @@ docker run -it --rm \
   -v $HOME/kubebuddy-report:/app/Reports \
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
-{% endtab %}
 
-{% tab PowerShell %}
+### PowerShell
 ```powershell
 docker run -it --rm `
   -e KUBECONFIG="/home/kubeuser/.kube/config" `
@@ -100,20 +93,12 @@ docker run -it --rm `
   -v $HOME/kubebuddy-report:/app/Reports `
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
-{% endtab %}
-{% endtabs %}
 
-To switch report type, change the flag:
-
-- `HTML_REPORT=true`
-- `JSON_REPORT=true`
-- `TXT_REPORT=true`
-
+You can switch report format by setting `HTML_REPORT`, `JSON_REPORT`, or `TXT_REPORT` to `"true"`.
 
 ## ☁️ Run with AKS Checks
 
-{% tabs %}
-{% tab Bash %}
+### Bash
 ```bash
 docker run -it --rm \
   -e KUBECONFIG="/home/kubeuser/.kube/config" \
@@ -130,9 +115,8 @@ docker run -it --rm \
   -v $HOME/kubebuddy-report:/app/Reports \
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
-{% endtab %}
 
-{% tab PowerShell %}
+### PowerShell
 ```powershell
 docker run -it --rm `
   -e KUBECONFIG="/home/kubeuser/.kube/config" `
@@ -149,15 +133,12 @@ docker run -it --rm `
   -v $HOME/kubebuddy-report:/app/Reports `
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
-{% endtab %}
-{% endtabs %}
 
-Change `HTML_REPORT` to `JSON_REPORT` or `TXT_REPORT` for different formats.
-
+Change report format by modifying the relevant `*_REPORT` environment variable.
 
 ## ⚙️ Custom Configuration
 
-Mount your `kubebuddy-config.yaml` file:
+To customize thresholds, namespaces, and checks, mount a `kubebuddy-config.yaml` file into the container:
 
 ```bash
 docker run -it --rm \
@@ -169,42 +150,40 @@ docker run -it --rm \
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
 
-→ See [Configuration File](./kubebuddy-config.md) for all available options.
+See [Configuration File](./kubebuddy-config) for config details.
 
 
 ## 🛠️ Setup for AKS (Required for `AKS_MODE`)
 
-1. **Create SPN**
-   ```bash
-   az ad sp create-for-rbac --name kubebuddy-spn --output json
-   ```
+### 1. Create SPN
+```bash
+az ad sp create-for-rbac --name kubebuddy-spn --output json
+```
 
-2. **Create Role**
+### 2. Create Role
 
-   See the [Configuration File](./kubebuddy-config.md#2-create-the-kubebuddy-reader-role) page for full JSON.
+See [Configuration File](./kubebuddy-config#2-create-the-kubebuddy-reader-role) for JSON.
 
-   ```bash
-   az role definition create --role-definition KubeBuddyReader.json
-   ```
+```bash
+az role definition create --role-definition KubeBuddyReader.json
+```
 
-3. **Assign Role**
+### 3. Assign Role
+```bash
+az role assignment create --role "KubeBuddy Reader" --assignee <client-id> --scope <aks-id>
+az role assignment create --role "Azure Kubernetes Service Cluster User Role" --assignee <client-id> --scope <aks-id>
+```
 
-   ```bash
-   az role assignment create --role "KubeBuddy Reader" --assignee <client-id> --scope <aks-id>
-   az role assignment create --role "Azure Kubernetes Service Cluster User Role" --assignee <client-id> --scope <aks-id>
-   ```
-
-4. **Get kubeconfig**
-
-   ```bash
-   az aks get-credentials --resource-group <group> --name <cluster> --subscription <sub-id>
-   ```
+### 4. Get Kubeconfig
+```bash
+az aks get-credentials --resource-group <group> --name <cluster> --subscription <sub-id>
+```
 
 
 ## ✅ Summary
 
-- Run KubeBuddy in Docker with or without AKS-specific checks
-- Use tabs above to switch between Bash and PowerShell
-- Customize behavior with `kubebuddy-config.yaml`
+- Run KubeBuddy in Docker with or without AKS-specific checks.
+- Choose Bash or PowerShell based on your environment.
+- Use `kubebuddy-config.yaml` to customize thresholds and exclusions.
 
-See [Configuration File](./kubebuddy-config.md) for detailed settings.
+→ See [Configuration File](./kubebuddy-config) for full config reference.
