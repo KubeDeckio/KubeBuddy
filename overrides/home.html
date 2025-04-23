@@ -1,79 +1,153 @@
 {% extends "main.html" %}
 
-<!-- Render hero under tabs -->
 {% block tabs %}
   {{ super() }}
 
-  <!-- Additional styles for landing page -->
   <style>
-
-    /* Application header should be static for the landing page */
     .md-header {
       position: initial;
     }
 
-    /* Remove spacing, as we cannot hide it completely */
     .md-main__inner {
       margin: 0;
+      padding: 0;
     }
 
-    /* Hide table of contents */
-    @media screen and (min-width: 60em) {
-      .md-sidebar--secondary {
-        display: none;
-      }
+    .hero-wrap {
+      background: linear-gradient(to right, #0d1117, #161b22);
+      color: #fff;
+      padding: 6rem 2rem 4rem;
+      text-align: center;
     }
 
-    /* Hide navigation */
-    @media screen and (min-width: 76.25em) {
-      .md-sidebar--primary {
-        display: none;
-      }
+    .hero-wrap h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+
+    .hero-wrap p {
+      font-size: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .hero-wrap .hero-buttons a {
+      margin: 0 1rem;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      text-decoration: none;
+    }
+
+    .hero-wrap .hero-buttons .primary {
+      background: var(--md-primary-fg-color);
+      color: #fff;
+    }
+
+    .hero-wrap .hero-buttons .secondary {
+      border: 1px solid #fff;
+      color: #fff;
+    }
+
+    .landing-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3rem;
+      margin: 4rem 0;
+    }
+
+    .landing-column {
+      flex: 1 1 40ch;
+    }
+
+    .landing-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .landing-table th,
+    .landing-table td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+    }
+
+    .callout {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--md-default-bg-color);
+      border-left: 6px solid var(--md-primary-fg-color);
+      padding: 1rem 1.5rem;
+      border-radius: 6px;
+      margin: 3rem 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
   </style>
 
-  <!-- Hero for landing page -->
-  <section class="mdx-container">
-    <div class="md-grid md-typeset">
-      <div class="mdx-hero">
-
-        <!-- Hero image -->
-        <div class="mdx-hero__image">
-          <img
-            src="assets/images/illustration.png"
-            alt=""
-            width="1659"
-            height="1200"
-            draggable="false"
-          >
-        </div>
-
-        <!-- Hero content -->
-        <div class="mdx-hero__content">
-          <h1>Technical documentation that just works</h1>
-          <p>{{ config.site_description }}. Set up in 5 minutes.</p>
-          <a
-            href="{{ page.next_page.url | url }}"
-            title="{{ page.next_page.title | e }}"
-            class="md-button md-button--primary"
-          >
-            Quick start
-          </a>
-          <a
-            href="{{ 'insiders/' | url }}"
-            title="Material for MkDocs Insiders"
-            class="md-button"
-          >
-            Get Insiders
-          </a>
-        </div>
-      </div>
+  <section class="hero-wrap">
+    <h1>Kubernetes says your cluster is healthy. It's probably not.</h1>
+    <p>KubeBuddy runs fast, deep, and local—no agents, no setup, just answers.</p>
+    <div class="hero-buttons">
+      <a href="{{ page.next_page.url | url }}" class="primary">Quick start</a>
+      <a href="{{ 'insiders/' | url }}" class="secondary">Get Insiders</a>
     </div>
   </section>
 {% endblock %}
 
-<!-- Content -->
-{% block content %}{% endblock %}
+{% block content %}
+<div class="md-grid md-typeset">
 
-<!-- Application footer -->
-{% block footer %}{% endblock %}
+  <div class="landing-grid">
+    <div class="landing-column">
+      <h2>🚀 What It Does</h2>
+      <ul>
+        <li><strong>Node and Pod Health</strong>: Find failed nodes, pending pods, crash loops</li>
+        <li><strong>Workload Issues</strong>: Spot stuck jobs, terminating pods, bad restarts</li>
+        <li><strong>Security Gaps</strong>: Review RBAC, roles, bindings, and risky permissions</li>
+        <li><strong>AKS Checks</strong>: Run Microsoft-aligned checks with one flag</li>
+        <li><strong>Event Summaries</strong>: Catch warnings, crash loops, controller errors</li>
+        <li><strong>Networking and Storage</strong>: Inspect PVCs, services, network policies</li>
+        <li><strong>Exportable Reports</strong>: HTML, JSON, CLI output for audits and automation</li>
+      </ul>
+    </div>
+    <div class="landing-column">
+      <h2>💡 Why Use It</h2>
+      <p>You don’t need more metrics. You need answers.</p>
+      <table class="landing-table">
+        <thead>
+          <tr><th>What You Use Today</th><th>What You Miss</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>kubectl get pods</code></td><td>Why they're failing</td></tr>
+          <tr><td>Readiness probes</td><td>Root service and config issues</td></tr>
+          <tr><td>Dashboards</td><td>Silent RBAC issues, warnings</td></tr>
+          <tr><td>Manual reviews</td><td>Gaps in consistency and coverage</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span style="font-size: 1.5rem;">🧭</span>
+    <div>
+      <strong>KubeBuddy runs entirely outside the cluster.</strong><br>
+      No setup inside Kubernetes. Works with any K8s distro. PowerShell 7+ required.
+    </div>
+  </div>
+
+  <h2>👥 Who It's For</h2>
+  <ul>
+    <li><strong>SREs</strong> reviewing incidents and outages</li>
+    <li><strong>Platform engineers</strong> auditing environments regularly</li>
+    <li><strong>DevOps teams</strong> integrating health checks into CI/CD</li>
+    <li><strong>Operators</strong> without internal observability tooling</li>
+  </ul>
+
+  <h2>🛠️ Install and Run</h2>
+  <p><strong>Install with PowerShell 7+:</strong></p>
+  <pre><code>Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser</code></pre>
+  <p>Runs on macOS, Linux, and Windows. Requires <code>PowerShell 7+</code> and access to your kubeconfig.</p>
+
+</div>
+{% endblock %}
