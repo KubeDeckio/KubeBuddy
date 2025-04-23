@@ -1,53 +1,36 @@
 ---
-title: Home
-nav_order: 1
-layout: home
+title: Documentation
+nav_order: 2
+layout: default
 ---
 
-# Kubernetes Says Your Cluster is Healthy. <br>It's Probably Not.
+# 📖 KubeBuddy powered by KubeDeck Documentation
 
-**KubeBuddy powered by KubeDeck** runs complete health, security, and configuration checks on your Kubernetes cluster from your terminal—no agents, no Helm charts, no guesswork.
+Welcome to the **KubeBuddy powered by KubeDeck** documentation! This is your complete guide to installing, using, and contributing to KubeBuddy powered by KubeDeck. Whether you're just getting started or an advanced user, you'll find everything you need here to monitor and analyze your Kubernetes clusters efficiently.
 
-## What It Does
+## ✨ Why Use KubeBuddy powered by KubeDeck?
 
-Run **KubeBuddy powered by KubeDeck** and get a full picture of your cluster:
+🚀 **Built with PowerShell** – Cross-platform support for Windows, Linux, and macOS.  
+📊 **Cluster Health Monitoring** – Check node status, resource usage, and pod conditions.  
+🔍 **Security & RBAC Insights** – Identify misconfigurations and excessive permissions.  
+📜 **Detailed Reporting** – Generate HTML and text-based reports for analysis.  
+☁️ **Azure AKS Health Check** – Monitor AKS clusters with PowerShell commands.  
+🛠️ **Customizable Configuration** – Set thresholds in `kubebuddy-config.yaml`.
 
-- **Node and Pod Health**: Spot failing nodes, pending pods, restarts.
-- **Workload Issues**: Detect jobs stuck in loops or pods stuck terminating.
-- **Security Gaps**: Check RBAC roles, bindings, and risky permissions.
-- **AKS-Specific Checks**: Follow Microsoft’s AKS best practices with one command.
-- **Event Summaries**: Surface recent errors, warnings, and crash loops.
-- **Storage and Networking**: Review PVCs, services, and network policies.
-- **HTML, JSON, and CLI Reports**: Shareable output for audits and debugging.
+## 📌 Getting Started
+Jump into the key sections below:
 
-> **All checks run outside the cluster. No setup required inside Kubernetes.**  
-> Works on any Kubernetes cluster. PowerShell 7+ required.
+### 🔹 [Installation Guide](./installation)
+Learn how to install KubeBuddy powered by KubeDeck and configure it for your environment.
 
-## Why Use KubeBuddy powered by KubeDeck?
+### 🔹 [Usage Guide](./usage)
+Step-by-step instructions to monitor and analyze your Kubernetes clusters.
 
-Most tools give you metrics. **KubeBuddy powered by KubeDeck** gives you answers.
+### 🔹 [Logging & Output](./logging-output)
+Understand detailed logging, error messages, and debugging techniques.
 
-| What You Use Today | What You Miss |
-|--------------------|----------------|
-| `kubectl get pods` | Why they're failing |
-| Readiness probes   | Underlying service issues |
-| Dashboards         | Misconfigured RBAC, silent errors |
-| Manual reviews     | Automation, consistent checks |
+### 🔹 [Contributing](./contributing)
+Want to contribute? Check out the developer and contributor guidelines.
 
-**KubeBuddy powered by KubeDeck** runs a deep scan and tells you what's wrong, what’s risky, and what’s misconfigured—across the whole cluster.
-
-## Who It's For
-
-- **SREs** running post-incident reviews  
-- **Platform teams** doing regular audits  
-- **DevOps engineers** automating cluster checks in CI/CD  
-- **Anyone** managing production clusters without internal tools
-
-## Install and Run
-
-```powershell
-Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
-```
-
-KubeBuddy runs on macOS, Linux, and Windows with PowerShell 7+.
+Stay updated as we continue to enhance KubeBuddy powered by KubeDeck with new features and improvements!
 
