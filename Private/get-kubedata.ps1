@@ -105,40 +105,61 @@ function Get-KubeData {
     $results = $resources | ForEach-Object -Parallel {
         Import-Module Microsoft.PowerShell.Utility -Cmdlet Write-Host, ConvertFrom-Json
         $res = $_
+        $maxRetries = 3
+        $retryDelaySeconds = 2
+        $attempt = 0
+        $success = $false
+        $errorMessage = $null
+        $value = $null
+    
+        Write-Host "▶️ Starting $($res.Name)" -ForegroundColor Yellow
+    
+        while (-not $success -and $attempt -lt $maxRetries) {
+            try {
+                $result = & $res.Cmd
+                if ($null -ne $result) {
+                    if ($res.Raw) {
+                        $value = @($result -split "`n" | Where-Object { $_ })
+                    }
+                    else {
+                        $jsonResult = $result | ConvertFrom-Json
+                        $value = if ($res.Items) { $jsonResult.items } else { $jsonResult }
+                    }
+                }
+                else {
+                    $value = @()
+                }
+    
+                $success = $true
+            }
+            catch {
+                $attempt++
+                $errorMessage = $_.Exception.Message
+                if ($attempt -lt $maxRetries) {
+                    Start-Sleep -Seconds $retryDelaySeconds
+                }
+            }
+        }
+    
         $output = [PSCustomObject]@{
             Key     = $res.Key
             Label   = $res.Name
             Raw     = $res.Raw
-            Value   = $null
-            Success = $true
-            Error   = $null
+            Value   = $value
+            Success = $success
+            Error   = if ($success) { $null } else { $errorMessage }
         }
-
-        Write-Host "▶️ Starting $($res.Name)" -ForegroundColor Yellow
-
-        try {
-            $result = & $res.Cmd
-            if ($null -ne $result) {
-                if ($res.Raw) {
-                    $output.Value = @($result -split "`n" | Where-Object { $_ })
-                }
-                else {
-                    $jsonResult = $result | ConvertFrom-Json
-                    $output.Value = if ($res.Items) { $jsonResult.items } else { $jsonResult }
-                }
-            }
-            else {
-                $output.Value = @()
-            }
+    
+        if ($success) {
+            Write-Host "✔️ Finished $($res.Name)" -ForegroundColor Cyan
         }
-        catch {
-            $output.Success = $false
-            $output.Error = $_.Exception.Message
+        else {
+            Write-Host "❌ $($res.Name) failed after $maxRetries attempts." -ForegroundColor Red
         }
-
-        Write-Host "✔️ Finished $($res.Name)" -ForegroundColor Cyan
+    
         return $output
     } -ThrottleLimit 8
+    
 
     # Show progress based on completed results
     $completed = $results.Count
@@ -162,7 +183,6 @@ function Get-KubeData {
         }
     }
 
-    # Custom Resources
     # Custom Resources
     Write-Host -NoNewline "`n🤖 Fetching Custom Resource Instances..." -ForegroundColor Yellow
     $data.CustomResourcesByKind = @{}

@@ -320,21 +320,36 @@ function Invoke-yamlChecks {
                     else {
                         "$($using:kubectl) get $($check.ResourceKind) --all-namespaces -o json"
                     }
-                    try {
-                        $output = Invoke-Expression $kubectlCmd 2>&1
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "kubectl failed: $output"
+                    $maxRetries = 3
+                    $retryDelay = 2
+                    $attempt = 0
+                    $data = $null
+                    $success = $false
+
+                    while (-not $success -and $attempt -lt $maxRetries) {
+                        try {
+                            $output = Invoke-Expression $kubectlCmd 2>&1
+                            if ($LASTEXITCODE -ne 0) {
+                                throw "kubectl failed: $output"
+                            }
+                            $data = ($output | ConvertFrom-Json).items
+                            $success = $true
                         }
-                        $data = ($output | ConvertFrom-Json).items
-                    }
-                    catch {
-                        Write-Host "❌ Failed to fetch $($check.ResourceKind) data: $_" -ForegroundColor Red
-                        $localResults += @{
-                            ID    = $check.ID
-                            Name  = $check.Name
-                            Error = "Failed to fetch data: $_"
+                        catch {
+                            $attempt++
+                            if ($attempt -lt $maxRetries) {
+                                Start-Sleep -Seconds $retryDelay
+                            }
+                            else {
+                                Write-Host "❌ Failed to fetch $($check.ResourceKind) data after $maxRetries attempts: $_" -ForegroundColor Red
+                                $localResults += @{
+                                    ID    = $check.ID
+                                    Name  = $check.Name
+                                    Error = "Failed to fetch data after $maxRetries attempts: $_"
+                                }
+                                continue
+                            }
                         }
-                        continue
                     }
                 }
 
