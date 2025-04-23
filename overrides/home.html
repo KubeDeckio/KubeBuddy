@@ -52,24 +52,25 @@
       flex: 1 1 40ch;
     }
 
-    .landing-table {
-      width: 100%;
-      border-collapse: collapse;
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .card {
+      background: var(--md-default-bg-color);
+      padding: 1.25rem 1.5rem;
       border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 0 0 1px #ddd;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e0e0e0;
     }
 
-    .landing-table th,
-    .landing-table td {
-      padding: 0.75rem;
-      border-bottom: 1px solid #eee;
-      text-align: left;
-      background: #fff;
-    }
-
-    .landing-table th {
-      background: #f5f5f5;
+    .card h4 {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
       font-weight: 600;
     }
 
@@ -126,18 +127,25 @@
     </div>
     <div class="landing-column">
       <h2>Why You Need It</h2>
-      <p>KubeBuddy finds what `kubectl` doesn’t explain.</p>
-      <table class="landing-table">
-        <thead>
-          <tr><th>What You Use</th><th>What You Miss</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>kubectl get pods</code></td><td>Why they're failing</td></tr>
-          <tr><td>Readiness probes</td><td>Underlying config issues</td></tr>
-          <tr><td>Dashboards</td><td>RBAC problems, unreported warnings</td></tr>
-          <tr><td>Manual reviews</td><td>Inconsistencies and gaps</td></tr>
-        </tbody>
-      </table>
+      <p>KubeBuddy finds what <code>kubectl</code> doesn’t explain.</p>
+      <div class="card-grid">
+        <div class="card">
+          <h4><code>kubectl get pods</code></h4>
+          <p>Doesn’t tell you why they’re failing.</p>
+        </div>
+        <div class="card">
+          <h4>Readiness probes</h4>
+          <p>Miss root service and config issues.</p>
+        </div>
+        <div class="card">
+          <h4>Dashboards</h4>
+          <p>Miss silent RBAC issues and warnings.</p>
+        </div>
+        <div class="card">
+          <h4>Manual reviews</h4>
+          <p>Miss consistency and coverage gaps.</p>
+        </div>
+      </div>
     </div>
   </div>
 
