@@ -1,5 +1,5 @@
 [build]
-  base    = ""
+  base    = "docs"
   publish = "site"
   command = "pip install -r requirements.txt && mkdocs build"
 
