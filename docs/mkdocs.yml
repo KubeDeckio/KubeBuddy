@@ -2,7 +2,7 @@ site_name: ""
 site_url: https://kubebuddy.kubedeck.io
 theme:
   name: material
-  custom_dir: docs/overrides
+  custom_dir: overrides
   font:
     text: Roboto
     code: Roboto Mono
