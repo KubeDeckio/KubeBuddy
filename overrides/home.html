@@ -18,7 +18,6 @@
       color: #fff;
       padding: 6rem 2rem 4rem;
       text-align: center;
-      animation: fadeInUp 0.6s ease-out;
     }
 
     .hero-wrap h1 {
@@ -33,12 +32,11 @@
     }
 
     .hero-wrap .hero-buttons a {
-      margin: 0.5rem 1rem;
+      margin: 0 1rem;
       padding: 0.75rem 1.5rem;
       font-size: 1rem;
       border-radius: 4px;
       text-decoration: none;
-      display: inline-block;
     }
 
     .hero-wrap .hero-buttons .primary {
@@ -85,35 +83,10 @@
       margin: 3rem 0;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
-
-    @keyframes fadeInUp {
-      0% {
-        opacity: 0;
-        transform: translateY(24px);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @media screen and (max-width: 768px) {
-      .hero-wrap h1 {
-        font-size: 2.25rem;
-      }
-
-      .hero-wrap p {
-        font-size: 1rem;
-      }
-
-      .landing-grid {
-        flex-direction: column;
-      }
-    }
   </style>
 
   <section class="hero-wrap">
-    <h1>🚨 Kubernetes says your cluster is healthy. It’s probably not.</h1>
+    <h1>Kubernetes says your cluster is healthy. It's probably not.</h1>
     <p>KubeBuddy runs fast, deep, and local—no agents, no setup, just answers.</p>
     <div class="hero-buttons">
       <a href="{{ page.next_page.url | url }}" class="primary">Quick start</a>
@@ -127,7 +100,7 @@
 
   <div class="landing-grid">
     <div class="landing-column">
-      <h2>🧰 What It Does</h2>
+      <h2>🚀 What It Does</h2>
       <ul>
         <li><strong>Node and Pod Health</strong>: Find failed nodes, pending pods, crash loops</li>
         <li><strong>Workload Issues</strong>: Spot stuck jobs, terminating pods, bad restarts</li>
@@ -139,7 +112,7 @@
       </ul>
     </div>
     <div class="landing-column">
-      <h2>🤔 Why Use It</h2>
+      <h2>💡 Why Use It</h2>
       <p>You don’t need more metrics. You need answers.</p>
       <table class="landing-table">
         <thead>
@@ -171,7 +144,7 @@
     <li><strong>Operators</strong> without internal observability tooling</li>
   </ul>
 
-  <h2>⚡ Install and Run</h2>
+  <h2>🛠️ Install and Run</h2>
   <p><strong>Install with PowerShell 7+:</strong></p>
   <pre><code>Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser</code></pre>
   <p>Runs on macOS, Linux, and Windows. Requires <code>PowerShell 7+</code> and access to your kubeconfig.</p>
