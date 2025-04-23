@@ -208,4 +208,3 @@ docker run -it --rm \
 - Customize behavior with `kubebuddy-config.yaml`
 
 See [Configuration File](./kubebuddy-config.md) for detailed settings.
-```
