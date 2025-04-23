@@ -1,0 +1,39 @@
+site_name: KubeBuddy Docs
+theme:
+  name: material
+  palette:
+    primary: blue
+    accent: light blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.annotate
+    - content.tabs.link
+    - toc.integrate
+
+nav:
+  - Home: index.md
+  - Usage:
+      - Docker: usage/docker-usage.md
+      - PowerShell: usage/powershell-usage.md
+      - Config File: usage/kubebuddy-config.md
+      - Checks: usage/checks.md
+      - Logging Output: usage/logging-output.md
+      - AKS Best Practices: usage/aks-best-practice-checks.md
+  - Contributing: contributing.md
+  - Release Process: releaseprocess.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.details
+  - pymdownx.critic
+  - pymdownx.mark
+
+plugins:
+  - search
