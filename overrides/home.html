@@ -4,8 +4,18 @@
   {{ super() }}
 
   <style>
+    :root {
+      --md-primary-fg-color: #6200ea;
+      --md-primary-bg-color: #ffffff;
+      --md-accent-fg-color: #03dac6;
+      --md-default-fg-color: #212121;
+      --md-default-bg-color: #ffffff;
+      --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+    }
+
     .md-header {
       position: initial;
+      background: var(--md-primary-fg-color);
     }
 
     .md-main__inner {
@@ -14,162 +24,299 @@
     }
 
     .hero-wrap {
-      background: linear-gradient(to right, #0d1117, #161b22);
+      background: linear-gradient(135deg, #0d1117, #161b22);
       color: #fff;
-      padding: 6rem 2rem 4rem;
+      padding: 7rem 2rem 5rem;
       text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-wrap::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+      opacity: 0.5;
     }
 
     .hero-wrap h1 {
-      font-size: 3rem;
-      margin-bottom: 1rem;
+      font-size: 3.5rem;
       font-weight: 700;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .hero-wrap p {
-      font-size: 1.25rem;
-      margin-bottom: 2.5rem;
+      font-size: 1.5rem;
+      max-width: 600px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.6;
     }
 
-    .hero-wrap .cta-button {
-      display: inline-block;
-      background: var(--md-primary-fg-color);
+    .cta-button {
+      display: inline-flex;
+      align-items: center;
+      background: var(--md-accent-fg-color);
       color: #fff;
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      font-size: 1rem;
+      padding: 0.875rem 2rem;
+      border-radius: 28px;
+      font-size: 1.125rem;
+      font-weight: 500;
       text-decoration: none;
+      box-shadow: var(--md-shadow);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
 
-    .landing-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3rem;
-      margin: 4rem 0;
+    .cta-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     }
 
-    .landing-column {
-      flex: 1 1 40ch;
-    }
-
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1.5rem;
-      margin-top: 1.5rem;
-    }
-
-    .card {
+    .section {
+      padding: 4rem 2rem;
       background: var(--md-default-bg-color);
-      padding: 1.25rem 1.5rem;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      border: 1px solid #e0e0e0;
     }
 
-    .card h4 {
-      margin-top: 0;
-      margin-bottom: 0.5rem;
-      font-size: 1rem;
+    .section h2 {
+      font-size: 2.25rem;
       font-weight: 600;
+      color: var(--md-default-fg-color);
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .feature-card {
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--md-shadow);
+      transition: transform 0.3s, box-shadow 0.3s;
+      text-align: center;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 7px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .feature-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0.5rem 0;
+      color: var(--md-primary-fg-color);
+    }
+
+    .feature-card p {
+      font-size: 1rem;
+      color: #757575;
+      line-height: 1.5;
     }
 
     .callout {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      background: var(--md-default-bg-color);
-      border-left: 6px solid var(--md-primary-fg-color);
-      padding: 1rem 1.5rem;
-      border-radius: 6px;
-      margin: 3rem 0;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      gap: 1.5rem;
+      background: #f5f5f5;
+      border-left: 8px solid var(--md-accent-fg-color);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin: 3rem auto;
+      max-width: 800px;
+      box-shadow: var(--md-shadow);
+    }
+
+    .callout-icon {
+      font-size: 2rem;
+    }
+
+    .callout-text h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+    }
+
+    .workflow-section {
+      background: linear-gradient(to bottom, #fafafa, #ffffff);
+      padding: 5rem 2rem;
+    }
+
+    .workflow-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 2rem auto;
+      justify-content: center;
+    }
+
+    .workflow-step {
+      flex: 1 1 280px;
+      background: #fff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: var(--md-shadow);
+      text-align: center;
+      position: relative;
+      transition: transform 0.3s;
+    }
+
+    .workflow-step:hover {
+      transform: translateY(-5px);
+    }
+
+    .workflow-step::before {
+      content: attr(data-step);
+      position: absolute;
+      top: -1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--md-primary-fg-color);
+      color: #fff;
+      width: 3rem;
+      height: 3rem;
+      line-height: 3rem;
+      border-radius: 50%;
+      font-weight: 600;
+      font-size: 1.25rem;
+    }
+
+    .workflow-step h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--md-primary-fg-color);
+      margin: 1rem 0 0.5rem;
+    }
+
+    .workflow-step p {
+      font-size: 1rem;
+      color: #757575;
+      line-height: 1.6;
+    }
+
+    .workflow-step .step-icon {
+      font-size: 2.5rem;
+      color: var(--md-accent-fg-color);
     }
 
     @media screen and (max-width: 768px) {
       .hero-wrap h1 {
-        font-size: 2.25rem;
+        font-size: 2.5rem;
       }
 
       .hero-wrap p {
-        font-size: 1rem;
+        font-size: 1.25rem;
       }
 
-      .landing-grid {
-        flex-direction: column;
+      .section,
+      .workflow-section {
+        padding: 2rem 1rem;
+      }
+
+      .feature-grid,
+      .workflow-steps {
+        grid-template-columns: 1fr;
+      }
+
+      .workflow-step {
+        flex: 1 1 100%;
       }
     }
   </style>
 
   <section class="hero-wrap">
-    <h1>Kubernetes says your cluster is healthy. It' probably not .</h1>
-    <p>KubeBuddy runs outside your cluster to catch what the dashboard misses.</p>
-    <a href="{{ 'usage/' | url }}" class="cta-button">View usage</a>
+    <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
+    <p>KubeBuddy runs outside your cluster to catch critical issues that dashboards and <code>kubectl</code> miss.</p>
+    <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
   </section>
 {% endblock %}
 
 {% block content %}
 <div class="md-grid md-typeset">
-
-  <div class="landing-grid">
-    <div class="landing-column">
-      <h2>What It Checks</h2>
-      <ul>
-        <li><strong>Node and Pod Health</strong>: Failed nodes, pending pods, crash loops</li>
-        <li><strong>Workloads</strong>: Stuck jobs, terminating pods, bad restart policies</li>
-        <li><strong>Security</strong>: Risky roles, excessive bindings, exposed permissions</li>
-        <li><strong>AKS Best Practices</strong>: Microsoft-guided checks with a single flag</li>
-        <li><strong>Events</strong>: Warnings, crash loops, controller errors</li>
-        <li><strong>Networking + Storage</strong>: PVCs, services, policies, and reachability</li>
-        <li><strong>Docker Option</strong>: Use without PowerShell by running it in a container</li>
-        <li><strong>Reports</strong>: Export HTML, JSON, or CLI summaries</li>
-      </ul>
-    </div>
-    <div class="landing-column">
-      <h2>Why You Need It</h2>
-      <p>KubeBuddy finds what <code>kubectl</code> doesn’t explain.</p>
-      <div class="card-grid">
-        <div class="card">
-          <h4><code>kubectl get pods</code></h4>
-          <p>Doesn’t tell you why they’re failing.</p>
-        </div>
-        <div class="card">
-          <h4>Readiness probes</h4>
-          <p>Miss root service and config issues.</p>
-        </div>
-        <div class="card">
-          <h4>Dashboards</h4>
-          <p>Miss silent RBAC issues and warnings.</p>
-        </div>
-        <div class="card">
-          <h4>Manual reviews</h4>
-          <p>Miss consistency and coverage gaps.</p>
-        </div>
+  <section class="section">
+    <h2>Why KubeBuddy?</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <span class="callout-icon">🔍</span>
+        <h3>Comprehensive Diagnostics</h3>
+        <p>Detects node failures, pod crashes, security risks, and networking issues with one command.</p>
+      </div>
+      <div class="feature-card">
+        <span class="callout-icon">🚀</span>
+        <h3>No Cluster Intrusion</h3>
+        <p>Runs externally via your terminal or Docker, requiring no agents or Helm charts.</p>
+      </div>
+      <div class="feature-card">
+        <span class="callout-icon">📊</span>
+        <h3>Actionable Reports</h3>
+        <p>Export detailed HTML, JSON, or CLI summaries for quick insights and sharing.</p>
       </div>
     </div>
-  </div>
+  </section>
 
   <div class="callout">
-    <span style="font-size: 1.5rem;">🧭</span>
-    <div>
-      <strong>No agents. No Helm charts. No cluster access required.</strong><br>
-      KubeBuddy runs entirely from your terminal. It’s fast, portable, and clean.
+    <span class="callout-icon">🧭</span>
+    <div class="callout-text">
+      <h3>Fast. Portable. Secure.</h3>
+      <p>KubeBuddy delivers cluster health checks without touching your cluster. Perfect for SREs, DevOps, and operators.</p>
     </div>
   </div>
 
-  <h2>Who Uses It</h2>
-  <ul>
-    <li><strong>SREs</strong> troubleshooting incidents</li>
-    <li><strong>Platform teams</strong> enforcing environment standards</li>
-    <li><strong>DevOps pipelines</strong> integrating pre-deploy checks</li>
-    <li><strong>Operators</strong> without built-in observability</li>
-  </ul>
+  <section class="section">
+    <h2>What KubeBuddy Checks</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Node & Pod Health</h3>
+        <p>Identifies failed nodes, pending pods, and crash loops.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Security Risks</h3>
+        <p>Scans for risky roles, excessive bindings, and exposed permissions.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Networking & Storage</h3>
+        <p>Checks PVCs, services, policies, and reachability issues.</p>
+      </div>
+      <div class="feature-card">
+        <h3>AKS Best Practices</h3>
+        <p>Runs Microsoft-guided checks with a single flag.</p>
+      </div>
+    </div>
+  </section>
 
-  <h2>Install & Run</h2>
-  <p><strong>PowerShell 7+</strong>:</p>
-  <pre><code>Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser</code></pre>
-  <p>Or run the <strong>Docker image</strong>:</p>
-  <pre><code>docker run --rm -v ~/.kube:/root/.kube ghcr.io/kubedeckio/kubebuddy</code></pre>
-
+  <section class="workflow-section">
+    <h2>How KubeBuddy Works</h2>
+    <div class="workflow-steps">
+      <div class="workflow-step" data-step="1">
+        <span class="step-icon">⚙️</span>
+        <h3>Connect & Scan</h3>
+        <p>KubeBuddy uses your existing kubeconfig to scan your cluster externally, no agents required.</p>
+      </div>
+      <div class="workflow-step" data-step="2">
+        <span class="step-icon">🔎</span>
+        <h3>Analyze Issues</h3>
+        <p>Detects hidden problems like misconfigurations, security risks, and resource failures in seconds.</p>
+      </div>
+      <div class="workflow-step" data-step="3">
+        <span class="step-icon">📈</span>
+        <h3>Deliver Insights</h3>
+        <p>Generates clear, actionable reports in HTML, JSON, or CLI format for immediate action.</p>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 2rem;">
+      <a href="{{ 'usage/' | url }}" class="cta-button">Explore Usage</a>
+    </div>
+  </section>
 </div>
 {% endblock %}
