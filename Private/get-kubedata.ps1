@@ -39,7 +39,7 @@ function Get-KubeData {
 
             if ($spnProvided) {
                 # Use SPN credentials
-                & kubelogin convert-kubeconfig -l spn
+                & kubelogin convert-kubeconfig -l spn --client-id $env:AZURE_CLIENT_ID --client-secret $env:AZURE_CLIENT_SECRET --tenant-id $env:AZURE_TENANT_ID
                 Write-Host "✅ Kubeconfig reconfigured for SPN login." -ForegroundColor Green
             }
             elseif (-not $isContainer) {
