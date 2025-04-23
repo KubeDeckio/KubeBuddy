@@ -3,6 +3,8 @@ title: Creating Checks
 parent: Documentation
 nav_order: 4
 layout: default
+hide:
+  - navigation
 ---
 
 # Creating Checks

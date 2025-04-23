@@ -3,6 +3,8 @@ title: Installation
 parent: Documentation
 nav_order: 1
 layout: default
+hide:
+  - navigation
 ---
 
 # ⚡ Installing KubeBuddy powered by KubeDeck

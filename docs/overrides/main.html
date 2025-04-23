@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+
+{% block content %}
+  {{ super() | replace('<h1>', '<h1 style="display:none">') }}
+{% endblock %}

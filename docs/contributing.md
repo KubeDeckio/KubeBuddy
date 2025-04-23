@@ -3,6 +3,8 @@ title: Contributing
 parent: Documentation
 nav_order: 3
 layout: default
+hide:
+  - navigation
 ---
 
 # 🤝 Contributing to KubeBuddy powered by KubeDeck
