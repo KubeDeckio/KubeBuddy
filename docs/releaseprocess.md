@@ -3,6 +3,8 @@ title: Release Process
 parent: Documentation
 nav_order: 4
 layout: default
+hide:
+  - navigation
 ---
 
 # 🚀 KubeBuddy powered by KubeDeck Release Process

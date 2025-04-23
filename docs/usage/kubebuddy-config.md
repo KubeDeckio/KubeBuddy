@@ -145,10 +145,10 @@ trusted_registries:
   - mycompanyregistry.com/
   - ghcr.io/approved-org/
 ```
-{: .note }
-> - **Prefix Matching**: Registry entries use prefix matching. For example, mcr.microsoft.com/ matches all images from that registry (e.g., mcr.microsoft.com/aks/aks-engine).
-> - **Security Checks**: The Untrusted Image Registries check (e.g., SEC014) uses this list to identify non-compliant pods.
-> - **Impact**: Images from untrusted registries are flagged in reports and the interactive UI, allowing you to investigate and remediate.
+!!! note
+    - **Prefix Matching**: Registry entries use prefix matching. For example, `mcr.microsoft.com/` matches all images from that registry (e.g., `mcr.microsoft.com/aks/aks-engine`).
+    - **Security Checks**: The Untrusted Image Registries check (e.g., `SEC014`) uses this list to identify non-compliant pods.
+    - **Impact**: Images from untrusted registries are flagged in reports and the interactive UI, allowing you to investigate and remediate.
 
 ### Use Case
 A company with a private registry might configure KubeBuddy to trust only their internal registry and a specific open-source registry:
@@ -180,10 +180,10 @@ excluded_checks:
   - WRK008
 ```
 
-{: .note }
-> - **Exact Match Required**: Each entry must match the exact check ID (e.g., SEC014 for the untrusted registries check).
-> - **Manual Override**: Excluded checks can still be run manually via KubeBuddy’s interactive UI (Invoke-KubeBuddy without parameters).
-> - **Impact**: Excluded checks are skipped during automated runs (e.g., with -HtmlReport) but do not affect other checks.
+!!! note
+    - **Exact Match Required**: Each entry must match the exact check ID (e.g., SEC014 for the untrusted registries check).
+    - **Manual Override**: Excluded checks can still be run manually via KubeBuddy’s interactive UI (`Invoke-KubeBuddy` without parameters).
+    - **Impact**: Excluded checks are skipped during automated runs (e.g., with `-HtmlReport`) but do not affect other checks.
 
 ### Use Case
 In a development cluster, you might exclude workload-related checks that enforce strict resource limits (WRK008) to allow more flexibility:
