@@ -75,6 +75,7 @@ nav:
   - Contributing: contributing.md
   - Release Process: releaseprocess.md
   - Changelog: changelog.md
+  - KubeDeck: https://kubedeck.io
 
 markdown_extensions:
   - admonition
