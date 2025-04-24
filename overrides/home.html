@@ -47,10 +47,10 @@
     .md-header {
       position: initial;
       background: var(--md-primary-fg-color);
-      width: 100%; /* Ensure header spans full width */
-      margin: 0; /* Remove any margins */
-      padding: 1rem 2rem; /* Add padding for content */
-      box-sizing: border-box; /* Include padding in width */
+      width: 100%;
+      margin: 0;
+      padding: 1rem 2rem;
+      box-sizing: border-box;
     }
   
     .md-main__inner {
@@ -59,22 +59,22 @@
     }
   
     .md-grid.md-typeset {
-      width: 100%; /* Use full page width */
+      width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center; /* Center children vertically */
-      padding: 0; /* Remove padding to maximize width */
+      padding: 0;
     }
   
     .section,
     .workflow-section {
-      width: 100%; /* Full width */
-      margin: 0; /* Remove centering margins */
-      padding: 4rem 2rem; /* Maintain padding for readability */
+      width: 100%;
+      margin: 0;
+      padding: 4rem 2rem;
       background: var(--md-default-bg-color);
       color: var(--md-default-fg-color);
       text-align: center; /* Center text within sections */
-      box-sizing: border-box; /* Include padding in width */
+      box-sizing: border-box;
     }
   
     .hero-wrap {
@@ -82,9 +82,9 @@
       text-align: center;
       position: relative;
       overflow: hidden;
-      width: 100%; /* Full width */
-      margin: 0; /* Remove centering margins */
-      box-sizing: border-box; /* Include padding in width */
+      width: 100%;
+      margin: 0;
+      box-sizing: border-box;
     }
   
     @media (prefers-color-scheme: light) {
@@ -115,12 +115,13 @@
     .hero-wrap h1 {
       font-size: 3.5rem;
       font-weight: 700;
-      margin-bottom: 1.5rem;
+      margin: 0 auto 1.5rem; /* Center with margin */
+      max-width: 1200px; /* Constrain width for readability */
     }
   
     .hero-wrap p {
       font-size: 1.5rem;
-      max-width: 800px; /* Slightly wider for full-width layout */
+      max-width: 800px;
       margin: 0 auto 2.5rem;
       line-height: 1.6;
     }
@@ -138,7 +139,7 @@
       text-decoration: none;
       box-shadow: var(--md-shadow);
       transition: transform 0.2s, box-shadow 0.2s;
-      margin: 0 auto; /* Center button horizontally */
+      margin: 0 auto;
     }
   
     .cta-button:hover {
@@ -150,11 +151,12 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 2rem;
-      width: 100%; /* Full width */
-      margin: 0; /* Remove centering margins */
-      padding: 0 2rem; /* Add padding to avoid edge contact */
-      justify-items: center; /* Center grid items */
-      box-sizing: border-box; /* Include padding in width */
+      width: 100%;
+      max-width: 1200px; /* Constrain grid width */
+      margin: 0 auto; /* Center the grid */
+      padding: 0 2rem;
+      justify-items: center;
+      box-sizing: border-box;
     }
   
     .feature-card {
@@ -164,8 +166,8 @@
       box-shadow: var(--md-shadow);
       transition: transform 0.3s, box-shadow 0.3s;
       text-align: center;
-      width: 100%; /* Ensure cards take available width */
-      max-width: 400px; /* Optional: cap card width for readability */
+      width: 100%;
+      max-width: 400px; /* Cap card width */
     }
   
     .feature-card:hover {
@@ -195,11 +197,11 @@
       padding: 1.5rem;
       border-radius: 12px;
       margin: 3rem auto;
-      width: 100%; /* Full width */
-      max-width: 1000px; /* Slightly wider for full-width layout */
+      width: 100%;
+      max-width: 800px; /* Constrain width */
       box-shadow: var(--md-shadow);
       text-align: center;
-      box-sizing: border-box; /* Include padding in width */
+      box-sizing: border-box;
     }
   
     @media (prefers-color-scheme: dark) {
@@ -232,11 +234,12 @@
       display: flex;
       flex-wrap: wrap;
       gap: 2rem;
-      width: 100%; /* Full width */
-      margin: 2rem 0; /* Remove auto margins */
-      padding: 0 2rem; /* Add padding to avoid edge contact */
+      width: 100%;
+      max-width: 1200px; /* Constrain width */
+      margin: 2rem auto; /* Center the steps */
+      padding: 0 2rem;
       justify-content: center;
-      box-sizing: border-box; /* Include padding in width */
+      box-sizing: border-box;
     }
   
     .workflow-step {
@@ -249,7 +252,7 @@
       text-align: center;
       position: relative;
       transition: transform 0.3s, box-shadow 0.3s;
-      max-width: 400px; /* Optional: cap step width for readability */
+      max-width: 400px;
     }
   
     .workflow-step:hover {
@@ -294,45 +297,46 @@
     @media screen and (max-width: 768px) {
       .hero-wrap h1 {
         font-size: 2.5rem;
+        max-width: 90%; /* Adjust for mobile */
       }
   
       .hero-wrap p {
         font-size: 1.25rem;
-        max-width: 90%; /* Adjust for mobile */
+        max-width: 90%;
       }
   
       .feature-grid,
       .workflow-steps {
         grid-template-columns: 1fr;
         justify-items: center;
-        padding: 0 1rem; /* Reduce padding for mobile */
+        padding: 0 1rem;
+        max-width: 100%; /* Full width on mobile */
       }
   
       .workflow-step {
         flex: 1 1 100%;
-        max-width: 100%; /* Full width on mobile */
+        max-width: 100%;
       }
   
       .section,
       .workflow-section {
-        padding: 2rem 1rem; /* Reduce padding for mobile */
+        padding: 2rem 1rem;
       }
   
       .hero-wrap {
-        padding: 4rem 1rem 3rem; /* Adjust padding for mobile */
+        padding: 4rem 1rem 3rem;
       }
   
       .callout {
         padding: 1rem;
-        max-width: 90%; /* Adjust for mobile */
+        max-width: 90%;
       }
   
       .md-header {
-        padding: 1rem; /* Adjust header padding for mobile */
+        padding: 1rem;
       }
     }
   </style>
-  
 
   <section class="hero-wrap">
     <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
