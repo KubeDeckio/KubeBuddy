@@ -9,9 +9,6 @@ hide:
   - navigation
 ---
 
-<style>
-
-</style>
 
 # Kubernetes Says Your Cluster is Healthy. It’s Probably Not.
 
@@ -83,28 +80,4 @@ hide:
     <strong>KubeBuddy runs entirely outside the cluster.</strong><br>
     No setup inside Kubernetes. Works with any K8s distro. PowerShell 7+ required.
   </div>
-</div>
-
-
-
-## 👥 Who It's For
-
-<div style="margin-bottom: 1.5rem; font-size: 1rem;">
-<ul class="people-list">
-  <li><strong>SREs</strong> reviewing incidents and outages</li>
-  <li><strong>Platform engineers</strong> auditing environments regularly</li>
-  <li><strong>DevOps teams</strong> integrating health checks into CI/CD</li>
-  <li><strong>Operators</strong> without internal observability tooling</li>
-</ul>
-</div>
-
-## 🛠️ Install and Run
-
-<div class="notice">
-  <p><strong>Install with PowerShell 7+:</strong></p>
-  <pre><code>Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser</code></pre>
-  <p style="margin-top: 0.75rem;">
-    Runs on <strong>macOS</strong>, <strong>Linux</strong>, and <strong>Windows</strong>.  
-    Requires <code>PowerShell 7+</code> and access to your kubeconfig.
-  </p>
 </div>

@@ -4,6 +4,13 @@
   {{ super() }}
 
   <style>
+    /* Ensure global box-sizing to prevent padding/margin issues */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+  
     :root {
       --md-primary-fg-color: #0071FF;
       --md-primary-fg-color--light: #02baff;
@@ -50,31 +57,67 @@
       width: 100%;
       margin: 0;
       padding: 1rem 2rem;
-      box-sizing: border-box;
     }
-  
-    .md-main__inner {
+
+    .md-main {
+      width: 100vw;
       margin: 0;
       padding: 0;
     }
+    
   
-    .md-grid.md-typeset {
-      width: 100%;
+    .md-main__inner {
+      width: 100vw;
+      margin: 0;
+      padding: 0;
       display: flex;
       flex-direction: column;
-      align-items: center; /* Center children vertically */
-      padding: 0;
+      align-items: center;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+    
+    .md-main__inner.md-grid {
+      max-width: 100% !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    
+    .md-grid.md-typeset {
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 2rem;
+    }
+    .section, .workflow-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      width: 100%;
+    }
+
+    .section h2,
+    .workflow-section h2 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 2rem;
     }
   
     .section,
     .workflow-section {
       width: 100%;
-      margin: 0;
+      margin: 0 auto; /* Ensure section is centered */
       padding: 4rem 2rem;
       background: var(--md-default-bg-color);
       color: var(--md-default-fg-color);
-      text-align: center; /* Center text within sections */
-      box-sizing: border-box;
+      text-align: center;
+      display: flex; /* Use flex to center children */
+      flex-direction: column;
+      align-items: center; /* Center children horizontally */
     }
   
     .hero-wrap {
@@ -83,8 +126,10 @@
       position: relative;
       overflow: hidden;
       width: 100%;
-      margin: 0;
-      box-sizing: border-box;
+      margin: 0 auto;
+      display: flex; /* Use flex to center children */
+      flex-direction: column;
+      align-items: center; /* Center children horizontally */
     }
   
     @media (prefers-color-scheme: light) {
@@ -115,8 +160,8 @@
     .hero-wrap h1 {
       font-size: 3.5rem;
       font-weight: 700;
-      margin: 0 auto 1.5rem; /* Center with margin */
-      max-width: 1200px; /* Constrain width for readability */
+      margin: 0 auto 1.5rem;
+      max-width: 1200px;
     }
   
     .hero-wrap p {
@@ -152,11 +197,10 @@
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 2rem;
       width: 100%;
-      max-width: 1200px; /* Constrain grid width */
-      margin: 0 auto; /* Center the grid */
+      max-width: 1200px;
+      margin: 0 auto !important; /* Override potential inherited styles */
       padding: 0 2rem;
-      justify-items: center;
-      box-sizing: border-box;
+      justify-items: center; /* Center grid items */
     }
   
     .feature-card {
@@ -167,7 +211,7 @@
       transition: transform 0.3s, box-shadow 0.3s;
       text-align: center;
       width: 100%;
-      max-width: 400px; /* Cap card width */
+      max-width: 400px;
     }
   
     .feature-card:hover {
@@ -196,12 +240,11 @@
       border-left: 8px solid var(--md-accent-fg-color);
       padding: 1.5rem;
       border-radius: 12px;
-      margin: 3rem auto;
+      margin: 3rem auto !important; /* Override potential inherited styles */
       width: 100%;
-      max-width: 800px; /* Constrain width */
+      max-width: 800px;
       box-shadow: var(--md-shadow);
       text-align: center;
-      box-sizing: border-box;
     }
   
     @media (prefers-color-scheme: dark) {
@@ -235,11 +278,10 @@
       flex-wrap: wrap;
       gap: 2rem;
       width: 100%;
-      max-width: 1200px; /* Constrain width */
-      margin: 2rem auto; /* Center the steps */
+      max-width: 1200px;
+      margin: 2rem auto !important; /* Override potential inherited styles */
       padding: 0 2rem;
-      justify-content: center;
-      box-sizing: border-box;
+      justify-content: center; /* Center flex items */
     }
   
     .workflow-step {
@@ -297,7 +339,7 @@
     @media screen and (max-width: 768px) {
       .hero-wrap h1 {
         font-size: 2.5rem;
-        max-width: 90%; /* Adjust for mobile */
+        max-width: 90%;
       }
   
       .hero-wrap p {
@@ -310,7 +352,7 @@
         grid-template-columns: 1fr;
         justify-items: center;
         padding: 0 1rem;
-        max-width: 100%; /* Full width on mobile */
+        max-width: 100%;
       }
   
       .workflow-step {
