@@ -31,7 +31,7 @@ hide:
 </ul>
 
 </div>   
-<div class="column">   
+<div class="column">    
 
 <h2>💡 Why Use It</h2> 
 <p>You don’t need more metrics. You need answers.</p>
