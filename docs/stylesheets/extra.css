@@ -9,6 +9,7 @@
   --md-accent-fg-color: var(--md-primary-fg-color--light);
   --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
   --md-callout-bg: #f5f5f5;
+  --md-card-bg-color: #f5f5f5;
   --md-workflow-bg-start: #fafafa;
   --md-workflow-bg-end: #ffffff;
   --md-text-secondary: #757575;
@@ -18,8 +19,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --md-primary-fg-color: #bb86fc;
-    --md-default-fg-color: #e0e0e0;
+    --md-primary-fg-color: #0071FF;
+    --md-default-fg-color: #02baff;
     --md-default-bg-color: #1e1e1e;
     --md-card-bg-color: #2c2c2c;
     --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), 0 3px 6px rgba(0, 0, 0, 0.7);
