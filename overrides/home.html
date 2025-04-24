@@ -10,46 +10,63 @@
     *::after {
       box-sizing: border-box;
     }
-  
-    :root {
-      --md-primary-fg-color: #0071FF;
-      --md-primary-fg-color--light: #02baff;
-      --md-primary-fg-color--dark: #005AD1;
-      --md-default-fg-color--light: #02baff;
-      --md-accent-fg-color: var(--md-primary-fg-color--light);
-      --md-primary-bg-color: #ffffff;
-      --md-default-fg-color: #212121;
-      --md-default-bg-color: #ffffff;
-      --md-card-bg-color: #ffffff;
-      --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
-      --md-callout-bg: #f5f5f5;
-      --md-workflow-bg-start: #fafafa;
-      --md-workflow-bg-end: #ffffff;
-      --md-text-secondary: #757575;
-      --md-code-bg: #212121;
-      --md-code-fg: #ffffff;
-    }
-  
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --md-primary-fg-color: #0071FF;
-        --md-primary-fg-color--light: #02baff;
-        --md-primary-fg-color--dark: #005AD1;
-        --md-default-fg-color--light: #02baff;
-        --md-accent-fg-color: var(--md-primary-fg-color--light);
-        --md-primary-bg-color: #121212;
-        --md-default-fg-color: #e0e0e0;
-        --md-default-bg-color: #1e1e1e;
-        --md-card-bg-color: #2c2c2c;
-        --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), 0 3px 6px rgba(0, 0, 0, 0.7);
-        --md-callout-bg: #2c2c2c;
-        --md-workflow-bg-start: #2c2c2c;
-        --md-workflow-bg-end: #1e1e1e;
-        --md-text-secondary: #b0b0b0;
-        --md-code-bg: #121212;
-        --md-code-fg: #e0e0e0;
-      }
-    }
+    
+
+  /* Define fallback variables for when no theme is detected */
+  :root {
+    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color--light: #02baff;
+    --md-primary-fg-color--dark: #005AD1;
+    --md-default-fg-color--light: #02baff;
+    --md-accent-fg-color: #02baff;
+    --md-primary-bg-color: #f5f5f5;
+    --md-default-fg-color: #212121;
+    --md-card-bg-color: #e0e0e0;
+    --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+    --md-callout-bg: #e0e0e0;
+    --md-workflow-bg-start: #e0e0e0;
+    --md-workflow-bg-end: #ffffff;
+    --md-text-secondary: #555;
+    --md-code-bg: #e0e0e0;
+    --md-code-fg: #212121;
+  }
+
+  [data-md-color-scheme="light"] {
+    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color--light: #02baff;
+    --md-primary-fg-color--dark: #005AD1;
+    --md-default-fg-color--light: #02baff;
+    --md-accent-fg-color: var(--md-primary-fg-color--light);
+    --md-primary-bg-color: #ffffff;
+    --md-default-fg-color: #212121;
+    --md-card-bg-color: #e0e0e0;
+    --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+    --md-callout-bg: #e0e0e0;
+    --md-workflow-bg-start: #e0e0e0;
+    --md-workflow-bg-end: #ffffff;
+    --md-text-secondary: #555;
+    --md-code-bg: #e0e0e0;
+    --md-code-fg: #212121;
+  }
+
+  [data-md-color-scheme="dark"] {
+    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color--light: #02baff;
+    --md-primary-fg-color--dark: #005AD1;
+    --md-default-fg-color--light: #02baff;
+    --md-accent-fg-color: var(--md-primary-fg-color--light);
+    --md-primary-bg-color: #121212;
+    --md-default-fg-color: #e0e0e0;
+    --md-default-bg-color: #1e1e1e;
+    --md-card-bg-color: #2c2c2c;
+    --md-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), 0 3px 6px rgba(0, 0, 0, 0.7);
+    --md-callout-bg: #2c2c2c;
+    --md-workflow-bg-start: #2c2c2c;
+    --md-workflow-bg-end: #1e1e1e;
+    --md-text-secondary: #b0b0b0;
+    --md-code-bg: #121212;
+    --md-code-fg: #e0e0e0;
+  }
   
     .md-header {
       position: initial;
@@ -130,18 +147,20 @@
       display: flex; /* Use flex to center children */
       flex-direction: column;
       align-items: center; /* Center children horizontally */
+      background: url('images/header.png') center/cover no-repeat;
+      color: var(--md-default-fg-color);
+      z-index: 1;
     }
+
   
     @media (prefers-color-scheme: light) {
       .hero-wrap {
-        background: linear-gradient(135deg, #f0f0f0, #fafafa);
         color: var(--md-default-fg-color);
       }
     }
   
     @media (prefers-color-scheme: dark) {
       .hero-wrap {
-        background: linear-gradient(135deg, #0d1117, #161b22);
         color: #fff;
       }
     }
@@ -149,13 +168,19 @@
     .hero-wrap::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-      opacity: 0.5;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7); /* darker overlay */
+      z-index: 0;
     }
+    
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      padding: 3rem 2rem;
+      text-align: center;
+      max-width: 1400px;
+      width: 100%;
+    }    
   
     .hero-wrap h1 {
       font-size: 3.5rem;
@@ -175,22 +200,23 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: var(--md-accent-fg-color);
-      color: var(--md-code-fg);
-      padding: 0.875rem 2rem;
-      border-radius: 28px;
-      font-size: 1.125rem;
-      font-weight: 500;
+      padding: 0.75rem 1.75rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      background-color: var(--md-primary-fg-color);
+      color: #fff !important;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0, 113, 255, 0.25);
       text-decoration: none;
-      box-shadow: var(--md-shadow);
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin: 0 auto;
     }
-  
     .cta-button:hover {
+      background-color: var(--md-primary-fg-color);
       transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     }
+    
   
     .feature-grid {
       display: grid;
@@ -232,42 +258,28 @@
       line-height: 1.5;
     }
   
-    .callout {
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      background: var(--md-callout-bg);
-      border-left: 8px solid var(--md-accent-fg-color);
-      padding: 1.5rem;
+    .info-card {
+      background: var(--md-card-bg-color);
+      color: var(--md-default-fg-color);
+      border: 1px solid var(--md-text-secondary);
       border-radius: 12px;
-      margin: 3rem auto !important; /* Override potential inherited styles */
-      width: 100%;
+      padding: 2rem;
+      text-align: center;
+      margin: 3rem auto;
       max-width: 800px;
       box-shadow: var(--md-shadow);
-      text-align: center;
     }
-  
-    @media (prefers-color-scheme: dark) {
-      .callout {
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-      }
+    
+    .info-card h3 {
+      font-size: 1.75rem;
+      margin-bottom: 1rem;
     }
-  
-    .callout-icon {
-      font-size: 2rem;
-      color: var(--md-accent-fg-color);
-    }
-  
-    .callout-text h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem;
-      color: var(--md-default-fg-color);
-    }
-  
-    .callout-text p {
+    
+    .info-card p {
+      font-size: 1.1rem;
       color: var(--md-text-secondary);
-    }
+      line-height: 1.6;
+    }    
   
     .workflow-section {
       background: none;
@@ -335,6 +347,12 @@
       font-size: 2.5rem;
       color: var(--md-accent-fg-color);
     }
+
+    .workflow-cta {
+      margin-top: 3rem;
+      display: flex;
+      justify-content: center;
+    }    
   
     @media screen and (max-width: 768px) {
       .hero-wrap h1 {
@@ -381,10 +399,11 @@
   </style>
 
   <section class="hero-wrap">
-    <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
-    <p>KubeBuddy runs outside your cluster to catch critical issues that dashboards and <code>kubectl</code> miss.</p>
-    <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
-  </section>
+    <div class="hero-content">
+      <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
+      <p>KubeBuddy runs outside your cluster to catch critical issues that dashboards and <code>kubectl</code> miss.</p>
+    </div>
+  </section>  
 {% endblock %}
 
 {% block content %}
@@ -407,16 +426,24 @@
         <h3>Actionable Reports</h3>
         <p>Export detailed HTML, JSON, or CLI summaries for quick insights and sharing.</p>
       </div>
+      <div class="feature-card">
+        <span class="callout-icon">🛡️</span>
+        <h3>Clean Execution</h3>
+        <p>KubeBuddy runs entirely outside your cluster. No agents, no config drift, no exposure.</p>
+      </div>
+      <div class="feature-card">
+        <span class="callout-icon">🧪</span>
+        <h3>Stateless by Design</h3>
+        <p>Scans don't persist anything. No runtime footprint, no security baggage.</p>
+      </div>
+      <div class="feature-card">
+        <span class="callout-icon">⚡</span>
+        <h3>Runs Anywhere</h3>
+        <p>Use it locally, in CI/CD, or on a jump host — wherever you work.</p>
+      </div>            
     </div>
   </section>
 
-  <div class="callout">
-    <span class="callout-icon">🧭</span>
-    <div class="callout-text">
-      <h3>Fast. Portable. Secure.</h3>
-      <p>KubeBuddy delivers cluster health checks without touching your cluster. Perfect for SREs, DevOps, and operators.</p>
-    </div>
-  </div>
 
   <section class="section">
     <h2>What KubeBuddy Checks</h2>
@@ -437,6 +464,14 @@
         <h3>AKS Best Practices</h3>
         <p>Runs Microsoft-guided checks with a single flag.</p>
       </div>
+      <div class="feature-card">
+        <h3>Cluster Config</h3>
+        <p>Checks context, kubeconfig, versions, and misaligned settings.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Resource Limits</h3>
+        <p>Flags containers missing CPU or memory limits. Prevent noisy neighbors.</p>
+      </div>      
     </div>
   </section>
 
@@ -459,6 +494,8 @@
         <p>Generates clear, actionable reports in HTML, JSON, or CLI format for immediate action.</p>
       </div>
     </div>
-    <a href="{{ 'usage/' | url }}" class="cta-button">Explore Usage</a> <!-- Removed inline style -->
-  </section>
+    <div class="workflow-cta">
+      <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
+    </div>
+      </section>
 {% endblock %}
