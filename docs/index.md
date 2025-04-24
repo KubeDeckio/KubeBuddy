@@ -15,7 +15,7 @@ hide:
   Runs complete health, security, and configuration checks on your Kubernetes cluster.<br>
   ✅ No agents. No Helm charts. No guesswork.<br>
   ✅ Everything runs from your terminal.
-</div> 
+</div>  
 
 <div class="columns"><div class="column">
 
