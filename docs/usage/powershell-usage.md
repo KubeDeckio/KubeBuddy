@@ -17,6 +17,11 @@ Before running KubeBuddy powered by KubeDeck, ensure you:
 - Have **Azure CLI (az cli)** installed if using AKS features.
 - Are **logged into Azure** and using the correct subscription for AKS monitoring.
 
+## 🔗 Related Guide
+
+If you're running AKS checks or using the `-Aks` flag, see the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for prerequisites and role setup.
+
+
 ## Available Commands
 
 The following table provides a quick reference for KubeBuddy powered by KubeDeck commands:
@@ -58,9 +63,9 @@ You **must** provide your Azure Subscription ID, the **Resource Group** where yo
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../../../assets/images/report-examples/html-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../assets/images/report-examples/html-report-sample.png)
 
-<a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+<a href="../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
 ---
 ### **Generate a JSON Report**
@@ -73,9 +78,9 @@ Invoke-KubeBuddy -jsonReport
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck Text Report](../../../assets/images/report-examples/text-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck Text Report](../assets/images/report-examples/text-report-sample.png)
 
-<a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
+<a href="../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
 ---
 
@@ -145,9 +150,9 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../../../assets/images/report-examples/html-aks-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../assets/images/report-examples/html-aks-report-sample.png)
 
-<a href="../../../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+<a href="../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 ---
 
 ## 5. Running an AKS Health Check alongside the JSON report
@@ -171,9 +176,9 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy powered by KubeDeck Text Report](../../../assets/images/report-examples/text-aks-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck Text Report](../assets/images/report-examples/text-aks-report-sample.png)
 
-<a href="../../../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
+<a href="../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
 
 ---
 

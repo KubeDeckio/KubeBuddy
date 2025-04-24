@@ -22,7 +22,7 @@ Use the PowerShell module to:
 - Inspect RBAC roles and security configs.
 - Generate HTML or text reports.
 
-📌 **[PowerShell Usage](powershell-usage)** – Step-by-step guide for PowerShell users.
+📌 **[PowerShell Usage](powershell-usage.md)** – Step-by-step guide for PowerShell users.
 
 
 ### 🐳 Docker (Cross-platform)
@@ -33,4 +33,4 @@ Run KubeBuddy in a container to:
 - Use HTML, JSON, or TXT outputs for automation or offline viewing.
 - Run AKS-specific checks with SPN credentials.
 
-📌 **[Docker Usage](docker-usage)** – Guide for using KubeBuddy with Docker.
+📌 **[Docker Usage](docker-usage.md)** – Guide for using KubeBuddy with Docker.

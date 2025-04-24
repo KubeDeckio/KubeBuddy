@@ -34,7 +34,10 @@ Run **KubeBuddy powered by KubeDeck** in Docker to scan your Kubernetes cluster 
   az --version
   ```
 
-- SPN must have **Cluster Admin** or **KubeBuddy Reader** role. See [Setup for AKS](#setup-for-aks-required-for-aks_mode).
+- SPN must have **Cluster Admin** or **KubeBuddy Reader** role.
+
+> 📘 See the full [AKS Configuration & Best Practices Setup](aks-configuration-and-best-practices-checks.md) guide for SPN creation, role definition, and AKS prerequisites.
+
 
 ## 🐳 Pull the Docker Image
 
@@ -155,23 +158,6 @@ docker run -it --rm \
 
 ## 🛠️ Setup for AKS (Required for `AKS_MODE`)
 
-1. Create SPN:
-   ```bash
-   az ad sp create-for-rbac --name kubebuddy-spn --output json
-   ```
+To use AKS-specific features in Docker (via `AKS_MODE`), you need to set up a Service Principal (SPN), assign roles, and configure access to your cluster.
 
-2. Create Role (see [Configuration File](./kubebuddy-config.md#2-create-the-kubebuddy-reader-role)):
-   ```bash
-   az role definition create --role-definition KubeBuddyReader.json
-   ```
-
-3. Assign Role:
-   ```bash
-   az role assignment create --role "KubeBuddy Reader" --assignee <client-id> --scope <aks-id>
-   az role assignment create --role "Azure Kubernetes Service Cluster User Role" --assignee <client-id> --scope <aks-id>
-   ```
-
-4. Get kubeconfig:
-   ```bash
-   az aks get-credentials --resource-group <group> --name <cluster> --subscription <sub-id>
-   ```
+👉 See the full [AKS Configuration & Best Practices Setup](aks-configuration-and-best-practices-checks.md) guide for step-by-step instructions.
