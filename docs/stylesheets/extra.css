@@ -1,0 +1,101 @@
+:root  > * {
+    --md-primary-fg-color:        #0071FF;
+    --md-primary-fg-color--light: #02baff;
+    --md-primary-fg-color--dark:  #005AD1;
+    --md-default-fg-color--light: #02baff;
+    --md-accent-fg-color:var(--md-primary-fg-color--light);
+  }
+
+  .md-header__button.md-logo img, .md-header__button.md-logo svg {
+    height: 3rem;
+  }
+
+  [data-md-color-scheme=slate][data-md-color-primary=indigo] {
+    --md-typeset-a-color: #0071FF;
+  }
+
+  .md-typeset table:not([class]) {
+    border-collapse: collapse;
+    width: 100%;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(180, 177, 177, 0.144);
+  }
+  
+  th {
+    background: var(--md-primary-fg-color);
+    color: white;
+    font-weight: 500;
+    text-align: left;
+    padding: 0.75rem;
+  }
+  
+  td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  
+  tr:hover td {
+    background: #f5f5f51e;
+  }
+  
+
+  h1, h2, h3, h4 {
+    color: var(--md-accent-fg-color);
+    font-weight: 700;
+  }
+  
+  .hero {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+    font-size: 1.15rem;
+    line-height: 1.8;
+    background: var(--md-primary-fg-color);
+    color: white;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+  }
+  .columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+  }
+  .column {
+    flex: 1;
+    min-width: 280px;
+  }
+  .column table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .column table th,
+  .column table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #ccc;
+    text-align: left;
+  }
+  ul.people-list {
+    padding-left: 1rem;
+    list-style: none;
+  }
+  ul.people-list li::before {
+    content: "👤";
+    margin-right: 0.5rem;
+  }
+  .md-typeset h1 {
+    text-align: center;
+    font-weight: bold;
+  }
+  table.landing-table {
+    font-size: 0.9rem;
+  }
+  .notice {
+    background: #f1f3f4;
+    border-left: 6px solid var(--md-primary-fg-color);
+    padding: 1rem;
+    margin: 2rem 0;
+    border-radius: 6px;
+    font-size: 1rem;
+    color: #333;
+  }

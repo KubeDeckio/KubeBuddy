@@ -1,53 +1,66 @@
 ---
-title: Home
-nav_order: 1
-layout: home
+template: home.html
+title: Documentation
+nav_order: 2
+layout: default
+hide:
+  - footer
+  - toc
+  - navigation
 ---
 
-# Kubernetes Says Your Cluster is Healthy. <br>It's Probably Not.
+# Kubernetes Says Your Cluster is Healthy. It’s Probably Not.
+<div class="hero">
+  <strong>KubeBuddy powered by KubeDeck</strong><br>
+  Runs complete health, security, and configuration checks on your Kubernetes cluster.<br>
+  ✅ No agents. No Helm charts. No guesswork.<br>
+  ✅ Everything runs from your terminal.
+</div>  
 
-**KubeBuddy powered by KubeDeck** runs complete health, security, and configuration checks on your Kubernetes cluster from your terminal—no agents, no Helm charts, no guesswork.
+<div class="columns"><div class="column">
 
-## What It Does
+<h2>🚀 What It Does</h2> 
+<ul>
+  <li><strong>Node and Pod Health</strong>: Find failed nodes, pending pods, crash loops</li>
+  <li><strong>Workload Issues</strong>: Spot stuck jobs, terminating pods, bad restarts</li>
+  <li><strong>Security Gaps</strong>: Review RBAC, roles, bindings, and risky permissions</li>
+  <li><strong>AKS Checks</strong>: Run Microsoft-aligned checks with one flag</li>
+  <li><strong>Event Summaries</strong>: Catch warnings, crash loops, controller errors</li>
+  <li><strong>Networking and Storage</strong>: Inspect PVCs, services, network policies</li>
+  <li><strong>Exportable Reports</strong>: HTML, JSON, and CLI output for audits and automation</li>
+</ul>
 
-Run **KubeBuddy powered by KubeDeck** and get a full picture of your cluster:
+</div>   
+<div class="column">    
 
-- **Node and Pod Health**: Spot failing nodes, pending pods, restarts.
-- **Workload Issues**: Detect jobs stuck in loops or pods stuck terminating.
-- **Security Gaps**: Check RBAC roles, bindings, and risky permissions.
-- **AKS-Specific Checks**: Follow Microsoft’s AKS best practices with one command.
-- **Event Summaries**: Surface recent errors, warnings, and crash loops.
-- **Storage and Networking**: Review PVCs, services, and network policies.
-- **HTML, JSON, and CLI Reports**: Shareable output for audits and debugging.
+<h2>💡 Why Use It</h2> 
+<p>You don’t need more metrics. You need answers.</p>
 
-> **All checks run outside the cluster. No setup required inside Kubernetes.**  
-> Works on any Kubernetes cluster. PowerShell 7+ required.
-
-## Why Use KubeBuddy powered by KubeDeck?
-
-Most tools give you metrics. **KubeBuddy powered by KubeDeck** gives you answers.
-
-| What You Use Today | What You Miss |
-|--------------------|----------------|
-| `kubectl get pods` | Why they're failing |
-| Readiness probes   | Underlying service issues |
-| Dashboards         | Misconfigured RBAC, silent errors |
-| Manual reviews     | Automation, consistent checks |
-
-**KubeBuddy powered by KubeDeck** runs a deep scan and tells you what's wrong, what’s risky, and what’s misconfigured—across the whole cluster.
-
-## Who It's For
-
-- **SREs** running post-incident reviews  
-- **Platform teams** doing regular audits  
-- **DevOps engineers** automating cluster checks in CI/CD  
-- **Anyone** managing production clusters without internal tools
-
-## Install and Run
-
-```powershell
-Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
-```
-
-KubeBuddy runs on macOS, Linux, and Windows with PowerShell 7+.
-
+<table class="landing-table">
+  <thead>
+    <tr>
+      <th>What You Use Today</th>
+      <th>What You Miss</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>kubectl get pods</code></td>
+      <td>Why they're failing</td>
+    </tr>
+    <tr>
+      <td>Readiness probes</td>
+      <td>Root service and config issues</td>
+    </tr>
+    <tr>
+      <td>Dashboards</td>
+      <td>Silent RBAC issues, warnings</td>
+    </tr>
+    <tr>
+      <td>Manual reviews</td>
+      <td>Gaps in consistency and coverage</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
