@@ -1,7 +1,7 @@
 ---
 title: AKS Best Practices Checks
 parent: Usage
-nav_order: 3
+nav_order: 4
 layout: default
 ---
 
@@ -17,70 +17,73 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**:
 
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
-| BP001 | Allowed Container Images Policy        | High     |
-| BP002 | No Privileged Containers Policy        | High     |
-| BP003 | Multiple Node Pools                    | Medium   |
-| BP004 | Azure Linux as Host OS                 | High     |
-| BP005 | Ephemeral OS Disks Enabled             | Medium   |
-| BP006 | Non-Ephemeral Disks with Adequate Size | Medium   |
-| BP007 | System Node Pool Taint                 | High     |
-| BP008 | Auto Upgrade Channel Configured        | Medium   |
-| BP009 | Node OS Upgrade Channel Configured     | Medium   |
-| BP010 | Customized MC_ Resource Group Name     | Medium   |
+| AKSBP001 | Allowed Container Images Policy        | High     |
+| AKSBP002 | No Privileged Containers Policy        | High     |
+| AKSBP003 | Multiple Node Pools                    | Medium   |
+| AKSBP004 | Azure Linux as Host OS                 | High     |
+| AKSBP005 | Ephemeral OS Disks Enabled             | Medium   |
+| AKSBP006 | Non-Ephemeral Disks with Adequate Size | Medium   |
+| AKSBP007 | System Node Pool Taint                 | High     |
+| AKSBP008 | Auto Upgrade Channel Configured        | Medium   |
+| AKSBP009 | Node OS Upgrade Channel Configured     | Medium   |
+| AKSBP010 | Customized MC_ Resource Group Name     | Medium   |
+| AKSBP011 | System Node Pool Minimum Size          | High     |
+| AKSBP012 | Node Pool Version Matches Control Plane| Medium   |
 
 ### Disaster Recovery
 
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
-| DR001 | Agent Pools with Availability Zones    | High     |
-| DR002 | Control Plane SLA                      | Medium   |
+| AKSDR001 | Agent Pools with Availability Zones    | High     |
+| AKSDR002 | Control Plane SLA                      | Medium   |
 
 ### Identity & Access
 
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
-| IAM001| RBAC Enabled                           | High     |
-| IAM002| Managed Identity                       | High     |
-| IAM003| Workload Identity Enabled              | Medium   |
-| IAM004| Managed Identity Used                  | High     |
-| IAM005| AAD RBAC Authorization Integrated      | High     |
-| IAM006| AAD Managed Authentication Enabled     | High     |
-| IAM007| Local Accounts Disabled                | High     |
+| AKSIAM001| RBAC Enabled                           | High     |
+| AKSIAM002| Managed Identity                       | High     |
+| AKSIAM003| Workload Identity Enabled              | Medium   |
+| AKSIAM004| Managed Identity Used                  | High     |
+| AKSIAM005| AAD RBAC Authorization Integrated      | High     |
+| AKSIAM006| AAD Managed Authentication Enabled     | High     |
+| AKSIAM007| Local Accounts Disabled                | High     |
 
 ### Monitoring & Logging
 
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
-| MON001| Azure Monitor                          | High     |
-| MON002| Managed Prometheus Enabled             | High     |
+| AKSMON001| Azure Monitor                          | High     |
+| AKSMON002| Managed Prometheus Enabled             | High     |
 
 ### Networking
 
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
-| NET001| Authorized IP Ranges                   | High     |
-| NET002| Network Policy Check                   | Medium   |
-| NET003| Web App Routing Enabled                | Low      |
-| NET004| Azure CNI Networking Recommended       | Medium   |
+| AKSNET001| Authorized IP Ranges                   | High     |
+| AKSNET002| Network Policy Check                   | Medium   |
+| AKSNET003| Web App Routing Enabled                | Low      |
+| AKSNET004| Azure CNI Networking Recommended       | Medium   |
 
 ### Resource Management
 
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
-| RES001| Cluster Autoscaler                     | Medium   |
-| RES002| AKS Built-in Cost Tooling Enabled      | Medium   |
-| RES003| Vertical Pod Autoscaler (VPA) is enabled| Medium   |
+| AKSRES001| Cluster Autoscaler                     | Medium   |
+| AKSRES002| AKS Built-in Cost Tooling Enabled      | Medium   |
+| AKSRES003| Vertical Pod Autoscaler (VPA) is enabled| Medium   |
 
 ### Security
 
 | ID    | Check                                   | Severity |
 |-------|-----------------------------------------|----------|
-| SEC001| Private Cluster                        | High     |
-| SEC002| Azure Policy Add-on                    | Medium   |
-| SEC003| Defender for Containers                | High     |
-| SEC004| OIDC Issuer Enabled                    | Medium   |
-| SEC005| Azure Key Vault Integration            | High     |
-| SEC006| Image Cleaner Enabled                  | Medium   |
-| SEC007| Kubernetes Dashboard Disabled          | High     |
+| AKSSEC001| Private Cluster                        | High     |
+| AKSSEC002| Azure Policy Add-on                    | Medium   |
+| AKSSEC003| Defender for Containers                | High     |
+| AKSSEC004| OIDC Issuer Enabled                    | Medium   |
+| AKSSEC005| Azure Key Vault Integration            | High     |
+| AKSSEC006| Image Cleaner Enabled                  | Medium   |
+| AKSSEC007| Kubernetes Dashboard Disabled          | High     |
+| AKSSEC008| Pod Security Admission Enabled         | High     |
 
 Each check provides insights into security, performance, and cost optimization.

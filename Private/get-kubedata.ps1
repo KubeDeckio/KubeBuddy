@@ -39,7 +39,7 @@ function Get-KubeData {
 
             if ($spnProvided) {
                 # Use SPN credentials
-                & kubelogin convert-kubeconfig -l spn
+                & kubelogin convert-kubeconfig -l spn --client-id $env:AZURE_CLIENT_ID --client-secret $env:AZURE_CLIENT_SECRET --tenant-id $env:AZURE_TENANT_ID
                 Write-Host "✅ Kubeconfig reconfigured for SPN login." -ForegroundColor Green
             }
             elseif (-not $isContainer) {
@@ -105,40 +105,61 @@ function Get-KubeData {
     $results = $resources | ForEach-Object -Parallel {
         Import-Module Microsoft.PowerShell.Utility -Cmdlet Write-Host, ConvertFrom-Json
         $res = $_
+        $maxRetries = 3
+        $retryDelaySeconds = 2
+        $attempt = 0
+        $success = $false
+        $errorMessage = $null
+        $value = $null
+    
+        Write-Host "▶️ Starting $($res.Name)" -ForegroundColor Yellow
+    
+        while (-not $success -and $attempt -lt $maxRetries) {
+            try {
+                $result = & $res.Cmd
+                if ($null -ne $result) {
+                    if ($res.Raw) {
+                        $value = @($result -split "`n" | Where-Object { $_ })
+                    }
+                    else {
+                        $jsonResult = $result | ConvertFrom-Json
+                        $value = if ($res.Items) { $jsonResult.items } else { $jsonResult }
+                    }
+                }
+                else {
+                    $value = @()
+                }
+    
+                $success = $true
+            }
+            catch {
+                $attempt++
+                $errorMessage = $_.Exception.Message
+                if ($attempt -lt $maxRetries) {
+                    Start-Sleep -Seconds $retryDelaySeconds
+                }
+            }
+        }
+    
         $output = [PSCustomObject]@{
             Key     = $res.Key
             Label   = $res.Name
             Raw     = $res.Raw
-            Value   = $null
-            Success = $true
-            Error   = $null
+            Value   = $value
+            Success = $success
+            Error   = if ($success) { $null } else { $errorMessage }
         }
-
-        Write-Host "▶️ Starting $($res.Name)" -ForegroundColor Yellow
-
-        try {
-            $result = & $res.Cmd
-            if ($null -ne $result) {
-                if ($res.Raw) {
-                    $output.Value = @($result -split "`n" | Where-Object { $_ })
-                }
-                else {
-                    $jsonResult = $result | ConvertFrom-Json
-                    $output.Value = if ($res.Items) { $jsonResult.items } else { $jsonResult }
-                }
-            }
-            else {
-                $output.Value = @()
-            }
+    
+        if ($success) {
+            Write-Host "✔️ Finished $($res.Name)" -ForegroundColor Cyan
         }
-        catch {
-            $output.Success = $false
-            $output.Error = $_.Exception.Message
+        else {
+            Write-Host "❌ $($res.Name) failed after $maxRetries attempts." -ForegroundColor Red
         }
-
-        Write-Host "✔️ Finished $($res.Name)" -ForegroundColor Cyan
+    
         return $output
     } -ThrottleLimit 8
+    
 
     # Show progress based on completed results
     $completed = $results.Count
@@ -169,7 +190,20 @@ function Get-KubeData {
         $crdsRaw = kubectl get crds -o json
         $crds = $crdsRaw | ConvertFrom-Json -AsHashtable
 
+        # Get the total number of CRDs for progress calculation
+        $totalCrds = $crds["items"].Count
+        $currentCrd = 0
+
+        # Initialize the progress bar
+        Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Starting..." -PercentComplete 0
+
         foreach ($crd in $crds["items"]) {
+            # Update progress
+            $currentCrd++
+            $percentComplete = [math]::Round(($currentCrd / $totalCrds) * 100)
+            $crdName = $crd["metadata"]["name"]
+            Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Processing CRD: $crdName" -PercentComplete $percentComplete
+
             $kind = $crd["spec"]["names"]["kind"]
             $plural = $crd["spec"]["names"]["plural"]
             $group = $crd["spec"]["group"]
@@ -184,9 +218,12 @@ function Get-KubeData {
             catch {}
         }
 
+        # Complete the progress bar
+        Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Completed" -PercentComplete 100 -Completed
         Write-Host "`r✅ Custom Resource Instances fetched.   " -ForegroundColor Green
     }
     catch {
+        Write-Progress -Activity "Fetching Custom Resource Instances" -Status "Failed" -PercentComplete 100 -Completed
         Write-Host "`r❌ Failed to fetch CRDs: $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }

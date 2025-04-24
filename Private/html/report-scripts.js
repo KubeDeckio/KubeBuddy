@@ -8,7 +8,7 @@ window.addEventListener('scroll', function () {
 let isPrinting = false;
 
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('DOM fully loaded, initializing scripts');
+    console.log('DOM fully loaded, initializing scripts'); 
 
     // Navigation Drawer
     try {
@@ -102,13 +102,33 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
 
+                let tabContents = [], originalActiveTab = null, originalActiveContent = null;
+
+                try {
+                    tabContents = document.querySelectorAll('.tab-content');
+                    originalActiveTab = document.querySelector('.tabs li.active');
+                    originalActiveContent = document.querySelector('.tab-content.active');
+                    tabContents.forEach(tc => tc.classList.add('active'));
+                } catch (e) {
+                    console.warn('Tab printing adjustment failed:', e);
+                }                
+
                 setTimeout(() => {
                     window.print();
-                }, 1500);
+                }, 500);
 
                 window.onafterprint = function () {
                     console.log('PDF print complete, restoring original state');
                     isPrinting = false;
+                    // Restore original tab state after print
+                    tabContents.forEach(tc => {
+                        if (tc !== originalActiveContent) {
+                            tc.classList.remove('active');
+                        }
+                    });
+                    document.querySelectorAll('.tabs li').forEach(tab => tab.classList.remove('active'));
+                    if (originalActiveTab) originalActiveTab.classList.add('active');
+
                     detailsElements.forEach(detail => detail.open = detailsStates.get(detail));
                     tableContainers.forEach((container, index) => {
                         container.style.overflow = originalStyles[index].overflow;
@@ -205,73 +225,76 @@ document.addEventListener('DOMContentLoaded', function () {
 // Sorting Function
 function sortTable(collapsibleContainer, columnIndex) {
     try {
-        const id = collapsibleContainer.id;
-        console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
-        const table = collapsibleContainer.querySelector('table');
-        if (!table) {
-            console.error(`Table not found in collapsible container: ${id}`);
-            return;
+      const id = collapsibleContainer.id;
+      console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
+      const table = collapsibleContainer.querySelector('table');
+      if (!table) {
+        console.error(`Table not found in collapsible container: ${id}`);
+        return;
+      }
+  
+      const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
+      const headerRow = allRows.find(row => row.querySelector('th')) || null;
+      const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
+  
+      // Determine sort direction
+      const sortState = collapsibleContainer.sortState;
+      if (sortState.columnIndex === columnIndex) {
+        sortState.ascending = !sortState.ascending; // Toggle direction
+      } else {
+        sortState.columnIndex = columnIndex;
+        sortState.ascending = true;
+      }
+  
+      // Update header to show sort direction
+      const headers = table.querySelectorAll('th');
+      headers.forEach((header, idx) => {
+        // Remove existing arrows
+        header.innerHTML = header.innerHTML.replace(/ <span class="sort-arrow">.*<\/span>$/, '');
+        if (idx === columnIndex) {
+          // Add arrow with .sort-arrow class
+          header.innerHTML += ` <span class="sort-arrow">${sortState.ascending ? '↑' : '↓'}</span>`;
         }
-
-        const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
-        const headerRow = allRows.find(row => row.querySelector('th')) || null;
-        const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
-
-        // Determine sort direction
-        const sortState = collapsibleContainer.sortState;
-        if (sortState.columnIndex === columnIndex) {
-            sortState.ascending = !sortState.ascending; // Toggle direction
+      });
+  
+      // Sort the rows
+      dataRows.sort((rowA, rowB) => {
+        let cellA = rowA.cells[columnIndex].textContent.trim();
+        let cellB = rowB.cells[columnIndex].textContent.trim();
+  
+        // Handle special cases for specific columns (e.g., Status, Severity)
+        if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
+          return sortState.ascending ? -1 : 1;
+        } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
+          return sortState.ascending ? 1 : -1;
+        }
+  
+        if (columnIndex === 2) { // Severity column
+          const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+          const valA = severityOrder[cellA] || 0;
+          const valB = severityOrder[cellB] || 0;
+          return sortState.ascending ? valA - valB : valB - valA;
+        }
+  
+        // Default sorting (alphabetical or numerical)
+        const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
+        if (isNumeric) {
+          return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
         } else {
-            sortState.columnIndex = columnIndex;
-            sortState.ascending = true;
+          return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
         }
-
-        // Update header to show sort direction
-        const headers = table.querySelectorAll('th');
-        headers.forEach((header, idx) => {
-            header.innerHTML = header.innerHTML.replace(/ (↑|↓)$/, ''); // Remove existing arrows
-            if (idx === columnIndex) {
-                header.innerHTML += sortState.ascending ? ' ↑' : ' ↓'; // Add arrow
-            }
-        });
-
-        // Sort the rows
-        dataRows.sort((rowA, rowB) => {
-            let cellA = rowA.cells[columnIndex].textContent.trim();
-            let cellB = rowB.cells[columnIndex].textContent.trim();
-
-            // Handle special cases for specific columns (e.g., Status, Severity)
-            if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
-                return sortState.ascending ? -1 : 1;
-            } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
-                return sortState.ascending ? 1 : -1;
-            }
-
-            if (columnIndex === 2) { // Severity column
-                const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
-                const valA = severityOrder[cellA] || 0;
-                const valB = severityOrder[cellB] || 0;
-                return sortState.ascending ? valA - valB : valB - valA;
-            }
-
-            // Default sorting (alphabetical or numerical)
-            const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
-            if (isNumeric) {
-                return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
-            } else {
-                return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
-            }
-        });
-
-        // Rebuild the table body with sorted rows
-        const tbody = table.querySelector('tbody') || table;
-        dataRows.forEach(row => tbody.appendChild(row));
-
-        console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
+      });
+  
+      // Rebuild the table body with sorted rows
+      const tbody = table.querySelector('tbody') || table;
+      dataRows.forEach(row => tbody.appendChild(row));
+  
+      console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
     } catch (e) {
-        console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
+      console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
     }
 }
+
 
 // Pagination Function with Sliding Window
 function paginateTable(collapsibleContainer) {
@@ -450,3 +473,145 @@ function paginateTable(collapsibleContainer) {
         console.error(`Pagination Error for ${collapsibleContainer.id}:`, e);
     }
 }
+document.addEventListener('DOMContentLoaded', function(){
+    var tabs = document.querySelectorAll('.tabs li');
+    var tabContents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(function(tab){
+        tab.addEventListener('click', function(e){
+            // Material ripple effect
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            const rect = this.getBoundingClientRect();
+            ripple.style.left = (e.clientX - rect.left) + 'px';
+            ripple.style.top = (e.clientY - rect.top) + 'px';
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+
+            // Switch active tab
+            tabs.forEach(function(t){ t.classList.remove('active'); });
+            tabContents.forEach(function(tc){ tc.classList.remove('active'); });
+            tab.classList.add('active');
+            
+            var target = tab.getAttribute('data-tab');
+            var content = document.getElementById(target);
+            if(content) { 
+                content.classList.add('active');
+
+                // Reinitialize pagination
+                var containers = content.querySelectorAll('.collapsible-container');
+                containers.forEach(function(container){
+                    var details = container.querySelector('details');
+                    if(details && details.open) {
+                        paginateTable(container);
+                    }
+                });
+            }
+        });
+    });
+});
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const tabList = document.querySelectorAll('.header .tabs li');
+    const navItemsContainer = document.querySelector('#navDrawer .nav-items');
+
+    if (navItemsContainer) {
+        navItemsContainer.innerHTML = ''; // Clear existing items
+
+        tabList.forEach(tab => {
+            const target = tab.getAttribute('data-tab') || tab.textContent.trim().toLowerCase();
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+            const a = document.createElement('a');
+            a.href = '#' + target;
+            a.textContent = tab.textContent.trim();
+            li.appendChild(a);
+            navItemsContainer.appendChild(li);
+        });
+
+        // Bind click handlers after items are added
+        navItemsContainer.querySelectorAll('.nav-item a').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = this.getAttribute('href').substring(1);
+
+                // Activate tab in header
+                const tabToActivate = document.querySelector(`.header .tabs li[data-tab="${target}"]`);
+                if (tabToActivate) tabToActivate.click();
+
+                // Scroll to top of content
+                const tabContent = document.getElementById(target);
+                if (tabContent) {
+                    tabContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+
+                // Close nav drawer
+                document.getElementById('navDrawer').classList.remove('open');
+                document.getElementById('navScrim').classList.remove('open');
+                document.body.style.overflow = '';
+            });
+        });
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const tabsContainer = document.querySelector('.header .tabs');
+    const menuFab = document.getElementById('menuFab');
+
+    function checkTabsOverflow() {
+        if (tabsContainer && menuFab) {
+            // Always show menuFab
+            menuFab.style.display = 'flex';
+
+            // Hide tabs if they overflow or on small screens
+            if (tabsContainer.scrollWidth > tabsContainer.clientWidth || window.innerWidth <= 600) {
+                tabsContainer.style.display = 'none';
+            } else {
+                tabsContainer.style.display = 'flex';
+            }
+        }
+    }
+
+    checkTabsOverflow();
+    window.addEventListener('resize', checkTabsOverflow);
+
+    const pieChart = document.querySelector('.pie-chart');
+    const pulseDot = document.getElementById('pulseDot');
+  
+    if (pieChart && pulseDot) {
+      const percent = parseFloat(getComputedStyle(pieChart).getPropertyValue('--percent') || '0');
+      const angle = (percent / 100) * 360 - 90;
+      const radius = 15.9155;
+      const center = 18;
+      const rad = angle * Math.PI / 180;
+      const x = center + radius * Math.cos(rad);
+      const y = center + radius * Math.sin(rad);
+  
+      // Wait for arc animation to finish before showing and positioning the dot
+      setTimeout(() => {
+        pulseDot.setAttribute('cx', x.toFixed(2));
+        pulseDot.setAttribute('cy', y.toFixed(2));
+        pulseDot.classList.add('pulse');
+      }, 1000); // match stroke-dasharray transition duration
+    } 
+});
+document.addEventListener('DOMContentLoaded', () => {
+    const progressBars = document.querySelectorAll('.progress-bar');
+  
+    progressBars.forEach(bar => {
+      const score = parseFloat(bar.style.getPropertyValue('--cluster-score')) || 0;
+      const progress = bar.querySelector('.progress');
+      const dot = bar.querySelector('.pulse-dot');
+  
+      // Animate width
+      setTimeout(() => {
+        progress.style.width = `${score}%`;
+      }, 100); // slight delay to trigger transition
+  
+      // Add pulse after animation
+      setTimeout(() => {
+        if (dot) dot.classList.add('pulse');
+      }, 1100); // match the transition duration
+    });
+  });
+  

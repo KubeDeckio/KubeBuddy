@@ -108,7 +108,6 @@ try {
     # Check if the output file exists
     $fullPath = Resolve-Path $OutputPath -ErrorAction SilentlyContinue
     if ($fullPath) {
-        Write-Host "`n🤖 KubeBuddy analysis completed successfully." -ForegroundColor Green
         Write-Host "`n🤖 Thank you for Using KubeBuddy. Have a nice day!" -ForegroundColor Green
     } else {
         Write-Host "`n❌ No report generated. Check for errors above." -ForegroundColor Red

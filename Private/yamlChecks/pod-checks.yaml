@@ -1,0 +1,377 @@
+checks:
+  - ID: "POD001"
+    Name: "Pods with High Restarts"
+    Category: "Workloads"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Warning"
+    Weight: 3
+    Description: "Detects pods that have restarted more than the defined threshold."
+    FailMessage: "Some pods have restarted excessively, which may indicate instability or crashes."
+    url: "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#application-crashes"
+    Recommendation:
+      text: "Review logs and events for frequently restarting pods and address root causes such as crashes, missing configs, or failing probes."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Use <code>kubectl logs <pod> -n <namespace></code> to view logs and identify crash causes.</li>
+            <li>Run <code>kubectl describe pod <pod> -n <namespace></code> to check events and probe failures.</li>
+            <li>Verify readiness and liveness probes are configured properly.</li>
+            <li>Check for missing config, secrets, or volume mounts.</li>
+            <li>Adjust resource requests/limits to avoid OOM kills.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some pods are restarting too often."
+      - ""
+      - "📌 This may be due to crashes, failing probes, or missing dependencies."
+      - ""
+      - "⚠️ Investigate logs and events to find the root cause."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $thresholds = Get-KubeBuddyThresholds -Silent
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $results = @()
+
+      foreach ($pod in $pods) {
+        $ns = $pod.metadata.namespace
+        $name = $pod.metadata.name
+        $deployment = if ($pod.metadata.ownerReferences) {
+          $pod.metadata.ownerReferences[0].name
+        } else {
+          "N/A"
+        }
+
+        $restarts = if ($pod.status.containerStatuses) {
+          [int]($pod.status.containerStatuses | Measure-Object -Property restartCount -Sum | Select-Object -ExpandProperty Sum)
+        } else { 0 }
+
+        $status = if ($restarts -gt $thresholds.restarts_critical) {
+          "Critical"
+        } elseif ($restarts -gt $thresholds.restarts_warning) {
+          "Warning"
+        } else {
+          $null
+        }
+
+        if ($status) {
+          $results += [PSCustomObject]@{
+            Namespace  = $ns
+            Pod        = $name
+            Deployment = $deployment
+            Restarts   = $restarts
+            Status     = $status
+          }
+        }
+      }
+
+      $results
+  - ID: "POD002"
+    Name: "Long Running Pods"
+    Category: "Workloads"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Warning"
+    Weight: 2
+    Description: "Flags pods that have been running longer than configured thresholds."
+    FailMessage: "Some pods have been running longer than expected, which may indicate stale or unmanaged workloads."
+    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
+    Recommendation:
+      text: "Review long-running pods and determine if they should be restarted or replaced by updated deployments."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Pods with extended uptime may indicate skipped rolling updates.</li>
+            <li>Use <code>kubectl rollout status</code> to inspect deployment progress.</li>
+            <li>Restart pods when config changes are missed or memory use drifts.</li>
+            <li>Check if the workload is intended to be static or ephemeral.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some pods have been running longer than expected."
+      - ""
+      - "📌 These may be skipped during rolling updates or unmanaged workloads."
+      - ""
+      - "⚠️ Review if they still reflect your intended state."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $thresholds = Get-KubeBuddyThresholds -Silent
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+      $results = @()
+
+      foreach ($pod in $pods) {
+        $ns = $pod.metadata.namespace
+        $name = $pod.metadata.name
+        $status = $pod.status.phase
+
+        if ($status -eq "Running" -and $pod.status.startTime) {
+          $start = [datetime]$pod.status.startTime
+          $age = ((Get-Date) - $start).Days
+
+          $statusLabel = if ($age -gt $thresholds.pod_age_critical) {
+            "Critical"
+          } elseif ($age -gt $thresholds.pod_age_warning) {
+            "Warning"
+          } else {
+            $null
+          }
+
+          if ($statusLabel) {
+            $results += [pscustomobject]@{
+              Namespace = $ns
+              Pod       = $name
+              Age_Days  = $age
+              Status    = $statusLabel
+            }
+          }
+        }
+      }
+
+      $results
+  - ID: "POD003"
+    Name: "Failed Pods"
+    Category: "Workloads"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Error"
+    Weight: 4
+    Description: "Detects pods in a failed phase, typically due to startup errors, crashes, or misconfiguration."
+    FailMessage: "Some pods are stuck in the 'Failed' phase. These workloads are not running and require attention."
+    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
+    Recommendation:
+      text: "Investigate failed pods for common issues like image errors, resource constraints, or crash loops."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Check the pod events with <code>kubectl describe pod <pod> -n <ns></code></li>
+            <li>Review logs using <code>kubectl logs <pod> -n <ns></code></li>
+            <li>Validate container specs, resource limits, and init containers</li>
+            <li>Check node availability or taints</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some pods are in a 'Failed' state."
+      - ""
+      - "📌 These workloads didn’t start or crashed unexpectedly."
+      - ""
+      - "⚠️ Check pod status and logs to troubleshoot the issue."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $failed = $pods | Where-Object { $_.status.phase -eq "Failed" }
+
+      $failed | ForEach-Object {
+        [PSCustomObject]@{
+          Namespace = $_.metadata.namespace
+          Pod       = $_.metadata.name
+          Reason    = $_.status.reason   ?? "Unknown"
+          Message   = ($_.status.message -replace "`n", " ") ?? "No details"
+        }
+      }
+  - ID: "POD004"
+    Name: "Pending Pods"
+    Category: "Workloads"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Warning"
+    Weight: 3
+    Description: "Detects pods stuck in a 'Pending' state due to scheduling or resource issues."
+    FailMessage: "Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions."
+    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
+    Recommendation:
+      text: "Inspect scheduling constraints, resource availability, and missing dependencies."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Run <code>kubectl describe pod <pod> -n <namespace></code> to check scheduling events</li>
+            <li>Check if nodes meet the pod's resource requests and tolerations</li>
+            <li>Look for unresolved PVCs, Secrets, or ConfigMaps</li>
+            <li>Check cluster-wide CPU and memory availability</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some pods are stuck in 'Pending'."
+      - ""
+      - "📌 This usually means scheduling is blocked."
+      - ""
+      - "⚠️ Check if nodes meet resource, affinity, or PVC requirements."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $pods | Where-Object {
+        $_.status.phase -eq "Pending"
+      } | ForEach-Object {
+        [PSCustomObject]@{
+          Namespace = $_.metadata.namespace
+          Pod       = $_.metadata.name
+          Reason    = $_.status.conditions[0].reason   ?? "Unknown"
+          Message   = ($_.status.conditions[0].message -replace "`n", " ") ?? "No details"
+        }
+      }
+  - ID: "POD005"
+    Name: "CrashLoopBackOff Pods"
+    Category: "Workloads"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Error"
+    Weight: 4
+    Description: "Identifies pods stuck in a CrashLoopBackOff state due to repeated container crashes."
+    FailMessage: "Some pods are stuck restarting in CrashLoopBackOff. These workloads are not stable."
+    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy"
+    Recommendation:
+      text: "Check logs, investigate container errors, and fix misconfigurations."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Run <code>kubectl logs <pod-name> -n <namespace></code> to see error output</li>
+            <li>Describe the pod for events and messages: <code>kubectl describe pod <pod> -n <ns></code></li>
+            <li>Check init containers, config errors, and resource limits</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some pods are stuck in a CrashLoopBackOff."
+      - ""
+      - "📌 This means containers keep crashing and restarting."
+      - ""
+      - "⚠️ Investigate logs and config to fix the root issue."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $pods | Where-Object {
+        $_.status.containerStatuses |
+        Where-Object { $_.state.waiting.reason -eq "CrashLoopBackOff" }
+      } | ForEach-Object {
+        $restarts = ($_.status.containerStatuses |
+                    Where-Object { $_.state.waiting.reason -eq "CrashLoopBackOff" } |
+                    Measure-Object -Property restartCount -Sum).Sum
+
+        [PSCustomObject]@{
+          Namespace = $_.metadata.namespace
+          Pod       = $_.metadata.name
+          Restarts  = $restarts
+          Status    = "🔴 CrashLoopBackOff"
+        }
+      }
+  - ID: "POD006"
+    Name: "Leftover Debug Pods"
+    Category: "Workloads"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Warning"
+    Weight: 2
+    Description: "Detects pods created by 'kubectl debug' that haven't been cleaned up."
+    FailMessage: "Leftover debug pods were found. These may waste resources or pose a security risk."
+    url: "https://kubernetes.io/docs/tasks/debug/debug-cluster/debug-running-pod/"
+    Recommendation:
+      text: "Delete any leftover debug pods and review your debugging practices."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Run <code>kubectl delete pod <pod-name> -n <namespace></code> to remove them</li>
+            <li>Ensure automation or users clean up after using <code>kubectl debug</code></li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Found some debug pods left behind."
+      - ""
+      - "📌 These are usually created with 'kubectl debug'."
+      - ""
+      - "⚠️ Clean them up if no longer needed."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      $pods |
+      Where-Object { $_.metadata.name -match "debugger" } |
+      ForEach-Object {
+        [PSCustomObject]@{
+          Namespace  = $_.metadata.namespace
+          Pod        = $_.metadata.name
+          Node       = $_.spec.nodeName
+          Status     = $_.status.phase
+          AgeMinutes = [math]::Round(((Get-Date) - [datetime]$_.metadata.creationTimestamp).TotalMinutes, 1)
+        }
+      }
+  - ID: "POD007"
+    Category: "Resource Management"
+    Section: "Pods"
+    Name: "Container images do not use latest tag"
+    Description: "Flags containers using the 'latest' tag in their image, which can cause unpredictable upgrades."
+    ResourceKind: "Pod"
+    Condition: "spec.containers[].image"
+    Operator: "not_contains"
+    Expected: ":latest"
+    FailMessage: "Container image uses the 'latest' tag, which can lead to unpredictable deployments."
+    Severity: "High"
+    Weight: 3
+    Recommendation:
+      text: "Specify an explicit image tag (e.g., ':v1.2.3') to ensure consistent deployments."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Use Specific Image Tags</h4>
+          <ul>
+            <li><strong>Don't use</strong> the <code>:latest</code> tag in container images.</li>
+            <li><strong>Why:</strong> It can pull different images on each deploy, leading to drift.</li>
+            <li><strong>Fix:</strong> Tag images explicitly (e.g., <code>:v1.2.3</code>) and update the pod spec.</li>
+            <li><strong>Docs:</strong> <a href="https://kubernetes.io/docs/concepts/containers/images/#image-tags" target="_blank">Kubernetes Image Tagging</a></li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some containers are using the ':latest' image tag."
+      - ""
+      - "📌 This causes unpredictable behavior across deployments."
+      - ""
+      - "⚠️ Always use explicit version tags (e.g., :v1.2.3)."
+    URL: "https://kubernetes.io/docs/concepts/containers/images/#image-tags"

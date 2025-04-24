@@ -2,81 +2,7 @@ function Write-ToReport {
     param(
         [string]$Message
     )
-    # if ($Global:Report) {
     Add-Content -Path $ReportFile -Value $Message
-    # }
-}
-
-function Build-ChecksFromReport {
-    param([string]$ReportFile)
-
-    $reportLines = Get-Content $ReportFile
-    $checks = @{}
-
-    # Parse NodeConditions
-    $notReadyLine = $reportLines | Where-Object { $_ -match 'Not Ready Nodes.*:\s*(\d+)' }
-    if ($notReadyLine -match '(\d+)') {
-        $checks["nodeConditions"] = @{ Total = 4; NotReady = [int]$matches[1] }
-    }
-
-    # Parse NodeResourceUsage
-    $resourceWarningLine = $reportLines | Where-Object { $_ -match 'Total Resource Warnings.*:\s*(\d+)' }
-    if ($resourceWarningLine -match '(\d+)') {
-        $checks["nodeResources"] = @{ Total = 4; Warnings = [int]$matches[1] }
-    }
-
-    $sectionPatterns = @{
-        "missingProbes"           = 'Missing Health Probes'
-        "missingResourceLimits"   = 'Missing Resource Limits'
-        "daemonSetIssues"         = 'DaemonSets Not Fully Running'
-        "emptyNamespace"          = 'Empty Namespaces'
-        "namespaceLimitRanges"    = 'Missing LimitRanges'
-        "resourceQuotas"          = 'Missing or Weak ResourceQuotas'
-        "HPA"                     = 'HorizontalPodAutoscalers'
-        "PDB"                     = 'PodDisruptionBudget Coverage Check'
-        "podsRestart"             = 'Pods With High Restarts'
-        "podLongRunning"          = 'Long Running Pods'
-        "podFail"                 = 'Failed Pods'
-        "podPending"              = 'Pending Pods'
-        "crashloop"               = 'CrashLoopBackOff Pods'
-        "leftoverDebug"           = 'Leftover Debug Pods'
-        "stuckJobs"               = 'Stuck Jobs'
-        "jobFail"                 = 'Failed Jobs'
-        "servicesWithoutEndpoints"= 'Services Without Endpoints'
-        "publicServices"          = 'Publicly Accessible Services'
-        "ingressHealth"           = 'Ingress Health'
-        "unmountedPV"             = 'Unused PVCs'
-        "rbacMisconfig"           = 'RBAC Misconfigurations'
-        "rbacOverexposure"        = 'RBAC Overexposure'
-        "orphanedRoles"           = 'Unused Roles & ClusterRoles'
-        "orphanedServiceAccounts" = 'Orphaned ServiceAccounts'
-        "orphanedConfigMaps"      = 'Orphaned ConfigMaps'
-        "orphanedSecrets"         = 'Orphaned Secrets'
-        "podsRoot"                = 'Pods Running as Root'
-        "privilegedContainers"    = 'Privileged Containers'
-        "hostPidNet"              = 'Pods with hostPID / hostNetwork'
-        "deploymentIssues"        = 'Deployment Issues'
-        "statefulSetIssues"       = 'StatefulSet Issues'
-        "eventSummary"            = 'Kubernetes Warnings'
-    }
-
-    foreach ($key in $sectionPatterns.Keys) {
-        $pattern = [regex]::Escape($sectionPatterns[$key])
-        $sectionIndex = $reportLines | ForEach-Object { if ($_ -match "$pattern") { $reportLines.IndexOf($_) } } | Select-Object -First 1
-        if ($null -ne $sectionIndex) {
-            $nextSectionIndex = ($reportLines | ForEach-Object { if ($_.StartsWith('[') -and $reportLines.IndexOf($_) -gt $sectionIndex) { $reportLines.IndexOf($_) } } | Select-Object -First 1) ?? $reportLines.Count
-            $sectionContent = $reportLines[$sectionIndex..($nextSectionIndex - 1)]
-            $totalLine = $sectionContent | Where-Object { $_ -match '⚠️\s*Total.*:\s*(\d+)' } | Select-Object -Last 1
-            if ($totalLine -match '(\d+)') {
-                $checks[$key] = @{ Total = [int]$matches[1]; Items = @(1..$matches[1]) }
-            }
-            elseif ($sectionContent | Where-Object { $_ -match '✅' }) {
-                $checks[$key] = @{ Total = 1; Items = @() }
-            }
-        }
-    }
-
-    return $checks
 }
 
 function Generate-K8sTextReport {
@@ -90,8 +16,6 @@ function Generate-K8sTextReport {
         [string]$ClusterName
     )
 
-    $Global:MakeReport = $true
-
     if (Test-Path $ReportFile) {
         Remove-Item $ReportFile -Force
     }
@@ -101,126 +25,138 @@ function Generate-K8sTextReport {
     Write-ToReport "---------------------------------"
 
     Write-ToReport "`n[🌐 Cluster Summary]`n"
-    Show-ClusterSummary
-    Write-Host "`n🤖 Cluster Summary fetched.   " -ForegroundColor Green
+    $summaryOutput = Show-ClusterSummary -Text
+    Write-ToReport $summaryOutput
+    Write-Host "`n🤖 Cluster Summary fetched." -ForegroundColor Green
 
-    # Checks with camelCase keys
-    $checks = @{}
+    $yamlCheckResults = Invoke-yamlChecks -Text -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
 
-    $checks["nodeConditions"] = Show-NodeConditions -KubeData:$KubeData
-    $checks["nodeResources"] = Show-NodeResourceUsage -KubeData:$KubeData
-    Write-Host "`n🤖 Node Information fetched.   " -ForegroundColor Green
+    foreach ($check in $yamlCheckResults.Items) {
+        Write-ToReport "`n[$($check.ID) - $($check.Name)]"
+        Write-ToReport "Section: $($check.Section)"
+        Write-ToReport "Category: $($check.Category)"
+        Write-ToReport "Severity: $($check.Severity)"
+        Write-ToReport "Recommendation: $($check.Recommendation)"
+        if ($check.URL) {
+            Write-ToReport "URL: $($check.URL)"
+        }
 
-    $checks["emptyNamespace"] = Show-EmptyNamespaces -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["resourceQuotas"] = Check-ResourceQuotas -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["namespaceLimitRanges"] = Check-NamespaceLimitRanges -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    Write-Host "`n🤖 Namespace Information fetched.   " -ForegroundColor Green
+        if ($check.Total -eq 0) {
+            Write-ToReport "✅ No issues detected for $($check.Name)."
+        }
+        else {
+            Write-ToReport "⚠️ Total Issues: $($check.Total)"
+            if ($check.Items) {
+                $columns = $check.Items |
+                ForEach-Object { $_.PSObject.Properties.Name } |
+                Group-Object |
+                Sort-Object Count -Descending |
+                Select-Object -ExpandProperty Name -Unique
 
-    $checks["daemonSetIssues"] = Show-DaemonSetIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["deploymentIssues"] = Check-DeploymentIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["statefulSetIssues"] = Check-StatefulSetIssues -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["HPA"] = Check-HPAStatus -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["missingResourceLimits"] = Check-MissingResourceLimits -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["PDB"] = Check-PodDisruptionBudgets -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["missingProbes"] = Check-MissingHealthProbes -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    Write-Host "`n🤖 Workload Information fetched.   " -ForegroundColor Green
-
-    $checks["podsRestart"] = Show-PodsWithHighRestarts -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["podLongRunning"] = Show-LongRunningPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["podFail"] = Show-FailedPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["podPending"] = Show-PendingPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["crashloop"] = Show-CrashLoopBackOffPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["leftoverDebug"] = Show-LeftoverDebugPods -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    Write-Host "`n🤖 Pod Information fetched.   " -ForegroundColor Green
-
-    $checks["stuckJobs"] = Show-StuckJobs -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["jobFail"] = Show-FailedJobs -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    Write-Host "`n🤖 Job Information fetched.   " -ForegroundColor Green
-
-    $checks["servicesWithoutEndpoints"] = Show-ServicesWithoutEndpoints -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["publicServices"] = Check-PubliclyAccessibleServices -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["ingressHealth"] = Check-IngressHealth -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    Write-Host "`n🤖 Service Information fetched.   " -ForegroundColor Green
-
-    $checks["unmountedPV"] = Show-UnusedPVCs -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    Write-Host "`n🤖 Storage Information fetched.   " -ForegroundColor Green
-
-    $checks["rbacMisconfig"] = Check-RBACMisconfigurations -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["rbacOverexposure"] = Check-RBACOverexposure -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["orphanedRoles"] = Check-OrphanedRoles -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["orphanedServiceAccounts"] = Check-OrphanedServiceAccounts -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["orphanedConfigMaps"] = Check-OrphanedConfigMaps -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["orphanedSecrets"] = Check-OrphanedSecrets -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["podsRoot"] = Check-PodsRunningAsRoot -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["privilegedContainers"] = Check-PrivilegedContainers -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    $checks["hostPidNet"] = Check-HostPidAndNetwork -ExcludeNamespaces:$ExcludeNamespaces -KubeData:$KubeData
-    Write-Host "`n🤖 Security Information fetched.   " -ForegroundColor Green
-
-    $checks["eventSummary"] = Show-KubeEvents -KubeData:$KubeData
-    Write-Host "`n🤖 Kube Events fetched.   " -ForegroundColor Green
-
-    if ($aks) {
-        Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData:$KubeData
-        Write-Host "`n🤖 AKS Information fetched.   " -ForegroundColor Green
+                foreach ($item in $check.Items) {
+                    $lineParts = @()
+                    foreach ($col in $columns) {
+                        if ($item.PSObject.Properties.Name -contains $col) {
+                            $lineParts += "${col}: $($item.$col)"
+                        }
+                    }
+                    Write-ToReport ("- " + ($lineParts -join " | "))
+                }
+            }
+        }
     }
 
-    # Cluster score
-    $parsedChecks = Build-ChecksFromReport -ReportFile $ReportFile
-    $clusterScore = Get-ClusterHealthScore -Checks $parsedChecks
-    Write-ToReport "`n🩺 Cluster Health Score: $clusterScore / 100"      
+    if ($Aks) {
+        Write-ToReport -Message "`n[✅ AKS Best Practices Check]`n"
+        $aksResults = Invoke-AKSBestPractices -Text -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData:$KubeData
+        Write-Host "`n🤖 AKS Information fetched." -ForegroundColor Green
 
-    $Global:MakeReport = $false
+        # Write individual AKS check results
+        foreach ($check in $aksResults.Items) {
+            Write-ToReport -Message "`n[$($check.ID) - $($check.Name)]"
+            Write-ToReport -Message "Category: $($check.Category)"
+            Write-ToReport -Message "Severity: $($check.Severity)"
+            Write-ToReport -Message "Recommendation: $($check.Recommendation)"
+            if ($check.URL) {
+                Write-ToReport -Message "URL: $($check.URL)"
+            }
+
+            if ($check.Total -eq 0) {
+                Write-ToReport -Message "✅ No issues detected for $($check.Name)."
+            }
+            else {
+                Write-ToReport -Message "⚠️ Total Issues: $($check.Total)"
+                if ($check.Items) {
+                    foreach ($item in $check.Items) {
+                        $lineParts = @()
+                        foreach ($prop in $item.PSObject.Properties.Name) {
+                            $lineParts += "${prop}: $($item.$prop)"
+                        }
+                        Write-ToReport -Message ("- " + ($lineParts -join " | "))
+                    }
+                }
+            }
+        }
+
+        # Write the AKS summary
+        Write-ToReport -Message ($aksResults.TextOutput -join "`n")
+    }
+
+    $score = Get-ClusterHealthScore -Checks $yamlCheckResults.Items
+    Write-ToReport "`n🩺 Cluster Health Score: $score / 100"
 }
 
 function Get-KubeBuddyThresholds {
-    param(
-        [switch]$Silent  # Suppress output when set
-    )
+    param([switch]$Silent)
 
     $configPath = "$HOME/.kube/kubebuddy-config.yaml"
 
     if (Test-Path $configPath) {
         try {
-            # Read the YAML file and convert it to a PowerShell object
-            $configContent = Get-Content -Raw $configPath | ConvertFrom-Yaml
-            
-            if ($configContent -and $configContent.thresholds) {
-                return $configContent.thresholds
-            }
-            else {
-                if (-not $Silent) {
-                    Write-Host "`n⚠️ Config found, but missing 'thresholds' section. Using defaults..." -ForegroundColor Yellow
-                }
+            $config = Get-Content -Raw $configPath | ConvertFrom-Yaml
+            return @{
+                cpu_warning             = $config.thresholds.cpu_warning             ?? 50
+                cpu_critical            = $config.thresholds.cpu_critical            ?? 75
+                mem_warning             = $config.thresholds.mem_warning             ?? 50
+                mem_critical            = $config.thresholds.mem_critical            ?? 75
+                restarts_warning        = $config.thresholds.restarts_warning        ?? 3
+                restarts_critical       = $config.thresholds.restarts_critical       ?? 5
+                pod_age_warning         = $config.thresholds.pod_age_warning         ?? 15
+                pod_age_critical        = $config.thresholds.pod_age_critical        ?? 40
+                stuck_job_hours         = $config.thresholds.stuck_job_hours         ?? 2
+                failed_job_hours        = $config.thresholds.failed_job_hours        ?? 2
+                event_errors_warning    = $config.thresholds.event_errors_warning    ?? 10
+                event_errors_critical   = $config.thresholds.event_errors_critical   ?? 20
+                event_warnings_warning  = $config.thresholds.event_warnings_warning  ?? 50
+                event_warnings_critical = $config.thresholds.event_warnings_critical ?? 100
+                excluded_checks         = $config.excluded_checks                    ?? @()
+                trusted_registries      = $config.trusted_registries                 ?? @("mcr.microsoft.com/")
             }
         }
         catch {
             if (-not $Silent) {
-                Write-Host "`n❌ Failed to parse config file. Using defaults..." -ForegroundColor Red
+                Write-Host "`n❌ Failed to parse config. Using defaults..." -ForegroundColor Red
             }
         }
     }
-    else {
-        if (-not $Silent) {
-            Write-Host "`n⚠️ No config found. Using default thresholds..." -ForegroundColor Yellow
-        }
-    }
 
-    # Return default thresholds if no valid config is found
     return @{
-        cpu_warning       = 50
-        cpu_critical      = 75
-        mem_warning       = 50
-        mem_critical      = 75
-        restarts_warning  = 3
-        restarts_critical = 5
-        pod_age_warning   = 15
-        pod_age_critical  = 40
-        stuck_job_hours   = 2
-        failed_job_hours  = 2
+        cpu_warning             = 50
+        cpu_critical            = 75
+        mem_warning             = 50
+        mem_critical            = 75
+        restarts_warning        = 3
+        restarts_critical       = 5
+        pod_age_warning         = 15
+        pod_age_critical        = 40
+        stuck_job_hours         = 2
+        failed_job_hours        = 2
         event_errors_warning    = 10
         event_errors_critical   = 20
         event_warnings_warning  = 50
         event_warnings_critical = 100
+        excluded_checks         = @()
+        trusted_registries      = @("mcr.microsoft.com/")
     }
 }
 
@@ -246,17 +182,21 @@ function Exclude-Namespaces {
     return $items | Where-Object {
         if ($_ -is [string]) {
             $_.ToLowerInvariant() -notin $excludedSet
-        } elseif ($_.metadata) {
+        }
+        elseif ($_.metadata) {
             $ns = if ($_.metadata.namespace) {
                 $_.metadata.namespace
-            } elseif ($_.metadata.name) {
+            }
+            elseif ($_.metadata.name) {
                 $_.metadata.name
-            } else {
+            }
+            else {
                 $null
             }
 
             $ns -and $ns.ToLowerInvariant() -notin $excludedSet
-        } else {
+        }
+        else {
             $true
         }
     }
@@ -306,7 +246,8 @@ function Test-IsContainer {
         if ($cgroup -match "docker|kubepods|crio|containerd") {
             return $true
         }
-    } catch {}
+    }
+    catch {}
 
     if ($env:container) { return $true }
 

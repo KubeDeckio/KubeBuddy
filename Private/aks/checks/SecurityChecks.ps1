@@ -1,6 +1,6 @@
 $securityChecks = @(
     @{
-        ID          = "SEC001";
+        ID          = "AKSSEC001";
         Category    = "Security";
         Name        = "Private Cluster";
         Value       = { $clusterInfo.properties.apiServerAccessProfile.enablePrivateCluster };
@@ -11,7 +11,7 @@ $securityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/private-clusters";
     },
     @{
-        ID          = "SEC002";
+        ID          = "AKSSEC002";
         Category    = "Security";
         Name        = "Azure Policy Add-on";
         Value       = { $clusterInfo.properties.addonProfiles.azurepolicy.enabled };
@@ -22,7 +22,7 @@ $securityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/policy-reference";
     },
     @{
-        ID          = "SEC003";
+        ID          = "AKSSEC003";
         Category    = "Security";
         Name        = "Defender for Containers";
         Value       = { ($clusterInfo.properties.securityProfile.defender.securityMonitoring).enabled };
@@ -33,7 +33,7 @@ $securityChecks = @(
         URL         = "https://learn.microsoft.com/azure/defender-for-cloud/defender-for-containers-introduction";
     },
     @{
-        ID          = "SEC004";
+        ID          = "AKSSEC004";
         Category    = "Security";
         Name        = "OIDC Issuer Enabled";
         Value       = { ($clusterInfo.properties.oidcIssuerProfile).enabled };
@@ -44,7 +44,7 @@ $securityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/workload-identity-deploy-cluster";
     },
     @{
-        ID          = "SEC005";
+        ID          = "AKSSEC005";
         Category    = "Security";
         Name        = "Azure Key Vault Integration";
         Value       = { ($clusterInfo.properties.addonProfiles.azureKeyvaultSecretsProvider.enabled) };
@@ -55,7 +55,7 @@ $securityChecks = @(
         URL         = "https://learn.microsoft.com/azure/aks/csi-secrets-store-driver";
     },
     @{
-        ID             = "SEC006";
+        ID             = "AKSSEC006";
         Category       = "Security";
         Name           = "Image Cleaner Enabled";
         Value          = { ($clusterInfo.properties.securityProfile.imageCleaner).enabled };
@@ -66,7 +66,7 @@ $securityChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/image-cleaner";
     },
     @{
-        ID             = "SEC007";
+        ID             = "AKSSEC007";
         Category       = "Security";
         Name           = "Kubernetes Dashboard Disabled";
         Value          = {
@@ -81,5 +81,17 @@ $securityChecks = @(
         Severity       = "High";
         Recommendation = "Disable the Kubernetes dashboard using: az aks disable-addons --addons kube-dashboard --resource-group <RG_NAME> --name <CLUSTER_NAME>.";
         URL            = "https://learn.microsoft.com/azure/aks/kubernetes-dashboard";
+    },
+    @{
+        ID             = "AKSSEC08";
+        Category       = "Security";
+        Name           = "Pod Security Admission Enabled";
+        Value          = { $clusterInfo.properties.podSecurityAdmissionConfiguration -ne $null };
+        Expected       = $true;
+        FailMessage    = "Pod Security Admission is not enabled on this cluster. This may reduce baseline pod security.";
+        Severity       = "High";
+        Recommendation = "Enable Pod Security Admission by setting 'podSecurityAdmissionConfiguration' during cluster creation or via supported upgrade path.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/use-psa"
     }
+    
 )

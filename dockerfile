@@ -1,5 +1,5 @@
-# Build stage: Use Ubuntu 24.04 for setup
-FROM mcr.microsoft.com/powershell:7.5-ubuntu-24.04 AS builder
+# Build stage
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-12 AS builder
 
 # Install required utilities for file operations and dependency installation
 RUN apt-get update && \
@@ -31,6 +31,10 @@ RUN mkdir -p /app/Reports && \
     chown -R 10001:10001 /app/Reports /usr/local/share/powershell/Modules/KubeBuddy && \
     chmod -R 775 /app/Reports
 
+# Install powershell-yaml module
+RUN pwsh -Command "Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted; \
+Install-Module -Name powershell-yaml -Scope AllUsers -Force"
+
 # Copy KubeBuddy module files
 COPY --chown=10001:10001 KubeBuddy.psm1 /usr/local/share/powershell/Modules/KubeBuddy/KubeBuddy.psm1
 COPY --chown=10001:10001 KubeBuddy.psd1 /usr/local/share/powershell/Modules/KubeBuddy/KubeBuddy.psd1
@@ -40,16 +44,14 @@ COPY --chown=10001:10001 Public /usr/local/share/powershell/Modules/KubeBuddy/Pu
 # Copy run script
 COPY --chown=10001:10001 run.ps1 /app/run.ps1
 
-# Runtime stage: Use Ubuntu 24.04 for the final image
-FROM mcr.microsoft.com/powershell:7.5-ubuntu-24.04
+# Final image
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-12
 
-# Install minimal runtime dependencies
 RUN apt-get update && \
     apt-get install -y ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up non-root user
 WORKDIR /app
 RUN groupadd --gid 10001 kubeuser && \
     useradd --uid 10001 --gid kubeuser --shell /bin/false kubeuser && \
@@ -63,6 +65,7 @@ ENV KUBECONFIG=/home/kubeuser/.kube/config
 # Copy binaries, modules, and files from builder
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/kubelogin /usr/local/bin/kubelogin
+COPY --from=builder /usr/local/share/powershell/Modules/powershell-yaml /usr/local/share/powershell/Modules/powershell-yaml
 COPY --from=builder /usr/local/share/powershell/Modules/KubeBuddy /usr/local/share/powershell/Modules/KubeBuddy
 COPY --from=builder /app/run.ps1 /app/run.ps1
 COPY --from=builder /app/Reports /app/Reports

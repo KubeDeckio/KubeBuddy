@@ -177,58 +177,7 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 
 ---
 
-## 6. Configuring Thresholds
-
-KubeBuddy powered by KubeDeck supports customizable thresholds via the `kubebuddy-config.yaml` file. You can place this file in `~/.kube/kubebuddy-config.yaml` or specify a custom path. A sample configuration looks like this:
-
-```yaml
-thresholds:
-  cpu_warning: 50
-  cpu_critical: 75
-  mem_warning: 50
-  mem_critical: 75
-  restarts_warning: 3
-  restarts_critical: 5
-  pod_age_warning: 15
-  pod_age_critical: 40
-  stuck_job_hours: 2
-  failed_job_hours: 2
-  event_errors_warning: 10
-  event_errors_critical: 20
-  event_warnings_warning: 50
-  event_warnings_critical: 100
-```
-
-Adjust these values to fit your environment. If `kubebuddy-config.yaml` is missing, KubeBuddy powered by KubeDeck uses default thresholds.
-
----
-
-## 7. Excluding System Namespaces (Optional)
-
-Some KubeBuddy powered by KubeDeck checks (like secrets, configmaps, pods, and RBAC) allow you to exclude **system namespaces** using the `-ExcludeSystem` switch.
-
-To customize which namespaces are excluded, define them in your `kubebuddy-config.yaml` file:
-
-```yaml
-excluded_namespaces:
-  - kube-system
-  - kube-public
-  - kube-node-lease
-  - local-path-storage
-  - coredns
-  - calico-system
-```
-
-If `excluded_namespaces` is not defined, KubeBuddy powered by KubeDeck falls back to a default set.
-
-To apply the exclusion in any CLI command:
-
-```powershell
-Invoke-KubeBuddy -HtmlReport -ExcludeSystem
-```
-
-
-## 8. Additional Parameters
+## 6. Additional Parameters
 
 | Parameter                 | Type      | Default                              | Description                                                                                  |
 |---------------------------|----------|--------------------------------------|----------------------------------------------------------------------------------------------|
