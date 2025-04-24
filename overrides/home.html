@@ -5,11 +5,11 @@
 
   <style>
     :root {
-      --md-primary-fg-color:        #0071FF;
+      --md-primary-fg-color: #0071FF;
       --md-primary-fg-color--light: #02baff;
-      --md-primary-fg-color--dark:  #005AD1;
+      --md-primary-fg-color--dark: #005AD1;
       --md-default-fg-color--light: #02baff;
-      --md-accent-fg-color:var(--md-primary-fg-color--light);
+      --md-accent-fg-color: var(--md-primary-fg-color--light);
       --md-primary-bg-color: #ffffff;
       --md-default-fg-color: #212121;
       --md-default-bg-color: #ffffff;
@@ -25,11 +25,11 @@
   
     @media (prefers-color-scheme: dark) {
       :root {
-        --md-primary-fg-color:        #0071FF;
+        --md-primary-fg-color: #0071FF;
         --md-primary-fg-color--light: #02baff;
-        --md-primary-fg-color--dark:  #005AD1;
+        --md-primary-fg-color--dark: #005AD1;
         --md-default-fg-color--light: #02baff;
-        --md-accent-fg-color:var(--md-primary-fg-color--light);
+        --md-accent-fg-color: var(--md-primary-fg-color--light);
         --md-primary-bg-color: #121212;
         --md-default-fg-color: #e0e0e0;
         --md-default-bg-color: #1e1e1e;
@@ -58,7 +58,8 @@
       max-width: 100%;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: center; /* Center children vertically */
+      justify-content: center; /* Center children horizontally */
       padding: 2rem 1rem;
     }
   
@@ -70,13 +71,17 @@
       padding: 4rem 2rem;
       background: var(--md-default-bg-color);
       color: var(--md-default-fg-color);
+      text-align: center; /* Center text within sections */
     }
   
     .hero-wrap {
       padding: 7rem 2rem 5rem;
-      text-align: center;
+      text-align: center; /* Already present, kept for clarity */
       position: relative;
       overflow: hidden;
+      width: 100%;
+      max-width: 1400px; /* Constrain width */
+      margin: 0 auto; /* Center horizontally */
     }
   
     @media (prefers-color-scheme: light) {
@@ -120,6 +125,7 @@
     .cta-button {
       display: inline-flex;
       align-items: center;
+      justify-content: center; /* Center button content */
       background: var(--md-accent-fg-color);
       color: var(--md-code-fg);
       padding: 0.875rem 2rem;
@@ -129,6 +135,7 @@
       text-decoration: none;
       box-shadow: var(--md-shadow);
       transition: transform 0.2s, box-shadow 0.2s;
+      margin: 0 auto; /* Center button horizontally */
     }
   
     .cta-button:hover {
@@ -142,6 +149,7 @@
       gap: 2rem;
       max-width: 1200px;
       margin: 0 auto;
+      justify-items: center; /* Center grid items */
     }
   
     .feature-card {
@@ -151,6 +159,7 @@
       box-shadow: var(--md-shadow);
       transition: transform 0.3s, box-shadow 0.3s;
       text-align: center;
+      width: 100%; /* Ensure cards take full available width */
     }
   
     .feature-card:hover {
@@ -182,6 +191,7 @@
       margin: 3rem auto;
       max-width: 800px;
       box-shadow: var(--md-shadow);
+      text-align: center; /* Center text in callout */
     }
   
     @media (prefers-color-scheme: dark) {
@@ -282,10 +292,16 @@
       .feature-grid,
       .workflow-steps {
         grid-template-columns: 1fr;
+        justify-items: center; /* Ensure centering on mobile */
       }
   
       .workflow-step {
         flex: 1 1 100%;
+      }
+  
+      .section,
+      .workflow-section {
+        padding: 2rem 1rem; /* Adjust padding for smaller screens */
       }
     }
   </style>
@@ -370,9 +386,6 @@
         <p>Generates clear, actionable reports in HTML, JSON, or CLI format for immediate action.</p>
       </div>
     </div>
-    <div style="text-align: center; margin-top: 2rem;">
-      <a href="{{ 'usage/' | url }}" class="cta-button">Explore Usage</a>
-    </div>
+    <a href="{{ 'usage/' | url }}" class="cta-button">Explore Usage</a> <!-- Removed inline style -->
   </section>
-</div>
 {% endblock %}
