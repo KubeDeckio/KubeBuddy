@@ -9,9 +9,7 @@ hide:
   - navigation
 ---
 
-
 # Kubernetes Says Your Cluster is Healthy. It’s Probably Not.
-
 <div class="hero">
   <strong>KubeBuddy powered by KubeDeck</strong><br>
   Runs complete health, security, and configuration checks on your Kubernetes cluster.<br>
@@ -19,12 +17,9 @@ hide:
   ✅ Everything runs from your terminal.
 </div>
 
-<div class="columns">
+<div class="columns"><div class="column">
 
-<div class="column">
-
-<h2>🚀 What It Does</h2>
-
+<h2>🚀 What It Does</h2> 
 <ul>
   <li><strong>Node and Pod Health</strong>: Find failed nodes, pending pods, crash loops</li>
   <li><strong>Workload Issues</strong>: Spot stuck jobs, terminating pods, bad restarts</li>
@@ -35,12 +30,10 @@ hide:
   <li><strong>Exportable Reports</strong>: HTML, JSON, and CLI output for audits and automation</li>
 </ul>
 
-</div>
+</div>    
+<div class="column">   
 
-<div class="column">
-
-<h2>💡 Why Use It</h2>
-
+<h2>💡 Why Use It</h2> 
 <p>You don’t need more metrics. You need answers.</p>
 
 <table class="landing-table">
@@ -69,15 +62,5 @@ hide:
     </tr>
   </tbody>
 </table>
-
 </div>
-
-</div>
-
-<div style="display: flex; align-items: center; gap: 1rem; background: var(--md-default-bg-color); border-left: 6px solid var(--md-primary-fg-color); padding: 1rem 1.5rem; border-radius: 6px; margin: 2rem 0; font-size: 1rem; color: var(--md-default-fg-color); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
-  <span style="font-size: 1.5rem;">🧭</span>
-  <div>
-    <strong>KubeBuddy runs entirely outside the cluster.</strong><br>
-    No setup inside Kubernetes. Works with any K8s distro. PowerShell 7+ required.
-  </div>
 </div>
