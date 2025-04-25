@@ -22,7 +22,7 @@ Checks in Kubebuddy are generated from **checks**—rules that evaluate cluster 
 Kubebuddy processes checks using `Invoke-yamlChecks`, which outputs results suitable for Prometheus, Grafana, or custom tools like Slack/email.
 
 
-## Alert Types
+## Check Types
 
 ### 1. Script-Based Checks
 
@@ -82,7 +82,7 @@ Simpler checks defined with `Path`, `Operator`, and `Value`.
 - `$Namespace`: Optional namespace scope
 - `$ExcludeNamespaces`: Exclude system namespaces like `kube-system`
 
-## Example: Script-Based Alert
+## Example: Script-Based Check
 
 ```yaml
 checks:
@@ -131,7 +131,7 @@ checks:
       return $results
 ```
 
-## Example: Declarative Alert
+## Example: Declarative Check
 
 ```yaml
 checks:
