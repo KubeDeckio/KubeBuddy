@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.17] - 2025-04-17
+## [0.0.17] - 2025-04-25
 
 ### Added
 - **Migrated to YAML-based Checks**:
@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Added new YAML-based alerts to enhance cluster monitoring.
 - **Custom Checks HTML Tab**  
   Automatically gathers any YAML‑defined checks whose section names aren’t in the standard list (Nodes, Namespaces, Workloads, etc.) into a new “Custom Checks” tab. Only shows the tab if there’s at least one real `<tr>…</tr>` snippet.
+- **Exclude Checks Support**  
+  You can now explicitly exclude checks by their ID using the `ExcludedChecks` parameter. Excluded checks are skipped during evaluation and omitted from reports.
 - **Multi-Architecture Docker Container**:
   - Updated the Dockerfile to support both `linux/amd64` and `linux/arm64` architectures using Docker Buildx.
   - Dynamically downloads architecture-specific `kubectl` and `kubelogin` binaries based on the target platform (`$TARGETARCH`).
@@ -35,7 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Text Report AKS Summary Table**:
   - Fixed an issue where the AKS summary table was not appearing in the text report by ensuring the `TextOutput` property is correctly written to the file.
 - **File Path Scoping in `Write-ToReport`**:
-  - Updated `Write-ToReport` to accept a file path parameter, ensuring proper scoping and avoiding reliance on a global `$ReportFile` variable.
+  - Updated `Write-ToReport` to accept a file path parameter, ensuring proper scoping and avoiding reliance on a global `$ReportFile` variable.S
 
 ## [0.0.16] - 2025-04-16
 

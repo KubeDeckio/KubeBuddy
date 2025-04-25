@@ -34,6 +34,9 @@ jobs:
         run: |
           pip install mkdocs-material
 
+      - name: Update changelog
+        run: cat CHANGELOG.md >> docs/changelog.md
+
       - name: Build docs
         run: mkdocs build
 
