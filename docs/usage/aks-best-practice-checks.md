@@ -4,7 +4,7 @@ parent: Usage
 nav_order: 4
 ---
 
-## Setup for AKS (Required for `AKS_MODE`)
+# Setup for AKS (Required for `AKS_MODE`)
 
 For AKS clusters, you need a Service Principal (SPN) with permissions to read cluster metadata and all Kubernetes resources, including secrets. Follow these steps to create the SPN and assign the custom KubeBuddy Reader role.
 

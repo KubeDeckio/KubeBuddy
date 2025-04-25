@@ -153,6 +153,7 @@ Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup
 ![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../images/html-aks-report-sample.png)
 
 <a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+
 ---
 
 ## 5. Running an AKS Health Check alongside the JSON report
