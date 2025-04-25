@@ -65,7 +65,7 @@ Invoke-KubeBuddy -HtmlReport
 ```
 ![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../images/html-report-sample.png)
 
-<a href="../examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+<a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
 ---
 ### **Generate a JSON Report**
@@ -80,7 +80,7 @@ Invoke-KubeBuddy -txtReport
 ```
 ![Screenshot of KubeBuddy powered by KubeDeck Text Report](../images/text-report-sample.png)
 
-<a href="../examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
+<a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
 ---
 
@@ -152,7 +152,7 @@ Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup
 ```
 ![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../images/html-aks-report-sample.png)
 
-<a href="../examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+<a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 ---
 
 ## 5. Running an AKS Health Check alongside the JSON report
@@ -178,7 +178,7 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 ```
 ![Screenshot of KubeBuddy powered by KubeDeck Text Report](..//images/text-aks-report-sample.png)
 
-<a href="../examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
+<a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
 
 ---
 
