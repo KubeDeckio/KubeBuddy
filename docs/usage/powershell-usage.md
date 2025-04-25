@@ -63,9 +63,9 @@ You **must** provide your Azure Subscription ID, the **Resource Group** where yo
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../assets/images/report-examples/html-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck HTML Report](/images/report-examples/html-report-sample.png)
 
-<a href="../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+<a href="/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
 ---
 ### **Generate a JSON Report**
@@ -78,9 +78,9 @@ Invoke-KubeBuddy -jsonReport
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck Text Report](../assets/images/report-examples/text-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck Text Report](../images/report-examples/text-report-sample.png)
 
-<a href="../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
+<a href="../examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
 ---
 
