@@ -63,4 +63,4 @@ If an error occurs, KubeBuddy powered by KubeDeck provides detailed messages to 
 | `ERROR: No clusters detected. Ensure you are connected to a cluster.` | KubeBuddy powered by KubeDeck could not find an active Kubernetes context.                    | Use `kubectl config current-context` to confirm a valid cluster connection.                                      |
 | `ERROR: Authentication required for Azure operations.`             | You are not logged into Azure for AKS checks.                             | Run `az login` and use `az account set --subscription <subscription-id>` to select the correct subscription.     |
 | `ERROR: Kubectl not found in system PATH.`                         | `kubectl` is either not installed or not in your PATH environment.        | Install `kubectl` by following [the official documentation](https://kubernetes.io/docs/tasks/tools/).           |
-For more details on usage and specific command options, visit the [KubeBuddy powered by KubeDeck Usage](../usage.md) page.
+For more details on usage and specific command options, visit the [KubeBuddy powered by KubeDeck Usage](../index.md) page.

@@ -63,9 +63,9 @@ You **must** provide your Azure Subscription ID, the **Resource Group** where yo
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck HTML Report](/images/report-examples/html-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../images/html-report-sample.png)
 
-<a href="/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+<a href="../examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
 ---
 ### **Generate a JSON Report**
@@ -78,7 +78,7 @@ Invoke-KubeBuddy -jsonReport
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck Text Report](../images/report-examples/text-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck Text Report](../images/text-report-sample.png)
 
 <a href="../examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
@@ -150,9 +150,9 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../assets/images/report-examples/html-aks-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../images/html-aks-report-sample.png)
 
-<a href="../assets/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+<a href="../examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 ---
 
 ## 5. Running an AKS Health Check alongside the JSON report
@@ -176,9 +176,9 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy powered by KubeDeck Text Report](../assets/images/report-examples/text-aks-report-sample.png)
+![Screenshot of KubeBuddy powered by KubeDeck Text Report](..//images/text-aks-report-sample.png)
 
-<a href="../assets/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
+<a href="../examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
 
 ---
 

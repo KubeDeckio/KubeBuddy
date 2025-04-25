@@ -36,7 +36,7 @@ Run **KubeBuddy powered by KubeDeck** in Docker to scan your Kubernetes cluster 
 
 - SPN must have **Cluster Admin** or **KubeBuddy Reader** role.
 
-> 📘 See the full [AKS Configuration & Best Practices Setup](aks-best-practices-checks.md) guide for SPN creation, role definition, and AKS prerequisites.
+> 📘 See the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for SPN creation, role definition, and AKS prerequisites.
 
 
 ## 🐳 Pull the Docker Image
@@ -160,4 +160,4 @@ docker run -it --rm \
 
 To use AKS-specific features in Docker (via `AKS_MODE`), you need to set up a Service Principal (SPN), assign roles, and configure access to your cluster.
 
-👉 See the full [AKS Configuration & Best Practices Setup](aks-best-practices-checks.md) guide for step-by-step instructions.
+👉 See the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for step-by-step instructions.
