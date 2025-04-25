@@ -279,15 +279,15 @@ checks:
         }
   
         foreach ($rule in $i.spec.rules) {
-          $host = $rule.host ?? "N/A"
+          $hostName = $rule.host ?? "N/A"
   
           foreach ($path in $rule.http.paths) {
-            $pathKey = "$ns|$host|$($path.path)"
+            $pathKey = "$ns|$hostName|$($path.path)"
             if ($hostPathMap.ContainsKey($pathKey)) {
               $results += [pscustomobject]@{
                 Namespace = $ns
                 Resource  = "ingress/$name"
-                Value     = "$host$($path.path)"
+                Value     = "$hostName$($path.path)"
                 Message   = "Duplicate host/path (conflicts with ingress $($hostPathMap[$pathKey]))"
               }
             } else {
