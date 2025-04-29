@@ -613,6 +613,10 @@ table a:hover {
   text-decoration: underline;
 }
 
+.table-pagination {
+  margin-bottom: 32px;
+}
+
 /* Hero Metrics Cards */
 .hero-metrics {
   display: flex;
