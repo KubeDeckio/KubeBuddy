@@ -1136,3 +1136,8 @@ code {
     height: auto;
   }
 }
+
+@keyframes flashHighlight {
+  0% { background-color: #ffff99; }
+  100% { background-color: transparent; }
+}

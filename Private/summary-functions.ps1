@@ -89,15 +89,15 @@ function Show-ApiServerHealth {
         Write-Warning "No valid metrics data to parse"
     }
 
-# 4. Output
-if ($Html) {
-    if ($p99Ms) {
-        $latLine = "<p><strong>latency (p99):</strong> " +
-                   "<span style='color:#0071FF'>$p99Ms ms</span></p>"
-    }
-    else {
-        $latLine = "<p style='color:#999'>Metrics endpoint unavailable</p>"
-    }
+    # 4. Output
+    if ($Html) {
+        if ($p99Ms) {
+            $latLine = "<p><strong>latency (p99):</strong> " +
+            "<span style='color:#0071FF'>$p99Ms ms</span></p>"
+        }
+        else {
+            $latLine = "<p style='color:#999'>Metrics endpoint unavailable</p>"
+        }
 
         return @"
 <div class="health-checks">
@@ -304,10 +304,12 @@ function Show-HeroMetrics {
     $out += ""
     $out += "💾 Resource Usage"
     $out += "------------------------------------------------------------------------------------------"
+    $currentTime = Get-Date -Format "yyyy-MM-dd HH:mm UTC"
+    $out += "🕒 Resource usage snapshot at: $currentTime"
+    $out += ""
     $out += "🖥  CPU Usage:      {0,$col2}%   {1,$col3}" -f $cpuUsagePercent, $cpuStatus
     $out += "💾 Memory Usage:   {0,$col2}%   {1,$col3}" -f $memUsagePercent, $memStatus
     $out += "------------------------------------------------------------------------------------------"
 
     return $out -join "`n"
 }
-  

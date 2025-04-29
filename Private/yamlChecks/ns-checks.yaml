@@ -24,38 +24,126 @@ checks:
         - ""
         - "⚠️ These might be stale or unused but check for other resources like Secrets or PVCs before deleting."
     Script: |
-      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      param($KubeData, [switch]$ExcludeNamespaces)
+      
+      # Fetch namespaces
       $allNamespaces = if ($KubeData?.Namespaces) {
-        $KubeData.Namespaces
+          $KubeData.Namespaces
       } else {
-        (kubectl get namespaces -o json | ConvertFrom-Json).items
+          (kubectl get namespaces -o json | ConvertFrom-Json).items
       }
       if ($ExcludeNamespaces) {
-        $allNamespaces = Exclude-Namespaces -items $allNamespaces
+          $allNamespaces = Exclude-Namespaces -items $allNamespaces
       }
-
       $allNsNames = $allNamespaces | ForEach-Object { $_.metadata.name.Trim() }
-
+      
+      # Fetch pods
       $pods = if ($KubeData?.Pods) {
-        $KubeData.Pods.items | Where-Object { $_.metadata.namespace }
+          $KubeData.Pods.items
       } else {
-        (kubectl get pods -A -o json | ConvertFrom-Json).items
+          (kubectl get pods -A -o json | ConvertFrom-Json).items
       }
       if ($ExcludeNamespaces) {
-        $pods = Exclude-Namespaces -items $pods
+          $pods = Exclude-Namespaces -items $pods
       }
-
-      $pods = $pods | Group-Object { $_.metadata.namespace }
-
-      $used = $pods | ForEach-Object { $_.Name.Trim() }
-      $empty = $allNsNames | Where-Object { $_ -notin $used }
-
-      $empty | ForEach-Object {
-        [pscustomobject]@{
-          Namespace = $_
-          Status    = "📂 Empty"
-        }
+      $podsGrouped = $pods | Group-Object { $_.metadata.namespace }
+      
+      # Fetch other resource types from KubeData if available, else from kubectl
+      $secrets = if ($KubeData?.Secrets) {
+          $KubeData.Secrets
+      } else {
+          (kubectl get secrets -A -o json | ConvertFrom-Json).items
       }
+      
+      $pvc = if ($KubeData?.PVCs) {
+          $KubeData.PVCs
+      } else {
+          (kubectl get pvc -A -o json | ConvertFrom-Json).items
+      }
+      
+      $services = if ($KubeData?.Services) {
+          $KubeData.Services
+      } else {
+          (kubectl get services -A -o json | ConvertFrom-Json).items
+      }
+      
+      $configs = if ($KubeData?.ConfigMaps) {
+          $KubeData.ConfigMaps
+      } else {
+          (kubectl get configmaps -A -o json | ConvertFrom-Json).items
+      }
+      
+      $deploys = if ($KubeData?.Deployments) {
+          $KubeData.Deployments
+      } else {
+          (kubectl get deployments -A -o json | ConvertFrom-Json).items
+      }
+      
+      $statefulsets = if ($KubeData?.StatefulSets) {
+          $KubeData.StatefulSets
+      } else {
+          (kubectl get statefulsets -A -o json | ConvertFrom-Json).items
+      }
+      
+      $daemonsets = if ($KubeData?.DaemonSets) {
+          $KubeData.DaemonSets
+      } else {
+          (kubectl get daemonsets -A -o json | ConvertFrom-Json).items
+      }
+      
+      if ($ExcludeNamespaces) {
+          $secrets = Exclude-Namespaces -items $secrets
+          $pvc     = Exclude-Namespaces -items $pvc
+          $services= Exclude-Namespaces -items $services
+          $configs = Exclude-Namespaces -items $configs
+          $deploys = Exclude-Namespaces -items $deploys
+          $statefulsets = Exclude-Namespaces -items $statefulsets
+          $daemonsets = Exclude-Namespaces -items $daemonsets
+      }
+      
+      # Group them
+      $secretsGrouped = $secrets | Group-Object { $_.metadata.namespace }
+      $pvcGrouped     = $pvc     | Group-Object { $_.metadata.namespace }
+      $daemonsetsGrouped = $daemonsets | Group-Object { $_.metadata.namespace }
+      $servicesGrouped= $services| Group-Object { $_.metadata.namespace }
+      $configsGrouped = $configs | Group-Object { $_.metadata.namespace }
+      $deploysGrouped = $deploys | Group-Object { $_.metadata.namespace }
+      $statefulsetsGrouped = $statefulsets | Group-Object { $_.metadata.namespace }
+      
+      # Build result
+      $results = @()
+      
+      foreach ($ns in $allNsNames) {
+          $hasPods = $podsGrouped | Where-Object { $_.Name -eq $ns }
+          $hasSecrets = $secretsGrouped | Where-Object { $_.Name -eq $ns }
+          $hasPVC = $pvcGrouped | Where-Object { $_.Name -eq $ns }
+          $hasServices = $servicesGrouped | Where-Object { $_.Name -eq $ns }
+          $hasConfigs = $configsGrouped | Where-Object { $_.Name -eq $ns }
+          $hasDeploys = $deploysGrouped | Where-Object { $_.Name -eq $ns }
+          $hasStatefulSets = $statefulsetsGrouped | Where-Object { $_.Name -eq $ns }
+          $hasDaemonSets = $daemonsetsGrouped | Where-Object { $_.Name -eq $ns }
+      
+          if (-not $hasPods) {
+              if (-not ($hasSecrets -or $hasPVC -or $hasServices -or $hasConfigs -or $hasDeploys -or $hasStatefulSets)) {
+                  # Truly empty
+                  $results += [pscustomobject]@{
+                      Namespace = $ns
+                      Status    = "📂 Empty"
+                      Issue     = "No pods and no major resources"
+                  }
+              } else {
+                  # No pods, but some resources still there
+                  $results += [pscustomobject]@{
+                      Namespace = $ns
+                      Status    = "⚠️ Partial"
+                      Issue     = "No pods, but other resources exist"
+                  }
+              }
+          }
+      }
+      
+      return $results
+
     URL: "https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/"
   - ID: NS002
     Name: Missing or Weak ResourceQuotas

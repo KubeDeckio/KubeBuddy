@@ -117,10 +117,57 @@ checks:
       $cpu_crit = $Thresholds.cpu_critical
       $mem_warn = $Thresholds.mem_warning
       $mem_crit = $Thresholds.mem_critical
-      # Disk thresholds are not provided by Get-KubeBuddyThresholds, so use hardcoded values
-      $disk_warn = 60
-      $disk_crit = 80
-  
+      $disk_warn = $Thresholds.disk_warning
+      $disk_crit = $Thresholds.disk_critical
+
+      function Format-MemoryStatus {
+          param(
+              [string]$status,
+              [double]$percent,
+              [double]$warnThreshold,
+              [double]$critThreshold
+          )
+      
+          switch ($status) {
+              "✅ Normal" { return "<span title='Memory usage under $warnThreshold% ($percent%)'>$status</span>" }
+              "🟡 Warning" { return "<span title='Memory usage between $warnThreshold% and $critThreshold% ($percent%)'>$status</span>" }
+              "🔴 Critical" { return "<span title='Memory usage above $critThreshold% ($percent%)'>$status</span>" }
+              default { return $status }
+          }
+      }
+
+      function Format-CPUStatus {
+          param(
+              [string]$status,
+              [double]$percent,
+              [double]$warnThreshold,
+              [double]$critThreshold
+          )
+      
+          switch ($status) {
+              "✅ Normal" { return "<span title='CPU usage under $warnThreshold% ($percent%)'>$status</span>" }
+              "🟡 Warning" { return "<span title='CPU usage between $warnThreshold% and $critThreshold% ($percent%)'>$status</span>" }
+              "🔴 Critical" { return "<span title='CPU usage above $critThreshold% ($percent%)'>$status</span>" }
+              default { return $status }
+          }
+      }
+
+      function Format-DiskStatus {
+          param(
+              [string]$status,
+              [double]$percent,
+              [double]$warnThreshold,
+              [double]$critThreshold
+          )
+      
+          switch ($status) {
+              "✅ Normal" { return "<span title='Disk usage under $warnThreshold% ($percent%)'>$status</span>" }
+              "🟡 Warning" { return "<span title='Disk usage between $warnThreshold% and $critThreshold% ($percent%)'>$status</span>" }
+              "🔴 Critical" { return "<span title='Disk usage above $critThreshold% ($percent%)'>$status</span>" }
+              default { return $status }
+          }
+      }
+
       foreach ($node in $nodes) {
         $name = $node.metadata.name
         $cpuAlloc = [int]($node.status.allocatable.cpu -replace "m", "")
@@ -167,16 +214,16 @@ checks:
   
         $results += [pscustomobject]@{
           Node        = $name
-          "CPU Status"= $cpuStatus
+          "CPU Status" = (Format-CPUStatus -status $cpuStatus -percent $cpuPct -warnThreshold $cpu_warn -critThreshold $cpu_crit)
           "CPU %"     = "$cpuPct%"
           "CPU Used"  = "$cpuUsed mC"
           "CPU Total" = "$cpuAlloc mC"
-          "Mem Status"= $memStatus
+          "Mem Status"= (Format-MemoryStatus -status $memStatus -percent $memPct -warnThreshold $mem_warn -critThreshold $mem_crit)
           "Mem %"     = "$memPct%"
           "Mem Used"  = "$memUsed Mi"
           "Mem Total" = "$memAlloc Mi"
           "Disk %"    = $diskPct
-          "Disk Status" = $diskStatus
+          "Disk Status" = (Format-DiskStatus -status $diskStatus -percent ($diskPct -replace '%','') -warnThreshold $disk_warn -critThreshold $disk_crit)
         }
       }
   

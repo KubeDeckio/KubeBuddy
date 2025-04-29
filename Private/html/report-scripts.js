@@ -473,6 +473,36 @@ function paginateTable(collapsibleContainer) {
         console.error(`Pagination Error for ${collapsibleContainer.id}:`, e);
     }
 }
+
+function switchTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(function(tab) {
+        tab.classList.remove('active');
+    });
+
+    // Remove active class from all tabs
+    document.querySelectorAll('.tabs .tab').forEach(function(tab) {
+        tab.classList.remove('active');
+    });
+
+    // Show selected tab
+    document.getElementById(tabName).classList.add('active');
+
+    // Highlight clicked tab
+    document.querySelector(`.tabs .tab[data-tab="${tabName}"]`).classList.add('active');
+
+    // Flash highlight effect (only for Kubernetes Events tab)
+    if (tabName === "events") {
+        const eventsContent = document.getElementById('events');
+        if (eventsContent) {
+            eventsContent.style.animation = "flashHighlight 0.5s ease";
+            setTimeout(() => {
+                eventsContent.style.animation = "";
+            }, 500);
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function(){
     var tabs = document.querySelectorAll('.tabs li');
     var tabContents = document.querySelectorAll('.tab-content');

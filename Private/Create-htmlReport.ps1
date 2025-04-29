@@ -424,6 +424,7 @@ $passedChecks/$totalChecks
 <div class="tab-content active" id="summary">
   <div class="container">
     <h1 id="Health">Cluster Overview</h1>
+    <p><strong>Cluster Name:</strong> $ClusterName</p>
     <div class="cluster-health">
       <div class="health-score">
         <h2>Cluster Health Score</h2>
@@ -464,8 +465,13 @@ $passedChecks/$totalChecks
     </div>
     <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of recent warning and error events.</span></span></h2>
     <div class="hero-metrics">
-      <div class="metric-card $errorClass">❌ Errors: <strong>$eventErrors</strong></div>
-      <div class="metric-card $warningClass">⚠️ Warnings: <strong>$eventWarnings</strong></div>
+      <div class="metric-card $errorClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
+        ❌ Errors: <strong>$eventErrors</strong>
+      </div>
+      <div class="metric-card $warningClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
+        ⚠️ Warnings: <strong>$eventWarnings</strong>
+      </div>
+
     </div>
     $excludedNamespacesHtml
   </div>
