@@ -169,7 +169,7 @@ function Get-ExcludedNamespaces {
     return @(
         "kube-system", "kube-public", "kube-node-lease",
         "local-path-storage", "kube-flannel",
-        "tigera-operator", "calico-system", "coredns", "aks-istio-system"
+        "tigera-operator", "calico-system", "coredns", "aks-istio-system", "gatekeeper-system"
     )
 }
 
