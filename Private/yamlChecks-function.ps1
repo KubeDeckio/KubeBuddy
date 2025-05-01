@@ -486,6 +486,7 @@ function Invoke-yamlChecks {
         $sectionGroups = @{}
         $collapsibleSectionMap = @{}
         $alwaysCollapsibleCheckIDs = @("NODE001", "NODE002")
+        $alwaysShowRecommendationsCheckIDs = @()  # Define checks that should always show recommendations, even with no issues
 
         foreach ($result in $allResults) {
             $section = if ($result.Section) { $result.Section } elseif ($result.Category) { $result.Category } else { "Other" }
@@ -517,11 +518,27 @@ function Invoke-yamlChecks {
                     "<p>✅ All $resourceKindPlural are healthy.</p>"
                 }
 
-                # Recommendation HTML (already formatted in the check processing loop)
-                $recommendationHtml = if ($check.Recommendation) { $check.Recommendation } else { "" }
+                # Recommendation HTML
+                $recommendationHtml = if ($check.Recommendation) {
+                    if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
+                        $recContent = $check.Recommendation.html
+                        @"
+<div class="recommendation-card">
+  $recContent
+</div>
+<div style='height: 15px;'></div>
+"@
+                    }
+                    else {
+                        $check.Recommendation
+                    }
+                }
+                else {
+                    ""
+                }
 
-                # Create a separate collapsible section for recommendations if they exist
-                $recommendationSection = if ($recommendationHtml) {
+                # Create a separate collapsible section for recommendations if they exist AND either there are issues OR the check should always show recommendations
+                $recommendationSection = if ($recommendationHtml -and ($check.Total -gt 0 -or $check.ID -in $alwaysShowRecommendationsCheckIDs)) {
                     ConvertToCollapsible -Id "$($check.ID)_recommendations" -defaultText "Show Recommendations" -content $recommendationHtml
                 }
                 else {
