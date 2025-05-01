@@ -379,12 +379,9 @@ function Invoke-yamlChecks {
                             $recContent = $check.Recommendation.html
                             @"
 <div class="recommendation-card">
-  <details style='margin-bottom: 10px;'>
-    <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
-                            $recContent
-                        </details>
-                    </div>
-                    <div style='height: 15px;'></div>
+  $recContent
+</div>
+<div style='height: 15px;'></div>
 "@
                         }
                         else {
@@ -518,7 +515,7 @@ function Invoke-yamlChecks {
                     "<p>✅ All $resourceKindPlural are healthy.</p>"
                 }
 
-                # Recommendation HTML
+                # Recommendation HTML (without nested <details>)
                 $recommendationHtml = if ($check.Recommendation) {
                     if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
                         $recContent = $check.Recommendation.html
