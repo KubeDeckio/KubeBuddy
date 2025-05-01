@@ -6,6 +6,7 @@
     CompanyName = 'Pixel Robots'
     Copyright = '(c) Richard Hooper. All rights reserved.'
     Description      = 'KubeBuddy - A Kubernetes assistant for PowerShell.'
+    RequiredModules = @('powershell-yaml')
 
     # PowerShell Version Compatibility
     PowerShellVersion = '7.0'

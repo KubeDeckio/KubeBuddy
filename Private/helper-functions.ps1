@@ -145,8 +145,8 @@ function Get-KubeBuddyThresholds {
         cpu_critical            = 75
         mem_warning             = 50
         mem_critical            = 75
-        disk_warn               = 60
-        disk_crit               = 80
+        disk_warning            = 60
+        disk_critical           = 80
         restarts_warning        = 3
         restarts_critical       = 5
         pod_age_warning         = 15

@@ -41,31 +41,28 @@ function Invoke-yamlChecks {
             "NODE002" = @("Node", "CPU Status", "CPU %", "CPU Used", "CPU Total", "Mem Status", "Mem %", "Mem Used", "Mem Total", "Disk %", "Disk Status")
         }
     
+        # If check has predefined properties, use them
         if ($checkSpecificProperties.ContainsKey($CheckID)) {
-            $properties = $checkSpecificProperties[$CheckID]
-        }
-        else {
-            # Detect valid properties dynamically for unknown/script-based checks
-            $properties = $Items |
-            ForEach-Object { $_.PSObject.Properties.Name } |
-            Group-Object |
-            Sort-Object Count -Descending |
-            Select-Object -ExpandProperty Name -Unique
+            return $checkSpecificProperties[$CheckID]
         }
     
+        # If no items, return empty array
+        if (-not $Items) {
+            return @()
+        }
+    
+        # Get properties from the first item to preserve order
+        $properties = $Items[0].PSObject.Properties.Name
+    
+        # Filter out properties with no data across all items
         $validProps = @()
         foreach ($prop in $properties) {
             $hasData = $Items | Where-Object {
                 $_.$prop -ne $null -and $_.$prop -ne "" -and $_.$prop -ne "-"
             }
-            if ($hasData.Count -gt 0) {
+            if ($hasData) {
                 $validProps += $prop
             }
-        }
-    
-        # Fallback to static props if NODE check and nothing found
-        if (-not $validProps -and $CheckID -in @("NODE001", "NODE002")) {
-            $validProps = $checkSpecificProperties[$CheckID]
         }
     
         return $validProps
@@ -255,10 +252,7 @@ function Invoke-yamlChecks {
                                     $recContent = $check.Recommendation.html
                                     @"
 <div class="recommendation-card">
-  <details style='margin-bottom: 10px;'>
-    <summary style='color: #0071FF; font-weight: bold; font-size: 14px; padding: 10px; background: #E3F2FD; border-radius: 4px 4px 0 0;'>Recommendations</summary>
-    $recContent
-  </details>
+  $recContent
 </div>
 <div style='height: 15px;'></div>
 "@
@@ -523,11 +517,49 @@ function Invoke-yamlChecks {
                     "<p>✅ All $resourceKindPlural are healthy.</p>"
                 }
 
+                # Recommendation HTML (already formatted in the check processing loop)
                 $recommendationHtml = if ($check.Recommendation) { $check.Recommendation } else { "" }
+
+                # Create a separate collapsible section for recommendations if they exist
+                $recommendationSection = if ($recommendationHtml) {
+                    ConvertToCollapsible -Id "$($check.ID)_recommendations" -defaultText "Show Recommendations" -content $recommendationHtml
+                }
+                else {
+                    ""
+                }
+
+                # Table content for findings
                 $tableContent = if ($check.Items) {
                     $validProps = Get-ValidProperties -Items $check.Items -CheckID $check.ID
                     if ($validProps) {
-                        $check.Items | ConvertTo-Html -Fragment -Property $validProps | Out-String
+                        # Manually build the table HTML
+                        $tableHtml = "<table>`n<tr>"
+                        # Add headers
+                        foreach ($prop in $validProps) {
+                            $tableHtml += "<th>$prop</th>"
+                        }
+                        $tableHtml += "</tr>`n"
+                        # Add rows
+                        foreach ($item in $check.Items) {
+                            $tableHtml += "<tr>"
+                            foreach ($prop in $validProps) {
+                                $value = $item.$prop
+                                # For status columns, assume the value is already HTML and don't escape it
+                                if ($prop -in @("CPU Status", "Mem Status", "Disk Status")) {
+                                    $tableHtml += "<td>$value</td>"
+                                }
+                                else {
+                                    # Escape other columns to prevent XSS
+                                    $escapedValue = $value -replace '<', '<' `
+                                        -replace '>', '>' `
+                                        -replace '"', '"'
+                                    $tableHtml += "<td>$escapedValue</td>"
+                                }
+                            }
+                            $tableHtml += "</tr>`n"
+                        }
+                        $tableHtml += "</table>"
+                        $tableHtml
                     }
                     else {
                         "<p>No valid data to display.</p>"
@@ -537,8 +569,13 @@ function Invoke-yamlChecks {
                     if ($check.ID -in $alwaysCollapsibleCheckIDs) {
                         $validProps = Get-ValidProperties -Items @() -CheckID $check.ID
                         if ($validProps) {
-                            $emptyTable = [PSCustomObject]@{} | Select-Object $validProps | ConvertTo-Html -Fragment | Out-String
-                            $emptyTable -replace '<tr><td></td></tr>', ''
+                            # Build an empty table for checks that should always be displayed
+                            $tableHtml = "<table>`n<tr>"
+                            foreach ($prop in $validProps) {
+                                $tableHtml += "<th>$prop</th>"
+                            }
+                            $tableHtml += "</tr></table>"
+                            $tableHtml
                         }
                         else {
                             "<p>No data available for this check.</p>"
@@ -549,18 +586,23 @@ function Invoke-yamlChecks {
                     }
                 }
 
-                $collapsibleContent = "$recommendationHtml`n$tableContent"
+                # Create the findings collapsible section
+                $findingsSection = if ($check.Items -or ($check.ID -in $alwaysCollapsibleCheckIDs -and $tableContent)) {
+                    ConvertToCollapsible -Id $check.ID -defaultText "Show Findings" -content $tableContent
+                }
+                else {
+                    ""
+                }
+
+                # Combine the sections: header, summary, recommendations, then findings
                 $sectionHtml += @"
 $header
 $summary
-"@
-                if ($check.Items -or ($check.ID -in $alwaysCollapsibleCheckIDs -and $tableContent)) {
-                    $sectionHtml += @"
 <div class='table-container'>
-  $(ConvertToCollapsible -Id $check.ID -defaultText "Show Findings" -content $collapsibleContent)
+  $recommendationSection
+  $findingsSection
 </div>
 "@
-                }
             }
 
             if ($collapsibleSectionMap.ContainsKey($section)) {

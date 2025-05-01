@@ -186,9 +186,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 };
 
                 detail.addEventListener('toggle', () => {
-                    summary.textContent = detail.open ? 'Hide Findings' : defaultText;
-                    const pagination = collapsibleContainer.querySelector('.table-pagination');
+                    // Store the original text if not already stored
+                    if (!summary.getAttribute('data-original-text')) {
+                        summary.setAttribute('data-original-text', defaultText);
+                    }
                 
+                    const originalText = summary.getAttribute('data-original-text');
+                
+                    // Toggle between "Show" and "Hide" while preserving the section name
+                    if (detail.open) {
+                        summary.textContent = originalText.replace('Show', 'Hide');
+                    } else {
+                        summary.textContent = originalText.replace('Hide', 'Show');
+                    }
+                
+                    const pagination = collapsibleContainer.querySelector('.table-pagination');
+                    
                     if (detail.open) {
                         console.log(`Toggled open: ${id}, calling paginateTable`);
                         setTimeout(() => paginateTable(collapsibleContainer), 200);

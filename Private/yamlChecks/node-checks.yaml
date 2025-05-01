@@ -99,19 +99,19 @@ checks:
     Script: |
       param($KubeData, $Thresholds)
       $nodes = if ($KubeData?.Nodes) {
-        $KubeData.Nodes.items
+          $KubeData.Nodes.items
       } else {
-        (kubectl get nodes -o json | ConvertFrom-Json).items
+          (kubectl get nodes -o json | ConvertFrom-Json).items
       }
       
       $top = if ($KubeData?.TopNodes) {
-        $KubeData.TopNodes
+          $KubeData.TopNodes
       } else {
-        kubectl top nodes | Out-String -Stream
+          kubectl top nodes | Out-String -Stream
       }
       $results = @()
       $issueCount = 0
-  
+      
       # Use thresholds from Get-KubeBuddyThresholds
       $cpu_warn = $Thresholds.cpu_warning
       $cpu_crit = $Thresholds.cpu_critical
@@ -119,23 +119,7 @@ checks:
       $mem_crit = $Thresholds.mem_critical
       $disk_warn = $Thresholds.disk_warning
       $disk_crit = $Thresholds.disk_critical
-
-      function Format-MemoryStatus {
-          param(
-              [string]$status,
-              [double]$percent,
-              [double]$warnThreshold,
-              [double]$critThreshold
-          )
       
-          switch ($status) {
-              "✅ Normal" { return "<span title='Memory usage under $warnThreshold% ($percent%)'>$status</span>" }
-              "🟡 Warning" { return "<span title='Memory usage between $warnThreshold% and $critThreshold% ($percent%)'>$status</span>" }
-              "🔴 Critical" { return "<span title='Memory usage above $critThreshold% ($percent%)'>$status</span>" }
-              default { return $status }
-          }
-      }
-
       function Format-CPUStatus {
           param(
               [string]$status,
@@ -144,14 +128,48 @@ checks:
               [double]$critThreshold
           )
       
-          switch ($status) {
-              "✅ Normal" { return "<span title='CPU usage under $warnThreshold% ($percent%)'>$status</span>" }
-              "🟡 Warning" { return "<span title='CPU usage between $warnThreshold% and $critThreshold% ($percent%)'>$status</span>" }
-              "🔴 Critical" { return "<span title='CPU usage above $critThreshold% ($percent%)'>$status</span>" }
-              default { return $status }
+          $tooltipText = switch ($status) {
+              "✅ Normal" { "CPU usage under $warnThreshold% ($percent%)" }
+              "🟡 Warning" { "CPU usage between $warnThreshold% and $critThreshold% ($percent%)" }
+              "🔴 Critical" { "CPU usage above $critThreshold% ($percent%)" }
+              default { "Unknown CPU status" }
           }
+      
+          $color = switch ($status) {
+              "✅ Normal" { "#4CAF50" }  # Green
+              "🟡 Warning" { "#ffa000" }  # Yellow
+              "🔴 Critical" { "#B71C1C" }  # Red
+              default { "inherit" }
+          }
+      
+          return "<span class='tooltip' style='color: $color;'>$status<span class='tooltip-text'>$tooltipText</span></span>"
       }
-
+      
+      function Format-MemoryStatus {
+          param(
+              [string]$status,
+              [double]$percent,
+              [double]$warnThreshold,
+              [double]$critThreshold
+          )
+      
+          $tooltipText = switch ($status) {
+              "✅ Normal" { "Memory usage under $warnThreshold% ($percent%)" }
+              "🟡 Warning" { "Memory usage between $warnThreshold% and $critThreshold% ($percent%)" }
+              "🔴 Critical" { "Memory usage above $critThreshold% ($percent%)" }
+              default { "Unknown memory status" }
+          }
+      
+          $color = switch ($status) {
+              "✅ Normal" { "#4CAF50" }  # Green
+              "🟡 Warning" { "#ffa000" }  # Yellow
+              "🔴 Critical" { "#B71C1C" }  # Red
+              default { "inherit" }
+          }
+      
+          return "<span class='tooltip' style='color: $color;'>$status<span class='tooltip-text'>$tooltipText</span></span>"
+      }
+      
       function Format-DiskStatus {
           param(
               [string]$status,
@@ -160,74 +178,84 @@ checks:
               [double]$critThreshold
           )
       
-          switch ($status) {
-              "✅ Normal" { return "<span title='Disk usage under $warnThreshold% ($percent%)'>$status</span>" }
-              "🟡 Warning" { return "<span title='Disk usage between $warnThreshold% and $critThreshold% ($percent%)'>$status</span>" }
-              "🔴 Critical" { return "<span title='Disk usage above $critThreshold% ($percent%)'>$status</span>" }
-              default { return $status }
+          $tooltipText = switch ($status) {
+              "✅ Normal" { "Disk usage under $warnThreshold% ($percent%)" }
+              "🟡 Warning" { "Disk usage between $warnThreshold% and $critThreshold% ($percent%)" }
+              "🔴 Critical" { "Disk usage above $critThreshold% ($percent%)" }
+              default { "Unknown disk status" }
           }
+      
+          $color = switch ($status) {
+              "✅ Normal" { "#4CAF50" }  # Green
+              "🟡 Warning" { "#ffa000" }  # Yellow
+              "🔴 Critical" { "#B71C1C" }  # Red
+              "⚠️ Unknown" { "#ffa000" }  # Yellow for Unknown
+              default { "inherit" }
+          }
+      
+          return "<span class='tooltip' style='color: $color;'>$status<span class='tooltip-text'>$tooltipText</span></span>"
       }
-
+      
       foreach ($node in $nodes) {
-        $name = $node.metadata.name
-        $cpuAlloc = [int]($node.status.allocatable.cpu -replace "m", "")
-        $memAlloc = [math]::Round(([int]($node.status.allocatable.memory -replace "Ki", "")) / 1024)
-        $stat = $top | Where-Object { $_ -match "^$name\s" }
-  
-        # Default values if no stats available
-        $cpuUsed = 0
-        $cpuPct = 0
-        $cpuStatus = "✅ Normal"
-        $memUsed = 0
-        $memPct = 0
-        $memStatus = "✅ Normal"
-        $diskPct = "<unknown>"
-        $diskStatus = "⚠️ Unknown"
-  
-        if ($stat) {
-          $split = $stat -split "\s+"
-          $cpuUsed = [int]($split[1] -replace "m", "")
-          $memUsed = [math]::Round([int]($split[3] -replace "Mi", ""))
-  
-          $cpuPct = [math]::Round(($cpuUsed / $cpuAlloc) * 100, 2)
-          $memPct = [math]::Round(($memUsed / $memAlloc) * 100, 2)
-  
-          # CPU status
-          if ($cpuPct -gt $cpu_crit) { $cpuStatus = "🔴 Critical"; $issueCount++ }
-          elseif ($cpuPct -gt $cpu_warn) { $cpuStatus = "🟡 Warning"; $issueCount++ }
-          else { $cpuStatus = "✅ Normal" }
-  
-          # Memory status
-          if ($memPct -gt $mem_crit) { $memStatus = "🔴 Critical"; $issueCount++ }
-          elseif ($memPct -gt $mem_warn) { $memStatus = "🟡 Warning"; $issueCount++ }
-          else { $memStatus = "✅ Normal" }
-  
-          # Disk usage (if available)
-          if ($split.Length -ge 5 -and $split[4] -match "^\d+%$") {
-            $diskPct = [int]($split[4] -replace "%", "")
-            if ($diskPct -gt $disk_crit) { $diskStatus = "🔴 Critical"; $issueCount++ }
-            elseif ($diskPct -gt $disk_warn) { $diskStatus = "🟡 Warning"; $issueCount++ }
-            else { $diskStatus = "✅ Normal" }
-            $diskPct = "$diskPct%"
+          $name = $node.metadata.name
+          $cpuAlloc = [int]($node.status.allocatable.cpu -replace "m", "")
+          $memAlloc = [math]::Round(([int]($node.status.allocatable.memory -replace "Ki", "")) / 1024)
+          $stat = $top | Where-Object { $_ -match "^$name\s" }
+      
+          # Default values if no stats available
+          $cpuUsed = 0
+          $cpuPct = 0
+          $cpuStatus = "✅ Normal"
+          $memUsed = 0
+          $memPct = 0
+          $memStatus = "✅ Normal"
+          $diskPct = "<unknown>"
+          $diskStatus = "⚠️ Unknown"
+      
+          if ($stat) {
+              $split = $stat -split "\s+"
+              $cpuUsed = [int]($split[1] -replace "m", "")
+              $memUsed = [math]::Round([int]($split[3] -replace "Mi", ""))
+      
+              $cpuPct = [math]::Round(($cpuUsed / $cpuAlloc) * 100, 2)
+              $memPct = [math]::Round(($memUsed / $memAlloc) * 100, 2)
+      
+              # CPU status
+              if ($cpuPct -gt $cpu_crit) { $cpuStatus = "🔴 Critical"; $issueCount++ }
+              elseif ($cpuPct -gt $cpu_warn) { $cpuStatus = "🟡 Warning"; $issueCount++ }
+              else { $cpuStatus = "✅ Normal" }
+      
+              # Memory status
+              if ($memPct -gt $mem_crit) { $memStatus = "🔴 Critical"; $issueCount++ }
+              elseif ($memPct -gt $mem_warn) { $memStatus = "🟡 Warning"; $issueCount++ }
+              else { $memStatus = "✅ Normal" }
+      
+              # Disk usage (if available)
+              if ($split.Length -ge 5 -and $split[4] -match "^\d+%$") {
+                  $diskPct = [int]($split[4] -replace "%", "")
+                  if ($diskPct -gt $disk_crit) { $diskStatus = "🔴 Critical"; $issueCount++ }
+                  elseif ($diskPct -gt $disk_warn) { $diskStatus = "🟡 Warning"; $issueCount++ }
+                  else { $diskStatus = "✅ Normal" }
+                  $diskPct = "$diskPct%"
+              }
           }
-        }
-  
-        $results += [pscustomobject]@{
-          Node        = $name
-          "CPU Status" = (Format-CPUStatus -status $cpuStatus -percent $cpuPct -warnThreshold $cpu_warn -critThreshold $cpu_crit)
-          "CPU %"     = "$cpuPct%"
-          "CPU Used"  = "$cpuUsed mC"
-          "CPU Total" = "$cpuAlloc mC"
-          "Mem Status"= (Format-MemoryStatus -status $memStatus -percent $memPct -warnThreshold $mem_warn -critThreshold $mem_crit)
-          "Mem %"     = "$memPct%"
-          "Mem Used"  = "$memUsed Mi"
-          "Mem Total" = "$memAlloc Mi"
-          "Disk %"    = $diskPct
-          "Disk Status" = (Format-DiskStatus -status $diskStatus -percent ($diskPct -replace '%','') -warnThreshold $disk_warn -critThreshold $disk_crit)
-        }
+      
+          $results += [pscustomobject]@{
+              Node          = $name
+              "CPU Status"  = (Format-CPUStatus -status $cpuStatus -percent $cpuPct -warnThreshold $cpu_warn -critThreshold $cpu_crit)
+              "CPU %"       = "$cpuPct%"
+              "CPU Used"    = "$cpuUsed mC"
+              "CPU Total"   = "$cpuAlloc mC"
+              "Mem Status"  = (Format-MemoryStatus -status $memStatus -percent $memPct -warnThreshold $mem_warn -critThreshold $mem_crit)
+              "Mem %"       = "$memPct%"
+              "Mem Used"    = "$memUsed Mi"
+              "Mem Total"   = "$memAlloc Mi"
+              "Disk %"      = $diskPct
+              "Disk Status" = (Format-DiskStatus -status $diskStatus -percent ($diskPct -replace '%','') -warnThreshold $disk_warn -critThreshold $disk_crit)
+          }
       }
-  
+      
       return @{
-        Items = $results
-        IssueCount = $issueCount
+          Items      = $results
+          IssueCount = $issueCount
       }

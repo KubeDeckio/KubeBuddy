@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 
+/* CSS Variables */
 :root {
   --brand-blue: #0071FF;
   --brand-blue-dk: #005AD1;
@@ -23,6 +24,7 @@
   --success-color: #4CAF50;
 }
 
+/* Base Styles */
 html {
   scroll-behavior: smooth;
   height: 100%;
@@ -324,20 +326,11 @@ body {
   margin: 0 auto;
 }
 
-/* .health-pie:hover svg {
-  transform: scale(1.05);
-} */
-
-/* Center the Passed/Failed Checks text inside the donut chart */
-.health-pie .centered-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--brand-blue);
-  text-align: center;
+.centered-donut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .pie-chart.donut {
@@ -365,11 +358,30 @@ body {
   }
 }
 
-.centered-donut {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+#pulseDot {
+  opacity: 0;
+  transition: opacity var(--transition);
+  pointer-events: none;
+}
+
+.pulse {
+  animation: pulseAnim 1s ease-out infinite;
+  opacity: 1;
+}
+
+@keyframes pulseAnim {
+  0% {
+    r: 2;
+    opacity: 1;
+  }
+  50% {
+    r: 3.5;
+    opacity: 0.6;
+  }
+  100% {
+    r: 2;
+    opacity: 1;
+  }
 }
 
 /* API Server Health (livez and readyz boxes) */
@@ -414,10 +426,6 @@ body {
   color: var(--brand-blue);
 }
 
-.api-summary details[open] summary span {
-  color: var(--brand-blue);
-}
-
 .api-summary details pre {
   margin: 0;
   background: #f5f5f5;
@@ -455,7 +463,7 @@ body {
   color: var(--brand-blue);
   z-index: 2;
   font-size: var(--font-size-sm);
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.3); /* Improve readability */
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
 }
 
 .pulse-dot {
@@ -488,32 +496,6 @@ body {
   }
   100% {
     transform: translate(50%, -50%) scale(1);
-    opacity: 1;
-  }
-}
-
-#pulseDot {
-  opacity: 0;
-  transition: opacity var(--transition);
-  pointer-events: none;
-}
-
-.pulse {
-  animation: pulseAnim 1s ease-out infinite;
-  opacity: 1;
-}
-
-@keyframes pulseAnim {
-  0% {
-    r: 2;
-    opacity: 1;
-  }
-  50% {
-    r: 3.5;
-    opacity: 0.6;
-  }
-  100% {
-    r: 2;
     opacity: 1;
   }
 }
@@ -613,8 +595,132 @@ table a:hover {
   text-decoration: underline;
 }
 
-.table-pagination {
-  margin-bottom: 32px;
+/* Collapsible Sections */
+.collapsible-container {
+  margin: var(--spacing-md) 0;
+}
+
+.collapsible-container summary {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--brand-blue);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.collapsible-container summary:hover {
+  background: rgba(0, 113, 255, 0.1); /* Match the hover color of recommendations */
+}
+
+/* Recommendations Section */
+.collapsible-container[id$="_recommendations"] summary {
+  background: transparent; /* Already set to transparent as per previous request */
+}
+
+.collapsible-container[id$="_recommendations"] summary:hover {
+  background: rgba(0, 113, 255, 0.1); /* Subtle hover effect */
+}
+
+.collapsible-container[id$="_recommendations"] details[open] .recommendation-card {
+  background: #fff; /* Clean white background for Material Design */
+  border: 1px solid #e0e0e0; /* Subtle border for definition */
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-sm);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.14), 0 1px 10px rgba(0, 0, 0, 0.12), 0 3px 5px rgba(0, 0, 0, 0.2); /* Material Design elevation */
+  animation: fadeIn 0.3s ease-out;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.collapsible-container[id$="_recommendations"] details[open] .recommendation-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Elevated shadow on hover */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recommendation-content {
+  font-size: var(--font-size-sm);
+  line-height: 1.8;
+  color: var(--text-dark);
+}
+
+.recommendation-content::before {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230071FF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20v-6m0-8a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z'/%3E%3Cpath d='M12 2a10 10 0 0 1 7 17.5M12 2a10 10 0 0 0-7 17.5'/%3E%3Cpath d='M8 22h8'/%3E%3C/svg%3E") " Recommended Actions";
+  display: block;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--brand-blue);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md); /* Add padding for the background */
+  background: #E3F2FD; /* Light blue background to stand out */
+  border-radius: var(--border-radius); /* Rounded corners */
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.recommendation-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recommendation-content ul li {
+  position: relative;
+  padding: var(--spacing-sm) 0 var(--spacing-sm) 40px; /* Increased padding for Material Design spacing */
+  margin-bottom: var(--spacing-sm);
+  opacity: 0;
+  animation: slideIn 0.3s ease-out forwards;
+  animation-delay: calc(0.1s * var(--item-index));
+  transition: background var(--transition);
+}
+
+.recommendation-content ul li:hover {
+  background: rgba(0, 113, 255, 0.05);
+  border-radius: 4px;
+}
+
+.recommendation-content ul li:nth-child(1) { --item-index: 1; }
+.recommendation-content ul li:nth-child(2) { --item-index: 2; }
+.recommendation-content ul li:nth-child(3) { --item-index: 3; }
+.recommendation-content ul li:nth-child(4) { --item-index: 4; }
+.recommendation-content ul li:nth-child(5) { --item-index: 5; }
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.recommendation-content ul li::before {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%230071FF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+  position: absolute;
+  left: 8px; /* Align with Material Design spacing */
+  top: 12px; /* Center vertically with new padding */
+}
+
+.recommendation-content code {
+  background: #E8EAF6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Roboto Mono", monospace; /* Material Design recommends a monospace font like Roboto Mono */
+  font-size: var(--font-size-xs);
+  color: #1A237E;
 }
 
 /* Hero Metrics Cards */
@@ -758,65 +864,7 @@ table a:hover {
   overflow: auto;
 }
 
-/* Recommendation Cards */
-.recommendation-card {
-  margin-bottom: var(--spacing-sm);
-}
-
-.recommendation-card details {
-  background: #fff;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition);
-}
-
-.recommendation-card details:hover {
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
-}
-
-.recommendation-card summary {
-  padding: var(--spacing-md);
-  background: #E3F2FD;
-  border-radius: var(--border-radius) var(--border-radius) 0 0;
-  transition: background var(--transition);
-}
-
-.recommendation-card summary:hover {
-  background: #BBDEFB;
-}
-
-.recommendation-content {
-  padding: var(--spacing-md);
-  background: #f9f9f9;
-  border: 1px solid #BBDEFB;
-  border-top: none;
-  border-radius: 0 0 var(--border-radius) var(--border-radius);
-  color: var(--text-dark);
-  line-height: 1.6;
-}
-
-.recommendation-content h4 {
-  margin: 0 0 var(--spacing-sm) 0;
-  font-size: 1rem;
-  color: var(--brand-blue);
-}
-
-.recommendation-content ul {
-  padding-left: var(--spacing-lg);
-  margin: 0;
-}
-
-.recommendation-content li {
-  margin-bottom: var(--spacing-sm);
-}
-
-/* .recommendation-content code {
-  background: #e0e0e069;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-family: 'Courier New', Courier, monospace;
-} */
-
+/* Code Blocks */
 code {
   background: #e0e0e03f;
   padding: 2px 4px;
@@ -954,6 +1002,7 @@ code {
 /* Table Pagination */
 .table-pagination {
   margin-top: var(--spacing-sm);
+  margin-bottom: 32px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1034,9 +1083,6 @@ code {
     width: 120px;
     height: 120px;
   }
-  .health-pie .centered-text {
-    font-size: 1rem;
-  }
 }
 
 @media (max-width: 600px) {
@@ -1071,6 +1117,16 @@ code {
   .progress-text {
     font-size: var(--font-size-xs);
   }
+  .collapsible-container[id$="_recommendations"] details[open] .recommendation-card {
+    padding: var(--spacing-md);
+  }
+  .recommendation-content ul li {
+    padding-left: 28px;
+  }
+  .recommendation-content ul li::before {
+    top: 2px;
+    transform: scale(0.9);
+  }
 }
 
 @media (min-width: 601px) {
@@ -1087,11 +1143,9 @@ code {
   #backToTop {
     display: none !important;
   }
-
   .header .tabs {
     display: none !important;
   }
-
   html, body {
     width: 100%;
     margin: 0;
@@ -1100,11 +1154,9 @@ code {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-
   details {
     display: block;
   }
-
   .tab-content,
   .container,
   .table-container {
@@ -1115,14 +1167,12 @@ code {
     padding: 0 !important;
     margin: 0 !important;
   }
-
   table {
     width: 100% !important;
     table-layout: auto !important;
     border-collapse: collapse;
     word-break: break-word;
   }
-
   th, td {
     padding: var(--spacing-sm) !important;
     border: 1px solid #ddd;
@@ -1131,7 +1181,6 @@ code {
     background-color: inherit !important;
     color: inherit !important;
   }
-
   th {
     height: auto;
   }
