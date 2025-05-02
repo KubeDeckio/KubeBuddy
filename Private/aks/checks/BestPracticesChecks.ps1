@@ -146,5 +146,27 @@ $bestPracticesChecks = @(
         Severity       = "Medium";
         Recommendation = "Align all node pool versions with the control plane to simplify upgrades and reduce risk.";
         URL            = "https://learn.microsoft.com/azure/aks/upgrade-cluster#check-the-current-kubernetes-version"
-    }    
+    },
+    @{
+        ID             = "AKSBP013";
+        Category       = "Best Practices";
+        Name           = "No B-Series VMs in Node Pools";
+        Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.vmSize -like "Standard_B*" }).Count };
+        Expected       = 0;
+        FailMessage    = "One or more node pools are using B-series VMs, which are not recommended for production workloads due to their burstable performance.";
+        Severity       = "High";
+        Recommendation = "Replace B-series VMs with general-purpose VM sizes (e.g., D-series or E-series) for consistent performance in production workloads.";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability#do-not-use-b-series-vms";
+    },
+    @{
+        ID             = "AKSBP014";
+        Category       = "Best Practices";
+        Name           = "Use v5 or Newer SKU VMs for Node Pools";
+        Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.vmSize -notmatch "_v[5-9][0-9]*$" }).Count };
+        Expected       = 0;
+        FailMessage    = "One or more node pools are not using v5 or newer SKU VMs, which may result in reduced performance and reliability during updates.";
+        Severity       = "Medium";
+        Recommendation = "Configure all node pools to use v5 or newer SKU VMs (e.g., Standard_D2_v5, Standard_E4_v6) with ephemeral OS disks for optimal performance and reliability.";
+        URL            = "https://learn.microsoft.com/azure/aks/best-practices-performance-scaling-large-workloads#use-v5-sku-vms";
+    }
 )

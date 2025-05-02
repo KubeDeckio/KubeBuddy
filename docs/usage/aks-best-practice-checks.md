@@ -166,6 +166,8 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**.
 | AKSBP010  | Customized MC_ Resource Group Name        | Medium   |
 | AKSBP011  | System Node Pool Minimum Size             | High     |
 | AKSBP012  | Node Pool Version Matches Control Plane   | Medium   |
+| AKSBP013  | No B-Series VMs in Node Pools             | High     |
+| AKSBP014  | Use v5 or Newer SKU VMs for Node Pools    | Medium   |
 
 ### Disaster Recovery
 
