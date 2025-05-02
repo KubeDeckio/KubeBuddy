@@ -253,14 +253,25 @@ function Invoke-yamlChecks {
                             Total          = 0
                         }
 
-                        if ($scriptResult -is [hashtable] -and $scriptResult.Items) {
-                            $checkResult.Items = $scriptResult.Items
-                            $checkResult.Total = $scriptResult.IssueCount
+                        if ($scriptResult -is [hashtable] -and $scriptResult.ContainsKey("Items")) {
+                            $items = $scriptResult["Items"]
+                            $checkResult.Items = if ($items -is [array]) { $items } else { @($items) }
+                            $checkResult.Total = if ($scriptResult.ContainsKey("IssueCount")) {
+                                $scriptResult["IssueCount"]
+                            }
+                            else {
+                                $checkResult.Items.Count
+                            }
                         }
-                        elseif ($scriptResult) {
+                        elseif ($scriptResult -is [array]) {
                             $checkResult.Items = $scriptResult
                             $checkResult.Total = $scriptResult.Count
                         }
+                        elseif ($scriptResult) {
+                            # Catch anything else not a hashtable or array, but still not null
+                            $checkResult.Items = @($scriptResult)
+                            $checkResult.Total = 1
+                        }                        
 
                         if ($checkResult.Total -eq 0) {
                             $checkResult.Message = "No issues detected for $($check.Name)."
