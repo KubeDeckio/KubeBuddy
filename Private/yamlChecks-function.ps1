@@ -511,8 +511,12 @@ function Invoke-yamlChecks {
                                 $recContent += "<ul>$urlHtml</ul>"
                             }
                         }
-                        @"
+@"
 <div class="recommendation-card">
+<div class="recommendation-banner">
+  <span class="material-icons">tips_and_updates</span>
+  Recommended Actions
+</div>
   $recContent
 </div>
 <div style='height: 15px;'></div>
@@ -543,6 +547,10 @@ function Invoke-yamlChecks {
                         }
                         @"
 <div class="recommendation-card">
+<div class="recommendation-banner">
+  <span class="material-icons">tips_and_updates</span>
+  Recommended Actions
+</div>
   $recContent
 </div>
 <div style='height: 15px;'></div>

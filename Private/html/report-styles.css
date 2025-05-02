@@ -614,18 +614,29 @@ table a:hover {
   color: var(--text-dark);
 }
 
-.recommendation-content::before {
-  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230071FF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20v-6m0-8a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z'/%3E%3Cpath d='M12 2a10 10 0 0 1 7 17.5M12 2a10 10 0 0 0-7 17.5'/%3E%3Cpath d='M8 22h8'/%3E%3C/svg%3E") " Recommended Actions";
-  display: block;
+/* .recommendation-content::before {
+  content: url("data:image/svg+xml,...") " Recommended Actions";
+} */
+
+.recommendation-banner {
+  display: flex;
+  align-items: center;
   font-size: 1rem;
   font-weight: 500;
   color: var(--brand-blue);
-  margin-bottom: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-md);
   background: #E3F2FD;
+  padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--border-radius);
   border-bottom: 1px solid #e0e0e0;
+  margin-bottom: var(--spacing-md);
 }
+
+.recommendation-banner .icon {
+  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  font-size: 20px;
+  margin-right: 8px;
+}
+
 
 .recommendation-content ul {
   list-style: none;
