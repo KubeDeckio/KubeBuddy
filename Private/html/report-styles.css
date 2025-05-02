@@ -293,7 +293,7 @@ body {
 
 .health-score,
 .api-summary,
-.health-pie {
+.health-status {
   display: flex;
   flex-direction: column;
 }
@@ -306,49 +306,24 @@ body {
   line-height: 1.6;
 }
 
-.health-pie {
+.health-status {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   position: relative;
 }
 
-.health-pie h2 {
+.health-status h2 {
   width: 100%;
   text-align: left;
   margin-bottom: var(--spacing-md);
 }
 
-.health-pie svg {
+.health-status svg {
   width: 200px;
   height: 200px;
   display: block;
   margin: 0 auto;
-}
-
-.centered-donut {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.pie-chart.donut {
-  transform: rotate(-90deg);
-}
-
-.donut-ring {
-  stroke: #ECEFF1;
-  fill: none;
-}
-
-@keyframes fillDonut {
-  from {
-    stroke-dasharray: 0, 100;
-  }
-  to {
-    stroke-dasharray: var(--percent, 0), 100;
-  }
 }
 
 /* API Server Health (livez and readyz boxes) */
@@ -407,32 +382,76 @@ body {
 
 /* Progress Bar */
 .progress-bar {
-  background: #eee;
+  background: #e0e0e0; /* Material Design neutral gray */
   border-radius: 16px;
-  height: 30px;
+  height: 32px; /* Taller for touch targets */
   overflow: hidden;
   position: relative;
-  transition: background var(--transition);
+  box-shadow: var(--shadow-sm); /* Material Design elevation */
+  transition: box-shadow var(--transition);
+}
+
+.progress-bar:hover {
+  box-shadow: var(--shadow-md); /* Elevate on hover */
 }
 
 .progress {
   border-radius: 16px;
   height: 100%;
-  background-size: 200% 100%;
-  background-position: left center;
-  transition: width 1s ease-out, background-position 1s ease-out;
+  background: var(--brand-blue); /* Fallback color */
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.25) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.25) 75%,
+    transparent 75%,
+    transparent
+  ); /* Diagonal stripes for active feel */
+  background-size: 40px 40px;
+  animation: moveStripes 1.2s linear infinite; /* Faster stripes for energy */
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease; /* Material Design easing */
+  position: relative;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2); /* Inner shadow for depth */
 }
 
+/* Glow effect for progress edge */
+.progress::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.5), transparent);
+  animation: glowPulse 1.5s ease-in-out infinite; /* Subtle glow to replace pulse dot */
+}
+
+/* Striped animation */
+@keyframes moveStripes {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+
+/* Glow animation */
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Progress text */
 .progress-text {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   font-weight: 700;
-  color: var(--brand-blue);
+  font-family: 'Roboto Mono', monospace; /* Material Design monospace */
+  color: var(--text-light);
   z-index: 2;
   font-size: var(--font-size-sm);
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); /* Enhance readability */
 }
 
 /* Tables */
@@ -1014,7 +1033,7 @@ code {
     padding: var(--spacing-sm);
     max-width: 120px;
   }
-  .health-pie svg {
+  .health-status svg {
     width: 120px;
     height: 120px;
   }
@@ -1119,9 +1138,109 @@ code {
   th {
     height: auto;
   }
+  .progress-bar {
+    box-shadow: none;
+    height: 20px;
+  }
+  .progress {
+    animation: none;
+    background-image: none;
+    box-shadow: none;
+  }
+  .progress::after {
+    display: none;
+  }
+  .progress-text {
+    color: #000;
+    text-shadow: none;
+  }
+  .health-status svg {
+    width: 100px;
+    height: 100px;
+  }
 }
 
 @keyframes flashHighlight {
   0% { background-color: #ffff99; }
   100% { background-color: transparent; }
+}
+
+.health-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  position: relative;
+  margin: 0;
+}
+
+.health-status h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--brand-blue);
+  margin: 0 0 var(--spacing-md);
+  text-align: left;
+  transition: color var(--transition);
+}
+
+.health-status:hover h2 {
+  color: var(--brand-blue-dk);
+}
+
+.status-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.health-status:hover .status-container {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.status-text {
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: 'Roboto Mono', monospace;
+  color: var(--text-dark);
+  opacity: 1;
+  transition: color var(--transition);
+}
+
+.health-status:hover .status-text {
+  color: #263238;
+}
+
+.count-up {
+  display: inline-block;
+  min-width: 2em;
+  text-align: center;
+}
+
+.count-up:first-child {
+  transition: color var(--transition);
+}
+
+.status-chip {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.health-status:hover .status-chip {
+  transform: scale(1.2);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Add description styling to match other sections */
+.health-status p {
+  margin: var(--spacing-sm) 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-dark);
+  line-height: 1.6;
 }

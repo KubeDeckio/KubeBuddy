@@ -348,33 +348,54 @@ document.addEventListener('DOMContentLoaded', () => {
             progress.style.background = color;
             setTimeout(() => {
                 if (dot) {
-                    dot.style.left = `${score - 4}%`; // Adjusted for total width (24px / 2 = 12px ≈ 4%)
+                    dot.style.left = `${score - 4}%`;
                     dot.style.display = 'block';
                     dot.style.background = color;
                     dot.style.border = `4px solid ${color}`;
-                    dot.style.opacity = '1'; // Ensure visibility without pulse
+                    dot.style.opacity = '1';
                 }
             }, 1000);
         });
     });
 
-    // Donut Chart Animation
-    const pieChart = document.querySelector('.pie-chart');
-    const donutSegment = document.querySelector('.donut-segment');
+    // Status Chip Animation (New Section)
+    try {
+        const statusContainer = document.querySelector('.status-container');
+        const statusChip = document.querySelector('.status-chip');
+        const countElements = document.querySelectorAll('.count-up');
 
-    if (pieChart && donutSegment) {
-        const percent = parseFloat(getComputedStyle(pieChart).getPropertyValue('--percent') || '0');
-        const checksElement = pieChart.querySelector('text');
-        const checksText = checksElement?.textContent.match(/(\d+)\/(\d+)/);
-        const passed = parseInt(checksText?.[1]) || 0;
-        const total = parseInt(checksText?.[2]) || 0;
-        const passedPercent = total > 0 ? (passed / total) * 100 : percent;
-        const score = passedPercent;
-        const color = getScoreColor(score);
+        if (statusContainer && statusChip && countElements.length) {
+            // Apply color to the status chip
+            const percent = parseFloat(statusContainer.getAttribute('data-percent') || '0');
+            const color = getScoreColor(percent);
+            statusChip.style.background = color;
+            console.log('Status chip colored:', color, 'percent:', percent);
 
-        donutSegment.style.stroke = color;
-        console.log('Donut chart filled with color:', color, 'passedPercent:', passedPercent);
+            // Counting animation for numbers
+            function animateCountUp(element, target, duration) {
+                let start = 0;
+                const increment = target / (duration / 16); // 60 FPS
+                let current = start;
 
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        current = target;
+                        clearInterval(timer);
+                    }
+                    element.textContent = Math.round(current);
+                }, 16);
+            }
+
+            countElements.forEach(element => {
+                const target = parseInt(element.getAttribute('data-count'), 10);
+                animateCountUp(element, target, 1500); // 1.5s duration
+            });
+        } else {
+            console.error('Status chip or count elements not found');
+        }
+    } catch (e) {
+        console.error('Status Chip Animation Error:', e);
     }
 });
 

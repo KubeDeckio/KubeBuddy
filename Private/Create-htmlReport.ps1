@@ -274,21 +274,16 @@ $scoreBarHtml = @"
     $passedChecks += $aksPass
   }
 
-  $issuesChecks = $totalChecks - $passedChecks
-  $passedPercent = if ($totalChecks -gt 0) { [math]::Round(($passedChecks / $totalChecks) * 100, 2) } else { 0 }
-
-  $donutStroke = $scoreColor
-
-# Donut Chart
-$pieChartHtml = @"
-<div class="passed-failed-checks">
+$healthStatusHtml = @"
+<div class="health-status">
   <h2>Passed / Failed Checks</h2>
-  <svg class="pie-chart donut" width="120" height="120" viewBox="0 0 36 36" style="--percent: $passedPercent;" role="img" aria-label="Passed Checks: $passedChecks out of $totalChecks">
-    <title>Passed Checks: $passedChecks out of $totalChecks</title>
-    <circle class="donut-ring" cx="18" cy="18" r="15.9155" stroke="#ECEFF1" stroke-width="4" fill="transparent"/>
-    <circle class="donut-segment" cx="18" cy="18" r="15.9155" stroke-width="4" stroke-dasharray="$passedPercent, 100" stroke-dashoffset="25" stroke-linecap="round" fill="transparent"/>
-    <text x="18" y="20.5" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#37474F" transform="rotate(90 18 18)">$passedChecks/$totalChecks</text>
-  </svg>
+  <div class="status-container">
+    <span class="status-text">
+      <span class="count-up" data-count="$passedChecks">0</span>/<span class="count-up" data-count="$totalChecks">0</span> Passed
+    </span>
+    <span class="status-chip"></span>
+  </div>
+  <p style="margin-top:10px; font-size:16px;">This shows the number of health checks that passed out of the total checks performed across the cluster. A higher pass rate indicates better overall cluster health.</p>
 </div>
 "@
 
@@ -423,8 +418,8 @@ $pieChartHtml = @"
         <h2>API Server Health</h2>
         $apiHealthHtml
       </div>
-      <div class="health-pie centered-donut">
-        $pieChartHtml
+      <div class="health-status">
+        $healthStatusHtml
       </div>
     </div>
   </div>
