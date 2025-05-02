@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.18] - 2025-05-02
+
+### Added
+- **New AKS Best Practice Checks**:
+  - Added `AKSBP013`: "No B-Series VMs in Node Pools" to ensure node pools do not use burstable B-series VMs, which can lead to inconsistent performance in production workloads (Severity: High).
+  - Added `AKSBP014`: "Use v5 or Newer SKU VMs for Node Pools" to enforce the use of v5 or newer VM SKUs for better performance and reliability during updates (Severity: Medium).
+- Total checks now at **92** across all categories.
+
+### Changed
+- **Updated Recommendations for All Checks**:
+  - Added links to relevant documentation in the recommendations for all checks across all categories (Best Practices, Disaster Recovery, Identity & Access, Monitoring & Logging, Networking, Resource Management, and Security), providing actionable guidance for each check.
+- **Replaced Cluster Health Score Donut with Passed/Failed Chip**:
+  - Removed the circular progress bar (donut) for the Cluster Health Score in the dashboard.
+  - Replaced it with a chip-style element for "Passed / Failed Checks" (e.g., "45 / 92 Passed"), aligning with the existing chip design for consistency.
+- **Updated Chip Color Logic in Dashboard**:
+  - Adjusted the pass rate thresholds for the "Passed / Failed Checks" chip to better reflect cluster health:
+    - Red (Critical): <48% pass rate (lowered from 50% to account for near-threshold states).
+    - Yellow (Warning): 48%–79% pass rate.
+    - Green (Healthy): ≥80% pass rate.
+  - With the current pass rate of 48.91% (45/92), the chip now displays as yellow instead of red, aligning with the updated threshold.
+
+### Fixed
+- **NET003 Check**:
+  - Fixed an issue with the `AKSNET003` ("Web App Routing Enabled") check to ensure it correctly evaluates the configuration and reports accurate results.
+
+### Notes
+- **HTML Report Update**:
+  - Improved the visual design of the HTML report for better readability and user experience, as part of ongoing enhancements to the reporting interface.
+
 ## [0.0.17] - 2025-04-25
 
 ### Added
