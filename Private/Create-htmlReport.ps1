@@ -252,16 +252,17 @@ $heroRatingHtml
     "#F44336"
   }
 
-  $scoreBarHtml = @"
+# Cluster Health Score Bar
+$scoreBarHtml = @"
 <div class="score-container">
-<p>Score: <strong>$clusterScore / 100</strong></p>
-<div class="progress-bar" style="--cluster-score: $clusterScore%; --score-color: $scoreColor;">
-  <div class="progress">
-    <span class="progress-text">$clusterScore%</span>
+  <h2 class="cluster-health-score">Cluster Health Score</h2>
+  <p>Score: <strong>$clusterScore / 100</strong></p>
+  <div class="progress-bar" style="--cluster-score: $clusterScore;" role="progressbar" aria-label="Cluster Health Score: $clusterScore out of 100">
+    <div class="progress" style="width: 0%;">
+      <span class="progress-text">$clusterScore%</span>
+    </div>
   </div>
-</div>
-<p style="margin-top:10px; font-size:16px;">This score is calculated from key checks across nodes, workloads, security, and configuration best practices.
-A higher score means fewer issues and better adherence to Kubernetes standards.</p>
+  <p style="margin-top:10px; font-size:16px;">This score is calculated from key checks across nodes, workloads, security, and configuration best practices. A higher score means fewer issues and better adherence to Kubernetes standards.</p>
 </div>
 "@
 
@@ -278,29 +279,18 @@ A higher score means fewer issues and better adherence to Kubernetes standards.<
 
   $donutStroke = $scoreColor
 
-  $pieChartHtml = @"
-<svg class="pie-chart donut" width="120" height="120" viewBox="0 0 36 36" style="--percent: $passedPercent;">
-<circle class="donut-ring"
-        cx="18" cy="18" r="15.9155"
-        stroke="#ECEFF1"
-        stroke-width="4"
-        fill="transparent"/>
-<circle class="donut-segment"
-        cx="18" cy="18" r="15.9155"
-        stroke="$donutStroke"
-        stroke-width="4"
-        stroke-dasharray="$passedPercent, 100"
-        stroke-dashoffset="25"
-        stroke-linecap="round"
-        fill="transparent"/>
-<text x="18" y="20.5" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#37474F"
-transform="rotate(90 18 18)">
-$passedChecks/$totalChecks
-</text>
-<circle id="pulseDot" r="0.6" fill="$donutStroke"/>
-</svg>
+# Donut Chart
+$pieChartHtml = @"
+<div class="passed-failed-checks">
+  <h2>Passed / Failed Checks</h2>
+  <svg class="pie-chart donut" width="120" height="120" viewBox="0 0 36 36" style="--percent: $passedPercent;" role="img" aria-label="Passed Checks: $passedChecks out of $totalChecks">
+    <title>Passed Checks: $passedChecks out of $totalChecks</title>
+    <circle class="donut-ring" cx="18" cy="18" r="15.9155" stroke="#ECEFF1" stroke-width="4" fill="transparent"/>
+    <circle class="donut-segment" cx="18" cy="18" r="15.9155" stroke-width="4" stroke-dasharray="$passedPercent, 100" stroke-dashoffset="25" stroke-linecap="round" fill="transparent"/>
+    <text x="18" y="20.5" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#37474F" transform="rotate(90 18 18)">$passedChecks/$totalChecks</text>
+  </svg>
+</div>
 "@
-
 
   for ($i = 0; $i -lt $clusterSummaryRaw.Count; $i++) {
     $line = [string]$clusterSummaryRaw[$i] -replace "`r", "" -replace "`n", ""
@@ -427,7 +417,6 @@ $passedChecks/$totalChecks
     <p><strong>Cluster Name:</strong> $ClusterName</p>
     <div class="cluster-health">
       <div class="health-score">
-        <h2>Cluster Health Score</h2>
         $scoreBarHtml
       </div>
       <div class="api-summary">
@@ -435,7 +424,6 @@ $passedChecks/$totalChecks
         $apiHealthHtml
       </div>
       <div class="health-pie centered-donut">
-        <h2>Passed / Failed Checks</h2>
         $pieChartHtml
       </div>
     </div>
@@ -458,7 +446,15 @@ $passedChecks/$totalChecks
     <table>
       <tr><td>Avg: <strong>$podAvg</strong></td><td>Max: <strong>$podMax</strong></td><td>Min: <strong>$podMin</strong></td><td>Total Nodes: <strong>$podTotalNodes</strong></td></tr>
     </table>
-    <h2>Resource Usage <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Cluster-wide CPU and memory usage.</span></span></h2>
+    <h2>Resource Usage 
+      <span class="tooltip">
+        <span class="info-icon">i</span>
+        <span class="tooltip-text">
+          Cluster-wide CPU and memory usage. This reflects a snapshot taken at report generation time.
+        </span>
+      </span>
+    </h2>
+    <p style="font-size: 14px; color: #666; margin-top: -10px;">🕒 Snapshot time: <strong>$today</strong></p>
     <div class="hero-metrics">
       <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
       <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
@@ -471,7 +467,6 @@ $passedChecks/$totalChecks
       <div class="metric-card $warningClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
         ⚠️ Warnings: <strong>$eventWarnings</strong>
       </div>
-
     </div>
     $excludedNamespacesHtml
   </div>

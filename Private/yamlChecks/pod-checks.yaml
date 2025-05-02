@@ -8,7 +8,7 @@ checks:
     Weight: 3
     Description: "Detects pods that have restarted more than the defined threshold."
     FailMessage: "Some pods have restarted excessively, which may indicate instability or crashes."
-    url: "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#application-crashes"
+    URL: "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#application-crashes"
     Recommendation:
       text: "Review logs and events for frequently restarting pods and address root causes such as crashes, missing configs, or failing probes."
       html: |
@@ -84,7 +84,7 @@ checks:
     Weight: 2
     Description: "Flags pods that have been running longer than configured thresholds."
     FailMessage: "Some pods have been running longer than expected, which may indicate stale or unmanaged workloads."
-    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
+    URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
     Recommendation:
       text: "Review long-running pods and determine if they should be restarted or replaced by updated deployments."
       html: |
@@ -154,7 +154,7 @@ checks:
     Weight: 4
     Description: "Detects pods in a failed phase, typically due to startup errors, crashes, or misconfiguration."
     FailMessage: "Some pods are stuck in the 'Failed' phase. These workloads are not running and require attention."
-    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
+    URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
     Recommendation:
       text: "Investigate failed pods for common issues like image errors, resource constraints, or crash loops."
       html: |
@@ -203,7 +203,7 @@ checks:
     Weight: 3
     Description: "Detects pods stuck in a 'Pending' state due to scheduling or resource issues."
     FailMessage: "Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions."
-    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
+    URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase"
     Recommendation:
       text: "Inspect scheduling constraints, resource availability, and missing dependencies."
       html: |
@@ -252,7 +252,7 @@ checks:
     Weight: 4
     Description: "Identifies pods stuck in a CrashLoopBackOff state due to repeated container crashes."
     FailMessage: "Some pods are stuck restarting in CrashLoopBackOff. These workloads are not stable."
-    url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy"
+    URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy"
     Recommendation:
       text: "Check logs, investigate container errors, and fix misconfigurations."
       html: |
@@ -305,7 +305,7 @@ checks:
     Weight: 2
     Description: "Detects pods created by 'kubectl debug' that haven't been cleaned up."
     FailMessage: "Leftover debug pods were found. These may waste resources or pose a security risk."
-    url: "https://kubernetes.io/docs/tasks/debug/debug-cluster/debug-running-pod/"
+    URL: "https://kubernetes.io/docs/tasks/debug/debug-cluster/debug-running-pod/"
     Recommendation:
       text: "Delete any leftover debug pods and review your debugging practices."
       html: |

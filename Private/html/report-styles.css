@@ -342,45 +342,12 @@ body {
   fill: none;
 }
 
-.donut-segment {
-  fill: none;
-  stroke-linecap: round;
-  transition: stroke-dasharray 1s ease-out;
-  animation: fillDonut 1s ease-out forwards;
-}
-
 @keyframes fillDonut {
   from {
     stroke-dasharray: 0, 100;
   }
   to {
     stroke-dasharray: var(--percent, 0), 100;
-  }
-}
-
-#pulseDot {
-  opacity: 0;
-  transition: opacity var(--transition);
-  pointer-events: none;
-}
-
-.pulse {
-  animation: pulseAnim 1s ease-out infinite;
-  opacity: 1;
-}
-
-@keyframes pulseAnim {
-  0% {
-    r: 2;
-    opacity: 1;
-  }
-  50% {
-    r: 3.5;
-    opacity: 0.6;
-  }
-  100% {
-    r: 2;
-    opacity: 1;
   }
 }
 
@@ -441,7 +408,7 @@ body {
 /* Progress Bar */
 .progress-bar {
   background: #eee;
-  border-radius: 10px;
+  border-radius: 16px;
   height: 30px;
   overflow: hidden;
   position: relative;
@@ -449,9 +416,11 @@ body {
 }
 
 .progress {
-  background-color: var(--score-color, #2196F3);
+  border-radius: 16px;
   height: 100%;
-  transition: width 1s ease-out;
+  background-size: 200% 100%;
+  background-position: left center;
+  transition: width 1s ease-out, background-position 1s ease-out;
 }
 
 .progress-text {
@@ -464,40 +433,6 @@ body {
   z-index: 2;
   font-size: var(--font-size-sm);
   text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
-}
-
-.pulse-dot {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translate(50%, -50%);
-  width: 10px;
-  height: 10px;
-  background: white;
-  border: 2px solid var(--score-color, #2196F3);
-  border-radius: 50%;
-  opacity: 0;
-  transition: opacity var(--transition);
-}
-
-.pulse-dot.pulse {
-  animation: pulse 1.5s infinite;
-  opacity: 1;
-}
-
-@keyframes pulse {
-  0% {
-    transform: translate(50%, -50%) scale(1);
-    opacity: 1;
-  }
-  70% {
-    transform: translate(50%, -50%) scale(1.5);
-    opacity: 0.3;
-  }
-  100% {
-    transform: translate(50%, -50%) scale(1);
-    opacity: 1;
-  }
 }
 
 /* Tables */

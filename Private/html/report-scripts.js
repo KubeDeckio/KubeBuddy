@@ -7,8 +7,16 @@ window.addEventListener('scroll', function () {
 // Global print state
 let isPrinting = false;
 
-document.addEventListener('DOMContentLoaded', function () {
-    console.log('DOM fully loaded, initializing scripts'); 
+// Utility to get color based on score
+function getScoreColor(score) {
+    if (score < 40) return '#B71C1C'; // Red
+    if (score < 70) return '#ffa000'; // Orange
+    return '#4CAF50'; // Green
+}
+
+// Consolidate all DOMContentLoaded listeners
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM fully loaded, initializing scripts');
 
     // Navigation Drawer
     try {
@@ -111,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     tabContents.forEach(tc => tc.classList.add('active'));
                 } catch (e) {
                     console.warn('Tab printing adjustment failed:', e);
-                }                
+                }
 
                 setTimeout(() => {
                     window.print();
@@ -120,7 +128,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 window.onafterprint = function () {
                     console.log('PDF print complete, restoring original state');
                     isPrinting = false;
-                    // Restore original tab state after print
                     tabContents.forEach(tc => {
                         if (tc !== originalActiveContent) {
                             tc.classList.remove('active');
@@ -179,29 +186,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 console.log(`Setting up collapsible for ID: ${id}`);
 
-                // Initialize sorting state for this table
                 collapsibleContainer.sortState = {
                     columnIndex: null,
                     ascending: true
                 };
 
                 detail.addEventListener('toggle', () => {
-                    // Store the original text if not already stored
                     if (!summary.getAttribute('data-original-text')) {
                         summary.setAttribute('data-original-text', defaultText);
                     }
-                
+
                     const originalText = summary.getAttribute('data-original-text');
-                
-                    // Toggle between "Show" and "Hide" while preserving the section name
+
                     if (detail.open) {
                         summary.textContent = originalText.replace('Show', 'Hide');
                     } else {
                         summary.textContent = originalText.replace('Hide', 'Show');
                     }
-                
+
                     const pagination = collapsibleContainer.querySelector('.table-pagination');
-                    
+
                     if (detail.open) {
                         console.log(`Toggled open: ${id}, calling paginateTable`);
                         setTimeout(() => paginateTable(collapsibleContainer), 200);
@@ -211,15 +215,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
 
-                // Add sorting functionality to table headers
                 const table = collapsibleContainer.querySelector('table');
                 if (table) {
                     const headers = table.querySelectorAll('th');
                     headers.forEach((header, index) => {
-                        header.style.cursor = 'pointer'; // Make header clickable
+                        header.style.cursor = 'pointer';
                         header.addEventListener('click', () => {
                             sortTable(collapsibleContainer, index);
-                            paginateTable(collapsibleContainer); // Re-paginate after sorting
+                            paginateTable(collapsibleContainer);
                         });
                     });
                 }
@@ -233,81 +236,214 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch (e) {
         console.error('Collapsible/Pagination/Sorting Setup Error:', e);
     }
+
+    // Tab Switching
+    const tabs = document.querySelectorAll('.tabs li');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function (e) {
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            const rect = this.getBoundingClientRect();
+            ripple.style.left = (e.clientX - rect.left) + 'px';
+            ripple.style.top = (e.clientY - rect.top) + 'px';
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(tc => tc.classList.remove('active'));
+            tab.classList.add('active');
+
+            const target = tab.getAttribute('data-tab');
+            const content = document.getElementById(target);
+            if (content) {
+                content.classList.add('active');
+
+                const containers = content.querySelectorAll('.collapsible-container');
+                containers.forEach(container => {
+                    const details = container.querySelector('details');
+                    if (details && details.open) {
+                        paginateTable(container);
+                    }
+                });
+            }
+        });
+    });
+
+    // Navigation Drawer Items
+    const tabList = document.querySelectorAll('.header .tabs li');
+    const navItemsContainer = document.querySelector('#navDrawer .nav-items');
+
+    if (navItemsContainer) {
+        navItemsContainer.innerHTML = '';
+
+        tabList.forEach(tab => {
+            const target = tab.getAttribute('data-tab') || tab.textContent.trim().toLowerCase();
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+            const a = document.createElement('a');
+            a.href = '#' + target;
+            a.textContent = tab.textContent.trim();
+            li.appendChild(a);
+            navItemsContainer.appendChild(li);
+        });
+
+        navItemsContainer.querySelectorAll('.nav-item a').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = this.getAttribute('href').substring(1);
+
+                const tabToActivate = document.querySelector(`.header .tabs li[data-tab="${target}"]`);
+                if (tabToActivate) tabToActivate.click();
+
+                const tabContent = document.getElementById(target);
+                if (tabContent) {
+                    tabContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+
+                document.getElementById('navDrawer').classList.remove('open');
+                document.getElementById('navScrim').classList.remove('open');
+                document.body.style.overflow = '';
+            });
+        });
+    }
+
+    // Tabs Overflow Check
+    const tabsContainer = document.querySelector('.header .tabs');
+    const menuFab = document.getElementById('menuFab');
+
+    function checkTabsOverflow() {
+        if (tabsContainer && menuFab) {
+            menuFab.style.display = 'flex';
+            if (tabsContainer.scrollWidth > tabsContainer.clientWidth || window.innerWidth <= 600) {
+                tabsContainer.style.display = 'none';
+            } else {
+                tabsContainer.style.display = 'flex';
+            }
+        }
+    }
+
+    checkTabsOverflow();
+    window.addEventListener('resize', checkTabsOverflow);
+
+    // Cluster Health Score Progress Bar
+    const progressBars = document.querySelectorAll('.progress-bar');
+    progressBars.forEach(bar => {
+        let score = parseFloat(bar.style.getPropertyValue('--cluster-score')) || 0;
+
+        // Fallback: Extract score from the DOM text if --cluster-score isn't set
+        if (score === 0) {
+            const scoreElement = bar.parentElement.querySelector('p');
+            const scoreText = scoreElement?.textContent.match(/Score: (\d+)/)?.[1];
+            score = parseFloat(scoreText) || 0;
+        }
+
+        const progress = bar.querySelector('.progress');
+        const dot = bar.querySelector('.pulse-dot');
+        const color = getScoreColor(score);
+
+        requestAnimationFrame(() => {
+            progress.style.width = `${score}%`;
+            progress.style.background = color;
+            setTimeout(() => {
+                if (dot) {
+                    dot.style.left = `${score - 4}%`; // Adjusted for total width (24px / 2 = 12px ≈ 4%)
+                    dot.style.display = 'block';
+                    dot.style.background = color;
+                    dot.style.border = `4px solid ${color}`;
+                    dot.style.opacity = '1'; // Ensure visibility without pulse
+                }
+            }, 1000);
+        });
+    });
+
+    // Donut Chart Animation
+    const pieChart = document.querySelector('.pie-chart');
+    const donutSegment = document.querySelector('.donut-segment');
+
+    if (pieChart && donutSegment) {
+        const percent = parseFloat(getComputedStyle(pieChart).getPropertyValue('--percent') || '0');
+        const checksElement = pieChart.querySelector('text');
+        const checksText = checksElement?.textContent.match(/(\d+)\/(\d+)/);
+        const passed = parseInt(checksText?.[1]) || 0;
+        const total = parseInt(checksText?.[2]) || 0;
+        const passedPercent = total > 0 ? (passed / total) * 100 : percent;
+        const score = passedPercent;
+        const color = getScoreColor(score);
+
+        donutSegment.style.stroke = color;
+        console.log('Donut chart filled with color:', color, 'passedPercent:', passedPercent);
+
+    }
 });
 
 // Sorting Function
 function sortTable(collapsibleContainer, columnIndex) {
     try {
-      const id = collapsibleContainer.id;
-      console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
-      const table = collapsibleContainer.querySelector('table');
-      if (!table) {
-        console.error(`Table not found in collapsible container: ${id}`);
-        return;
-      }
-  
-      const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
-      const headerRow = allRows.find(row => row.querySelector('th')) || null;
-      const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
-  
-      // Determine sort direction
-      const sortState = collapsibleContainer.sortState;
-      if (sortState.columnIndex === columnIndex) {
-        sortState.ascending = !sortState.ascending; // Toggle direction
-      } else {
-        sortState.columnIndex = columnIndex;
-        sortState.ascending = true;
-      }
-  
-      // Update header to show sort direction
-      const headers = table.querySelectorAll('th');
-      headers.forEach((header, idx) => {
-        // Remove existing arrows
-        header.innerHTML = header.innerHTML.replace(/ <span class="sort-arrow">.*<\/span>$/, '');
-        if (idx === columnIndex) {
-          // Add arrow with .sort-arrow class
-          header.innerHTML += ` <span class="sort-arrow">${sortState.ascending ? '↑' : '↓'}</span>`;
+        const id = collapsibleContainer.id;
+        console.log(`sortTable called for ID: ${id}, column: ${columnIndex}`);
+        const table = collapsibleContainer.querySelector('table');
+        if (!table) {
+            console.error(`Table not found in collapsible container: ${id}`);
+            return;
         }
-      });
-  
-      // Sort the rows
-      dataRows.sort((rowA, rowB) => {
-        let cellA = rowA.cells[columnIndex].textContent.trim();
-        let cellB = rowB.cells[columnIndex].textContent.trim();
-  
-        // Handle special cases for specific columns (e.g., Status, Severity)
-        if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
-          return sortState.ascending ? -1 : 1;
-        } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
-          return sortState.ascending ? 1 : -1;
-        }
-  
-        if (columnIndex === 2) { // Severity column
-          const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
-          const valA = severityOrder[cellA] || 0;
-          const valB = severityOrder[cellB] || 0;
-          return sortState.ascending ? valA - valB : valB - valA;
-        }
-  
-        // Default sorting (alphabetical or numerical)
-        const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
-        if (isNumeric) {
-          return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
+
+        const allRows = Array.from(table.querySelectorAll('tr')).filter(row => row.cells.length > 0);
+        const headerRow = allRows.find(row => row.querySelector('th')) || null;
+        const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
+
+        const sortState = collapsibleContainer.sortState;
+        if (sortState.columnIndex === columnIndex) {
+            sortState.ascending = !sortState.ascending;
         } else {
-          return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+            sortState.columnIndex = columnIndex;
+            sortState.ascending = true;
         }
-      });
-  
-      // Rebuild the table body with sorted rows
-      const tbody = table.querySelector('tbody') || table;
-      dataRows.forEach(row => tbody.appendChild(row));
-  
-      console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
+
+        const headers = table.querySelectorAll('th');
+        headers.forEach((header, idx) => {
+            header.innerHTML = header.innerHTML.replace(/ <span class="sort-arrow">.*<\/span>$/, '');
+            if (idx === columnIndex) {
+                header.innerHTML += ` <span class="sort-arrow">${sortState.ascending ? '↑' : '↓'}</span>`;
+            }
+        });
+
+        dataRows.sort((rowA, rowB) => {
+            let cellA = rowA.cells[columnIndex].textContent.trim();
+            let cellB = rowB.cells[columnIndex].textContent.trim();
+
+            if (columnIndex === 4 && cellA.includes('PASS') && cellB.includes('FAIL')) {
+                return sortState.ascending ? -1 : 1;
+            } else if (columnIndex === 4 && cellA.includes('FAIL') && cellB.includes('PASS')) {
+                return sortState.ascending ? 1 : -1;
+            }
+
+            if (columnIndex === 2) {
+                const severityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+                const valA = severityOrder[cellA] || 0;
+                const valB = severityOrder[cellB] || 0;
+                return sortState.ascending ? valA - valB : valB - valA;
+            }
+
+            const isNumeric = !isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB));
+            if (isNumeric) {
+                return sortState.ascending ? parseFloat(cellA) - parseFloat(cellB) : parseFloat(cellB) - parseFloat(cellA);
+            } else {
+                return sortState.ascending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+            }
+        });
+
+        const fragment = document.createDocumentFragment();
+        dataRows.forEach(row => fragment.appendChild(row));
+        const tbody = table.querySelector('tbody') || table;
+        tbody.appendChild(fragment);
+
+        console.log(`Table sorted for ${id}, column ${columnIndex}, ascending: ${sortState.ascending}`);
     } catch (e) {
-      console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
+        console.error(`Sorting Error for ${collapsibleContainer.id}:`, e);
     }
 }
-
 
 // Pagination Function with Sliding Window
 function paginateTable(collapsibleContainer) {
@@ -348,7 +484,7 @@ function paginateTable(collapsibleContainer) {
         let currentPage = 1;
         let pageSize = 10;
         let totalPages = Math.ceil(dataRows.length / pageSize);
-        const maxVisiblePages = 5; // Window of 5 pages
+        const maxVisiblePages = 5;
 
         let pagination = collapsibleContainer.querySelector('.table-pagination');
         if (!pagination) {
@@ -359,6 +495,7 @@ function paginateTable(collapsibleContainer) {
         }
 
         const pageSizeSelect = document.createElement('select');
+        pageSizeSelect.setAttribute('aria-label', 'Items per page');
         [10, 25, 50].forEach(n => {
             const opt = document.createElement('option');
             opt.value = n;
@@ -379,6 +516,7 @@ function paginateTable(collapsibleContainer) {
             btn.textContent = label;
             btn.disabled = disabled;
             if (active) btn.classList.add('active');
+            btn.setAttribute('aria-label', label === '←' ? 'Previous page' : label === '→' ? 'Next page' : `Go to page ${label}`);
             btn.addEventListener('click', onClick);
             return btn;
         }
@@ -393,7 +531,6 @@ function paginateTable(collapsibleContainer) {
         function updatePaginationControls() {
             pagination.innerHTML = '';
 
-            // Previous Button
             pagination.appendChild(createButton('←', () => {
                 if (currentPage > 1) {
                     currentPage--;
@@ -401,27 +538,22 @@ function paginateTable(collapsibleContainer) {
                 }
             }, currentPage === 1));
 
-            // Calculate the range of pages to display
             let startPage, endPage;
             const halfWindow = Math.floor(maxVisiblePages / 2);
 
             if (totalPages <= maxVisiblePages) {
-                // If total pages are less than or equal to the window size, show all pages
                 startPage = 1;
                 endPage = totalPages;
             } else {
-                // Center the current page in the window
                 startPage = Math.max(1, currentPage - halfWindow);
                 endPage = startPage + maxVisiblePages - 1;
 
-                // Adjust if the end page exceeds total pages
                 if (endPage > totalPages) {
                     endPage = totalPages;
                     startPage = Math.max(1, endPage - maxVisiblePages + 1);
                 }
             }
 
-            // Add ellipsis before if there are pages before startPage
             if (startPage > 1) {
                 pagination.appendChild(createButton(1, () => {
                     currentPage = 1;
@@ -432,7 +564,6 @@ function paginateTable(collapsibleContainer) {
                 }
             }
 
-            // Show the page numbers in the calculated range
             for (let i = startPage; i <= endPage; i++) {
                 pagination.appendChild(createButton(i, () => {
                     currentPage = i;
@@ -440,7 +571,6 @@ function paginateTable(collapsibleContainer) {
                 }, false, i === currentPage));
             }
 
-            // Add ellipsis after and last page if there are pages after endPage
             if (endPage < totalPages) {
                 if (endPage < totalPages - 1) {
                     pagination.appendChild(createEllipsis());
@@ -451,7 +581,6 @@ function paginateTable(collapsibleContainer) {
                 }, false, currentPage === totalPages));
             }
 
-            // Next Button
             pagination.appendChild(createButton('→', () => {
                 if (currentPage < totalPages) {
                     currentPage++;
@@ -459,7 +588,6 @@ function paginateTable(collapsibleContainer) {
                 }
             }, currentPage === totalPages));
 
-            // Page Size Selector
             pagination.appendChild(pageSizeSelect);
 
             console.log(`Pagination controls updated for ${id}, page ${currentPage}/${totalPages}, range ${startPage}-${endPage}`);
@@ -487,24 +615,20 @@ function paginateTable(collapsibleContainer) {
     }
 }
 
+// Switch Tab Function
 function switchTab(tabName) {
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(function(tab) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
 
-    // Remove active class from all tabs
-    document.querySelectorAll('.tabs .tab').forEach(function(tab) {
+    document.querySelectorAll('.tabs .tab').forEach(tab => {
         tab.classList.remove('active');
     });
 
-    // Show selected tab
     document.getElementById(tabName).classList.add('active');
 
-    // Highlight clicked tab
     document.querySelector(`.tabs .tab[data-tab="${tabName}"]`).classList.add('active');
 
-    // Flash highlight effect (only for Kubernetes Events tab)
     if (tabName === "events") {
         const eventsContent = document.getElementById('events');
         if (eventsContent) {
@@ -515,146 +639,3 @@ function switchTab(tabName) {
         }
     }
 }
-
-document.addEventListener('DOMContentLoaded', function(){
-    var tabs = document.querySelectorAll('.tabs li');
-    var tabContents = document.querySelectorAll('.tab-content');
-    
-    tabs.forEach(function(tab){
-        tab.addEventListener('click', function(e){
-            // Material ripple effect
-            const ripple = document.createElement('span');
-            ripple.className = 'ripple';
-            const rect = this.getBoundingClientRect();
-            ripple.style.left = (e.clientX - rect.left) + 'px';
-            ripple.style.top = (e.clientY - rect.top) + 'px';
-            this.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 600);
-
-            // Switch active tab
-            tabs.forEach(function(t){ t.classList.remove('active'); });
-            tabContents.forEach(function(tc){ tc.classList.remove('active'); });
-            tab.classList.add('active');
-            
-            var target = tab.getAttribute('data-tab');
-            var content = document.getElementById(target);
-            if(content) { 
-                content.classList.add('active');
-
-                // Reinitialize pagination
-                var containers = content.querySelectorAll('.collapsible-container');
-                containers.forEach(function(container){
-                    var details = container.querySelector('details');
-                    if(details && details.open) {
-                        paginateTable(container);
-                    }
-                });
-            }
-        });
-    });
-});
-
-  document.addEventListener('DOMContentLoaded', function () {
-    const tabList = document.querySelectorAll('.header .tabs li');
-    const navItemsContainer = document.querySelector('#navDrawer .nav-items');
-
-    if (navItemsContainer) {
-        navItemsContainer.innerHTML = ''; // Clear existing items
-
-        tabList.forEach(tab => {
-            const target = tab.getAttribute('data-tab') || tab.textContent.trim().toLowerCase();
-            const li = document.createElement('li');
-            li.className = 'nav-item';
-            const a = document.createElement('a');
-            a.href = '#' + target;
-            a.textContent = tab.textContent.trim();
-            li.appendChild(a);
-            navItemsContainer.appendChild(li);
-        });
-
-        // Bind click handlers after items are added
-        navItemsContainer.querySelectorAll('.nav-item a').forEach(link => {
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = this.getAttribute('href').substring(1);
-
-                // Activate tab in header
-                const tabToActivate = document.querySelector(`.header .tabs li[data-tab="${target}"]`);
-                if (tabToActivate) tabToActivate.click();
-
-                // Scroll to top of content
-                const tabContent = document.getElementById(target);
-                if (tabContent) {
-                    tabContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-
-                // Close nav drawer
-                document.getElementById('navDrawer').classList.remove('open');
-                document.getElementById('navScrim').classList.remove('open');
-                document.body.style.overflow = '';
-            });
-        });
-    }
-});
-
-document.addEventListener('DOMContentLoaded', function () {
-    const tabsContainer = document.querySelector('.header .tabs');
-    const menuFab = document.getElementById('menuFab');
-
-    function checkTabsOverflow() {
-        if (tabsContainer && menuFab) {
-            // Always show menuFab
-            menuFab.style.display = 'flex';
-
-            // Hide tabs if they overflow or on small screens
-            if (tabsContainer.scrollWidth > tabsContainer.clientWidth || window.innerWidth <= 600) {
-                tabsContainer.style.display = 'none';
-            } else {
-                tabsContainer.style.display = 'flex';
-            }
-        }
-    }
-
-    checkTabsOverflow();
-    window.addEventListener('resize', checkTabsOverflow);
-
-    const pieChart = document.querySelector('.pie-chart');
-    const pulseDot = document.getElementById('pulseDot');
-  
-    if (pieChart && pulseDot) {
-      const percent = parseFloat(getComputedStyle(pieChart).getPropertyValue('--percent') || '0');
-      const angle = (percent / 100) * 360 - 90;
-      const radius = 15.9155;
-      const center = 18;
-      const rad = angle * Math.PI / 180;
-      const x = center + radius * Math.cos(rad);
-      const y = center + radius * Math.sin(rad);
-  
-      // Wait for arc animation to finish before showing and positioning the dot
-      setTimeout(() => {
-        pulseDot.setAttribute('cx', x.toFixed(2));
-        pulseDot.setAttribute('cy', y.toFixed(2));
-        pulseDot.classList.add('pulse');
-      }, 1000); // match stroke-dasharray transition duration
-    } 
-});
-document.addEventListener('DOMContentLoaded', () => {
-    const progressBars = document.querySelectorAll('.progress-bar');
-  
-    progressBars.forEach(bar => {
-      const score = parseFloat(bar.style.getPropertyValue('--cluster-score')) || 0;
-      const progress = bar.querySelector('.progress');
-      const dot = bar.querySelector('.pulse-dot');
-  
-      // Animate width
-      setTimeout(() => {
-        progress.style.width = `${score}%`;
-      }, 100); // slight delay to trigger transition
-  
-      // Add pulse after animation
-      setTimeout(() => {
-        if (dot) dot.classList.add('pulse');
-      }, 1100); // match the transition duration
-    });
-  });
-  

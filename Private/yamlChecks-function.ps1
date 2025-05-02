@@ -247,29 +247,8 @@ function Invoke-yamlChecks {
                             Severity       = $check.Severity
                             Weight         = $check.Weight
                             Description    = $check.Description
-                            Recommendation = if ($using:Html) {
-                                if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
-                                    $recContent = $check.Recommendation.html
-                                    @"
-<div class="recommendation-card">
-  $recContent
-</div>
-<div style='height: 15px;'></div>
-"@
-                                }
-                                else {
-                                    $check.Recommendation
-                                }
-                            }
-                            else {
-                                if ($check.Recommendation -is [hashtable] -and $check.Recommendation.text) {
-                                    $check.Recommendation.text
-                                }
-                                else {
-                                    $check.Recommendation
-                                }
-                            }
-                            URL            = $check.URL
+                            Recommendation = $check.Recommendation  # Store the raw recommendation (hashtable or string)
+                            URL            = $check["URL"]
                             Items          = @()
                             Total          = 0
                         }
@@ -374,29 +353,8 @@ function Invoke-yamlChecks {
                     Severity       = $check.Severity
                     Weight         = $check.Weight
                     Description    = $check.Description
-                    Recommendation = if ($using:Html) {
-                        if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
-                            $recContent = $check.Recommendation.html
-                            @"
-<div class="recommendation-card">
-  $recContent
-</div>
-<div style='height: 15px;'></div>
-"@
-                        }
-                        else {
-                            $check.Recommendation
-                        }
-                    }
-                    else {
-                        if ($check.Recommendation -is [hashtable] -and $check.Recommendation.text) {
-                            $check.Recommendation.text
-                        }
-                        else {
-                            $check.Recommendation
-                        }
-                    }
-                    URL            = $check.URL
+                    Recommendation = $check.Recommendation  # Store the raw recommendation (hashtable or string)
+                    URL            = $check["URL"]
                     Items          = @()
                     Total          = 0
                 }
@@ -515,10 +473,33 @@ function Invoke-yamlChecks {
                     "<p>✅ All $resourceKindPlural are healthy.</p>"
                 }
 
-                # Recommendation HTML (without nested <details>)
+                # Recommendation HTML: Handle both hashtable and plain string recommendations
                 $recommendationHtml = if ($check.Recommendation) {
                     if ($check.Recommendation -is [hashtable] -and $check.Recommendation.html) {
                         $recContent = $check.Recommendation.html
+                        # Append the URL as an <li> with "Docs: " label if not already present
+                        if ($check.URL -and ($recContent -notmatch [regex]::Escape($check.URL))) {
+                            # Extract a display name from the URL
+                            $urlDisplayName = $check.URL -replace '.*#', ''  # Get the fragment after the last '#'
+                            if (-not $urlDisplayName) {
+                                $urlDisplayName = ($check.URL -split '/')[-1]  # Fallback to last path segment
+                            }
+                            # Clean up and format the display name
+                            $urlDisplayName = $urlDisplayName -replace '-', ' '
+                            $urlDisplayName = (Get-Culture).TextInfo.ToTitleCase($urlDisplayName)
+                            $urlDisplayName = "Kubernetes $urlDisplayName"
+                            $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$urlDisplayName</a></li>"
+
+                            # Check if recContent contains a <ul>
+                            if ($recContent -match '</ul>') {
+                                # Insert the <li> before the closing </ul>
+                                $recContent = $recContent -replace '</ul>', "$urlHtml</ul>"
+                            }
+                            else {
+                                # If no <ul>, wrap the URL in a new <ul>
+                                $recContent += "<ul>$urlHtml</ul>"
+                            }
+                        }
                         @"
 <div class="recommendation-card">
   $recContent
@@ -527,19 +508,89 @@ function Invoke-yamlChecks {
 "@
                     }
                     else {
-                        $check.Recommendation
+                        # Handle plain string recommendations by wrapping in recommendation-card
+                        $recContent = $check.Recommendation
+                        # Append the URL as an <li> with "Docs: " label if not already present
+                        if ($check.URL -and ($recContent -notmatch [regex]::Escape($check.URL))) {
+                            # Extract a display name from the URL
+                            $urlDisplayName = $check.URL -replace '.*#', ''  # Get the fragment after the last '#'
+                            if (-not $urlDisplayName) {
+                                $urlDisplayName = ($check.URL -split '/')[-1]  # Fallback to last path segment
+                            }
+                            # Clean up and format the display name
+                            $urlDisplayName = $urlDisplayName -replace '-', ' '
+                            $urlDisplayName = (Get-Culture).TextInfo.ToTitleCase($urlDisplayName)
+                            $urlDisplayName = "Kubernetes $urlDisplayName"
+                            $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$urlDisplayName</a></li>"
+
+                            # Wrap the plain string in a <ul> and append the URL
+                            $recContent = "<ul><li>$recContent</li>$urlHtml</ul>"
+                        }
+                        else {
+                            # If no URL, still wrap the plain string in a <ul>
+                            $recContent = "<ul><li>$recContent</li></ul>"
+                        }
+                        @"
+<div class="recommendation-card">
+  $recContent
+</div>
+<div style='height: 15px;'></div>
+"@
                     }
                 }
                 else {
-                    ""
+                    # If no recommendation, just show the URL if it exists
+                    if ($check.URL) {
+                        # Extract a display name from the URL
+                        $urlDisplayName = $check.URL -replace '.*#', ''  # Get the fragment after the last '#'
+                        if (-not $urlDisplayName) {
+                            $urlDisplayName = ($check.URL -split '/')[-1]  # Fallback to last path segment
+                        }
+                        # Clean up and format the display name
+                        $urlDisplayName = $urlDisplayName -replace '-', ' '
+                        $urlDisplayName = (Get-Culture).TextInfo.ToTitleCase($urlDisplayName)
+                        $urlDisplayName = "Kubernetes $urlDisplayName"
+                        $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$urlDisplayName</a></li>"
+                        @"
+<div class="recommendation-card">
+  <ul>
+    $urlHtml
+  </ul>
+</div>
+<div style='height: 15px;'></div>
+"@
+                    }
+                    else {
+                        ""
+                    }
                 }
 
-                # Create a separate collapsible section for recommendations if they exist AND either there are issues OR the check should always show recommendations
-                $recommendationSection = if ($recommendationHtml -and ($check.Total -gt 0 -or $check.ID -in $alwaysShowRecommendationsCheckIDs)) {
-                    ConvertToCollapsible -Id "$($check.ID)_recommendations" -defaultText "Show Recommendations" -content $recommendationHtml
+                $recommendationSection = ""
+                # Show recommendation section if there are issues or if the check is in alwaysShowRecommendationsCheckIDs
+                if ($recommendationHtml -and ($check.Total -gt 0 -or $check.ID -in $alwaysShowRecommendationsCheckIDs)) {
+                    $recommendationSection = ConvertToCollapsible -Id "$($check.ID)_recommendations" -defaultText "Show Recommendations" -content $recommendationHtml
                 }
-                else {
-                    ""
+                # Additional case: If there's a URL but no recommendation, show it when there are issues
+                elseif ($check.URL -and $check.Total -gt 0) {
+                    # Extract a display name from the URL
+                    $urlDisplayName = $check.URL -replace '.*#', ''  # Get the fragment after the last '#'
+                    if (-not $urlDisplayName) {
+                        $urlDisplayName = ($check.URL -split '/')[-1]  # Fallback to last path segment
+                    }
+                    # Clean up and format the display name
+                    $urlDisplayName = $urlDisplayName -replace '-', ' '
+                    $urlDisplayName = (Get-Culture).TextInfo.ToTitleCase($urlDisplayName)
+                    $urlDisplayName = "Kubernetes $urlDisplayName"
+                    $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$urlDisplayName</a></li>"
+                    $urlHtml = @"
+<div class="recommendation-card">
+  <ul>
+    $urlHtml
+  </ul>
+</div>
+<div style='height: 15px;'></div>
+"@
+                    $recommendationSection = ConvertToCollapsible -Id "$($check.ID)_recommendations" -defaultText "Show Recommendations" -content $urlHtml
                 }
 
                 # Table content for findings
@@ -651,7 +702,7 @@ $summary
             ScoreList     = $checkScoreList 
         }
     }
-
+    
     # JSON output
     if ($Json) {
         return @{ Total = ($allResults | Measure-Object -Sum -Property Total).Sum; Items = $allResults }

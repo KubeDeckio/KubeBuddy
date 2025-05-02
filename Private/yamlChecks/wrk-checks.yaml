@@ -8,7 +8,7 @@ checks:
     Weight: 2
     Description: "Detects DaemonSets that have fewer running pods than desired."
     FailMessage: "DaemonSet is not running on all desired nodes."
-    url: "https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/"
+    URL: "https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/"
     Recommendation:
       text: "Investigate DaemonSets not fully running. Common causes include taints, node issues, or resource constraints."
       html: |
@@ -59,7 +59,7 @@ checks:
     Weight: 3
     Description: "Detects Deployments where the number of available replicas is less than desired."
     FailMessage: "Deployment has fewer available replicas than desired."
-    url: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/"
+    URL: "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/"
     Recommendation:
       text: "Check Deployments that are not meeting their replica count. This may indicate rollout issues or failed pods."
       html: |
@@ -110,7 +110,7 @@ checks:
     Weight: 3
     Description: "Detects StatefulSets where the number of ready replicas is less than the desired count."
     FailMessage: "StatefulSet has fewer ready replicas than desired."
-    url: "https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/"
+    URL: "https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/"
     Recommendation:
       text: "Investigate StatefulSets with missing ready replicas. This may indicate issues with pod readiness or volume binding."
       html: |
@@ -161,7 +161,7 @@ checks:
     Weight: 1
     Description: "Checks for HPAs that have missing targets, no metrics, or inactive scaling."
     FailMessage: "HPA is misconfigured, inactive, or not scaling correctly."
-    url: "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/"
+    URL: "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/"
     Recommendation:
       text: "Review HorizontalPodAutoscalers with missing targets, no metrics, or disabled scaling."
       html: |
@@ -310,7 +310,7 @@ checks:
     Weight: 3
     Description: "Checks for containers that are missing CPU or memory resource requests or limits."
     FailMessage: "One or more containers are missing resource requests or limits."
-    url: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
     Recommendation:
       text: "Specify resource requests and limits on all containers."
       html: |
