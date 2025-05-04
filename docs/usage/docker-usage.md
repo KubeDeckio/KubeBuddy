@@ -7,142 +7,216 @@ layout: default
 
 # Docker Usage
 
-Run **KubeBuddy powered by KubeDeck** in Docker to scan your Kubernetes cluster and generate reports. This guide covers both generic Kubernetes clusters and AKS clusters using SPN credentials.
+Run **KubeBuddy powered by KubeDeck** in a Docker container to scan your Kubernetes cluster and generate security, configuration, and best-practice reports — no local installation required.
+
+This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compliant Kubernetes cluster.
+
+
+## 🚀 TL;DR (Quick Start — Version Pinned)
+
+```bash
+export tagId="v0.0.19"  # Replace with the desired version
+
+docker run -it --rm \
+  -e KUBECONFIG="/home/kubeuser/.kube/config" \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+````
+
+> ❗ **Always use a pinned version tag. Avoid `latest` to ensure reliability and reproducibility.**
+
 
 ## 🔧 Prerequisites
 
-- Docker installed and running:
+* Docker installed and running:
+
   ```bash
   docker --version
   ```
 
-- Valid Kubernetes context:
+* Valid Kubernetes context:
+
   ```bash
   kubectl config current-context
   ```
 
-- Kubeconfig must exist:
+* Kubeconfig must exist:
+
   ```bash
   ls ~/.kube/config
   ```
 
-### For AKS
+### For AKS Users
 
-- Azure CLI installed and logged in:
+* Azure CLI installed and logged in:
+
   ```bash
   az login
   az --version
   ```
 
-- SPN must have **Cluster Admin** or **KubeBuddy Reader** role.
+* A Service Principal (SPN) with **Cluster Admin** or **KubeBuddy Reader** role
 
-> 📘 See the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for SPN creation, role definition, and AKS prerequisites.
+> 📘 See the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) for SPN creation and role setup.
+
+### (Optional) GitHub CLI
+
+To programmatically fetch the latest released version of KubeBuddy:
+
+* Install GitHub CLI:
+
+  ```bash
+  gh --version
+  ```
+
+* [Installation instructions](https://cli.github.com/)
+
+Example usage:
+
+```bash
+gh release list -R kubedeckio/kubebuddy --limit 1
+export tagId="v0.0.19"  # replace with latest version
+```
+
+Alternatively, visit the [Releases page](https://github.com/kubedeckio/kubebuddy/releases) manually.
 
 
 ## 🐳 Pull the Docker Image
 
-=== "Bash"
-    ```bash
-    export tagId="latest"
-    docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
-    ```
+Always pull a specific version — **do not use `latest`**.
 
-=== "PowerShell"
-    ```powershell
-    $tagId = "latest"
-    docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
-    ```
+### 🔍 Find and Pull the Latest Tagged Version
+
+Use GitHub CLI:
+
+```bash
+gh release list -R kubedeckio/kubebuddy --limit 1
+export tagId="v0.0.19"  # Replace with latest version from output
+docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+Or pull manually from the [Releases page](https://github.com/kubedeckio/kubebuddy/releases).
+
 
 ## 🌐 Environment Variables
 
-| Variable              | Description                          |
-|-----------------------|--------------------------------------|
-| `KUBECONFIG`          | Path to kubeconfig inside container  |
-| `HTML_REPORT`         | Set to `"true"` for HTML report      |
-| `JSON_REPORT`         | Set to `"true"` for JSON report      |
-| `TXT_REPORT`          | Set to `"true"` for plain text       |
-| `AKS_MODE`            | Enable AKS-specific checks           |
-| `CLUSTER_NAME`        | AKS cluster name                     |
-| `RESOURCE_GROUP`      | AKS resource group                   |
-| `SUBSCRIPTION_ID`     | Azure subscription ID                |
-| `AZURE_CLIENT_ID`     | SPN client ID                        |
-| `AZURE_CLIENT_SECRET` | SPN client secret                    |
-| `AZURE_TENANT_ID`     | Azure tenant ID                      |
-| `USE_AKS_REST_API`    | Use Azure REST API (optional)        |
-| `EXCLUDE_NAMESPACES`  | `"true"` to skip system namespaces   |
-| `TERM`                | Set to `"xterm"` to avoid warnings   |
+Set these to control behavior inside the container:
 
-## ▶️ Run KubeBuddy (Non-AKS)
+### 🔹 Required (General)
 
-=== "Bash"
-    ```bash
-    docker run -it --rm \
-      -e KUBECONFIG="/home/kubeuser/.kube/config" \
-      -e HTML_REPORT="true" \
-      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
-      -v $HOME/kubebuddy-report:/app/Reports \
-      ghcr.io/kubedeckio/kubebuddy:$tagId
-    ```
+| Variable                                       | Description                                 |
+| ---------------------------------------------- | ------------------------------------------- |
+| `KUBECONFIG`                                   | Path to the kubeconfig inside the container |
+| One of the report flags (below) must be `true` |                                             |
 
-=== "PowerShell"
-    ```powershell
-    docker run -it --rm `
-      -e KUBECONFIG="/home/kubeuser/.kube/config" `
-      -e HTML_REPORT="true" `
-      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
-      -v $HOME/kubebuddy-report:/app/Reports `
-      ghcr.io/kubedeckio/kubebuddy:$tagId
-    ```
+### 📄 Report Format Flags (One or More Required)
 
-To switch report type, set:
+| Variable      | Description               |
+| ------------- | ------------------------- |
+| `HTML_REPORT` | `"true"` to generate HTML |
+| `TXT_REPORT`  | `"true"` for plain text   |
+| `JSON_REPORT` | `"true"` for JSON output  |
 
-- `HTML_REPORT=true`
-- `JSON_REPORT=true`
-- `TXT_REPORT=true`
+### ☁️ AKS Mode (Optional, for AKS Clusters)
 
-## ☁️ Run with AKS Checks
+| Variable              | Description                     |
+| --------------------- | ------------------------------- |
+| `AKS_MODE`            | `"true"` to enable AKS checks   |
+| `CLUSTER_NAME`        | AKS cluster name                |
+| `RESOURCE_GROUP`      | AKS resource group              |
+| `SUBSCRIPTION_ID`     | Azure subscription ID           |
+| `AZURE_CLIENT_ID`     | SPN client ID                   |
+| `AZURE_CLIENT_SECRET` | SPN client secret               |
+| `AZURE_TENANT_ID`     | Azure tenant ID                 |
+| `USE_AKS_REST_API`    | `"true"` to use Azure REST APIs |
 
-=== "Bash"
-    ```bash
-    docker run -it --rm \
-      -e KUBECONFIG="/home/kubeuser/.kube/config" \
-      -e HTML_REPORT="true" \
-      -e AKS_MODE="true" \
-      -e CLUSTER_NAME="<cluster>" \
-      -e RESOURCE_GROUP="<group>" \
-      -e SUBSCRIPTION_ID="<sub-id>" \
-      -e AZURE_CLIENT_ID="<client-id>" \
-      -e AZURE_CLIENT_SECRET="<client-secret>" \
-      -e AZURE_TENANT_ID="<tenant-id>" \
-      -e USE_AKS_REST_API="true" \
-      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
-      -v $HOME/kubebuddy-report:/app/Reports \
-      ghcr.io/kubedeckio/kubebuddy:$tagId
-    ```
+### 🔧 Optional
 
-=== "PowerShell"
-    ```powershell
-    docker run -it --rm `
-      -e KUBECONFIG="/home/kubeuser/.kube/config" `
-      -e HTML_REPORT="true" `
-      -e AKS_MODE="true" `
-      -e CLUSTER_NAME="<cluster>" `
-      -e RESOURCE_GROUP="<group>" `
-      -e SUBSCRIPTION_ID="<sub-id>" `
-      -e AZURE_CLIENT_ID="<client-id>" `
-      -e AZURE_CLIENT_SECRET="<client-secret>" `
-      -e AZURE_TENANT_ID="<tenant-id>" `
-      -e USE_AKS_REST_API="true" `
-      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
-      -v $HOME/kubebuddy-report:/app/Reports `
-      ghcr.io/kubedeckio/kubebuddy:$tagId
-    ```
+| Variable             | Description                               |
+| -------------------- | ----------------------------------------- |
+| `EXCLUDE_NAMESPACES` | `"true"` to skip system namespaces        |
+| `TERM`               | `"xterm"` to prevent CLI rendering issues |
 
-Change `HTML_REPORT` to `JSON_REPORT` or `TXT_REPORT` for other formats.
 
-## ⚙️ Custom Configuration
+## ▶️ Run KubeBuddy (Generic Kubernetes)
 
-Mount your `kubebuddy-config.yaml` file:
+\=== "Bash"
+
+```bash
+export tagId="v0.0.19"
+
+docker run -it --rm \
+  -e KUBECONFIG="/home/kubeuser/.kube/config" \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+\=== "PowerShell"
+
+```powershell
+$tagId = "v0.0.19"
+
+docker run -it --rm `
+  -e KUBECONFIG="/home/kubeuser/.kube/config" `
+  -e HTML_REPORT="true" `
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
+  -v $HOME/kubebuddy-report:/app/Reports `
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+
+## ☁️ Run KubeBuddy with AKS Integration
+
+\=== "Bash"
+
+```bash
+export tagId="v0.0.19"
+
+docker run -it --rm \
+  -e KUBECONFIG="/home/kubeuser/.kube/config" \
+  -e HTML_REPORT="true" \
+  -e AKS_MODE="true" \
+  -e CLUSTER_NAME="<cluster>" \
+  -e RESOURCE_GROUP="<group>" \
+  -e SUBSCRIPTION_ID="<sub-id>" \
+  -e AZURE_CLIENT_ID="<client-id>" \
+  -e AZURE_CLIENT_SECRET="<client-secret>" \
+  -e AZURE_TENANT_ID="<tenant-id>" \
+  -e USE_AKS_REST_API="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+\=== "PowerShell"
+
+```powershell
+$tagId = "v0.0.19"
+
+docker run -it --rm `
+  -e KUBECONFIG="/home/kubeuser/.kube/config" `
+  -e HTML_REPORT="true" `
+  -e AKS_MODE="true" `
+  -e CLUSTER_NAME="<cluster>" `
+  -e RESOURCE_GROUP="<group>" `
+  -e SUBSCRIPTION_ID="<sub-id>" `
+  -e AZURE_CLIENT_ID="<client-id>" `
+  -e AZURE_CLIENT_SECRET="<client-secret>" `
+  -e AZURE_TENANT_ID="<tenant-id>" `
+  -e USE_AKS_REST_API="true" `
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
+  -v $HOME/kubebuddy-report:/app/Reports `
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+
+## ⚙️ Custom Configuration File
+
+You can mount a `kubebuddy-config.yaml` file for advanced options:
 
 ```bash
 docker run -it --rm \
@@ -154,10 +228,22 @@ docker run -it --rm \
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
 
-→ See [Configuration File](./kubebuddy-config.md) for all options.
+→ See [Configuration File Options](./kubebuddy-config.md) for all available settings.
 
-## 🛠️ Setup for AKS (Required for `AKS_MODE`)
 
-To use AKS-specific features in Docker (via `AKS_MODE`), you need to set up a Service Principal (SPN), assign roles, and configure access to your cluster.
+## 🔐 Security Tips
 
-👉 See the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for step-by-step instructions.
+* **Never pass secrets in plain CLI commands**. Use `--env-file` or a secrets manager where possible.
+* Ensure your kubeconfig contains only the context(s) you want to scan.
+* On Windows, use full paths (e.g., `C:/Users/yourname/.kube/config`) instead of `$HOME`.
+
+
+## 📘 AKS Setup Notes
+
+To use `AKS_MODE`, you must:
+
+* Create a Service Principal (SPN)
+* Assign it the correct role (e.g., Cluster Admin or custom Reader role)
+* Provide SPN credentials as environment variables
+
+👉 See [AKS Configuration & Best Practices](aks-best-practice-checks.md) for step-by-step setup.
