@@ -73,31 +73,44 @@ To programmatically fetch the latest released version of KubeBuddy:
 
 * [Installation instructions](https://cli.github.com/)
 
-Example usage:
-
-```bash
-gh release list -R kubedeckio/kubebuddy --limit 1
-export tagId="v0.0.19"  # replace with latest version
-```
-
-Alternatively, visit the [Releases page](https://github.com/kubedeckio/kubebuddy/releases) manually.
-
 
 ## 🐳 Pull the Docker Image
 
 Always pull a specific version — **do not use `latest`**.
 
-### 🔍 Find and Pull the Latest Tagged Version
 
-Use GitHub CLI:
+
+### 🔍 Get the Latest Published Docker Image Tag
+
+Use GitHub CLI to fetch the most recent image tag from the GitHub Container Registry (GHCR).
+
+=== "Bash"
 
 ```bash
-gh release list -R kubedeckio/kubebuddy --limit 1
-export tagId="v0.0.19"  # Replace with latest version from output
+export tagId=$(gh api \
+  -H "Accept: application/vnd.github+json" \
+  /users/kubedeckio/packages/container/kubebuddy/versions \
+  --jq '.[0].metadata.container.tags[0]')
+
 docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
 
-Or pull manually from the [Releases page](https://github.com/kubedeckio/kubebuddy/releases).
+=== "PowerShell"
+
+```powershell
+$response = gh api `
+  -H "Accept: application/vnd.github+json" `
+  /users/kubedeckio/packages/container/kubebuddy/versions
+
+$json = $response | ConvertFrom-Json
+$tagId = $json[0].metadata.container.tags[0]
+
+docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+> 🧠 This requires [GitHub CLI](https://cli.github.com/) to be installed and authenticated with the correct permissions.
+
+Or pull manually from the [Container Registry](https://github.com/KubeDeckio/KubeBuddy/pkgs/container/kubebuddy).
 
 
 ## 🌐 Environment Variables
@@ -142,7 +155,7 @@ Set these to control behavior inside the container:
 
 ## ▶️ Run KubeBuddy (Generic Kubernetes)
 
-\=== "Bash"
+=== "Bash"
 
 ```bash
 export tagId="v0.0.19"
@@ -155,7 +168,7 @@ docker run -it --rm \
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
 
-\=== "PowerShell"
+=== "PowerShell"
 
 ```powershell
 $tagId = "v0.0.19"
@@ -171,7 +184,7 @@ docker run -it --rm `
 
 ## ☁️ Run KubeBuddy with AKS Integration
 
-\=== "Bash"
+=== "Bash"
 
 ```bash
 export tagId="v0.0.19"
@@ -192,7 +205,7 @@ docker run -it --rm \
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
 
-\=== "PowerShell"
+=== "PowerShell"
 
 ```powershell
 $tagId = "v0.0.19"
