@@ -23,7 +23,7 @@ docker run -it --rm \
   -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
   -v $HOME/kubebuddy-report:/app/Reports \
   ghcr.io/kubedeckio/kubebuddy:$tagId
-````
+```
 
 > ❗ **Always use a pinned version tag. Avoid `latest` to ensure reliability and reproducibility.**
 
