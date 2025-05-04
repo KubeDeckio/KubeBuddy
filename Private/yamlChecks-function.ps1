@@ -29,6 +29,45 @@ function Invoke-yamlChecks {
         return
     }
 
+    function Evaluate-PrometheusCheckResult {
+        param (
+            [object]$Metric,
+            [double]$Expected,
+            [string]$Operator,
+            [string]$FailMessage
+        )
+    
+        $values = $Metric.values
+        if (-not $values -or $values.Count -eq 0) {
+            return $null
+        }
+    
+        $avg = ($values | ForEach-Object { [double]($_[1]) }) | Measure-Object -Average | Select-Object -ExpandProperty Average
+    
+        $failed = $false
+        switch ($Operator.ToLower()) {
+            "greater_than" { $failed = $avg -gt $Expected }
+            "less_than"    { $failed = $avg -lt $Expected }
+            "equals"       { $failed = [math]::Round($avg, 5) -eq [math]::Round($Expected, 5) }
+            default        { return $null }  # unknown operator, skip
+        }
+    
+        if (-not $failed) {
+            return $null
+        }
+    
+        # Build result object
+        $labels = $Metric.metric.PSObject.Properties | ForEach-Object {
+            "$($_.Name): $($_.Value)"
+        } -join ", "
+    
+        return [pscustomobject]@{
+            MetricLabels = $labels
+            Average      = "{0:N4}" -f $avg
+            Message      = $FailMessage
+        }
+    }    
+
     function Get-ValidProperties {
         param (
             [array]$Items,
@@ -291,6 +330,63 @@ function Invoke-yamlChecks {
                     continue
                 }
 
+                if ($check.Prometheus) {
+                    try {
+                        $startTime = (Get-Date).AddHours(-1).ToString("o")
+                        $endTime = (Get-Date).ToString("o")
+                        $step = $check.Prometheus.Range.Step ?? "5m"
+                
+                        $result = Get-PrometheusData -Query $check.Prometheus.Query `
+                            -Url $check.Prometheus.Url `
+                            -Mode $check.Prometheus.Mode `
+                            -UseRange `
+                            -StartTime $startTime `
+                            -EndTime $endTime `
+                            -Step $step
+                
+                        $items = @()
+                        foreach ($r in $result.Results) {
+                            $eval = Evaluate-PrometheusCheckResult `
+                                -Metric $r `
+                                -Expected ([double]($check.Expected)) `
+                                -Operator $check.Operator `
+                                -FailMessage $check.FailMessage
+                        
+                            if ($eval) {
+                                $items += $eval
+                            }
+                        }
+                        
+                
+                        $checkResult = @{
+                            ID             = $check.ID
+                            Name           = $check.Name
+                            Category       = $check.Category
+                            Section        = $check.Section
+                            ResourceKind   = $check.ResourceKind
+                            Severity       = $check.Severity
+                            Weight         = $check.Weight
+                            Description    = $check.Description
+                            Recommendation = $check.Recommendation
+                            URL            = $check.URL
+                            Items          = $items
+                            Total          = $items.Count
+                        }
+                
+                        $localResults += $checkResult
+                        Write-Host "✅ Completed Prometheus check: $($check.ID)" -ForegroundColor Green
+                    }
+                    catch {
+                        Write-Host "❌ Prometheus check failed for $($check.ID): $_" -ForegroundColor Red
+                        $localResults += @{
+                            ID    = $check.ID
+                            Name  = $check.Name
+                            Error = "Prometheus check failed: $_"
+                        }
+                    }
+                    continue
+                }                
+
                 # Non-script check logic
                 $data = $null
                 $kubeData = $using:KubeData  # Assign to local variable to avoid $using: in expressions
@@ -511,7 +607,7 @@ function Invoke-yamlChecks {
                                 $recContent += "<ul>$urlHtml</ul>"
                             }
                         }
-@"
+                        @"
 <div class="recommendation-card">
 <div class="recommendation-banner">
   <span class="material-icons">tips_and_updates</span>

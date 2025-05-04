@@ -1,0 +1,25 @@
+- ID: "PROM001"
+  Name: "High CPU Pods (Prometheus)"
+  Category: "Performance"
+  Section: "Prometheus"
+  ResourceKind: "Pod"
+  Severity: "Warning"
+  Weight: 3
+  Description: "Checks for pods with high CPU usage over last hour."
+  FailMessage: "Some pods show high sustained CPU usage."
+  URL: "https://kubernetes.io/docs/concepts/cluster-administration/monitoring/"
+  Recommendation:
+    text: "Investigate high CPU usage pods. Adjust limits or optimize workloads."
+    html: "<ul><li>Use <code>kubectl top pod</code></li><li>Review app behavior or HPA config</li></ul>"
+  SpeechBubble:
+    - "🤖 Prometheus shows high CPU usage for some pods!"
+    - "⚠️ Might indicate a misbehaving app."
+  Prometheus:
+    Query: 'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)'
+    Url: 'https://my-prometheus'
+    Mode: 'azure'
+    Range:
+      Step: '5m'
+      Duration: '1h'
+  Operator: greater_than
+  Expected: 0.2
