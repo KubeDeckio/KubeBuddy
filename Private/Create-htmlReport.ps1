@@ -252,8 +252,8 @@ $heroRatingHtml
     "#F44336"
   }
 
-# Cluster Health Score Bar
-$scoreBarHtml = @"
+  # Cluster Health Score Bar
+  $scoreBarHtml = @"
 <div class="score-container">
   <h2 class="cluster-health-score">Cluster Health Score</h2>
   <p>Score: <strong>$clusterScore / 100</strong></p>
@@ -274,7 +274,7 @@ $scoreBarHtml = @"
     $passedChecks += $aksPass
   }
 
-$healthStatusHtml = @"
+  $healthStatusHtml = @"
 <div class="health-status">
   <h2>Passed / Failed Checks</h2>
   <div class="status-container">
@@ -327,6 +327,144 @@ $healthStatusHtml = @"
   $cpuClass = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
   $memClass = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } else { "normal" }
 
+  # Initialize Prometheus HTML content
+  $clusterMetricsHtml = ""
+  $nodeMetricsHtml = ""
+  if ($KubeData.PrometheusMetrics -and $KubeData.PrometheusMetrics.NodeCpuUsage) {
+    Write-Host "📊 Generating Prometheus metrics for Summary and Nodes tabs..." -ForegroundColor Cyan
+
+    # Cluster Metrics for Summary Tab
+    $avgCpu = [math]::Round(($KubeData.PrometheusMetrics.NodeCpuUsage | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } } | Measure-Object -Average).Average, 2)
+    $avgMem = [math]::Round(($KubeData.PrometheusMetrics.NodeMemoryUsage | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } } | Measure-Object -Average).Average / 1GB, 2)
+    $totalRestarts = [math]::Round(($KubeData.PrometheusMetrics.PodRestarts | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } } | Measure-Object -Sum).Sum, 0)
+    $cpuClassProm = if ($avgCpu -ge $thresholds.cpu_critical / 100) { "critical" } elseif ($avgCpu -ge $thresholds.cpu_warning / 100) { "warning" } else { "normal" }
+    $memClassProm = if ($avgMem -ge $thresholds.mem_critical / 100) { "critical" } elseif ($avgMem -ge $thresholds.mem_warning / 100) { "warning" } else { "normal" }
+
+    # Aggregate CPU chart data (average across nodes)
+    $cpuChartData = $KubeData.PrometheusMetrics.NodeCpuUsage | ForEach-Object {
+      $_.values | ForEach-Object {
+        [PSCustomObject]@{
+          timestamp = [int64]($_[0] * 1000)  # Convert seconds to milliseconds
+          value     = [double]$_[1]
+        }
+      }
+    } | Group-Object timestamp | ForEach-Object {
+      [PSCustomObject]@{
+        timestamp = $_.Name
+        value     = [math]::Round(($_.Group | Measure-Object -Property value -Average).Average, 2)
+      }
+    } | Sort-Object timestamp
+    $cpuChartJson = if ($cpuChartData) { $cpuChartData | ConvertTo-Json -Compress } else { "[]" }
+
+    # Aggregate Memory chart data (average across nodes)
+    $memChartData = $KubeData.PrometheusMetrics.NodeMemoryUsage | ForEach-Object {
+      $_.values | ForEach-Object {
+        [PSCustomObject]@{
+          timestamp = [int64]($_[0] * 1000)
+          value     = [double]$_[1] / 1GB  # Convert to GB
+        }
+      }
+    } | Group-Object timestamp | ForEach-Object {
+      [PSCustomObject]@{
+        timestamp = $_.Name
+        value     = [math]::Round(($_.Group | Measure-Object -Property value -Average).Average, 2)
+      }
+    } | Sort-Object timestamp
+    $memChartJson = if ($memChartData) { $memChartData | ConvertTo-Json -Compress } else { "[]" }
+
+    # Node count (static for simplicity, assumes stable count over 24h)
+    $nodeCount = ($KubeData.Nodes.items | Measure-Object).Count
+    $nodeChartJson = [PSCustomObject]@{ value = $nodeCount } | ConvertTo-Json -Compress
+
+    # Pod count (approximate using pod restarts as a proxy, or fetch from Kubernetes data)
+    $podChartData = $KubeData.PrometheusMetrics.PodCount | ForEach-Object {
+      $_.values | ForEach-Object {
+        [PSCustomObject]@{
+          timestamp = [int64]($_[0] * 1000)
+          value     = [double]$_[1]
+        }
+      }
+    } | Sort-Object timestamp | ForEach-Object {
+      [PSCustomObject]@{
+        timestamp = $_.Name
+        value     = [math]::Round(($_.Group | Measure-Object -Property value -Sum).Sum, 0)
+      }
+    } | Sort-Object timestamp
+    $podChartJson = if ($podChartData) { $podChartData | ConvertTo-Json -Compress } else { "[]" }
+
+    # Pod Restarts chart (for additional insight)
+    $restartChartData = $podChartData  # Reuse pod restarts for consistency
+    $restartChartJson = $podChartJson
+
+    $clusterMetricsHtml = @"
+<h2>Cluster Health Metrics (Last 24h)
+  <span class='tooltip'>
+    <span class='info-icon'>i</span>
+    <span class='tooltip-text'>Historical CPU, memory, pod, and restart metrics from Prometheus, averaged over the last 24 hours.</span>
+  </span>
+</h2>
+<div class='hero-metrics'>
+  <div class='metric-card $cpuClassProm'>🖥 Avg CPU: <strong>$avgCpu</strong><br><span>$(if ($cpuClassProm -eq 'normal') { 'Normal' } elseif ($cpuClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span></div>
+  <div class='metric-card $memClassProm'>💾 Avg Memory: <strong>$avgMem GB</strong><br><span>$(if ($memClassProm -eq 'normal') { 'Normal' } elseif ($memClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span></div>
+  <div class='metric-card default'>🔄 Pod Restarts: <strong>$totalRestarts</strong></div>
+</div>
+<div class='chart-container'>
+  <div class='chart-item'>
+    <h3>Cluster CPU Usage</h3>
+    <canvas id='clusterCpuChart' data-values='$cpuChartJson'></canvas>
+  </div>
+  <div class='chart-item'>
+    <h3>Cluster Memory Usage</h3>
+    <canvas id='clusterMemChart' data-values='$memChartJson'></canvas>
+  </div>
+  <div class='chart-item'>
+    <h3>Total Nodes</h3>
+    <canvas id='nodeCountChart' data-values='$nodeChartJson'></canvas>
+  </div>
+  <div class='chart-item'>
+    <h3>Total Pods</h3>
+    <canvas id='podCountChart' data-values='$podChartJson'></canvas>
+  </div>
+  <div class='chart-item'>
+    <h3>Pod Restarts</h3>
+    <canvas id='restartChart' data-values='$restartChartJson'></canvas>
+  </div>
+</div>
+"@
+
+    # Node Metrics for Nodes Tab
+    $nodeMetricsHtml = @"
+<h2>Node Health Metrics
+  <span class='tooltip'>
+    <span class='info-icon'>i</span>
+    <span class='tooltip-text'>Historical CPU and memory metrics per node from Prometheus, averaged over the last 24 hours.</span>
+  </span>
+</h2>
+<table class='table-container'>
+  <thead>
+    <tr><th>Node</th><th>Status</th><th>Avg CPU (24h)</th><th>Avg Memory (24h)</th><th>CPU Trend</th></tr>
+  </thead>
+  <tbody>
+"@
+    foreach ($node in $KubeData.Nodes.items) {
+      $nodeName = $node.metadata.name
+      $status = ($node.status.conditions | Where-Object { $_.type -eq "Ready" }).status
+      $cpuMetrics = $KubeData.PrometheusMetrics.NodeCpuUsage | Where-Object { $_.metric.instance -match $nodeName }
+      $memMetrics = $KubeData.PrometheusMetrics.NodeMemoryUsage | Where-Object { $_.metric.instance -match $nodeName }
+      $avgCpu = if ($cpuMetrics) { [math]::Round(($cpuMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average, 2) } else { "N/A" }
+      $avgMem = if ($memMetrics) { [math]::Round(($memMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average / 1GB, 2) } else { "N/A" }
+      $cpuValues = if ($cpuMetrics) { ($cpuMetrics.values | ForEach-Object { [double]$_[1] }) -join "," } else { "[]" }
+      $cpuClass = if ($avgCpu -ne "N/A" -and $avgCpu -ge $thresholds.cpu_critical / 100) { "critical" } elseif ($avgCpu -ne "N/A" -and $avgCpu -ge $thresholds.cpu_warning / 100) { "warning" } else { "normal" }
+      $memClass = if ($avgMem -ne "N/A" -and $avgMem -ge $thresholds.mem_critical / 100) { "critical" } elseif ($avgMem -ne "N/A" -and $avgMem -ge $thresholds.mem_warning / 100) { "warning" } else { "normal" }
+      $nodeMetricsHtml += "<tr><td>$nodeName</td><td>$status</td><td class='$cpuClass'>$avgCpu</td><td class='$memClass'>$avgMem GB</td><td><canvas class='sparkline' data-values='[$cpuValues]'></canvas></td></tr>"
+    }
+    $nodeMetricsHtml += "</tbody></table>"
+  }
+  else {
+    $clusterMetricsHtml = "<p class='warning'>⚠️ Prometheus metrics unavailable. Ensure Prometheus is configured.</p>"
+    $nodeMetricsHtml = "<p class='warning'>⚠️ Prometheus metrics unavailable. Ensure Prometheus is configured.</p>"
+  }
+
   if ($ExcludeNamespaces) {
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
     $excludedNamespacesHtml = @"
@@ -349,6 +487,9 @@ $healthStatusHtml = @"
 <title>Kubernetes Cluster Report</title>
 <link rel='icon' href='https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/assets/images/favicon.ico' type='image/x-icon'>
 <link href='https://fonts.googleapis.com/icon?family=Material+Icons' rel='stylesheet'>
+<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'></script>
     <style>
         $cssContent
     </style>
@@ -454,6 +595,7 @@ $healthStatusHtml = @"
       <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
       <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
     </div>
+    $clusterMetricsHtml
     <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of recent warning and error events.</span></span></h2>
     <div class="hero-metrics">
       <div class="metric-card $errorClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
@@ -469,6 +611,7 @@ $healthStatusHtml = @"
 <div class="tab-content" id="nodes">
   <div class="container">
     <h1>Node Conditions & Resources</h1>
+    $nodeMetricsHtml
     <div class="table-container">$collapsibleNodesHtml</div>
   </div>
 </div>

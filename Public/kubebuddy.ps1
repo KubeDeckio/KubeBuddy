@@ -14,7 +14,12 @@ function Invoke-KubeBuddy {
         [string]$ResourceGroup,
         [string]$ClusterName,
         [string]$outputpath,
-        [switch]$UseAksRestApi  # Flag for AKS REST API mode
+        [switch]$UseAksRestApi,  # Flag for AKS REST API mode
+        [string]$PrometheusUrl = "http://prometheus:9090",  # Prometheus endpoint
+        [string]$PrometheusMode = "local",  # Authentication mode: local, basic, bearer, azure
+        [string]$PrometheusUsername,  # Username for basic auth
+        [string]$PrometheusPassword,  # Password for basic auth
+        [string]$PrometheusBearerTokenEnv  # Environment variable for bearer token
     )
 
     # Assign default value if $outputpath is not set
@@ -149,11 +154,25 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
             return
         }
-        $KubeData = Get-KubeData -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks -UseAksRestApi:$UseAksRestApi
+        $KubeData = Get-KubeData `
+        -SubscriptionId $SubscriptionId `
+        -ResourceGroup $ResourceGroup `
+        -ClusterName $ClusterName `
+        -ExcludeNamespaces:$ExcludeNamespaces `
+        -Aks:$Aks `
+        -UseAksRestApi:$UseAksRestApi `
+        -IncludePrometheus `
+        -PrometheusUrl $PrometheusUrl `
+        -PrometheusMode $PrometheusMode `
+        -PrometheusUsername $PrometheusUsername `
+        -PrometheusPassword $PrometheusPassword `
+        -PrometheusBearerTokenEnv $PrometheusBearerTokenEnv        
+        
         if ($KubeData -eq $false) {
             Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
             return
         }
+
         Generate-K8sHTMLReport `
             -version $moduleVersion `
             -outputPath $htmlReportFile `
@@ -163,6 +182,7 @@ function Invoke-KubeBuddy {
             -ClusterName $ClusterName `
             -ExcludeNamespaces:$ExcludeNamespaces `
             -KubeData $KubeData
+            
         Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
         return
     }

@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Navigation Drawer Error:', e);
     }
 
-    // Save as PDF
+    // Save as PDF with html2canvas and jsPDF
     try {
         const savePdfBtn = document.getElementById('savePdfBtn');
         if (!savePdfBtn) {
@@ -76,11 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 isPrinting = true;
                 console.log('Preparing for PDF: expanding details and removing pagination');
 
+                // Remove pagination
                 document.querySelectorAll('.table-pagination').forEach(pagination => {
                     console.log(`Pre-print: Removing pagination from ${pagination.parentElement.id}`);
                     pagination.remove();
                 });
 
+                // Expand all details
                 const detailsElements = document.querySelectorAll('details');
                 const detailsStates = new Map();
                 detailsElements.forEach(detail => {
@@ -88,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     detail.open = true;
                 });
 
+                // Adjust table containers for full visibility
                 const tableContainers = document.querySelectorAll('.table-container');
                 const tables = document.querySelectorAll('table');
                 const originalStyles = [];
@@ -101,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     table.style.tableLayout = 'fixed';
                 });
 
+                // Show all rows in collapsible containers
                 document.querySelectorAll('.collapsible-container').forEach(container => {
                     const table = container.querySelector('table');
                     if (table) {
@@ -110,8 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
+                // Show all tabs for PDF capture
                 let tabContents = [], originalActiveTab = null, originalActiveContent = null;
-
                 try {
                     tabContents = document.querySelectorAll('.tab-content');
                     originalActiveTab = document.querySelector('.tabs li.active');
@@ -121,50 +125,185 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.warn('Tab printing adjustment failed:', e);
                 }
 
+                // Generate PDF
                 setTimeout(() => {
-                    window.print();
+                    html2canvas(document.body, { scale: 2 }).then(canvas => {
+                        const imgData = canvas.toDataURL('image/png');
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                        pdf.save('kubebuddy_report.pdf');
+
+                        // Restore state
+                        console.log('PDF generated, restoring original state');
+                        isPrinting = false;
+                        tabContents.forEach(tc => {
+                            if (tc !== originalActiveContent) {
+                                tc.classList.remove('active');
+                            }
+                        });
+                        document.querySelectorAll('.tabs li').forEach(tab => tab.classList.remove('active'));
+                        if (originalActiveTab) originalActiveTab.classList.add('active');
+
+                        detailsElements.forEach(detail => detail.open = detailsStates.get(detail));
+                        tableContainers.forEach((container, index) => {
+                            container.style.overflow = originalStyles[index].overflow;
+                            container.style.height = originalStyles[index].height;
+                        });
+                        tables.forEach(table => table.style.tableLayout = '');
+
+                        document.querySelectorAll('.collapsible-container').forEach(container => {
+                            if (container.querySelector('details').open) {
+                                paginateTable(container);
+                            }
+                        });
+                    }).catch(e => {
+                        console.error('PDF generation failed:', e);
+                    });
                 }, 500);
-
-                window.onafterprint = function () {
-                    console.log('PDF print complete, restoring original state');
-                    isPrinting = false;
-                    tabContents.forEach(tc => {
-                        if (tc !== originalActiveContent) {
-                            tc.classList.remove('active');
-                        }
-                    });
-                    document.querySelectorAll('.tabs li').forEach(tab => tab.classList.remove('active'));
-                    if (originalActiveTab) originalActiveTab.classList.add('active');
-
-                    detailsElements.forEach(detail => detail.open = detailsStates.get(detail));
-                    tableContainers.forEach((container, index) => {
-                        container.style.overflow = originalStyles[index].overflow;
-                        container.style.height = originalStyles[index].height;
-                    });
-                    tables.forEach(table => table.style.tableLayout = '');
-
-                    document.querySelectorAll('.collapsible-container').forEach(container => {
-                        if (container.querySelector('details').open) {
-                            paginateTable(container);
-                        }
-                    });
-                };
-            });
-
-            window.addEventListener('afterprint', () => {
-                if (isPrinting) {
-                    isPrinting = false;
-                    console.log('Print canceled, restoring pagination');
-                    document.querySelectorAll('.collapsible-container').forEach(container => {
-                        if (container.querySelector('details').open) {
-                            paginateTable(container);
-                        }
-                    });
-                }
             });
         }
     } catch (e) {
         console.error('PDF Error:', e);
+    }
+
+    // Chart.js for Cluster Charts and Node Sparklines
+    try {
+        // Helper function to render line charts
+        function renderLineChart(canvas, label, unit) {
+            if (!canvas || !canvas.dataset.values) {
+                console.error(`Canvas for ${label} not found or missing data-values`);
+                return;
+            }
+            try {
+                const data = JSON.parse(canvas.dataset.values || '[]');
+                if (!data.length) {
+                    console.warn(`No data for ${label} chart`);
+                    canvas.insertAdjacentHTML('afterend', `<p class="warning">⚠️ No data for ${label}</p>`);
+                    return;
+                }
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(v => new Date(parseInt(v.timestamp)).toLocaleTimeString()),
+                        datasets: [{
+                            label: label,
+                            data: data.map(v => v.value),
+                            borderColor: '#0071FF',
+                            backgroundColor: 'rgba(0, 113, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true, title: { display: true, text: unit } },
+                            x: { title: { display: true, text: 'Time (Last 24h)' } }
+                        },
+                        plugins: {
+                            legend: { display: true },
+                            tooltip: { mode: 'index', intersect: false }
+                        }
+                    }
+                });
+                console.log(`Rendered ${label} chart`);
+            } catch (e) {
+                console.error(`Failed to render ${label} chart:`, e);
+                canvas.insertAdjacentHTML('afterend', `<p class="warning">⚠️ Failed to render ${label}</p>`);
+            }
+        }
+
+        // Cluster CPU Chart
+        renderLineChart(document.getElementById('clusterCpuChart'), 'Cluster CPU Usage', 'CPU Usage');
+
+        // Cluster Memory Chart
+        renderLineChart(document.getElementById('clusterMemChart'), 'Cluster Memory Usage', 'Memory (GB)');
+
+        // Pod Count Chart
+        renderLineChart(document.getElementById('podCountChart'), 'Total Pods', 'Pod Count');
+
+        // Pod Restarts Chart
+        renderLineChart(document.getElementById('restartChart'), 'Pod Restarts', 'Restarts');
+
+        // Node Count Gauge
+        const nodeChart = document.getElementById('nodeCountChart');
+        if (nodeChart && nodeChart.dataset.values) {
+            try {
+                const data = JSON.parse(nodeChart.dataset.values || '{}');
+                if (!data.value) {
+                    console.warn('No data for Node Count chart');
+                    nodeChart.insertAdjacentHTML('afterend', '<p class="warning">⚠️ No data for Node Count</p>');
+                    return;
+                }
+                new Chart(nodeChart, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Nodes'],
+                        datasets: [{
+                            data: [data.value, Math.max(100 - data.value, 0)],
+                            backgroundColor: ['#0071FF', '#E0E0E0'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        cutout: '80%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false },
+                            title: {
+                                display: true,
+                                text: `${data.value} Nodes`,
+                                position: 'bottom',
+                                font: { size: 16 }
+                            }
+                        }
+                    }
+                });
+                console.log('Rendered Node Count chart');
+            } catch (e) {
+                console.error('Failed to render Node Count chart:', e);
+                nodeChart.insertAdjacentHTML('afterend', '<p class="warning">⚠️ Failed to render Node Count chart</p>');
+            }
+        }
+
+        // Node Sparklines
+        document.querySelectorAll('.sparkline').forEach(canvas => {
+            try {
+                const values = JSON.parse(canvas.dataset.values || '[]');
+                if (!values.length) {
+                    console.warn('No data for sparkline');
+                    return;
+                }
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: Array(values.length).fill(''),
+                        datasets: [{
+                            data: values,
+                            borderColor: '#0071FF',
+                            backgroundColor: 'rgba(0, 113, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                        scales: { x: { display: false }, y: { display: false } }
+                    }
+                });
+            } catch (e) {
+                console.error('Failed to render sparkline:', e);
+                canvas.insertAdjacentHTML('afterend', '<span class="warning">⚠️ Invalid sparkline data</span>');
+            }
+        });
+    } catch (e) {
+        console.error('Chart.js Error:', e);
     }
 
     // Collapsible Toggle, Pagination, and Sorting Setup
@@ -332,7 +471,6 @@ document.addEventListener('DOMContentLoaded', () => {
     progressBars.forEach(bar => {
         let score = parseFloat(bar.style.getPropertyValue('--cluster-score')) || 0;
 
-        // Fallback: Extract score from the DOM text if --cluster-score isn't set
         if (score === 0) {
             const scoreElement = bar.parentElement.querySelector('p');
             const scoreText = scoreElement?.textContent.match(/Score: (\d+)/)?.[1];
@@ -358,23 +496,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Status Chip Animation (New Section)
+    // Status Chip Animation
     try {
         const statusContainer = document.querySelector('.status-container');
         const statusChip = document.querySelector('.status-chip');
         const countElements = document.querySelectorAll('.count-up');
 
         if (statusContainer && statusChip && countElements.length) {
-            // Apply color to the status chip
             const percent = parseFloat(statusContainer.getAttribute('data-percent') || '0');
             const color = getScoreColor(percent);
             statusChip.style.background = color;
             console.log('Status chip colored:', color, 'percent:', percent);
 
-            // Counting animation for numbers
             function animateCountUp(element, target, duration) {
                 let start = 0;
-                const increment = target / (duration / 16); // 60 FPS
+                const increment = target / (duration / 16);
                 let current = start;
 
                 const timer = setInterval(() => {
@@ -389,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             countElements.forEach(element => {
                 const target = parseInt(element.getAttribute('data-count'), 10);
-                animateCountUp(element, target, 1500); // 1.5s duration
+                animateCountUp(element, target, 1500);
             });
         } else {
             console.error('Status chip or count elements not found');

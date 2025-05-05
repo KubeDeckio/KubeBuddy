@@ -614,10 +614,6 @@ table a:hover {
   color: var(--text-dark);
 }
 
-/* .recommendation-content::before {
-  content: url("data:image/svg+xml,...") " Recommended Actions";
-} */
-
 .recommendation-banner {
   display: flex;
   align-items: center;
@@ -636,7 +632,6 @@ table a:hover {
   font-size: 20px;
   margin-right: 8px;
 }
-
 
 .recommendation-content ul {
   list-style: none;
@@ -1074,7 +1069,8 @@ code {
 
 .status-text {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 7
+00;
   font-family: 'Roboto Mono', monospace;
   color: var(--text-dark);
   opacity: 1;
@@ -1112,6 +1108,33 @@ code {
   font-size: var(--font-size-sm);
   color: var(--text-dark);
   line-height: 1.6;
+}
+
+/* Chart.js Styles */
+#clusterCpuChart {
+  max-height: 200px;
+  width: 100%;
+  margin-top: var(--spacing-lg);
+  background: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-md);
+}
+
+.sparkline {
+  width: 100px;
+  height: 20px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Warning Message */
+.warning {
+  color: var(--warning-color);
+  font-weight: 700;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  background: rgba(255, 160, 0, 0.1);
 }
 
 /* Responsive and Print */
@@ -1204,6 +1227,9 @@ code {
   .health-status p {
     font-size: var(--font-size-xs);
   }
+  #clusterCpuChart {
+    max-height: 150px;
+  }
 }
 
 @media (min-width: 601px) {
@@ -1250,9 +1276,7 @@ code {
     border-collapse: collapse;
     word-break: break-word;
   }
- 
-
-th, td {
+  th, td {
     padding: var(--spacing-sm) !important;
     border: 1px solid #ddd;
     white-space: normal !important;
@@ -1300,9 +1324,58 @@ th, td {
     font-size: var(--font-size-xs);
     color: #000;
   }
+  #clusterCpuChart, .sparkline {
+    max-height: 150px !important;
+    width: 100% !important;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
 }
 
 @keyframes flashHighlight {
   0% { background-color: #ffff99; }
   100% { background-color: transparent; }
 }
+
+.chart-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+}
+
+.chart-item {
+  background: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-md);
+}
+
+.chart-item h3 {
+  margin: 0 0 var(--spacing-sm);
+  font-size: 16px;
+  color: var(--text-color);
+}
+
+#clusterCpuChart, #clusterMemChart, #podCountChart, #restartChart {
+  max-height: 200px;
+  width: 100%;
+}
+
+#nodeCountChart {
+  max-height: 150px;
+  width: 100%;
+}
+
+/* Existing styles remain unchanged */
+.warning {
+  color: var(--warning-color);
+  font-weight: 700;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  background: rgba(255, 160, 0, 0.1);
+}
+
+.metric-card.normal { border-left: 4px solid var(--success-color); }
+.metric-card.warning { border-left: 4px solid var(--warning-color); }
+.metric-card.critical { border-left: 4px solid var(--error-color); }
