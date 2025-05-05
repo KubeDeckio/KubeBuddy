@@ -192,30 +192,47 @@ function Get-KubeData {
     # Fetch Prometheus Metrics
     if ($IncludePrometheus -and $PrometheusUrl) {
         Write-Host "`n[📊 Fetching Prometheus Metrics]" -ForegroundColor Cyan
+
+        try {
+            $headers = Get-PrometheusHeaders -Mode $PrometheusMode `
+                -Username $PrometheusUsername -Password $PrometheusPassword `
+                -BearerTokenEnv $PrometheusBearerTokenEnv
+        }
+        catch {
+            Write-Host "❌ Prometheus auth failed: $_" -ForegroundColor Red
+            return
+        }
+
+        $start = (Get-Date).AddDays(-1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $end = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+
         $prometheusQueries = @(
-            @{ Name = "NodeCpuUsage"; Query = 'rate(node_cpu_seconds_total{mode!="idle"}[5m])' },
-            @{ Name = "NodeMemoryUsage"; Query = 'node_memory_MemTotal_bytes - node_memory_MemFree_bytes' },
-            @{ Name = "PodRestarts"; Query = 'kube_pod_container_status_restarts_total' }
-            @{ Name = "PodCount"; Query = 'count(kube_pod_status_phase{phase="Running"})' }
+            @{ Name = "NodeCpuUsagePercent"; Query = '(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100' },
+            @{ Name = "NodeMemoryUsagePercent"; Query = '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100' },
+            @{ Name = "NodeDiskUsagePercent"; Query = '(1 - (node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"} / node_filesystem_size_bytes{fstype!="tmpfs",fstype!="overlay"})) * 100' },
+            @{ Name = "NodeNetworkReceiveRate"; Query = 'rate(node_network_receive_bytes_total[5m])' },
+            @{ Name = "NodeNetworkTransmitRate"; Query = 'rate(node_network_transmit_bytes_total[5m])' }
         )
-    
+
         $data.PrometheusMetrics = @{}
+
         foreach ($query in $prometheusQueries) {
-            Write-Host "▶️ Querying Prometheus for $($query.Name)..." -ForegroundColor Yellow
-            $result = Get-PrometheusData -Query $query.Query -Url $PrometheusUrl -Mode $PrometheusMode `
-                -Username $PrometheusUsername -Password $PrometheusPassword -BearerTokenEnv $PrometheusBearerTokenEnv `
-                -UseRange -StartTime ((Get-Date).AddHours(-24).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")) `
-                -EndTime ((Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")) -Step "15m"
-    
+            Write-Host "▶️ Querying: $($query.Name)" -ForegroundColor Yellow
+            $result = Get-PrometheusData -Query $query.Query -Url $PrometheusUrl `
+                -Headers $headers -UseRange -StartTime $start -EndTime $end -Step "15m"
+
             if ($result) {
                 $data.PrometheusMetrics[$query.Name] = $result.Results
-                Write-Host "✔️ Fetched $($query.Name)" -ForegroundColor Cyan
+                Write-Host "✔️ Fetched $($query.Name)" -ForegroundColor Green
             }
             else {
                 Write-Host "❌ Failed to fetch $($query.Name)" -ForegroundColor Red
+                return $false  # return error flag
+                return
             }
         }
     }
+
     
 
     # Custom Resources
