@@ -477,8 +477,10 @@ foreach ($node in $KubeData.Nodes.items) {
 </div>
 "@
 
-  $nodeCardHtml += ConvertToCollapsible -Id $nodeId -defaultText "Show $nodeName" -content $nodeContent
+  $allNodeCards += ConvertToCollapsible -Id $nodeId -defaultText "Show $nodeName" -content $nodeContent
 }
+
+$nodeCardsOnlyHtml = $allNodeCards  # Snapshot for filter
 
 $nodeSectionHeader = @"
 <h2 style='margin-bottom: 10px;'>
@@ -490,10 +492,15 @@ $nodeSectionHeader = @"
     </span>
   </span>
 </h2>
+<div style="margin: 15px 0;">
+  <input id="nodeFilterInput" type="text" placeholder="🔍 Filter nodes by name..." style="padding: 8px; width: 100%; max-width: 300px; border-radius: 5px; border: 1px solid #ccc;" />
+</div>
+<div id="filteredNodeCards">
+  $nodeCardsOnlyHtml
+</div>
 "@
 
-$nodeCardHtml = $nodeSectionHeader + $nodeCardHtml
-
+$nodeCardHtml = $nodeSectionHeader
 
   if ($ExcludeNamespaces) {
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
