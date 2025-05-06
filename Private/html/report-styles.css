@@ -1529,3 +1529,33 @@ code {
   max-height: 200px;
 }
 
+.node-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-top: none;
+  border-radius: 0 0 var(--border-radius) var(--border-radius);
+  padding: var(--spacing-lg);
+  margin-top: -1px; /* to connect with summary border */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+
+.collapsible-arrow {
+  position: relative;
+  padding-right: 32px;
+}
+
+.collapsible-arrow::after {
+  content: '▼';
+  position: absolute;
+  right: var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--brand-blue);
+  font-size: 14px;
+  transition: transform var(--transition);
+}
+
+details[open] > .collapsible-arrow::after {
+  transform: translateY(-50%) rotate(-180deg);
+}

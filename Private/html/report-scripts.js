@@ -335,11 +335,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const unit = label.includes('CPU') || label.includes('Memory') || label.includes('Disk') ? '%' : '';
             const chart = renderLineChart(canvas, label, unit);
             if (chartItem && chart) {
-              chartInstances.set(canvas, chart);
-              setupChartZoom(chartItem, canvas, chart, unit);
+                chartInstances.set(canvas, chart);
+                setupChartZoom(chartItem, canvas, chart, unit);
             }
-          });
-          
+        });
+
 
         // Cluster CPU Chart
         const cpuCanvas = document.getElementById('clusterCpuChart');
