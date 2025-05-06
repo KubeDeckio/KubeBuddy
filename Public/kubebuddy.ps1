@@ -15,6 +15,7 @@ function Invoke-KubeBuddy {
         [string]$ClusterName,
         [string]$outputpath,
         [switch]$UseAksRestApi,  # Flag for AKS REST API mode
+        [switch]$IncludePrometheus,  # Flag to include Prometheus data
         [string]$PrometheusUrl = "http://prometheus:9090",  # Prometheus endpoint
         [string]$PrometheusMode = "local",  # Authentication mode: local, basic, bearer, azure
         [string]$PrometheusUsername,  # Username for basic auth
@@ -161,7 +162,7 @@ function Invoke-KubeBuddy {
         -ExcludeNamespaces:$ExcludeNamespaces `
         -Aks:$Aks `
         -UseAksRestApi:$UseAksRestApi `
-        -IncludePrometheus `
+        -IncludePrometheus:$IncludePrometheus `
         -PrometheusUrl $PrometheusUrl `
         -PrometheusMode $PrometheusMode `
         -PrometheusUsername $PrometheusUsername `

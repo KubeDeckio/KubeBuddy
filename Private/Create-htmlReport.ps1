@@ -382,13 +382,17 @@ $heroRatingHtml
   <div class='metric-card $cpuClassProm'>🖥 Avg CPU: <strong>$avgCpu%</strong><br><span>$(if ($cpuClassProm -eq 'normal') { 'Normal' } elseif ($cpuClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span></div>
   <div class='metric-card $memClassProm'>💾 Avg Memory: <strong>$avgMem%</strong><br><span>$(if ($memClassProm -eq 'normal') { 'Normal' } elseif ($memClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span></div>
 </div>
-<div class='chart-container'>
+<div class='chart-wrapper'>
   <div class='chart-item'>
     <h3>Cluster CPU Usage (%)</h3>
+    <p>Historical CPU metrics from Prometheus, averaged over the last 24 hours.</p>
     <canvas id='clusterCpuChart' data-values='$cpuChartJson'></canvas>
   </div>
+</div>
+<div class='chart-wrapper'>
   <div class='chart-item'>
     <h3>Cluster Memory Usage (%)</h3>
+    <p>Historical Memory metrics from Prometheus, averaged over the last 24 hours.</p>
     <canvas id='clusterMemChart' data-values='$memChartJson'></canvas>
   </div>
 </div>

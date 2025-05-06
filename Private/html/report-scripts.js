@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false, // Allow canvas to resize freely
+                        maintainAspectRatio: false,
                         scales: {
                             y: { beginAtZero: true, title: { display: true, text: unit } },
                             x: { title: { display: true, text: 'Time (Last 24h)' } }
@@ -242,11 +242,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalParent = chartItem.parentElement;
             const nextSibling = chartItem.nextSibling;
 
-            // Add tooltip and ARIA attributes
-            chartItem.classList.add('tooltip');
-            chartItem.setAttribute('aria-label', 'Hover, click, or focus to enlarge chart');
+            // Add ARIA attributes
+            chartItem.setAttribute('aria-label', 'Click or press Enter to enlarge chart');
             chartItem.setAttribute('aria-expanded', 'false');
-            chartItem.insertAdjacentHTML('beforeend', '<span class="tooltip-text">Enlarge chart</span>');
+
+            // Add zoom icon using Material Icons
+            chartItem.insertAdjacentHTML('afterbegin', '<span class="chart-zoom-icon material-icons" aria-label="Click to enlarge chart">zoom_in</span>');
 
             // State to track zoom
             let isZoomed = false;
@@ -255,12 +256,12 @@ document.addEventListener('DOMContentLoaded', () => {
             function enterZoom() {
                 if (isPrinting || isZoomed) return;
                 isZoomed = true;
-                chartItem.classList.add('zoomed');
+                chartItem.classList.add('zoomed', 'persistent-zoom');
                 chartItem.setAttribute('aria-expanded', 'true');
                 lightbox.classList.add('active');
                 lightbox.appendChild(chartItem);
                 if (chart) {
-                    chart.resize(); // Redraw chart at new size
+                    chart.resize();
                 }
                 console.log(`Zoomed chart: ${chartItem.querySelector('h3').textContent}`);
             }
@@ -283,8 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         console.log(`Restored chart to original parent: ${chartItem.querySelector('h3').textContent}`);
                     } else {
-                        // Fallback: append to #summary .chart-container
-                        const fallbackContainer = document.querySelector('#summary .chart-container');
+                        // Fallback: append to #summary .chart-wrapper
+                        const fallbackContainer = document.querySelector('#summary .chart-wrapper');
                         if (fallbackContainer) {
                             fallbackContainer.appendChild(chartItem);
                             console.warn(`Original parent not found, restored chart to fallback container: ${chartItem.querySelector('h3').textContent}`);
@@ -297,26 +298,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (chart) {
-                    chart.resize(); // Redraw chart at original size
+                    chart.resize();
                 }
             }
 
-            // Hover events
-            chartItem.addEventListener('mouseenter', () => {
-                if (!isZoomed) enterZoom();
-            });
-
-            chartItem.addEventListener('mouseleave', () => {
-                if (isZoomed && !chartItem.classList.contains('persistent-zoom')) exitZoom();
-            });
-
-            // Click to toggle persistent zoom
+            // Click to toggle zoom
             chartItem.addEventListener('click', (e) => {
                 e.preventDefault();
-                if (isZoomed && chartItem.classList.contains('persistent-zoom')) {
+                if (isZoomed) {
                     exitZoom();
                 } else {
-                    chartItem.classList.add('persistent-zoom');
                     enterZoom();
                 }
             });
@@ -330,12 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Keyboard interaction
             chartItem.setAttribute('tabindex', '0');
-            chartItem.addEventListener('focus', () => {
-                if (!isZoomed) enterZoom();
-            });
-            chartItem.addEventListener('blur', () => {
-                if (isZoomed && !chartItem.classList.contains('persistent-zoom')) exitZoom();
-            });
             chartItem.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -351,6 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cpuChartItem && cpuCanvas) {
             chartInstances.set(cpuCanvas, cpuChart);
             setupChartZoom(cpuChartItem, cpuCanvas, cpuChart, 'CPU Usage (%)');
+            console.log('CPU Chart parent structure:', cpuChartItem.parentElement.outerHTML);
         }
 
         // Cluster Memory Chart
@@ -360,6 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (memChartItem && memCanvas) {
             chartInstances.set(memCanvas, memChart);
             setupChartZoom(memChartItem, memCanvas, memChart, 'Memory Usage (%)');
+            console.log('Memory Chart parent structure:', memChartItem.parentElement.outerHTML);
         }
 
         // Pod Count Chart
@@ -425,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Node Sparklines (no zoom effect, as they are small)
+        // Node Sparklines (no zoom effect)
         document.querySelectorAll('.sparkline').forEach(canvas => {
             try {
                 const values = JSON.parse(canvas.dataset.values || '[]');

@@ -1111,15 +1111,6 @@ code {
 }
 
 /* Chart.js Styles */
-#clusterCpuChart {
-  max-height: 200px;
-  width: 100%;
-  margin-top: var(--spacing-lg);
-  background: #fff;
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-sm);
-  padding: var(--spacing-md);
-}
 
 .sparkline {
   width: 100px;
@@ -1351,6 +1342,11 @@ code {
   padding: var(--spacing-md);
 }
 
+.chart-wrapper {
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
 .chart-item h3 {
   margin: 0 0 var(--spacing-sm);
   font-size: 16px;
@@ -1367,18 +1363,57 @@ code {
   width: 100%;
 }
 
-/* Existing styles remain unchanged
-.warning {
-  color: var(--warning-color);
-  font-weight: 700;
-  padding: var(--spacing-sm);
-  border-radius: var(--border-radius);
-  background: rgba(255, 160, 0, 0.1);
+/* Chart Container */
+.chart-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
 }
 
-.metric-card.normal { border-left: 4px solid var(--success-color); }
-.metric-card.warning { border-left: 4px solid var(--warning-color); }
-.metric-card.critical { border-left: 4px solid var(--error-color); } */
+/* Chart Item */
+.chart-item {
+  position: relative; /* For zoom icon positioning */
+  background: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-md);
+  transition: box-shadow var(--transition);
+  cursor: pointer; /* Indicate clickability */
+}
+
+.chart-item:hover, .chart-item:focus {
+  box-shadow: 0 0 8px rgba(0, 113, 255, 0.3); /* Subtle glow on hover/focus */
+}
+
+/* Chart Title */
+.chart-item h3 {
+  margin: 0 0 var(--spacing-sm);
+  font-size: 16px;
+  color: var(--text-dark);
+}
+
+/* Zoom Icon */
+.chart-zoom-icon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  background: var(--brand-blue);
+  color: var(--text-light);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.chart-item:hover .chart-zoom-icon, .chart-item:focus .chart-zoom-icon {
+  opacity: 1;
+}
 
 /* Lightbox Overlay for Zoomed Charts */
 .chart-lightbox {
@@ -1387,14 +1422,14 @@ code {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  background: rgba(0, 0, 0, 0.5);
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 1500; /* Below nav-drawer (z-index: 2000) */
+  z-index: 1500;
   opacity: 0;
   transition: opacity var(--transition);
-  cursor: pointer; /* Indicate clickability to exit */
+  cursor: pointer;
 }
 
 .chart-lightbox.active {
@@ -1407,20 +1442,20 @@ code {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(1.5); /* Scale up 1.5x */
-  max-width: 80vw; /* Limit width to 80% of viewport */
-  max-height: 80vh; /* Limit height to 80% of viewport */
-  z-index: 1600; /* Above lightbox background */
+  transform: translate(-50%, -50%) scale(1.5);
+  max-width: 80vw;
+  max-height: 80vh;
+  z-index: 1600;
   background: #fff;
   border-radius: var(--border-radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); /* Stronger shadow for depth */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   transition: transform var(--transition), max-width var(--transition), max-height var(--transition), opacity var(--transition);
-  opacity: 0; /* Start faded for animation */
-  animation: fadeInChart 0.3s ease forwards; /* Fade-in animation */
+  opacity: 0;
+  animation: fadeInChart 0.3s ease forwards;
 }
 
 .chart-item.zoomed canvas {
-  max-height: 400px !important; /* Larger canvas when zoomed */
+  max-height: 400px !important;
   width: 100% !important;
 }
 
@@ -1428,7 +1463,7 @@ code {
 @keyframes fadeInChart {
   from {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.4); /* Slightly smaller for effect */
+    transform: translate(-50%, -50%) scale(1.4);
   }
   to {
     opacity: 1;
@@ -1438,48 +1473,9 @@ code {
 
 /* Ensure chart canvas transitions smoothly */
 #clusterCpuChart, #clusterMemChart, #podCountChart, #restartChart, #nodeCountChart {
+  max-height: 200px;
+  width: 100%;
   transition: max-height var(--transition), width var(--transition);
-}
-
-/* Chart tooltip */
-.chart-item {
-  position: relative; /* For tooltip positioning */
-  cursor: pointer; /* Indicate interactivity */
-}
-
-.chart-item .tooltip-text {
-  visibility: hidden;
-  opacity: 0;
-  width: 120px;
-  background: var(--brand-blue);
-  color: var(--text-light);
-  padding: var(--spacing-sm);
-  border-radius: 6px;
-  position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
-  transition: opacity var(--transition), visibility var(--transition);
-  font-size: var(--font-size-xs);
-  z-index: 101;
-  pointer-events: none;
-  text-align: center;
-}
-
-.chart-item:hover .tooltip-text {
-  visibility: visible;
-  opacity: 1;
-}
-
-.chart-item .tooltip-text::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -6px;
-  border-width: 6px;
-  border-style: solid;
-  border-color: var(--brand-blue) transparent transparent transparent;
 }
 
 /* Disable zoom effect during print */
@@ -1498,9 +1494,6 @@ code {
   .chart-item.zoomed canvas {
     max-height: 150px !important;
   }
-  .chart-item .tooltip-text {
-    display: none !important;
-  }
 }
 
 /* Responsive adjustments */
@@ -1508,14 +1501,14 @@ code {
   .chart-item.zoomed {
     max-width: 90vw;
     max-height: 70vh;
-    transform: translate(-50%, -50%) scale(1.2); /* Smaller scale on mobile */
+    transform: translate(-50%, -50%) scale(1.2);
   }
   .chart-item.zoomed canvas {
     max-height: 300px !important;
   }
-  .chart-item .tooltip-text {
-    width: 100px;
-    top: -35px;
+  .chart-zoom-icon {
+    width: 16px;
+    height: 16px;
     font-size: 10px;
   }
 }
