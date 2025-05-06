@@ -255,3 +255,23 @@ function Test-IsContainer {
 
     return $false
 }
+
+function Resolve-NodeMetrics {
+    param (
+        [string]$NodeName,
+        [array]$Metrics
+    )
+    # Write-Host "Debug: NodeName = $NodeName"
+    # Write-Host "Debug: Metrics instances = $($Metrics | ForEach-Object { $_.metric.instance } | Sort-Object -Unique)"
+    $filtered = $Metrics | Where-Object {
+        $instanceHost = ($_.metric.instance -split ":")[0]
+        $instanceHostShort = $instanceHost -replace '\.internal\.cloudapp\.net$', ''
+        # Write-Host "Debug: Comparing instanceHostShort=$instanceHostShort to NodeName=$NodeName"
+        $instanceHostShort -eq $NodeName
+    }
+    # Write-Host "Debug: Filtered metrics count = $($filtered.Count)"
+    # Write-Host "Debug: Raw disk values for $NodeName :"
+    $diskMetrics.values | ForEach-Object { Write-Host "  $_" }
+
+    return $filtered
+}

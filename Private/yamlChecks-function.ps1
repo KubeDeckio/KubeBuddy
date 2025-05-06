@@ -310,7 +310,14 @@ function Invoke-yamlChecks {
                             # Catch anything else not a hashtable or array, but still not null
                             $checkResult.Items = @($scriptResult)
                             $checkResult.Total = 1
-                        }                        
+                        }    
+                        
+                        if ($scriptResult -is [hashtable] -and $scriptResult.ContainsKey("UsedPrometheus")) {
+                            $checkResult.UsedPrometheus = $scriptResult.UsedPrometheus
+                        }
+                        elseif ($scriptResult -is [array] -and $scriptResult[0]?.UsedPrometheus -ne $null) {
+                            $checkResult.UsedPrometheus = $scriptResult[0].UsedPrometheus
+                        }                                            
 
                         if ($checkResult.Total -eq 0) {
                             $checkResult.Message = "No issues detected for $($check.Name)."
@@ -548,7 +555,7 @@ function Invoke-yamlChecks {
         $sectionGroups = @{}
         $collapsibleSectionMap = @{}
         $alwaysCollapsibleCheckIDs = @("NODE001", "NODE002")
-        $alwaysShowRecommendationsCheckIDs = @()  # Define checks that should always show recommendations, even with no issues
+        $alwaysShowRecommendationsCheckIDs = @("NODE001", "NODE002")
 
         foreach ($result in $allResults) {
             $section = if ($result.Section) { $result.Section } elseif ($result.Category) { $result.Category } else { "Other" }
@@ -562,12 +569,30 @@ function Invoke-yamlChecks {
             $sectionHtml = ""
 
             foreach ($check in $sectionGroups[$section]) {
-                $tooltip = if ($check.Description) {
-                    "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$($check.Description)</span></span>"
+                $usedPrometheus = if ($check.ID -eq "NODE002" -and ($check.UsedPrometheus -eq $true)) { $true } else { $false }
+                $prometheusSuffix = if ($check.ID -eq "NODE002" -and $usedPrometheus) { " (Last 24h)" } else { "" }
+                
+                # Tooltip generation can stay as-is
+                $tooltipText = ""
+                if ($check.Description) {
+                    $tooltipText = $check.Description
                 }
-                else { "" }
+                if ($check.ID -eq "NODE002") {
+                    $sourceText = if ($usedPrometheus) {
+                        "Data source: Prometheus (24h average)"
+                    } else {
+                        "Data source: kubectl top nodes (snapshot)"
+                    }
+                    $tooltipText = if ($tooltipText) { "$tooltipText<br><br>$sourceText" } else { $sourceText }
+                }
+                $tooltip = if ($tooltipText) {
+                    "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$tooltipText</span></span>"
+                } else {
+                    ""
+                }
+                
+                $header = "<h2 id='$($check.ID)'>$($check.ID) - $($check.Name)$prometheusSuffix $tooltip</h2>"
 
-                $header = "<h2 id='$($check.ID)'>$($check.ID) - $($check.Name) $tooltip</h2>"
 
                 $resourceKind = $check.ResourceKind
                 $displayNames = Get-ResourceKindDisplayNames -ResourceKind $resourceKind

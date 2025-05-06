@@ -208,32 +208,44 @@ function Get-KubeData {
 
         $prometheusQueries = @(
             @{ Name = "NodeCpuUsagePercent"; Query = '(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100' },
+            @{ Name = "NodeCpuUsed"; Query = 'sum by(instance) (rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) * 1000' },
             @{ Name = "NodeMemoryUsagePercent"; Query = '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100' },
-            @{ Name = "NodeDiskUsagePercent"; Query = '(1 - (node_filesystem_avail_bytes{fstype!="tmpfs",fstype!="overlay"} / node_filesystem_size_bytes{fstype!="tmpfs",fstype!="overlay"})) * 100' },
-            @{ Name = "NodeNetworkReceiveRate"; Query = 'rate(node_network_receive_bytes_total[5m])' },
-            @{ Name = "NodeNetworkTransmitRate"; Query = 'rate(node_network_transmit_bytes_total[5m])' }
+            @{ Name = "NodeMemoryUsed"; Query = 'node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes' },
+            @{ Name = "NodeDiskUsagePercent"; Query = '
+                100 * (1 - (
+                    sum by(instance)(
+                        node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}
+                    )
+                    /
+                    sum by(instance)(
+                        node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}
+                    )
+                ))
+            ' },
+            @{ Name = "NodeNetworkReceiveRate"; Query = 'rate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*"}[5m])' },
+            @{ Name = "NodeNetworkTransmitRate"; Query = 'rate(node_network_transmit_bytes_total{device!~"lo|docker.*|veth.*"}[5m])' }
         )
+        
+        
 
         $data.PrometheusMetrics = @{}
 
         foreach ($query in $prometheusQueries) {
-            Write-Host "▶️ Querying: $($query.Name)" -ForegroundColor Yellow
+            Write-Host -NoNewline "▶️  Querying: $($query.Name)" -ForegroundColor Yellow
             $result = Get-PrometheusData -Query $query.Query -Url $PrometheusUrl `
                 -Headers $headers -UseRange -StartTime $start -EndTime $end -Step "15m"
 
             if ($result) {
                 $data.PrometheusMetrics[$query.Name] = $result.Results
-                Write-Host "✔️ Fetched $($query.Name)" -ForegroundColor Green
+                Write-Host "`r✔️  Fetched $($query.Name).  " -ForegroundColor Green
             }
             else {
-                Write-Host "❌ Failed to fetch $($query.Name)" -ForegroundColor Red
+                Write-Host "❌ Failed to fetch $($query.Name).  " -ForegroundColor Red
                 return $false  # return error flag
                 return
             }
         }
     }
-
-    
 
     # Custom Resources
     Write-Host -NoNewline "`n🤖 Fetching Custom Resource Instances..." -ForegroundColor Yellow
