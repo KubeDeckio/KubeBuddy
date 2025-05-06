@@ -17,8 +17,6 @@ checks:
       - "⚠️ Might indicate a misbehaving app."
     Prometheus:
       Query: 'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'
@@ -42,8 +40,6 @@ checks:
       - "📉 Consider resource tuning."
     Prometheus:
       Query: 'sum(container_memory_usage_bytes{container!="",pod!=""}) by (pod)'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'
@@ -67,8 +63,6 @@ checks:
       - "🧹 Clean up space before it's too late."
     Prometheus:
       Query: '100 - (node_filesystem_avail_bytes{mountpoint="/"} * 100 / node_filesystem_size_bytes{mountpoint="/"})'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'
@@ -92,8 +86,6 @@ checks:
       - "📡 Investigate ingress traffic sources."
     Prometheus:
       Query: 'sum(rate(container_network_receive_bytes_total{pod!=""}[5m])) by (pod)'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'
@@ -117,8 +109,6 @@ checks:
       - "⏱️ Check for pressure on control plane."
     Prometheus:
       Query: 'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le))'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'
@@ -142,8 +132,6 @@ checks:
       - "🔍 Time to investigate logs."
     Prometheus:
       Query: 'increase(kube_pod_container_status_restarts_total[1h])'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'
@@ -167,8 +155,6 @@ checks:
       - "📦 May need to shift workloads."
     Prometheus:
       Query: '100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'
@@ -192,8 +178,6 @@ checks:
       - "🛠️ Potential resource contention ahead."
     Prometheus:
       Query: 'sum(kube_pod_resource_request_cpu_cores) by (node) / sum(kube_node_status_allocatable_cpu_cores) by (node)'
-      Url: 'https://my-prometheus'
-      Mode: 'azure'
       Range:
         Step: '5m'
         Duration: '1h'

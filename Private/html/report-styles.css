@@ -1513,3 +1513,19 @@ code {
     font-size: 10px;
   }
 }
+
+.chart-wrapper.row-3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.chart-wrapper.row-3 .chart-item {
+  flex: 1 1 30%;
+  max-width: 32%;
+  min-width: 250px;
+}
+.chart-item canvas {
+  height: 200px !important;
+  max-height: 200px;
+}
+

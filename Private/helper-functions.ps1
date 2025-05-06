@@ -270,8 +270,8 @@ function Resolve-NodeMetrics {
         $instanceHostShort -eq $NodeName
     }
     # Write-Host "Debug: Filtered metrics count = $($filtered.Count)"
-    # Write-Host "Debug: Raw disk values for $NodeName :"
-    $diskMetrics.values | ForEach-Object { Write-Host "  $_" }
+    # # Write-Host "Debug: Raw disk values for $NodeName :"
+    # $diskMetrics.values | ForEach-Object { Write-Host "  $_" }
 
     return $filtered
 }

@@ -555,7 +555,7 @@ function Invoke-yamlChecks {
         $sectionGroups = @{}
         $collapsibleSectionMap = @{}
         $alwaysCollapsibleCheckIDs = @("NODE001", "NODE002")
-        $alwaysShowRecommendationsCheckIDs = @("NODE001", "NODE002")
+        $alwaysShowRecommendationsCheckIDs = @()  # Define checks that should always show recommendations, even with no issues
 
         foreach ($result in $allResults) {
             $section = if ($result.Section) { $result.Section } elseif ($result.Category) { $result.Category } else { "Other" }

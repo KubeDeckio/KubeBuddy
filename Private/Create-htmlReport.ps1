@@ -398,42 +398,85 @@ $heroRatingHtml
 </div>
 "@
 
-    # Node Metrics for Nodes Tab
-    $nodeMetricsHtml = @"
-<h2>Node Health Metrics
-  <span class='tooltip'>
-    <span class='info-icon'>i</span>
-    <span class='tooltip-text'>Historical CPU and memory metrics per node from Prometheus, averaged over the last 24 hours.</span>
-  </span>
-</h2>
-<table class='table-container'>
-  <thead>
-    <tr><th>Node</th><th>Avg CPU (24h)</th><th>Avg Memory (24h)</th><th>CPU Trend</th><th>Disk Usage</th><th>Disk Status</th></tr>
-  </thead>
-  <tbody>
-"@
-    foreach ($node in $KubeData.Nodes.items) {
-      $nodeName = $node.metadata.name
-      $cpuMetrics = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
-      $memMetrics = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
-      $diskMetrics = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
-      $avgCpu = if ($cpuMetrics) { [math]::Round(($cpuMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average, 2) } else { "N/A" }
-      $avgMem = if ($memMetrics) { [math]::Round(($memMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average, 2) } else { "N/A" }
-      $avgDisk = if ($diskMetrics) { [math]::Round(($diskMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average, 2) } else { "N/A" }
-      $cpuValues = if ($cpuMetrics) { ($cpuMetrics.values | ForEach-Object { [double]$_[1] }) -join "," } else { "[]" }
-      $cpuClass = if ($avgCpu -ne "N/A" -and $avgCpu -ge $thresholds.cpu_critical) { "critical" } elseif ($avgCpu -ne "N/A" -and $avgCpu -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
-      $memClass = if ($avgMem -ne "N/A" -and $avgMem -ge $thresholds.mem_critical) { "critical" } elseif ($avgMem -ne "N/A" -and $avgMem -ge $thresholds.mem_warning) { "warning" } else { "normal" }
-      $nodeMetricsHtml += "<tr><td>$nodeName</td><td class='$cpuClass'>$($avgCpu -eq 'N/A' ? 'N/A' : "$avgCpu%")</td><td class='$memClass'>$($avgMem -eq 'N/A' ? 'N/A' : "$avgMem%")</td><td><canvas class='sparkline' data-values='[$cpuValues]'></canvas></td></tr>"
+$nodeCardHtml = ""
+
+foreach ($node in $KubeData.Nodes.items) {
+  $nodeName = $node.metadata.name
+  $osImage = $node.status.nodeInfo.osImage
+  $kernelVersion = $node.status.nodeInfo.kernelVersion
+  $kubeletVersion = $node.status.nodeInfo.kubeletVersion
+  $containerRuntime = $node.status.nodeInfo.containerRuntimeVersion
+
+  $cpuMetrics = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+  $memMetrics = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+  $diskMetrics = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+
+  function Get-AverageAndChartData($metrics) {
+    if (-not $metrics) { return @{ Avg = "N/A"; Json = "[]" } }
+    $values = $metrics.values | ForEach-Object {
+      [PSCustomObject]@{
+        timestamp = [int64]($_[0] * 1000)
+        value     = [double]$_[1]
+      }
     }
-    $nodeMetricsHtml += "</tbody></table>"
-  }
-  else {
-    $clusterMetricsHtml = "<p class='warning'>⚠️ Prometheus metrics unavailable. Ensure Prometheus is configured.</p>"
-    $nodeMetricsHtml = "<p class='warning'>⚠️ Prometheus metrics unavailable. Ensure Prometheus is configured.</p>"
+    $avg = [math]::Round(($values.value | Measure-Object -Average).Average, 2)
+    return @{ Avg = $avg; Json = ($values | ConvertTo-Json -Compress) }
   }
 
-  $nodeMetricsHtml = ConvertToCollapsible -Id "prometheus_node_metrics" -defaultText "Node Resource Pressure (Prometheus View)" -content $nodeMetricsHtml
+  $cpuData = Get-AverageAndChartData $cpuMetrics
+  $memData = Get-AverageAndChartData $memMetrics
+  $diskData = Get-AverageAndChartData $diskMetrics
 
+  # Status classes
+  $cpuClass = if ($cpuData.Avg -eq "N/A") { "unknown" }
+    elseif ($cpuData.Avg -ge $thresholds.cpu_critical) { "critical" }
+    elseif ($cpuData.Avg -ge $thresholds.cpu_warning) { "warning" }
+    else { "normal" }
+
+  $memClass = if ($memData.Avg -eq "N/A") { "unknown" }
+    elseif ($memData.Avg -ge $thresholds.mem_critical) { "critical" }
+    elseif ($memData.Avg -ge $thresholds.mem_warning) { "warning" }
+    else { "normal" }
+
+  $diskClass = if ($diskData.Avg -eq "N/A") { "unknown" }
+    elseif ($diskData.Avg -ge 90) { "critical" }
+    elseif ($diskData.Avg -ge 75) { "warning" }
+    else { "normal" }
+
+    $cardContent = @"
+    <div class="node-card-wrapper">
+<div class='node-card'>
+  <p><strong>OS:</strong> $osImage<br>
+     <strong>Kernel:</strong> $kernelVersion<br>
+     <strong>Kubelet:</strong> $kubeletVersion<br>
+     <strong>Runtime:</strong> $containerRuntime</p>
+
+  <div class='hero-metrics'>
+    <div class='metric-card $cpuClass'>🖥 CPU: <strong>$($cpuData.Avg)%</strong></div>
+    <div class='metric-card $memClass'>💾 Memory: <strong>$($memData.Avg)%</strong></div>
+    <div class='metric-card $diskClass'>🗄 Disk: <strong>$($diskData.Avg)%</strong></div>
+  </div>
+
+  <div class='chart-wrapper row-3'>
+    <div class='chart-item'>
+      <h3>CPU Usage (%)</h3>
+      <canvas class='node-chart' data-values='$($cpuData.Json)'></canvas>
+    </div>
+    <div class='chart-item'>
+      <h3>Memory Usage (%)</h3>
+      <canvas class='node-chart' data-values='$($memData.Json)'></canvas>
+    </div>
+    <div class='chart-item'>
+      <h3>Disk Usage (%)</h3>
+      <canvas class='node-chart' data-values='$($diskData.Json)'></canvas>
+    </div>
+  </div>
+</div>
+</div>
+"@
+    
+$nodeCardHtml += ConvertToCollapsible -Id "node_$($nodeName -replace '[^a-zA-Z0-9]', '_')" -defaultText "$nodeName" -content $cardContent
+}
 
   if ($ExcludeNamespaces) {
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
@@ -593,7 +636,7 @@ $fallbackClusterMetricsHtml = @"
     <h1>Node Conditions & Resources</h1>
     $(
       if ($KubeData.PrometheusMetrics) {
-    $nodeMetricsHtml
+    $nodeCardHtml
       })
     <div class="table-container">$collapsibleNodesHtml</div>
   </div>
@@ -685,4 +728,5 @@ $(if ($aks) {
 </html>
 "@
   $htmlTemplate | Set-Content $outputPath
+}
 }

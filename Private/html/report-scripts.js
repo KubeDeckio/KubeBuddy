@@ -329,6 +329,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        document.querySelectorAll('.node-chart').forEach(canvas => {
+            const chartItem = canvas.closest('.chart-item');
+            const label = chartItem.querySelector('h3')?.textContent || 'Node Metric';
+            const unit = label.includes('CPU') || label.includes('Memory') || label.includes('Disk') ? '%' : '';
+            const chart = renderLineChart(canvas, label, unit);
+            if (chartItem && chart) {
+              chartInstances.set(canvas, chart);
+              setupChartZoom(chartItem, canvas, chart, unit);
+            }
+          });
+          
+
         // Cluster CPU Chart
         const cpuCanvas = document.getElementById('clusterCpuChart');
         const cpuChartItem = cpuCanvas?.closest('.chart-item');
