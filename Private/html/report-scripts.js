@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     canvas.insertAdjacentHTML('afterend', `<p class="warning">⚠️ No data for ${label}</p>`);
                     return;
                 }
-                new Chart(canvas, {
+                const chart = new Chart(canvas, {
                     type: 'line',
                     data: {
                         labels: data.map(v => new Date(parseInt(v.timestamp)).toLocaleTimeString()),
@@ -200,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false, // Allow canvas to resize freely
                         scales: {
                             y: { beginAtZero: true, title: { display: true, text: unit } },
                             x: { title: { display: true, text: 'Time (Last 24h)' } }
@@ -211,26 +212,177 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
                 console.log(`Rendered ${label} chart`);
+                return chart;
             } catch (e) {
                 console.error(`Failed to render ${label} chart:`, e);
                 canvas.insertAdjacentHTML('afterend', `<p class="warning">⚠️ Failed to render ${label}</p>`);
+                return null;
             }
         }
 
+        // Create a single lightbox overlay
+        let lightbox = document.querySelector('.chart-lightbox');
+        if (!lightbox) {
+            lightbox = document.createElement('div');
+            lightbox.className = 'chart-lightbox';
+            document.body.appendChild(lightbox);
+        }
+
+        // Store chart instances for resizing
+        const chartInstances = new Map();
+
+        // Function to handle chart zoom
+        function setupChartZoom(chartItem, canvas, chart, unit) {
+            if (!chartItem || !canvas) {
+                console.error('Chart item or canvas not found for zoom setup');
+                return;
+            }
+
+            // Store original parent and next sibling for precise restoration
+            const originalParent = chartItem.parentElement;
+            const nextSibling = chartItem.nextSibling;
+
+            // Add tooltip and ARIA attributes
+            chartItem.classList.add('tooltip');
+            chartItem.setAttribute('aria-label', 'Hover, click, or focus to enlarge chart');
+            chartItem.setAttribute('aria-expanded', 'false');
+            chartItem.insertAdjacentHTML('beforeend', '<span class="tooltip-text">Enlarge chart</span>');
+
+            // State to track zoom
+            let isZoomed = false;
+
+            // Function to enter zoom
+            function enterZoom() {
+                if (isPrinting || isZoomed) return;
+                isZoomed = true;
+                chartItem.classList.add('zoomed');
+                chartItem.setAttribute('aria-expanded', 'true');
+                lightbox.classList.add('active');
+                lightbox.appendChild(chartItem);
+                if (chart) {
+                    chart.resize(); // Redraw chart at new size
+                }
+                console.log(`Zoomed chart: ${chartItem.querySelector('h3').textContent}`);
+            }
+
+            // Function to exit zoom
+            function exitZoom() {
+                if (!isZoomed) return;
+                isZoomed = false;
+                chartItem.classList.remove('zoomed', 'persistent-zoom');
+                chartItem.setAttribute('aria-expanded', 'false');
+                lightbox.classList.remove('active');
+
+                // Restore chart to original position
+                try {
+                    if (originalParent && originalParent.isConnected) {
+                        if (nextSibling && nextSibling.isConnected) {
+                            originalParent.insertBefore(chartItem, nextSibling);
+                        } else {
+                            originalParent.appendChild(chartItem);
+                        }
+                        console.log(`Restored chart to original parent: ${chartItem.querySelector('h3').textContent}`);
+                    } else {
+                        // Fallback: append to #summary .chart-container
+                        const fallbackContainer = document.querySelector('#summary .chart-container');
+                        if (fallbackContainer) {
+                            fallbackContainer.appendChild(chartItem);
+                            console.warn(`Original parent not found, restored chart to fallback container: ${chartItem.querySelector('h3').textContent}`);
+                        } else {
+                            console.error(`Failed to restore chart: no valid parent found for ${chartItem.querySelector('h3').textContent}`);
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Error restoring chart: ${e.message}`);
+                }
+
+                if (chart) {
+                    chart.resize(); // Redraw chart at original size
+                }
+            }
+
+            // Hover events
+            chartItem.addEventListener('mouseenter', () => {
+                if (!isZoomed) enterZoom();
+            });
+
+            chartItem.addEventListener('mouseleave', () => {
+                if (isZoomed && !chartItem.classList.contains('persistent-zoom')) exitZoom();
+            });
+
+            // Click to toggle persistent zoom
+            chartItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (isZoomed && chartItem.classList.contains('persistent-zoom')) {
+                    exitZoom();
+                } else {
+                    chartItem.classList.add('persistent-zoom');
+                    enterZoom();
+                }
+            });
+
+            // Click lightbox to exit
+            lightbox.addEventListener('click', (e) => {
+                if (e.target === lightbox && isZoomed) {
+                    exitZoom();
+                }
+            });
+
+            // Keyboard interaction
+            chartItem.setAttribute('tabindex', '0');
+            chartItem.addEventListener('focus', () => {
+                if (!isZoomed) enterZoom();
+            });
+            chartItem.addEventListener('blur', () => {
+                if (isZoomed && !chartItem.classList.contains('persistent-zoom')) exitZoom();
+            });
+            chartItem.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    chartItem.click();
+                }
+            });
+        }
+
         // Cluster CPU Chart
-        renderLineChart(document.getElementById('clusterCpuChart'), 'Cluster CPU Usage', 'CPU Usage');
+        const cpuCanvas = document.getElementById('clusterCpuChart');
+        const cpuChartItem = cpuCanvas?.closest('.chart-item');
+        const cpuChart = renderLineChart(cpuCanvas, 'Cluster CPU Usage', 'CPU Usage (%)');
+        if (cpuChartItem && cpuCanvas) {
+            chartInstances.set(cpuCanvas, cpuChart);
+            setupChartZoom(cpuChartItem, cpuCanvas, cpuChart, 'CPU Usage (%)');
+        }
 
         // Cluster Memory Chart
-        renderLineChart(document.getElementById('clusterMemChart'), 'Cluster Memory Usage', 'Memory (GB)');
+        const memCanvas = document.getElementById('clusterMemChart');
+        const memChartItem = memCanvas?.closest('.chart-item');
+        const memChart = renderLineChart(memCanvas, 'Cluster Memory Usage', 'Memory Usage (%)');
+        if (memChartItem && memCanvas) {
+            chartInstances.set(memCanvas, memChart);
+            setupChartZoom(memChartItem, memCanvas, memChart, 'Memory Usage (%)');
+        }
 
         // Pod Count Chart
-        renderLineChart(document.getElementById('podCountChart'), 'Total Pods', 'Pod Count');
+        const podCanvas = document.getElementById('podCountChart');
+        const podChartItem = podCanvas?.closest('.chart-item');
+        const podChart = renderLineChart(podCanvas, 'Total Pods', 'Pod Count');
+        if (podChartItem && podCanvas) {
+            chartInstances.set(podCanvas, podChart);
+            setupChartZoom(podChartItem, podCanvas, podChart, 'Pod Count');
+        }
 
         // Pod Restarts Chart
-        renderLineChart(document.getElementById('restartChart'), 'Pod Restarts', 'Restarts');
+        const restartCanvas = document.getElementById('restartChart');
+        const restartChartItem = restartCanvas?.closest('.chart-item');
+        const restartChart = renderLineChart(restartCanvas, 'Pod Restarts', 'Restarts');
+        if (restartChartItem && restartCanvas) {
+            chartInstances.set(restartCanvas, restartChart);
+            setupChartZoom(restartChartItem, restartCanvas, restartChart, 'Restarts');
+        }
 
         // Node Count Gauge
         const nodeChart = document.getElementById('nodeCountChart');
+        const nodeChartItem = nodeChart?.closest('.chart-item');
         if (nodeChart && nodeChart.dataset.values) {
             try {
                 const data = JSON.parse(nodeChart.dataset.values || '{}');
@@ -239,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     nodeChart.insertAdjacentHTML('afterend', '<p class="warning">⚠️ No data for Node Count</p>');
                     return;
                 }
-                new Chart(nodeChart, {
+                const chart = new Chart(nodeChart, {
                     type: 'doughnut',
                     data: {
                         labels: ['Nodes'],
@@ -264,6 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 });
+                chartInstances.set(nodeChart, chart);
+                setupChartZoom(nodeChartItem, nodeChart, chart, 'Node Count');
                 console.log('Rendered Node Count chart');
             } catch (e) {
                 console.error('Failed to render Node Count chart:', e);
@@ -271,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Node Sparklines
+        // Node Sparklines (no zoom effect, as they are small)
         document.querySelectorAll('.sparkline').forEach(canvas => {
             try {
                 const values = JSON.parse(canvas.dataset.values || '[]');
