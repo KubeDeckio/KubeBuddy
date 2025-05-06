@@ -480,6 +480,20 @@ foreach ($node in $KubeData.Nodes.items) {
   $nodeCardHtml += ConvertToCollapsible -Id $nodeId -defaultText "Show $nodeName" -content $nodeContent
 }
 
+$nodeSectionHeader = @"
+<h2 style='margin-bottom: 10px;'>
+  Node Conditions & Metrics (Last 24h)
+  <span class='tooltip'>
+    <span class='info-icon'>i</span>
+    <span class='tooltip-text'>
+      This section provides detailed metrics and configuration for each Kubernetes node including CPU, memory, and disk usage, as well as OS and runtime details.
+    </span>
+  </span>
+</h2>
+"@
+
+$nodeCardHtml = $nodeSectionHeader + $nodeCardHtml
+
 
   if ($ExcludeNamespaces) {
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
