@@ -408,7 +408,7 @@ $heroRatingHtml
 </h2>
 <table class='table-container'>
   <thead>
-    <tr><th>Node</th><th>Avg CPU (24h)</th><th>Avg Memory (24h)</th><th>CPU Trend</th></tr>
+    <tr><th>Node</th><th>Avg CPU (24h)</th><th>Avg Memory (24h)</th><th>CPU Trend</th><th>Disk Usage</th><th>Disk Status</th></tr>
   </thead>
   <tbody>
 "@
@@ -416,8 +416,10 @@ $heroRatingHtml
       $nodeName = $node.metadata.name
       $cpuMetrics = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
       $memMetrics = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+      $diskMetrics = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
       $avgCpu = if ($cpuMetrics) { [math]::Round(($cpuMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average, 2) } else { "N/A" }
       $avgMem = if ($memMetrics) { [math]::Round(($memMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average, 2) } else { "N/A" }
+      $avgDisk = if ($diskMetrics) { [math]::Round(($diskMetrics.values | ForEach-Object { [double]$_[1] } | Measure-Object -Average).Average, 2) } else { "N/A" }
       $cpuValues = if ($cpuMetrics) { ($cpuMetrics.values | ForEach-Object { [double]$_[1] }) -join "," } else { "[]" }
       $cpuClass = if ($avgCpu -ne "N/A" -and $avgCpu -ge $thresholds.cpu_critical) { "critical" } elseif ($avgCpu -ne "N/A" -and $avgCpu -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
       $memClass = if ($avgMem -ne "N/A" -and $avgMem -ge $thresholds.mem_critical) { "critical" } elseif ($avgMem -ne "N/A" -and $avgMem -ge $thresholds.mem_warning) { "warning" } else { "normal" }
@@ -429,6 +431,9 @@ $heroRatingHtml
     $clusterMetricsHtml = "<p class='warning'>⚠️ Prometheus metrics unavailable. Ensure Prometheus is configured.</p>"
     $nodeMetricsHtml = "<p class='warning'>⚠️ Prometheus metrics unavailable. Ensure Prometheus is configured.</p>"
   }
+
+  $nodeMetricsHtml = ConvertToCollapsible -Id "prometheus_node_metrics" -defaultText "Node Resource Pressure (Prometheus View)" -content $nodeMetricsHtml
+
 
   if ($ExcludeNamespaces) {
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
@@ -442,6 +447,23 @@ $heroRatingHtml
   else {
     $excludedNamespacesHtml = ""
   }
+
+$fallbackClusterMetricsHtml = @"
+<h2>Resource Usage 
+  <span class="tooltip">
+    <span class="info-icon">i</span>
+    <span class="tooltip-text">
+      Cluster-wide CPU and memory usage. This reflects a snapshot taken at report generation time.
+    </span>
+  </span>
+</h2>
+<p style="font-size: 14px; color: #666; margin-top: -10px;">🕒 Snapshot time: <strong>$today</strong></p>
+<div class="hero-metrics">
+  <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
+  <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
+</div>
+"@
+  
 
   $htmlTemplate = @"
 <!DOCTYPE html>
@@ -547,20 +569,13 @@ $heroRatingHtml
     <table>
       <tr><td>Avg: <strong>$podAvg</strong></td><td>Max: <strong>$podMax</strong></td><td>Min: <strong>$podMin</strong></td><td>Total Nodes: <strong>$podTotalNodes</strong></td></tr>
     </table>
-    <h2>Resource Usage 
-      <span class="tooltip">
-        <span class="info-icon">i</span>
-        <span class="tooltip-text">
-          Cluster-wide CPU and memory usage. This reflects a snapshot taken at report generation time.
-        </span>
-      </span>
-    </h2>
-    <p style="font-size: 14px; color: #666; margin-top: -10px;">🕒 Snapshot time: <strong>$today</strong></p>
-    <div class="hero-metrics">
-      <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
-      <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
-    </div>
-    $clusterMetricsHtml
+    $(
+      if ($KubeData.PrometheusMetrics) {
+        $clusterMetricsHtml
+      } else {
+        $fallbackClusterMetricsHtml
+      }
+    )
     <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of recent warning and error events.</span></span></h2>
     <div class="hero-metrics">
       <div class="metric-card $errorClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
@@ -576,7 +591,10 @@ $heroRatingHtml
 <div class="tab-content" id="nodes">
   <div class="container">
     <h1>Node Conditions & Resources</h1>
+    $(
+      if ($KubeData.PrometheusMetrics) {
     $nodeMetricsHtml
+      })
     <div class="table-container">$collapsibleNodesHtml</div>
   </div>
 </div>
