@@ -486,26 +486,15 @@ foreach ($node in $KubeData.Nodes.items) {
 "@
 
 
-$chipColor = switch (
-  @($cpuClass, $memClass, $diskClass) -contains 'critical'
-) {
-  $true { 'critical' }
-  default {
-    if (@($cpuClass, $memClass, $diskClass) -contains 'warning') {
-      'warning'
-    } else {
-      'normal'
-    }
-  }
-}
-
 $summaryHtml = @"
 <summary class="node-summary collapsible-arrow">
   <span class="summary-inner">
-    <span class="node-name">$nodeName</span>
-    <span class="metric-badge $cpuClass">CPU: $($cpuData.Avg)%</span>
-    <span class="metric-badge $memClass">Mem: $($memData.Avg)%</span>
-    <span class="metric-badge $diskClass">Disk: $($diskData.Avg)%</span>
+    <span class="node-name">Node: $nodeName</span>
+    <span class="summary-metrics">
+      <span class="metric-badge $cpuClass">CPU: $($cpuData.Avg)%</span>
+      <span class="metric-badge $memClass">Mem: $($memData.Avg)%</span>
+      <span class="metric-badge $diskClass">Disk: $($diskData.Avg)%</span>
+    </span> 
   </span>
 </summary>
 "@
@@ -515,9 +504,10 @@ $allNodeCards += ConvertToCollapsible -Id $nodeId -defaultText $summaryHtml -con
 
 }
 
-$nodeCardsOnlyHtml = $allNodeCards  # Snapshot for filter
+$nodeCardsOnlyHtml = $allNodeCards
 
 $nodeSectionHeader = @"
+<div class="container">
 <h2 style='margin-bottom: 10px;'>
   Node Conditions & Metrics (Last 24h)
   <span class='tooltip'>
@@ -536,6 +526,7 @@ $nodeSectionHeader = @"
 </div>
 <div id="filteredNodeCards">
   $nodeCardsOnlyHtml
+</div>
 </div>
 "@
 
@@ -698,11 +689,11 @@ $fallbackClusterMetricsHtml = @"
   <div class="container">
     <h1>Node Conditions & Resources</h1>
     <div class="table-container">$collapsibleNodesHtml</div>
-    $(
+  </div>
+      $(
       if ($KubeData.PrometheusMetrics) {
     $nodeCardHtml
       })
-  </div>
 </div>
 <div class="tab-content" id="namespaces">
   <div class="container">

@@ -1564,18 +1564,18 @@ code {
 }
 
 .collapsible-arrow::after {
-  content: '▼';
+  content: '◀';
   position: absolute;
   right: var(--spacing-md);
   top: 50%;
   transform: translateY(-50%);
+  transition: transform var(--transition);
   color: var(--brand-blue);
   font-size: 14px;
-  transition: transform var(--transition);
 }
 
 details[open] > .collapsible-arrow::after {
-  transform: translateY(-50%) rotate(-180deg);
+  content: '▼';
 }
 
 .material-input {
@@ -1685,5 +1685,17 @@ details[open] > summary.node-summary {
 .summary-inner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  flex: 1;
+  width: 100%;
+}
+
+.summary-metrics {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.summary-metrics > .metric-badge:last-child {
+  margin-right: 24px;
 }

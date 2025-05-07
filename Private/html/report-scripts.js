@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (zoomedChart) zoomedChart.click(); // triggers exitZoom
             }
         });
-        
+
 
         chartItem.setAttribute('tabindex', '0');
         chartItem.addEventListener('keydown', e => {
@@ -259,16 +259,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.status-chip').forEach(chip => {
         const section = chip.closest('section');
         let score = parseFloat(chip.style.getPropertyValue('--cluster-score')) || 0;
-    
+
         if (score === 0) {
             const scoreText = section?.textContent.match(/Score: (\d+)/)?.[1];
             score = parseFloat(scoreText) || 0;
         }
-    
+
         const color = getScoreColor(score);
         chip.style.backgroundColor = color;
     });
-    
+
 
     // Status Count-Up Animation for Passed/Failed
     document.querySelectorAll('.count-up').forEach(el => {
@@ -314,6 +314,28 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('navDrawer')?.classList.remove('open');
             document.getElementById('navScrim')?.classList.remove('open');
             document.body.style.overflow = '';
+        });
+    });
+
+    // Toggle summary text (e.g., Show Findings ↔ Hide Findings)
+    document.querySelectorAll('.collapsible-container > details > summary').forEach(summary => {
+        const isRich = summary.querySelector('.summary-inner'); // skip rich custom ones
+        if (isRich) return;
+
+        const originalText = summary.textContent.trim();
+        const openText = originalText.replace(/^Show/i, 'Hide');
+
+        summary.addEventListener('click', () => {
+            requestAnimationFrame(() => {
+                const details = summary.parentElement;
+                if (!details || !details.tagName === 'DETAILS') return;
+
+                if (details.open) {
+                    summary.textContent = openText;
+                } else {
+                    summary.textContent = originalText;
+                }
+            });
         });
     });
 
