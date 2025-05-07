@@ -1320,6 +1320,15 @@ code {
     background: #fff !important;
     box-shadow: none !important;
   }
+  .container {
+    page-break-before: always;
+    page-break-inside: avoid;
+  }
+
+  /* avoid breaking tables mid-row */
+  table, tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
 }
 
 @keyframes flashHighlight {
