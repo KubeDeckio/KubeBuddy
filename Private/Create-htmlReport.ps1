@@ -492,8 +492,12 @@ $nodeSectionHeader = @"
     </span>
   </span>
 </h2>
-<div style="margin: 15px 0;">
-  <input id="nodeFilterInput" type="text" placeholder="🔍 Filter nodes by name..." style="padding: 8px; width: 100%; max-width: 300px; border-radius: 5px; border: 1px solid #ccc;" />
+<div class="material-input with-icon">
+  <i class="material-icons">search</i>
+  <div style="position: relative; width: 100%;">
+    <input type="text" id="nodeFilterInput" placeholder=" " />
+    <label for="nodeFilterInput">Search Nodes</label>
+  </div>
 </div>
 <div id="filteredNodeCards">
   $nodeCardsOnlyHtml
