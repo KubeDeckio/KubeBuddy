@@ -524,8 +524,11 @@ $nodeSectionHeader = @"
     <label for="nodeFilterInput">Search Nodes</label>
   </div>
 </div>
-<div id="filteredNodeCards">
-  $nodeCardsOnlyHtml
+<div id="filteredNodeCardsWrapper">
+  <div id="filteredNodeCards">
+    $nodeCardsOnlyHtml
+  </div>
+  <div id="nodeCardPagination" class="table-pagination"></div>
 </div>
 </div>
 "@
