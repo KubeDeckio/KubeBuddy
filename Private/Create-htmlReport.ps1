@@ -14,20 +14,28 @@ function Generate-K8sHTMLReport {
     param(
       [string]$Id,
       [string]$defaultText,
-      [string]$content
+      [string]$content,
+      [switch]$UseRichSummary
     )
-          
-    @"
+  
+    $summaryHtml = if ($UseRichSummary) {
+      $defaultText  # Pass actual HTML for summary
+    } else {
+      "<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>"
+    }
+  
+  @"
 <div class="collapsible-container" id='$Id'>
 <details style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>
+  $summaryHtml
   <div style='padding-top: 15px;'>
     $content
   </div>
 </details>
 </div>
 "@
-  }
+}
+  
 
   # Mapping of custom check sections to navigation categories
   $sectionToNavMap = @{
@@ -477,7 +485,34 @@ foreach ($node in $KubeData.Nodes.items) {
 </div>
 "@
 
-  $allNodeCards += ConvertToCollapsible -Id $nodeId -defaultText "Show $nodeName" -content $nodeContent
+
+$chipColor = switch (
+  @($cpuClass, $memClass, $diskClass) -contains 'critical'
+) {
+  $true { 'critical' }
+  default {
+    if (@($cpuClass, $memClass, $diskClass) -contains 'warning') {
+      'warning'
+    } else {
+      'normal'
+    }
+  }
+}
+
+$summaryHtml = @"
+<summary class="node-summary collapsible-arrow">
+  <span class="summary-inner">
+    <span class="node-name">$nodeName</span>
+    <span class="metric-badge $cpuClass">CPU: $($cpuData.Avg)%</span>
+    <span class="metric-badge $memClass">Mem: $($memData.Avg)%</span>
+    <span class="metric-badge $diskClass">Disk: $($diskData.Avg)%</span>
+  </span>
+</summary>
+"@
+
+
+$allNodeCards += ConvertToCollapsible -Id $nodeId -defaultText $summaryHtml -content $nodeContent -UseRichSummary
+
 }
 
 $nodeCardsOnlyHtml = $allNodeCards  # Snapshot for filter
