@@ -20,6 +20,69 @@ document.addEventListener('DOMContentLoaded', () => {
         paginateNodeCards(filteredNodeCards, paginationContainer, 5); // ✅ Pagination done here
     }
 
+    const savePdfBtn = document.getElementById('savePdfBtn');
+    if (!savePdfBtn) {
+      console.error(
+        'Save PDF button not found — make sure your HTML has <button id="savePdfBtn">…</button>'
+      );
+      return; // stops initialization if the button is missing
+    }
+
+    // Navigation Drawer
+    const navDrawer = document.getElementById('navDrawer');
+    const navToggle = document.getElementById('menuFab');
+    const navClose = document.getElementById('navClose');
+    const navScrim = document.getElementById('navScrim');
+    const menuBtn = document.getElementById('menuFab');
+    const menuIcon = document.getElementById('menuIcon');
+
+
+    function toggleDrawer() {
+        const isOpen = navDrawer.classList.contains('open');
+        navDrawer.classList.toggle('open');
+        navScrim.classList.toggle('open');
+        menuBtn.classList.toggle('open');
+        menuIcon.textContent = isOpen ? 'menu' : 'close';
+        if (window.innerWidth <= 800) {
+            document.body.style.overflow = isOpen ? '' : 'hidden';
+        }
+    }
+
+    navToggle.addEventListener('click', toggleDrawer);
+    navClose.addEventListener('click', toggleDrawer);
+    navScrim.addEventListener('click', toggleDrawer);
+
+    // Populate drawer with the same tabs you have up in the header
+    const tabList = document.querySelectorAll('.header .tabs li');
+    const navItemsContainer = document.querySelector('#navDrawer .nav-items');
+
+    if (navItemsContainer) {
+        // clear any placeholder
+        navItemsContainer.innerHTML = '';
+
+        tabList.forEach(tab => {
+            const target = tab.getAttribute('data-tab');
+            const li = document.createElement('li');
+            li.className = 'nav-item';
+
+            const a = document.createElement('a');
+            a.href = `#${target}`;
+            a.textContent = tab.textContent.trim();
+
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                // switch to that tab
+                const headerTab = document.querySelector(`.tabs li[data-tab="${target}"]`);
+                if (headerTab) headerTab.click();
+                // close drawer
+                toggleDrawer();
+            });
+
+            li.appendChild(a);
+            navItemsContainer.appendChild(li);
+        });
+    }
+
     // Utility: get color based on score
     function getScoreColor(score) {
         if (score < 40) return '#B71C1C';
@@ -394,7 +457,12 @@ document.addEventListener('DOMContentLoaded', () => {
         pdf.html(
             document.querySelector('.wrapper'),
             {
-                html2canvas: { scale: 2 },
+                html2canvas: {
+                    scale: 2,
+                    scrollY: -window.scrollY    // ← capture from top of page
+                },
+                margin: [10, 10, 10, 10],
+                autoPaging: true,
                 callback: () => {
                     pdf.save('kubebuddy_report.pdf');
 

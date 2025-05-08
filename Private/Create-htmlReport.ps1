@@ -635,7 +635,9 @@ $fallbackClusterMetricsHtml = @"
   <ul class="nav-items"></ul>
 </div>
 <div id="navScrim" class="nav-scrim"></div>
-<button id="menuFab">☰</button>
+<button id="menuFab" class="menu-btn">
+  <i id="menuIcon" class="material-icons">menu</i>
+</button>
 <div class="tab-content active" id="summary">
   <div class="container">
     <h1 id="Health">Cluster Overview</h1>

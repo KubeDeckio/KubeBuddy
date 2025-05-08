@@ -1465,28 +1465,6 @@ code {
   height: 90% !important;
 }
 
-/* Zoomed Chart Styles
-.chart-item.zoomed {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(1.5);
-  max-width: 80vw;
-  max-height: 80vh;
-  z-index: 1600;
-  background: #fff;
-  border-radius: var(--border-radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  transition: transform var(--transition), max-width var(--transition), max-height var(--transition), opacity var(--transition);
-  opacity: 0;
-  animation: fadeInChart 0.3s ease forwards;
-} */
-
-/* .chart-item.zoomed canvas {
-  max-height: 400px !important;
-  width: 100% !important;
-} */
-
 /* Fade-in animation for zoomed chart */
 @keyframes fadeInChart {
   from {
@@ -1707,4 +1685,22 @@ details[open] > summary.node-summary {
 
 .summary-metrics > .metric-badge:last-child {
   margin-right: 24px;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.menu-btn .material-icons {
+  font-size: 32px;
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+/* when the drawer is open, rotate & change color */
+.menu-btn.open .material-icons {
+  transform: rotate(90deg) scale(1.1);
+  color: #FF5252; /* e.g. red close icon */
 }
