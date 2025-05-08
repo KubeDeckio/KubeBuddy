@@ -375,3 +375,34 @@ checks:
       - ""
       - "⚠️ Always use explicit version tags (e.g., :v1.2.3)."
     URL: "https://kubernetes.io/docs/concepts/containers/images/#image-tags"
+  - ID: "POD008"
+    Name: "Automounting API Credentials Enabled in Pods"
+    Category: "Security"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Warning"
+    Weight: 3
+    Description: "Flags Pods where automounting of API credentials is enabled, which may pose a security risk."
+    Condition: "spec.automountServiceAccountToken"
+    Operator: "not_equals"
+    Expected: "true,null"
+    FailMessage: "Some Pods have automountServiceAccountToken enabled, potentially exposing API credentials."
+    URL: "https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#use-the-default-service-account-to-access-the-api-server"
+    Recommendation:
+      text: "Set automountServiceAccountToken to false in Pod specs unless API access is required."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Disable Automounting API Credentials</h4>
+          <ul>
+            <li>Add <code>automountServiceAccountToken: false</code> to the Pod's <code>spec</code>.</li>
+            <li>Edit with <code>kubectl edit pod <pod-name> -n <namespace></code>.</li>
+            <li>Verify if the application needs API access (e.g., for controllers).</li>
+            <li>Use RBAC to limit ServiceAccount permissions if access is required.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some Pods are automounting API credentials."
+      - ""
+      - "📌 This can be a security risk if Pods are compromised."
+      - ""
+      - "⚠️ Set automountServiceAccountToken to false unless needed."

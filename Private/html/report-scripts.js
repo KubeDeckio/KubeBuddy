@@ -20,14 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         paginateNodeCards(filteredNodeCards, paginationContainer, 5); // ✅ Pagination done here
     }
 
-    const savePdfBtn = document.getElementById('savePdfBtn');
-    if (!savePdfBtn) {
-      console.error(
-        'Save PDF button not found — make sure your HTML has <button id="savePdfBtn">…</button>'
-      );
-      return; // stops initialization if the button is missing
-    }
-
     // Navigation Drawer
     const navDrawer = document.getElementById('navDrawer');
     const navToggle = document.getElementById('menuFab');
@@ -430,54 +422,121 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // PDF Export Button
-    // hide your “chrome” before-and-after
-    function togglePrintMode(on) {
-        document.querySelectorAll('#savePdfBtn, .table-pagination, #menuFab, #backToTop')
-            .forEach(el => el.style.display = on ? 'none' : '');
+    // Add functions for PDF generation
+    function disablePagination() {
+        // Show all node cards
+        document.querySelectorAll('.collapsible-container').forEach(card => {
+            card.style.display = '';
+        });
+        // Show all table rows
+        document.querySelectorAll('table tr').forEach(row => {
+            row.style.display = '';
+        });
+        // Show all canvases and set fallback dimensions
+        document.querySelectorAll('canvas').forEach(canvas => {
+            canvas.style.display = '';
+            if (canvas.width === 0 || canvas.height === 0) {
+                canvas.width = canvas.parentElement.clientWidth || 300;
+                canvas.height = canvas.parentElement.clientHeight || 150;
+            }
+        });
+        // Hide pagination controls
+        document.querySelectorAll('.table-pagination, #nodeCardPagination').forEach(p => {
+            p.style.display = 'none';
+        });
     }
 
-    savePdfBtn.addEventListener('click', () => {
-        isPrinting = true;
-
-        // 1) expand all details and show every tab
-        const detailsStates = [];
-        document.querySelectorAll('details').forEach(d => {
-            detailsStates.push({ el: d, open: d.open });
-            d.open = true;
+    function restorePagination() {
+        // Re-run pagination for node cards
+        const filteredNodeCards = document.getElementById('filteredNodeCards');
+        const paginationContainer = document.getElementById('nodeCardPagination');
+        if (filteredNodeCards && paginationContainer) {
+            paginateNodeCards(filteredNodeCards, paginationContainer, 5);
+        }
+        // Re-run pagination for tables
+        document.querySelectorAll('.collapsible-container').forEach(container => {
+            paginateTable(container);
         });
-        // reveal every tab’s content
-        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('active'));
+    }
 
-        // 2) hide UI chrome
-        togglePrintMode(true);
-
-        // 3) render HTML -> PDF
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        pdf.html(
-            document.querySelector('.wrapper'),
-            {
-                html2canvas: {
-                    scale: 2,
-                    scrollY: -window.scrollY    // ← capture from top of page
-                },
-                margin: [10, 10, 10, 10],
-                autoPaging: true,
-                callback: () => {
-                    pdf.save('kubebuddy_report.pdf');
-
-                    // 4) restore everything
-                    togglePrintMode(false);
-                    detailsStates.forEach(d => d.el.open = d.open);
-                    // put tabs back to the one the user had open
-                    // (optional: track which tab was active and restore)
-                    isPrinting = false;
-                },
-                margin: [10, 10, 10, 10],
-                autoPaging: true
+    function redrawCharts() {
+        chartInstances.forEach((chart, canvas) => {
+            if (chart && canvas.isConnected) {
+                // Ensure canvas has valid dimensions
+                if (canvas.width === 0 || canvas.height === 0) {
+                    canvas.width = canvas.parentElement.clientWidth || 300;
+                    canvas.height = canvas.parentElement.clientHeight || 150;
+                }
+                chart.resize();
+                chart.update();
             }
-        );
+        });
+    }
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function debugCanvases() {
+        document.querySelectorAll('canvas').forEach((canvas, index) => {
+            console.log(`Canvas ${index}:`, {
+                id: canvas.id,
+                width: canvas.width,
+                height: canvas.height,
+                display: getComputedStyle(canvas).display,
+                isConnected: canvas.isConnected
+            });
+        });
+    }
+
+    const savePdfBtn = document.getElementById('savePdfBtn');
+
+    // 1) Add this helper at the top of your script:
+    function embedChartsAsImages() {
+        chartInstances.forEach((chart, canvas) => {
+            // generate a JPEG at 80% quality (much smaller than PNG)
+            const dataUrl = chart.toBase64Image('image/jpeg', 0.8);
+            const img = document.createElement('img');
+            // preserve the on-screen dimensions
+            img.width = canvas.clientWidth;
+            img.height = canvas.clientHeight;
+            img.src = dataUrl;
+            // swap it in
+            canvas.parentNode.replaceChild(img, canvas);
+        });
+    }
+
+    // 2) In your “Save PDF” handler, call that *before* you invoke pdf.html():
+    savePdfBtn.addEventListener('click', async () => {
+        try {
+            isPrinting = true;
+            // open all <details>
+            document.querySelectorAll('details').forEach(d => d.open = true);
+            disablePagination();
+
+            // **Embed charts as <img> data-URLs** so html2canvas never sees a canvas=0×0
+            embedChartsAsImages();
+
+            // give the browser a moment to paint your IMG tags
+            await delay(200);
+
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            await pdf.html(document.body, {
+                x: 5, y: 5,
+                width: pdf.internal.pageSize.getWidth() - 10,
+                html2canvas: { scale: 2 }
+            });
+            pdf.save('kubebuddy_report.pdf');
+        } catch (err) {
+            console.error('PDF generation failed:', err);
+            alert('PDF failed – check console for details.');
+        } finally {
+            isPrinting = false;
+            restorePagination();
+            window.location.reload();
+        }
     });
+
 
     // Initialize pagination on page load for all open collapsibles
     document.querySelectorAll('.collapsible-container > details[open]').forEach(details => {

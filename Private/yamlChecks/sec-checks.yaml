@@ -997,3 +997,34 @@ checks:
       }
 
       return @{ Items = $results; IssueCount = $results.Count }
+  - ID: "SEC018"
+    Name: "Automounting API Credentials Enabled in ServiceAccounts"
+    Category: "Security"
+    Section: "Security"
+    ResourceKind: "ServiceAccount"
+    Severity: "Warning"
+    Weight: 3
+    Description: "Flags ServiceAccounts where automounting of API credentials is enabled, affecting associated Pods."
+    Condition: "automountServiceAccountToken"
+    Operator: "not_equals"
+    Expected: "true,null"
+    FailMessage: "Some ServiceAccounts have automountServiceAccountToken enabled, potentially exposing API credentials to Pods."
+    URL: "https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
+    Recommendation:
+      text: "Set automountServiceAccountToken to false in ServiceAccount specs unless Pods require API access."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Disable Automounting in ServiceAccounts</h4>
+          <ul>
+            <li>Add <code>automountServiceAccountToken: false</code> to the ServiceAccount spec.</li>
+            <li>Edit with <code>kubectl edit serviceaccount <sa-name> -n <namespace></code>.</li>
+            <li>Ensure Pods needing API access override this in their spec with <code>automountServiceAccountToken: true</code>.</li>
+            <li>Use RBAC to limit ServiceAccount permissions if access is required.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some ServiceAccounts enable API credential automounting."
+      - ""
+      - "📌 This affects all Pods using these ServiceAccounts."
+      - ""
+      - "⚠️ Disable unless required for specific workloads."
