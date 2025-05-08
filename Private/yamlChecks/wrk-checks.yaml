@@ -594,8 +594,13 @@ checks:
 
       $items = @()
       foreach ($type in $workloadTypes) {
-        $raw = if ($KubeData -and $KubeData[$type]) {
-          $KubeData[$type]
+        $key = ($KubeData.Keys | Where-Object { $_.ToLower() -eq $type.ToLower() })[0]
+        $raw = if ($KubeData -and $key -and $KubeData[$key]) {
+          if ($KubeData[$type].PSObject.Properties.Name -contains 'items') {
+            $KubeData[$type].items
+          } else {
+            $KubeData[$type]
+          }
         } else {
           (kubectl get $type --all-namespaces -o json | ConvertFrom-Json).items
         }
@@ -621,6 +626,9 @@ checks:
         $ns = $w.metadata.namespace
         $name = $w.metadata.name
         $kind = $w.kind
+        if (-not $w.spec -or -not $w.spec.template -or -not $w.spec.template.spec -or -not $w.spec.template.spec.containers) {
+          continue
+        }
         $containers = $w.spec.template.spec.containers
 
         foreach ($c in $containers) {
@@ -692,7 +700,7 @@ checks:
           $_.metadata.namespace -eq $ns -and (Matches-Selector $_ $selector)
         }
   
-        if ($matchingPods.Count -eq 0) {
+        if (-not $matchingPods -or $matchingPods.Count -eq 0) {
           $results += [pscustomobject]@{
             "Namespace"       = $ns
             "Deployment"        = "$($dep.metadata.name)"

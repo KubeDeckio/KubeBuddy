@@ -332,8 +332,9 @@ $heroRatingHtml
   $excludedNamespaces = Get-ExcludedNamespaces -Silent
   $errorClass = if ($eventErrors -ge $thresholds.event_errors_critical) { "critical" } elseif ($eventErrors -ge $thresholds.event_errors_warning) { "warning" } else { "normal" }
   $warningClass = if ($eventWarnings -ge $thresholds.event_warnings_critical) { "critical" } elseif ($eventWarnings -ge $thresholds.event_warnings_warning) { "warning" } else { "normal" }
-  $cpuClass = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
-  $memClass = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } else { "normal" }
+  $cpuClassTop = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
+  $memClassTop = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } else { "normal" }
+
 
   # Initialize Prometheus HTML content
   $clusterMetricsHtml = ""
@@ -378,6 +379,7 @@ $heroRatingHtml
       }
     } | Sort-Object timestamp
     $memChartJson = if ($memChartData) { $memChartData | ConvertTo-Json -Compress } else { "[]" }
+  }
 
     $clusterMetricsHtml = @"
 <h2>Cluster Health Metrics (Last 24h)
@@ -559,8 +561,8 @@ $fallbackClusterMetricsHtml = @"
 </h2>
 <p style="font-size: 14px; color: #666; margin-top: -10px;">🕒 Snapshot time: <strong>$today</strong></p>
 <div class="hero-metrics">
-  <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
-  <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
+  <div class="metric-card $cpuClassTop">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
+  <div class="metric-card $memClassTop">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
 </div>
 "@
   
@@ -784,6 +786,11 @@ $(if ($aks) {
 </body>
 </html>
 "@
-  $htmlTemplate | Set-Content $outputPath
+
+if (-not $htmlTemplate) {
+  Write-Host "❌ HTML template content was empty. Report not generated." -ForegroundColor Red
+  return
 }
+
+  $htmlTemplate | Set-Content $outputPath
 }

@@ -8,7 +8,7 @@ function Get-KubeData {
         [switch]$UseAksRestApi,
         [switch]$IncludePrometheus,
         [string]$PrometheusUrl, # Prometheus endpoint
-        [string]$PrometheusMode = "local", # Authentication mode
+        [string]$PrometheusMode, # Authentication mode
         [string]$PrometheusUsername,
         [string]$PrometheusPassword,
         [string]$PrometheusBearerTokenEnv

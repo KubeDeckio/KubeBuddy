@@ -200,7 +200,7 @@ checks:
           $memUsed = 0
           $memPct = 0
           $memStatus = "✅ Normal"
-          $diskPct = "<unknown>"
+          $diskPct = "0"
           $diskStatus = "⚠️ Unknown"
       
           if ($usePrometheus) {
@@ -239,13 +239,13 @@ checks:
                       else { $diskStatus = "✅ Normal" }
                   }
                   else {
-                      $diskPct = "<unknown>"
+                      $diskPct = "0"
                       $diskStatus = "⚠️ Unknown"
                       Write-Host "⚠️ No valid disk values for node $name"
                   }
               }
               else {
-                  $diskPct = "<unknown>"
+                  $diskPct = "0"
                   $diskStatus = "⚠️ Unknown"
                   Write-Host "⚠️ No disk metrics found or empty for node $name"
               }
@@ -256,7 +256,7 @@ checks:
               if ($memPct -gt $mem_crit) { $memStatus = "🔴 Critical"; $issueCount++ }
               elseif ($memPct -gt $mem_warn) { $memStatus = "🟡 Warning"; $issueCount++ }
       
-              if ($diskPct -match "\d+%") {
+              if ($diskPct -match "^\d+%$") {
                   $diskVal = [int]($diskPct -replace "%", "")
                   if ($diskVal -gt $disk_crit) { $diskStatus = "🔴 Critical"; $issueCount++ }
                   elseif ($diskVal -gt $disk_warn) { $diskStatus = "🟡 Warning"; $issueCount++ }

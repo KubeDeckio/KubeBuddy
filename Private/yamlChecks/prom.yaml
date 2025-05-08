@@ -1,4 +1,4 @@
-checks:
+1checks:
   - ID: "PROM001"
     Name: "High CPU Pods (Prometheus)"
     Category: "Performance"
