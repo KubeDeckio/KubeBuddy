@@ -14,7 +14,9 @@ function Check-KubernetesVersion {
 }
 
 function Show-ApiServerHealth {
-    param([switch]$Html)
+    param(
+        [switch]$Html
+    )
 
     # 1. Fetch metrics
     try {
@@ -28,16 +30,16 @@ function Show-ApiServerHealth {
 
     # 2. Fetch liveness & readiness
     try {
-        $livez = (& kubectl get --raw '/livez?verbose') -join "`n"
+        $livez  = (& kubectl get --raw '/livez?verbose') -join "`n"
         $readyz = (& kubectl get --raw '/readyz?verbose') -join "`n"
     }
     catch {
         Write-Warning "Failed to fetch health endpoints: $_"
-        $livez = ''
+        $livez  = ''
         $readyz = ''
     }
 
-    $lastLivez = ($livez -split "`n")[-1]
+    $lastLivez  = ($livez  -split "`n")[-1]
     $lastReadyz = ($readyz -split "`n")[-1]
 
     # 3. Compute p99 GET latency
@@ -45,36 +47,38 @@ function Show-ApiServerHealth {
     if ($m) {
         try {
             Write-Debug "Parsing GET buckets from metrics"
-            # parse buckets, skip +Inf
             $buckets = $m -split "`n" |
-            Where-Object { $_ -match 'apiserver_request_duration_seconds_bucket.*verb="GET"' } |
-            ForEach-Object {
-                if ($_ -match 'le="([^"]+)"\}.*\s+(\d+)$') {
-                    $leRaw = $matches[1]
-                    $count = [int64]$matches[2]
-                    if ($leRaw -ne '+Inf') { [PSCustomObject]@{ Le = [double]$leRaw; Count = $count } }
-                }
-            } |
-            Where-Object { $_ }
+                Where-Object { $_ -match 'apiserver_request_duration_seconds_bucket.*verb="GET"' } |
+                ForEach-Object {
+                    if ($_ -match 'le="([^"]+)"\}.*\s+(\d+)$') {
+                        $rawLe = $matches[1]
+                        if ($rawLe -ne '+Inf') {
+                            $le    = [double]$rawLe
+                            $count = [int64]$matches[2]
+                            [PSCustomObject]@{ Le = $le; Count = $count }
+                        }
+                    }
+                } |
+                Where-Object { $_ }
 
             # total GET count
             $totalLine = $m -split "`n" |
-            Where-Object { $_ -match 'apiserver_request_duration_seconds_count.*verb="GET"' } |
-            Select-Object -First 1
+                Where-Object { $_ -match 'apiserver_request_duration_seconds_count.*verb="GET"' } |
+                Select-Object -First 1
             $total = ($totalLine -split '\s+')[1] -as [double]
 
             if ($buckets.Count -and $total -gt 0) {
                 $target = $total * 0.99
                 $p99 = $buckets |
-                Sort-Object Le |
-                Where-Object { $_.Count -ge $target } |
-                Select-Object -First 1
+                    Sort-Object Le |
+                    Where-Object { $_.Count -ge $target } |
+                    Select-Object -First 1
                 if ($p99) {
                     $p99Ms = [math]::Round($p99.Le * 1000, 2)
                     Write-Debug "Calculated p99Ms: $p99Ms"
                 }
                 else {
-                    Write-Warning "Couldn't locate p 99 bucket for GET"
+                    Write-Warning "Couldn't locate p99 bucket for GET"
                 }
             }
             else {
@@ -89,50 +93,50 @@ function Show-ApiServerHealth {
         Write-Warning "No valid metrics data to parse"
     }
 
-    # 4. Output
+    # 4. Return output
     if ($Html) {
-        if ($p99Ms) {
-            $latLine = "<p><strong>latency (p99):</strong> " +
-            "<span style='color:#0071FF'>$p99Ms ms</span></p>"
-        }
-        else {
-            $latLine = "<p style='color:#999'>Metrics endpoint unavailable</p>"
+        $latLine = if ($p99Ms) {
+            "<p><strong>latency (p99):</strong> <span style='color:#0071FF'>$p99Ms ms</span></p>"
+        } else {
+            "<p style='color:#999'>Metrics endpoint unavailable</p>"
         }
 
         return @"
-<div class="health-checks">
+<div class='health-checks'>
 $latLine
 
-<details style="width: 100%;">
+<details style='width: 100%;'>
  <summary>
- <span class="label">Liveness:</span>
- <span class="status">$lastLivez</span>
- <span class="material-icons">expand_more</span>
-</summary>
-<pre class="health-output">$livez</pre>
+  <span class='label'>Liveness:</span> <span class='status'>$lastLivez</span> <span class='material-icons'>expand_more</span>
+ </summary>
+ <pre class='health-output'>$livez</pre>
 </details>
 
-<details style="width: 100%;">
-<summary>
- <span class="label">Readiness:</span>
- <span class="status">$lastReadyz</span>
- <span class="material-icons">expand_more</span>
+<details style='width: 100%;'>
+ <summary>
+  <span class='label'>Readiness:</span> <span class='status'>$lastReadyz</span> <span class='material-icons'>expand_more</span>
  </summary>
- <pre class="health-output">$readyz</pre>
+ <pre class='health-output'>$readyz</pre>
 </details>
 </div>
 "@
     }
     else {
-        Write-Host "API Server Health:"
-        if ($p99Ms) {
-            Write-Host "  p 99 GET latency: $p99Ms ms"
+        $lines = @()
+        $lines += 'API Server Health:'
+        $lines += if ($p99Ms) {
+            "  p99 GET latency: $p99Ms ms"
+        } else {
+            '  Metrics endpoint unavailable'
         }
-        else {
-            Write-Host "  Metrics endpoint unavailable"
-        }
-        Write-Host "  Liveness:`n$livez"
-        Write-Host "`n  Readiness:`n$readyz"
+        $lines += ''
+        $lines += 'Liveness:'
+        $lines += $livez
+        $lines += ''
+        $lines += 'Readiness:'
+        $lines += $readyz
+
+        return ($lines -join "`n")
     }
 }
 

@@ -102,6 +102,52 @@ function Generate-K8sTextReport {
         Write-ToReport -Message ($aksResults.TextOutput -join "`n")
     }
 
+    # ----- Prometheus Metrics (Last 24h) -----
+    if ($KubeData.PrometheusMetrics) {
+        # Cluster-level metrics
+        $cpuVals = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } }
+        $memVals = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } }
+        $avgCpu = [math]::Round(($cpuVals | Measure-Object -Average).Average, 2)
+        $avgMem = [math]::Round(($memVals | Measure-Object -Average).Average, 2)
+        # Determine status (adjust thresholds as needed)
+        $cpuStatus = if ($avgCpu -ge $thresholds.cpu_critical) { 'Critical' } elseif ($avgCpu -ge $thresholds.cpu_warning) { 'Warning' } else { 'Normal' }
+        $memStatus = if ($avgMem -ge $thresholds.mem_critical) { 'Critical' } elseif ($avgMem -ge $thresholds.mem_warning) { 'Warning' } else { 'Normal' }
+    
+        Write-ToReport "`n[📊 Cluster Metrics]"
+        Write-ToReport "Avg CPU Usage: $avgCpu% ($cpuStatus)"
+        Write-ToReport "Avg Memory Usage: $avgMem% ($memStatus)"
+    
+        # Build series
+        $cpuSeries = $KubeData.PrometheusMetrics.NodeCpuUsagePercent |
+        ForEach-Object { $_.values | ForEach-Object { [PSCustomObject]@{ ts = [int64]($_[0] * 1000); val = [double]$_[1] } } } |
+        Group-Object ts |
+        ForEach-Object { [PSCustomObject]@{ ts = $_.Name; val = [math]::Round(($_.Group | Measure-Object val -Average).Average, 2) } } |
+        Sort-Object ts
+        $memSeries = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent |
+        ForEach-Object { $_.values | ForEach-Object { [PSCustomObject]@{ ts = [int64]($_[0] * 1000); val = [double]$_[1] } } } |
+        Group-Object ts |
+        ForEach-Object { [PSCustomObject]@{ ts = $_.Name; val = [math]::Round(($_.Group | Measure-Object val -Average).Average, 2) } } |
+        Sort-Object ts
+    
+        Write-ToReport "`nCPU Time Series (timestamp : value%)"
+        foreach ($pt in $cpuSeries) { Write-ToReport "  $($pt.ts) : $($pt.val)" }
+        Write-ToReport "`nMemory Time Series (timestamp : value%)"
+        foreach ($pt in $memSeries) { Write-ToReport "  $($pt.ts) : $($pt.val)" }
+    
+        # Node-level metrics
+        Write-ToReport "`n[📊 Node Metrics]"
+        foreach ($node in $KubeData.Nodes.items) {
+            $n = $node.metadata.name
+            $c = ($KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $n }).values | ForEach-Object { [double]$_[1] }
+            $m = ($KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $n }).values | ForEach-Object { [double]$_[1] }
+            $d = ($KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $n }).values | ForEach-Object { [double]$_[1] }
+            $avgC = if ($c) { [math]::Round(($c | Measure-Object -Average).Average, 2) } else { 'N/A' }
+            $avgM = if ($m) { [math]::Round(($m | Measure-Object -Average).Average, 2) } else { 'N/A' }
+            $avgD = if ($d) { [math]::Round(($d | Measure-Object -Average).Average, 2) } else { 'N/A' }
+            Write-ToReport "Node: $n - CPU: $avgC% | Mem: $avgM% | Disk: $avgD%"
+        }
+    }
+
     $score = Get-ClusterHealthScore -Checks $yamlCheckResults.Items
     Write-ToReport "`n🩺 Cluster Health Score: $score / 100"
 }
@@ -115,22 +161,22 @@ function Get-KubeBuddyThresholds {
         try {
             $config = Get-Content -Raw $configPath | ConvertFrom-Yaml
             return @{
-                cpu_warning             = $config.thresholds.cpu_warning             ?? 50
-                cpu_critical            = $config.thresholds.cpu_critical            ?? 75
-                mem_warning             = $config.thresholds.mem_warning             ?? 50
-                mem_critical            = $config.thresholds.mem_critical            ?? 75
-                restarts_warning        = $config.thresholds.restarts_warning        ?? 3
-                restarts_critical       = $config.thresholds.restarts_critical       ?? 5
-                pod_age_warning         = $config.thresholds.pod_age_warning         ?? 15
-                pod_age_critical        = $config.thresholds.pod_age_critical        ?? 40
-                stuck_job_hours         = $config.thresholds.stuck_job_hours         ?? 2
-                failed_job_hours        = $config.thresholds.failed_job_hours        ?? 2
-                event_errors_warning    = $config.thresholds.event_errors_warning    ?? 10
-                event_errors_critical   = $config.thresholds.event_errors_critical   ?? 20
-                event_warnings_warning  = $config.thresholds.event_warnings_warning  ?? 50
+                cpu_warning             = $config.thresholds.cpu_warning ?? 50
+                cpu_critical            = $config.thresholds.cpu_critical ?? 75
+                mem_warning             = $config.thresholds.mem_warning ?? 50
+                mem_critical            = $config.thresholds.mem_critical ?? 75
+                restarts_warning        = $config.thresholds.restarts_warning ?? 3
+                restarts_critical       = $config.thresholds.restarts_critical ?? 5
+                pod_age_warning         = $config.thresholds.pod_age_warning ?? 15
+                pod_age_critical        = $config.thresholds.pod_age_critical ?? 40
+                stuck_job_hours         = $config.thresholds.stuck_job_hours ?? 2
+                failed_job_hours        = $config.thresholds.failed_job_hours ?? 2
+                event_errors_warning    = $config.thresholds.event_errors_warning ?? 10
+                event_errors_critical   = $config.thresholds.event_errors_critical ?? 20
+                event_warnings_warning  = $config.thresholds.event_warnings_warning ?? 50
                 event_warnings_critical = $config.thresholds.event_warnings_critical ?? 100
-                excluded_checks         = $config.excluded_checks                    ?? @()
-                trusted_registries      = $config.trusted_registries                 ?? @("mcr.microsoft.com/")
+                excluded_checks         = $config.excluded_checks ?? @()
+                trusted_registries      = $config.trusted_registries ?? @("mcr.microsoft.com/")
             }
         }
         catch {

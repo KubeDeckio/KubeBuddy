@@ -1704,3 +1704,72 @@ details[open] > summary.node-summary {
   transform: rotate(90deg) scale(1.1);
   color: #FF5252; /* e.g. red close icon */
 }
+
+
+body.print-mode {
+  overflow: auto !important;
+}
+
+body.print-mode .tabs,
+body.print-mode #navDrawer,
+body.print-mode #navScrim,
+body.print-mode #menuFab,
+body.print-mode .chart-lightbox,
+body.print-mode a[href="#top"],
+body.print-mode footer {
+  display: none !important;
+}
+
+body.print-mode .tab-content {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+body.print-mode .collapsible-container,
+body.print-mode .collapsible-container > details,
+body.print-mode .collapsible-container > details > summary {
+  display: block !important;
+}
+
+body.print-mode .table-pagination,
+body.print-mode #nodeCardPagination {
+  display: none !important;
+}
+
+body.print-mode canvas {
+  display: block !important;
+  max-width: 100%;
+}
+
+
+  @media print {
+    body {
+      font-size: 10pt; /* Smaller font for print */
+    }
+
+    /* Show all tab content */
+    .tab-content {
+      display: block !important;
+    }
+
+    .tablinks {
+      display: none !important; /* Hide tab buttons */
+    }
+
+    /* Force tables to full width */
+    table {
+      width: 100% !important;
+    }
+
+    /* Force a page break before a section */
+    .section-break {
+      page-break-before: always;
+    }
+
+    /* Hide navigation */
+    nav,
+    #menuFab,
+    #savePdfBtn {
+      display: none !important;
+    }
+  }

@@ -210,11 +210,33 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
             return
         }
-        $KubeData = Get-KubeData -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks -UseAksRestApi:$UseAksRestApi
+        $kubeDataParams = @{
+            SubscriptionId           = $SubscriptionId
+            ResourceGroup            = $ResourceGroup
+            ClusterName              = $ClusterName
+            ExcludeNamespaces        = $ExcludeNamespaces
+            Aks                      = $Aks
+            UseAksRestApi            = $UseAksRestApi
+            
+        }
+        
+        # Add Prometheus params only if IncludePrometheus is true
+        if ($IncludePrometheus) {
+            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
+            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
+            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
+            $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+        }
+        
+        $KubeData = Get-KubeData @kubeDataParams
+        
         if ($KubeData -eq $false) {
             Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
             return
         }
+
         Generate-K8sTextReport `
             -ReportFile $txtReportFile `
             -ExcludeNamespaces:$ExcludeNamespaces `
@@ -223,6 +245,7 @@ function Invoke-KubeBuddy {
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName `
             -KubeData $KubeData
+            
         Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
         return
     }
@@ -233,18 +256,43 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
             return
         }
-        $KubeData = Get-KubeData -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks -UseAksRestApi:$UseAksRestApi
+
+        $kubeDataParams = @{
+            SubscriptionId           = $SubscriptionId
+            ResourceGroup            = $ResourceGroup
+            ClusterName              = $ClusterName
+            ExcludeNamespaces        = $ExcludeNamespaces
+            Aks                      = $Aks
+            UseAksRestApi            = $UseAksRestApi
+            
+        }
+        
+        # Add Prometheus params only if IncludePrometheus is true
+        if ($IncludePrometheus) {
+            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
+            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
+            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
+            $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+        }
+        
+        $KubeData = Get-KubeData @kubeDataParams
+        
         if ($KubeData -eq $false) {
             Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
             return
         }
+
         Create-jsonReport `
             -outputpath $jsonReportFile `
             -KubeData $KubeData `
+            -ExcludeNamespaces:$ExcludeNamespaces `
             -aks:$Aks `
             -SubscriptionId $SubscriptionId `
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName
+
         Write-Host "`n🤖 ✅ Json report saved at: $jsonReportFile" -ForegroundColor Green
         return
     }

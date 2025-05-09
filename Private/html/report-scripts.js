@@ -422,122 +422,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Add functions for PDF generation
-    function disablePagination() {
-        // Show all node cards
-        document.querySelectorAll('.collapsible-container').forEach(card => {
-            card.style.display = '';
-        });
-        // Show all table rows
-        document.querySelectorAll('table tr').forEach(row => {
-            row.style.display = '';
-        });
-        // Show all canvases and set fallback dimensions
-        document.querySelectorAll('canvas').forEach(canvas => {
-            canvas.style.display = '';
-            if (canvas.width === 0 || canvas.height === 0) {
-                canvas.width = canvas.parentElement.clientWidth || 300;
-                canvas.height = canvas.parentElement.clientHeight || 150;
-            }
-        });
-        // Hide pagination controls
-        document.querySelectorAll('.table-pagination, #nodeCardPagination').forEach(p => {
-            p.style.display = 'none';
-        });
-    }
-
-    function restorePagination() {
-        // Re-run pagination for node cards
-        const filteredNodeCards = document.getElementById('filteredNodeCards');
-        const paginationContainer = document.getElementById('nodeCardPagination');
-        if (filteredNodeCards && paginationContainer) {
-            paginateNodeCards(filteredNodeCards, paginationContainer, 5);
-        }
-        // Re-run pagination for tables
-        document.querySelectorAll('.collapsible-container').forEach(container => {
-            paginateTable(container);
-        });
-    }
-
-    function redrawCharts() {
-        chartInstances.forEach((chart, canvas) => {
-            if (chart && canvas.isConnected) {
-                // Ensure canvas has valid dimensions
-                if (canvas.width === 0 || canvas.height === 0) {
-                    canvas.width = canvas.parentElement.clientWidth || 300;
-                    canvas.height = canvas.parentElement.clientHeight || 150;
-                }
-                chart.resize();
-                chart.update();
-            }
-        });
-    }
-
-    function delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    function debugCanvases() {
-        document.querySelectorAll('canvas').forEach((canvas, index) => {
-            console.log(`Canvas ${index}:`, {
-                id: canvas.id,
-                width: canvas.width,
-                height: canvas.height,
-                display: getComputedStyle(canvas).display,
-                isConnected: canvas.isConnected
-            });
-        });
-    }
-
-    const savePdfBtn = document.getElementById('savePdfBtn');
-
-    // 1) Add this helper at the top of your script:
-    function embedChartsAsImages() {
-        chartInstances.forEach((chart, canvas) => {
-            // generate a JPEG at 80% quality (much smaller than PNG)
-            const dataUrl = chart.toBase64Image('image/jpeg', 0.8);
-            const img = document.createElement('img');
-            // preserve the on-screen dimensions
-            img.width = canvas.clientWidth;
-            img.height = canvas.clientHeight;
-            img.src = dataUrl;
-            // swap it in
-            canvas.parentNode.replaceChild(img, canvas);
-        });
-    }
-
-    // 2) In your “Save PDF” handler, call that *before* you invoke pdf.html():
-    savePdfBtn.addEventListener('click', async () => {
-        try {
-            isPrinting = true;
-            // open all <details>
-            document.querySelectorAll('details').forEach(d => d.open = true);
-            disablePagination();
-
-            // **Embed charts as <img> data-URLs** so html2canvas never sees a canvas=0×0
-            embedChartsAsImages();
-
-            // give the browser a moment to paint your IMG tags
-            await delay(200);
-
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            await pdf.html(document.body, {
-                x: 5, y: 5,
-                width: pdf.internal.pageSize.getWidth() - 10,
-                html2canvas: { scale: 2 }
-            });
-            pdf.save('kubebuddy_report.pdf');
-        } catch (err) {
-            console.error('PDF generation failed:', err);
-            alert('PDF failed – check console for details.');
-        } finally {
-            isPrinting = false;
-            restorePagination();
-            window.location.reload();
-        }
-    });
-
-
     // Initialize pagination on page load for all open collapsibles
     document.querySelectorAll('.collapsible-container > details[open]').forEach(details => {
         const container = details.parentElement;
@@ -556,290 +440,233 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     if (nodeFilterInput && filteredNodeCards) {
-        const originalCards = Array.from(filteredNodeCards.children);
-
-        function debounce(fn, delay) {
-            let timeout;
-            return (...args) => {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => fn(...args), delay);
-            };
-        }
-
-        nodeFilterInput.addEventListener('input', debounce(() => {
-            const query = nodeFilterInput.value.toLowerCase();
+        originalCards = Array.from(filteredNodeCards.children);
+        nodeFilterInput.addEventListener('input', () => {
+            const searchTerm = nodeFilterInput.value.toLowerCase();
+            const filteredCards = originalCards.filter(card => {
+                const nodeName = card.querySelector('.node-name')?.textContent.toLowerCase() || '';
+                const metrics = Array.from(card.querySelectorAll('.metric-badge')).map(badge => badge.textContent.toLowerCase()).join(' ');
+                return nodeName.includes(searchTerm) || metrics.includes(searchTerm);
+            });
+            // Clear and re-add filtered cards
             filteredNodeCards.innerHTML = '';
-            let matchFound = false;
-
-            originalCards.forEach(card => {
-                if (card.textContent.toLowerCase().includes(query)) {
-                    const clone = card.cloneNode(true);
-                    const originalCanvases = card.querySelectorAll('canvas.node-chart');
-                    const clonedCanvases = clone.querySelectorAll('canvas.node-chart');
-
-                    originalCanvases.forEach((orig, i) => {
-                        const val = orig.dataset.values;
-                        const newCanvas = document.createElement('canvas');
-                        newCanvas.className = 'node-chart';
-                        newCanvas.dataset.values = val;
-                        const oldCanvas = clonedCanvases[i];
-                        if (oldCanvas && oldCanvas.parentNode) {
-                            oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
-                        }
-                    });
-
-                    filteredNodeCards.appendChild(clone);
-                    matchFound = true;
-                }
-            });
-
-            if (!matchFound) {
-                filteredNodeCards.innerHTML = "<p style='padding: 10px;'>🚫 No matching nodes found.</p>";
-            }
-
-            if (matchFound) {
-                sortNodeCards(filteredNodeCards);
-                paginateNodeCards(filteredNodeCards, paginationContainer, 5);
-
-            }
-
-            filteredNodeCards.querySelectorAll('canvas.node-chart').forEach(canvas => {
-                const chartItem = canvas.closest('.chart-item');
-                const label = chartItem?.querySelector('h3')?.textContent || 'Node Metric';
-                const unit = /cpu|memory|disk/i.test(label) ? '%' : '';
-                const chart = renderLineChart(canvas, label, unit);
-                if (chart && chartItem) {
-                    setupChartZoom(chartItem, canvas, chart, unit);
-                }
-            });
-        }, 300));
-    }
-});
-
-// Add Sorting Function
-function sortTable(container, columnIndex) {
-    const table = container.querySelector('table');
-    if (!table) return;
-
-    const rows = Array.from(table.querySelectorAll('tr')).filter(r => r.cells.length > 0);
-    const header = rows.find(r => r.querySelector('th'));
-    const dataRows = header ? rows.filter(r => r !== header) : rows;
-
-    const ascending = container.sortState?.columnIndex === columnIndex ? !container.sortState.ascending : true;
-    container.sortState = { columnIndex, ascending };
-
-    dataRows.sort((a, b) => {
-        const valA = a.cells[columnIndex].textContent.trim();
-        const valB = b.cells[columnIndex].textContent.trim();
-
-        const isNumeric = !isNaN(parseFloat(valA)) && !isNaN(parseFloat(valB));
-        return ascending
-            ? isNumeric ? valA - valB : valA.localeCompare(valB)
-            : isNumeric ? valB - valA : valB.localeCompare(valA);
-    });
-
-    const tbody = table.querySelector('tbody') || table;
-    dataRows.forEach(row => tbody.appendChild(row));
-}
-
-function paginateNodeCards(container, paginationContainer, initialItemsPerPage = 5) {
-    const cards = Array.from(container.querySelectorAll('.collapsible-container'));
-    let itemsPerPage = initialItemsPerPage;
-    let currentPage = 1;
-
-    const totalPages = () => Math.ceil(cards.length / itemsPerPage);
-
-    function showPage() {
-        const start = (currentPage - 1) * itemsPerPage;
-        const end = start + itemsPerPage;
-        cards.forEach((card, i) => {
-            card.style.display = (i >= start && i < end) ? '' : 'none';
+            filteredCards.forEach(card => filteredNodeCards.appendChild(card));
+            paginateNodeCards(filteredNodeCards, paginationContainer, 5); // Reset pagination
         });
     }
 
-    function createButton(label, onClick, disabled = false, active = false) {
-        const btn = document.createElement('button');
-        btn.textContent = label;
-        if (active) btn.classList.add('active');
-        btn.disabled = disabled;
-        btn.addEventListener('click', onClick);
-        return btn;
-    }
 
-    function updateControls() {
-        paginationContainer.innerHTML = '';
+    function paginateNodeCards(container, pagination, pageSize) {
+        if (!container || !pagination) return;
 
-        // Prev
-        paginationContainer.appendChild(
-            createButton('←', () => { currentPage--; update(); }, currentPage === 1)
-        );
+        let currentPage = 1;
+        const cards = Array.from(container.children);
 
-        // Page-number buttons
-        for (let i = 1; i <= totalPages(); i++) {
-            paginationContainer.appendChild(
-                createButton(i, () => { currentPage = i; update(); }, false, i === currentPage)
+        function totalPages() {
+            return Math.ceil(cards.length / pageSize);
+        }
+
+        function showPage() {
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+
+            cards.forEach((card, index) => {
+                card.style.display = (index >= start && index < end) ? '' : 'none';
+            });
+        }
+
+        function createButton(label, onClick, disabled = false, active = false) {
+            const btn = document.createElement('button');
+            btn.textContent = label;
+            if (active) btn.classList.add('active');
+            btn.disabled = disabled;
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        function updateControls() {
+            pagination.innerHTML = '';
+
+            // Prev
+            pagination.appendChild(
+                createButton('←', () => {
+                    currentPage--;
+                    update();
+                }, currentPage === 1)
             );
-        }
 
-        // Next
-        paginationContainer.appendChild(
-            createButton('→', () => { currentPage++; update(); }, currentPage === totalPages())
-        );
-
-        // **Items-per-page selector**
-        const selector = document.createElement('select');
-        [5, 10, 25, 50].forEach(n => {
-            const opt = document.createElement('option');
-            opt.value = n;
-            opt.textContent = `${n} per page`;
-            if (n === itemsPerPage) opt.selected = true;
-            selector.appendChild(opt);
-        });
-        selector.addEventListener('change', () => {
-            itemsPerPage = parseInt(selector.value, 10);
-            currentPage = 1;
-            update();
-        });
-
-        paginationContainer.appendChild(selector);
-    }
-
-    function update() {
-        showPage();
-        updateControls();
-    }
-
-    // kick it off
-    update();
-}
-
-function paginateTable(collapsibleContainer) {
-    const table = collapsibleContainer.querySelector('table');
-    if (!table) return;
-
-    const allRows = Array.from(table.querySelectorAll('tr')).filter(r => r.cells.length > 0);
-    const headerRow = allRows.find(row => row.querySelector('th'));
-    const dataRows = headerRow ? allRows.filter(row => row !== headerRow) : allRows;
-
-    if (dataRows.length <= 10) {
-        allRows.forEach(r => r.style.display = '');
-        collapsibleContainer.querySelector('.table-pagination')?.remove();
-        return;
-    }
-
-    let currentPage = 1;
-    let pageSize = 10;
-    const maxVisiblePages = 5;
-
-    const totalPages = () => Math.ceil(dataRows.length / pageSize);
-
-    function showPage() {
-        if (headerRow) headerRow.style.display = '';
-        const start = (currentPage - 1) * pageSize;
-        const end = start + pageSize;
-        dataRows.forEach((row, i) => {
-            row.style.display = (i >= start && i < end) ? '' : 'none';
-        });
-    }
-
-    function createButton(label, onClick, disabled = false, active = false) {
-        const btn = document.createElement('button');
-        btn.textContent = label;
-        if (active) btn.classList.add('active');
-        btn.disabled = disabled;
-        btn.addEventListener('click', onClick);
-        return btn;
-    }
-
-    function createEllipsis() {
-        const span = document.createElement('span');
-        span.textContent = '...';
-        span.className = 'pagination-ellipsis';
-        return span;
-    }
-
-    function updateControls() {
-        let pagination = collapsibleContainer.querySelector('.table-pagination');
-        if (!pagination) {
-            pagination = document.createElement('div');
-            pagination.className = 'table-pagination';
-            collapsibleContainer.appendChild(pagination);
-        }
-
-        pagination.innerHTML = '';
-
-        // Prev
-        pagination.appendChild(createButton('←', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                update();
+            // Page-number buttons
+            for (let i = 1; i <= totalPages(); i++) {
+                pagination.appendChild(
+                    createButton(i, () => {
+                        currentPage = i;
+                        update();
+                    }, false, i === currentPage)
+                );
             }
-        }, currentPage === 1));
 
-        const total = totalPages();
-        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-        let endPage = Math.min(total, startPage + maxVisiblePages - 1);
+             // Ellipsis and last page button if needed
+            if (totalPages() > 5 && currentPage < totalPages() - 2) {
+                if (currentPage < totalPages() - 3) {
+                    pagination.appendChild(createEllipsis());
+                }
+                pagination.appendChild(createButton(totalPages(), () => {
+                    currentPage = totalPages();
+                    update();
+                }));
+            }
 
-        if (endPage - startPage < maxVisiblePages - 1) {
-            startPage = Math.max(1, endPage - maxVisiblePages + 1);
-        }
+            // Next
+            pagination.appendChild(
+                createButton('→', () => {
+                    if (currentPage < totalPages()) {
+                        currentPage++;
+                        update();
+                    }
+                }, currentPage === totalPages())
+            );
 
-        if (startPage > 1) {
-            pagination.appendChild(createButton('1', () => {
+            // Page size selector
+            const selector = document.createElement('select');
+            [5, 10, 25, 50].forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = `${n} per page`;
+                if (n === pageSize) opt.selected = true;
+                selector.appendChild(opt);
+            });
+            selector.addEventListener('change', () => {
+                pageSize = parseInt(selector.value, 10);
                 currentPage = 1;
                 update();
-            }));
-            if (startPage > 2) {
-                pagination.appendChild(createEllipsis());
-            }
+            });
+            pagination.appendChild(selector);
         }
 
-        for (let i = startPage; i <= endPage; i++) {
-            pagination.appendChild(createButton(i, () => {
-                currentPage = i;
-                update();
-            }, false, i === currentPage));
+        function createEllipsis() {
+            const span = document.createElement('span');
+            span.textContent = '...';
+            return span;
         }
 
-        if (endPage < total) {
-            if (endPage < total - 1) {
-                pagination.appendChild(createEllipsis());
-            }
-            pagination.appendChild(createButton(total, () => {
-                currentPage = total;
-                update();
-            }));
+        function update() {
+            showPage();
+            updateControls();
         }
 
-        // Next
-        pagination.appendChild(createButton('→', () => {
-            if (currentPage < total) {
-                currentPage++;
-                update();
-            }
-        }, currentPage === total));
-
-        // Page size selector
-        const selector = document.createElement('select');
-        [10, 25, 50].forEach(n => {
-            const opt = document.createElement('option');
-            opt.value = n;
-            opt.textContent = `${n} per page`;
-            if (n === pageSize) opt.selected = true;
-            selector.appendChild(opt);
-        });
-        selector.addEventListener('change', () => {
-            pageSize = parseInt(selector.value, 10);
-            currentPage = 1;
-            update();
-        });
-        pagination.appendChild(selector);
+        update();
     }
 
-    function update() {
-        showPage();
-        updateControls();
-    }
 
-    update();
-}
+    function paginateTable(container) {
+        if (!container) return;
+
+        const table = container.querySelector('table');
+        if (!table) return;
+
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        const paginationContainer = container.querySelector('.table-pagination');
+        if (paginationContainer) {
+            paginationContainer.remove();
+        }
+        const newPaginationContainer = document.createElement('div');
+        newPaginationContainer.className = 'table-pagination';
+        container.appendChild(newPaginationContainer);
+
+        const pageSize = 5;
+        let currentPage = 1;
+
+        function totalPages() {
+            return Math.ceil(rows.length / pageSize);
+        }
+
+        function showPage() {
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+
+            rows.forEach((row, index) => {
+                row.style.display = (index >= start && index < end) ? '' : 'none';
+            });
+        }
+
+        function createButton(label, onClick, disabled = false, active = false) {
+            const btn = document.createElement('button');
+            btn.textContent = label;
+            if (active) btn.classList.add('active');
+            btn.disabled = disabled;
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        function updateControls() {
+            newPaginationContainer.innerHTML = '';
+
+            // Prev
+            newPaginationContainer.appendChild(
+                createButton('←', () => {
+                    currentPage--;
+                    update();
+                }, currentPage === 1)
+            );
+
+            // Page-number buttons
+            for (let i = 1; i <= totalPages(); i++) {
+                newPaginationContainer.appendChild(
+                    createButton(i, () => {
+                        currentPage = i;
+                        update();
+                    }, false, i === currentPage)
+                );
+            }
+
+            if (totalPages() > 5 && currentPage < totalPages() - 2) {
+                if (currentPage < totalPages() - 3) {
+                    newPaginationContainer.appendChild(createEllipsis());
+                }
+                newPaginationContainer.appendChild(createButton(totalPages(), () => {
+                    currentPage = totalPages();
+                    update();
+                }));
+            }
+
+            // Next
+            newPaginationContainer.appendChild(
+                createButton('→', () => {
+                    if (currentPage < totalPages()) {
+                        currentPage++;
+                        update();
+                    }
+                }, currentPage === totalPages())
+            );
+
+            // Page size selector
+            const selector = document.createElement('select');
+            [5, 10, 25, 50].forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = `${n} per page`;
+                if (n === pageSize) opt.selected = true;
+                selector.appendChild(opt);
+            });
+            selector.addEventListener('change', () => {
+                pageSize = parseInt(selector.value, 10);
+                currentPage = 1;
+                update();
+            });
+            newPaginationContainer.appendChild(selector);
+        }
+
+        function createEllipsis() {
+            const span = document.createElement('span');
+            span.textContent = '...';
+            return span;
+        }
+
+        function update() {
+            showPage();
+            updateControls();
+        }
+
+        update();
+    }
+});    
