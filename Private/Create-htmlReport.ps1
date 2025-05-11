@@ -682,10 +682,10 @@ $fallbackClusterMetricsHtml = @"
     )
     <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of recent warning and error events.</span></span></h2>
     <div class="hero-metrics">
-      <div class="metric-card $errorClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
+      <div class="metric-card $errorClass" data-tab="events" style="cursor: pointer;" title="Click to view Kubernetes Events">
         ❌ Errors: <strong>$eventErrors</strong>
       </div>
-      <div class="metric-card $warningClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
+      <div class="metric-card $warningClass" data-tab="events" style="cursor: pointer;" title="Click to view Kubernetes Events">
         ⚠️ Warnings: <strong>$eventWarnings</strong>
       </div>
     </div>

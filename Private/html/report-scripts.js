@@ -363,6 +363,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Wire up metric-card clicks instead of inline onclicks
+    document.querySelectorAll('.metric-card[data-tab]').forEach(card => {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => {
+            const target = card.dataset.tab;
+            const tab = document.querySelector(`.tabs li[data-tab="${target}"]`);
+            if (tab) tab.click();
+        });
+    });
+
+
     // Drawer links to tabs
     document.querySelectorAll('#navDrawer .nav-item a').forEach(link => {
         link.addEventListener('click', e => {
@@ -505,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
             }
 
-             // Ellipsis and last page button if needed
+            // Ellipsis and last page button if needed
             if (totalPages() > 5 && currentPage < totalPages() - 2) {
                 if (currentPage < totalPages() - 3) {
                     pagination.appendChild(createEllipsis());
