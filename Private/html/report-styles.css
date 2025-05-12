@@ -1246,6 +1246,7 @@ code {
     overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    background-color: #ffff !important;
   }
   details {
     display: block;
@@ -1276,6 +1277,7 @@ code {
   }
   th {
     height: auto;
+    color: inherit !important;
   }
   .progress-bar {
     box-shadow: none;
@@ -1446,7 +1448,6 @@ code {
 
 .chart-lightbox .chart-item.zoomed {
   width: 100%;
-  height: 100%;
   max-width: 90%;
   max-height: 90%;
   background: #fff;
