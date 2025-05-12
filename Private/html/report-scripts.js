@@ -380,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let detailsState = new Map();
     let activeTabName = null;
 
-    const nodeCardsContainer = document.getElementById('filteredNodeCards');
+    const nodeCards = document.getElementById('filteredNodeCards');
     const nodeCardsPager = document.getElementById('nodeCardPagination');
 
     function beforePrint() {
@@ -430,11 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function afterPrint() {
         // ── restore node cards pagination ─────────────────
-        if (nodeCardsContainer && nodeCardsPager) {
-            // show pager
+        if (nodeCards && nodeCardsPager) {
             nodeCardsPager.style.display = '';
-            // re-paginate using your existing helper
-            paginateNodeCards(nodeCardsContainer, nodeCardsPager, /* your pageSize, e.g. */ 5);
+            paginateNodeCards(nodeCards, nodeCardsPager, 5);
         }
         // ── RESTORE STATE ────────────────────────────────
         detailsState.forEach((wasOpen, d) => d.open = wasOpen);

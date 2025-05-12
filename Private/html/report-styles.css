@@ -1343,6 +1343,14 @@ code {
   .collapsible-container[id$="_recommendations"] pre {
     max-height: none !important;
   }
+  /* fully expand the recommendation cards */
+  .recommendation-card,
+  .recommendation-content,
+  .recommendation-card pre {
+    max-height: none   !important;
+    height:     auto   !important;
+    overflow:   visible!important;
+  }
 }
 
 @keyframes flashHighlight {
