@@ -1331,6 +1331,18 @@ code {
   table, tr { page-break-inside: avoid; }
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
+
+  /* fully show the Recommendations card */
+  .collapsible-container[id$="_recommendations"] .recommendation-card,
+  .collapsible-container[id$="_recommendations"] .recommendation-content {
+    overflow: visible !important;
+    height: auto       !important;
+    max-height: none   !important;
+  }
+  /* also ensure any <pre> inside grows */
+  .collapsible-container[id$="_recommendations"] pre {
+    max-height: none !important;
+  }
 }
 
 @keyframes flashHighlight {

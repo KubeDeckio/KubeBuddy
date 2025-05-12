@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
         paginateNodeCards(filteredNodeCards, paginationContainer, 5);
     }
 
+    let recBoxes = document.querySelectorAll('.recommendation-box');
+
     // Navigation Drawer
     const navDrawer = document.getElementById('navDrawer');
     const navToggle = document.getElementById('menuFab');
@@ -378,6 +380,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let detailsState = new Map();
     let activeTabName = null;
 
+    const nodeCardsContainer = document.getElementById('filteredNodeCards');
+    const nodeCardsPager = document.getElementById('nodeCardPagination');
+
     function beforePrint() {
         // ── CAPTURE STATE ───────────────────────────────
         detailsState.clear();
@@ -402,9 +407,35 @@ document.addEventListener('DOMContentLoaded', () => {
             .querySelectorAll('.collapsible-container table tr')
             .forEach(r => r.style.display = '');
         document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('active'));
+        recBoxes.forEach(el => {
+            el.style.overflow = 'visible';
+            el.style.height = 'auto';
+        });
+
+        if (filteredNodeCards && paginationContainer) {
+            filteredNodeCards.querySelectorAll('.collapsible-container')
+                .forEach(card => card.style.display = '');
+            paginationContainer.style.display = 'none';
+        }
+
+        // ── expand all node cards ─────────────────────────
+        if (nodeCardsContainer && nodeCardsPager) {
+            // show every single card
+            Array.from(nodeCardsContainer.children)
+                .forEach(card => card.style.display = '');
+            // hide the pager
+            nodeCardsPager.style.display = 'none';
+        }
     }
 
     function afterPrint() {
+        // ── restore node cards pagination ─────────────────
+        if (nodeCardsContainer && nodeCardsPager) {
+            // show pager
+            nodeCardsPager.style.display = '';
+            // re-paginate using your existing helper
+            paginateNodeCards(nodeCardsContainer, nodeCardsPager, /* your pageSize, e.g. */ 5);
+        }
         // ── RESTORE STATE ────────────────────────────────
         detailsState.forEach((wasOpen, d) => d.open = wasOpen);
 
@@ -427,13 +458,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const d = c.querySelector('details');
             if (d.open) paginateTable(c);
         });
+        recBoxes.forEach(el => {
+            el.style.overflow = '';
+            el.style.height = '';
+        });
+
+        if (filteredNodeCards && paginationContainer) {
+            paginationContainer.style.display = '';
+            paginateNodeCards(filteredNodeCards, paginationContainer, 5);
+        }
     }
 
     window.addEventListener('beforeprint', beforePrint);
     window.addEventListener('afterprint', afterPrint);
 
     document.getElementById('savePdfBtn')?.addEventListener('click', () => window.print());
-
 
     // COLLAPSIBLE + PAGINATION + SORTING SETUP (your unified block)
     document.querySelectorAll('.collapsible-container > details').forEach(detail => {
