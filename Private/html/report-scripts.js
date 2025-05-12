@@ -15,9 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (button) button.style.display = window.scrollY > 200 ? 'block' : 'none';
     });
 
-    // Global print state
-    let isPrinting = false;
-
     function getScoreColor(score) {
         if (score < 40) return '#B71C1C';
         if (score < 70) return '#ffa000';
@@ -139,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let isZoomed = false;
 
         function enterZoom() {
-            if (isZoomed || isPrinting) return;
+            if (isZoomed) return;
             isZoomed = true;
             chartItem.classList.add('zoomed');
             chartItem.setAttribute('aria-expanded', 'true');
@@ -378,60 +375,65 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    const savePdfBtn = document.getElementById('savePdfBtn');
-    if (savePdfBtn) {
-        savePdfBtn.addEventListener('click', () => {
-            isPrinting = true;
-            // remove all pagers
-            document.querySelectorAll('.table-pagination').forEach(p => p.remove());
-            // expand all <details>
-            const details = document.querySelectorAll('details');
-            const states = new Map();
-            details.forEach(d => { states.set(d, d.open); d.open = true; });
-            // fix table styles
-            document.querySelectorAll('.table-container').forEach((c, i) => {
-                c.style.overflow = 'visible'; c.style.height = 'auto';
-            });
-            document.querySelectorAll('table').forEach(t => {
-                t.style.width = '100%'; t.style.tableLayout = 'fixed';
-            });
-            // show all rows
-            document.querySelectorAll('.collapsible-container table').forEach(t => {
-                Array.from(t.querySelectorAll('tr')).forEach(r => r.style.display = '');
-            });
-            // ensure all tabs visible
-            const tabs = document.querySelectorAll('.tab-content');
-            tabs.forEach(tc => tc.classList.add('active'));
+    let detailsState = new Map();
+    let activeTabName = null;
 
-            setTimeout(() => window.print(), 500);
+    function beforePrint() {
+        // ── CAPTURE STATE ───────────────────────────────
+        detailsState.clear();
+        document.querySelectorAll('details').forEach(d => {
+            detailsState.set(d, d.open);
+            d.open = true;
+        });
+        const activeLi = document.querySelector('.tabs li.active');
+        activeTabName = activeLi?.dataset.tab || null;
 
-            window.onafterprint = () => {
-                isPrinting = false;
-                // restore <details>
-                details.forEach(d => d.open = states.get(d));
-                // restore table styles
-                document.querySelectorAll('.table-container').forEach((c, i) => {
-                    c.style.overflow = ''; c.style.height = '';
-                });
-                document.querySelectorAll('table').forEach(t => {
-                    t.style.tableLayout = '';
-                });
-                // re-paginate open details
-                document.querySelectorAll('.collapsible-container').forEach(c => {
-                    if (c.querySelector('details').open) paginateTable(c);
-                });
-            };
+        // ── FLATTEN FOR PRINT ────────────────────────────
+        document.querySelectorAll('.table-pagination').forEach(p => p.remove());
+        document.querySelectorAll('.table-container').forEach(c => {
+            c.style.overflow = 'visible';
+            c.style.height = 'auto';
+        });
+        document.querySelectorAll('table').forEach(t => {
+            t.style.width = '100%';
+            t.style.tableLayout = 'fixed';
+        });
+        document
+            .querySelectorAll('.collapsible-container table tr')
+            .forEach(r => r.style.display = '');
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('active'));
+    }
+
+    function afterPrint() {
+        // ── RESTORE STATE ────────────────────────────────
+        detailsState.forEach((wasOpen, d) => d.open = wasOpen);
+
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        document.querySelectorAll('.tabs li').forEach(li => li.classList.remove('active'));
+        if (activeTabName) {
+            document.querySelector(`.tabs li[data-tab="${activeTabName}"]`)?.classList.add('active');
+            document.getElementById(activeTabName)?.classList.add('active');
+        }
+
+        document.querySelectorAll('.table-container').forEach(c => {
+            c.style.overflow = '';
+            c.style.height = '';
+        });
+        document.querySelectorAll('table').forEach(t => {
+            t.style.tableLayout = '';
         });
 
-        window.addEventListener('afterprint', () => {
-            if (isPrinting) {
-                isPrinting = false;
-                document.querySelectorAll('.collapsible-container').forEach(c => {
-                    if (c.querySelector('details').open) paginateTable(c);
-                });
-            }
+        document.querySelectorAll('.collapsible-container').forEach(c => {
+            const d = c.querySelector('details');
+            if (d.open) paginateTable(c);
         });
     }
+
+    window.addEventListener('beforeprint', beforePrint);
+    window.addEventListener('afterprint', afterPrint);
+
+    document.getElementById('savePdfBtn')?.addEventListener('click', () => window.print());
+
 
     // COLLAPSIBLE + PAGINATION + SORTING SETUP (your unified block)
     document.querySelectorAll('.collapsible-container > details').forEach(detail => {
@@ -515,49 +517,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function paginateNodeCards(container, pagination, pageSize) {
         if (!container || !pagination) return;
-        let current = 1;
-        const cards = Array.from(container.children);
-        const totalPages = () => Math.ceil(cards.length / pageSize);
 
-        function show() {
-            const start = (current - 1) * pageSize;
-            cards.forEach((c, i) => {
-                c.style.display = (i >= start && i < start + pageSize) ? '' : 'none';
+        let currentPage = 1;
+
+        function getCards() {
+            return Array.from(container.children);
+        }
+
+        function totalPages(cards) {
+            return Math.ceil(cards.length / pageSize) || 1;
+        }
+
+        function render(cards) {
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            cards.forEach((card, idx) => {
+                card.style.display = (idx >= start && idx < end) ? '' : 'none';
             });
         }
 
-        function update() {
-            show();
+        function updateControls(cards) {
             pagination.innerHTML = '';
 
-            // prev
+            // Prev
             const prev = document.createElement('button');
             prev.textContent = '←';
-            prev.disabled = current === 1;
-            prev.onclick = () => { current--; update(); };
-            pagination.append(prev);
+            prev.disabled = currentPage === 1;
+            prev.addEventListener('click', () => {
+                currentPage = Math.max(1, currentPage - 1);
+                update();
+            });
+            pagination.appendChild(prev);
 
-            // page numbers
-            for (let i = 1; i <= totalPages(); i++) {
+            // Page buttons
+            const pages = totalPages(cards);
+            for (let i = 1; i <= pages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
-                if (i === current) btn.classList.add('active');
-                btn.onclick = () => { current = i; update(); };
-                pagination.append(btn);
+                if (i === currentPage) btn.classList.add('active');
+                btn.addEventListener('click', () => {
+                    currentPage = i;
+                    update();
+                });
+                pagination.appendChild(btn);
             }
 
-            // next
+            // Next
             const next = document.createElement('button');
             next.textContent = '→';
-            next.disabled = current === totalPages();
-            next.onclick = () => { current++; update(); };
-            pagination.append(next);
+            next.disabled = currentPage === pages;
+            next.addEventListener('click', () => {
+                currentPage = Math.min(pages, currentPage + 1);
+                update();
+            });
+            pagination.appendChild(next);
+        }
+
+        function update() {
+            const cards = getCards();
+            const pages = totalPages(cards);
+            if (currentPage > pages) currentPage = pages;
+
+            render(cards);
+            updateControls(cards);
         }
 
         // initial render
-        show();
         update();
     }
+
 
     // Updated paginateTable signature & body:
     function paginateTable(details) {
