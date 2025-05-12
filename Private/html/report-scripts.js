@@ -518,18 +518,26 @@ document.addEventListener('DOMContentLoaded', () => {
         let current = 1;
         const cards = Array.from(container.children);
         const totalPages = () => Math.ceil(cards.length / pageSize);
+
         function show() {
             const start = (current - 1) * pageSize;
-            cards.forEach((c, i) => c.style.display = (i >= start && i < start + pageSize) ? '' : 'none');
+            cards.forEach((c, i) => {
+                c.style.display = (i >= start && i < start + pageSize) ? '' : 'none';
+            });
         }
+
         function update() {
+            show();
             pagination.innerHTML = '';
+
             // prev
             const prev = document.createElement('button');
-            prev.textContent = '←'; prev.disabled = current === 1;
+            prev.textContent = '←';
+            prev.disabled = current === 1;
             prev.onclick = () => { current--; update(); };
             pagination.append(prev);
-            // pages
+
+            // page numbers
             for (let i = 1; i <= totalPages(); i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
@@ -537,15 +545,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.onclick = () => { current = i; update(); };
                 pagination.append(btn);
             }
+
             // next
             const next = document.createElement('button');
-            next.textContent = '→'; next.disabled = current === totalPages();
+            next.textContent = '→';
+            next.disabled = current === totalPages();
             next.onclick = () => { current++; update(); };
             pagination.append(next);
         }
-        show(); update();
-    }
 
+        // initial render
+        show();
+        update();
+    }
 
     // Updated paginateTable signature & body:
     function paginateTable(details) {
