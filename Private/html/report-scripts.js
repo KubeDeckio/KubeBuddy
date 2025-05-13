@@ -562,40 +562,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function paginateNodeCards(container, pagination, pageSize) {
+    function paginateNodeCards(container, pagination, initialPageSize) {
         if (!container || !pagination) return;
-
+    
         let currentPage = 1;
-
+        let pageSize    = initialPageSize;  // now mutable
+    
         function getCards() {
             return Array.from(container.children);
         }
-
+    
         function totalPages(cards) {
             return Math.ceil(cards.length / pageSize) || 1;
         }
-
+    
         function render(cards) {
             const start = (currentPage - 1) * pageSize;
-            const end = start + pageSize;
+            const end   = start + pageSize;
             cards.forEach((card, idx) => {
                 card.style.display = (idx >= start && idx < end) ? '' : 'none';
             });
         }
-
+    
         function updateControls(cards) {
             pagination.innerHTML = '';
-
-            // Prev
+    
+            // Prev button
             const prev = document.createElement('button');
             prev.textContent = '←';
-            prev.disabled = currentPage === 1;
+            prev.disabled   = currentPage === 1;
             prev.addEventListener('click', () => {
                 currentPage = Math.max(1, currentPage - 1);
                 update();
             });
             pagination.appendChild(prev);
-
+    
             // Page buttons
             const pages = totalPages(cards);
             for (let i = 1; i <= pages; i++) {
@@ -608,31 +609,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 pagination.appendChild(btn);
             }
-
-            // Next
+    
+            // Next button
             const next = document.createElement('button');
             next.textContent = '→';
-            next.disabled = currentPage === pages;
+            next.disabled   = currentPage === pages;
             next.addEventListener('click', () => {
                 currentPage = Math.min(pages, currentPage + 1);
                 update();
             });
             pagination.appendChild(next);
+    
+            // **Cards-per-page selector**
+            const sel = document.createElement('select');
+            [5, 10, 25, 50].forEach(n => {
+                const opt = document.createElement('option');
+                opt.value       = n;
+                opt.textContent = `${n} per page`;
+                if (n === pageSize) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            sel.addEventListener('change', () => {
+                pageSize    = +sel.value;
+                currentPage = 1;
+                update();
+            });
+            pagination.appendChild(sel);
         }
-
+    
         function update() {
             const cards = getCards();
             const pages = totalPages(cards);
             if (currentPage > pages) currentPage = pages;
-
+    
             render(cards);
             updateControls(cards);
         }
-
+    
         // initial render
         update();
     }
-
 
     // Updated paginateTable signature & body:
     function paginateTable(details) {
