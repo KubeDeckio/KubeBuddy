@@ -472,23 +472,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('savePdfBtn')?.addEventListener('click', () => window.print());
 
-    // COLLAPSIBLE + PAGINATION + SORTING SETUP (your unified block)
+    // COLLAPSIBLE + PAGINATION + SORTING SETUP
     document.querySelectorAll('.collapsible-container > details').forEach(detail => {
         const container = detail.parentElement;
         const summary = detail.querySelector('summary');
-        const origText = summary.textContent;
+        // stash the full HTML (with your badges) so we can swap only the word
+        const origHTML = summary.innerHTML;
+
         detail.addEventListener('toggle', () => {
-            if (!summary.dataset.originalText) summary.dataset.originalText = origText;
-            summary.textContent = detail.open
-                ? summary.dataset.originalText.replace(/^Show/i, 'Hide')
-                : summary.dataset.originalText.replace(/^Hide/i, 'Show');
-            if (detail.open) setTimeout(() => paginateTable(container), 200);
-            else {
+            // swap just the leading word "Show"/"Hide" in that HTML
+            summary.innerHTML = detail.open
+                ? origHTML.replace(/^Show\b/i, 'Hide')
+                : origHTML.replace(/^Hide\b/i, 'Show');
+
+            // pagination: add when open, remove when closed
+            if (detail.open) {
+                setTimeout(() => paginateTable(container), 200);
+            } else {
                 const pager = container.querySelector('.table-pagination');
                 if (pager) pager.remove();
             }
         });
-        // wire up <th> clicks
+
+        // if the node starts open, paginate right away
+        if (detail.open) {
+            setTimeout(() => paginateTable(container), 200);
+        }
+
+        // wire up each <th> to sort & re-paginate
         const tbl = container.querySelector('table');
         if (tbl) {
             tbl.querySelectorAll('th').forEach((th, i) => {
@@ -499,7 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         }
-        if (detail.open) setTimeout(() => paginateTable(container), 200);
     });
 
     // Tab-switching UI (ripple + activate + re-paginate)
