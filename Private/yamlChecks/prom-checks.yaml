@@ -6,7 +6,7 @@ checks:
     ResourceKind: "Pod"
     Severity: "Warning"
     Weight: 3
-    Description: "Checks for pods with sustained high CPU usage over the last hour using Prometheus metrics."
+    Description: "Checks for pods with sustained high CPU usage over the last 24 hours using Prometheus metrics."
     FailMessage: "Some pods show high sustained CPU usage."
     URL: "https://kubernetes.io/docs/concepts/cluster-administration/monitoring/"
     Recommendation:
@@ -27,9 +27,9 @@ checks:
       Query: 'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)'
       Range:
         Step: "5m"
-        Duration: "1h"
+        Duration: "24h"
     Operator: "greater_than"
-    Expected: 0.2
+    Expected: "cpu_critical"
 
   - ID: "PROM002"
     Name: "High Memory Usage Pods (Prometheus)"
@@ -38,7 +38,7 @@ checks:
     ResourceKind: "Pod"
     Severity: "Warning"
     Weight: 3
-    Description: "Detects pods with high memory usage over the last hour based on Prometheus metrics."
+    Description: "Detects pods with high memory usage over the last 24 hours based on Prometheus metrics."
     FailMessage: "Some pods are consistently using high memory."
     URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
     Recommendation:
@@ -58,7 +58,7 @@ checks:
       Query: 'sum(container_memory_usage_bytes{container!="",pod!=""}) by (pod)'
       Range:
         Step: "5m"
-        Duration: "1h"
+        Duration: "24h"
     Operator: "greater_than"
     Expected: 5e+08  # ~500 MiB
 
@@ -69,7 +69,7 @@ checks:
     ResourceKind: "Pod"
     Severity: "Medium"
     Weight: 2
-    Description: "Detects pods receiving large amounts of network traffic over the past hour."
+    Description: "Detects pods receiving large amounts of network traffic over the last 24 hours."
     FailMessage: "Some pods show high network RX throughput."
     URL: "https://kubernetes.io/docs/concepts/cluster-administration/networking/"
     Recommendation:
@@ -89,7 +89,7 @@ checks:
       Query: 'sum(rate(container_network_receive_bytes_total{pod!=""}[5m])) by (pod)'
       Range:
         Step: "5m"
-        Duration: "1h"
+        Duration: "24h"
     Operator: "greater_than"
     Expected: 1e+06  # ~1 MB/s
 
@@ -100,7 +100,7 @@ checks:
     ResourceKind: "Pod"
     Severity: "High"
     Weight: 5
-    Description: "Detects high latency in Kubernetes API server requests."
+    Description: "Detects high latency in Kubernetes API server requests over the last 24 hours."
     FailMessage: "API server latency exceeds healthy thresholds."
     URL: "https://kubernetes.io/docs/concepts/overview/components/"
     Recommendation:
@@ -120,18 +120,18 @@ checks:
       Query: 'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le))'
       Range:
         Step: "5m"
-        Duration: "1h"
+        Duration: "24h"
     Operator: "greater_than"
     Expected: 0.5   # 500 ms
 
   - ID: "PROM005"
-    Name: "Overcommitted CPU (Node)"
+    Name: "Overcommitted CPU (Prometheus)"
     Category: "Capacity"
     Section: "Nodes"
     ResourceKind: "Node"
     Severity: "Info"
     Weight: 2
-    Description: "Checks if CPU requests on nodes exceed allocatable capacity."
+    Description: "Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours."
     FailMessage: "Node CPU is overcommitted by requests."
     URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
     Recommendation:
@@ -151,6 +151,6 @@ checks:
       Query: 'sum(kube_pod_resource_request_cpu_cores) by (node) / sum(kube_node_status_allocatable_cpu_cores) by (node)'
       Range:
         Step: "5m"
-        Duration: "1h"
+        Duration: "24h"
     Operator: "greater_than"
     Expected: 1.0

@@ -12,6 +12,7 @@ function Invoke-yamlChecks {
     # Configuration
     $checksFolder = "$PSScriptRoot/yamlChecks"
     $kubectl = "kubectl"
+    $thresholds = Get-KubeBuddyThresholds -Silent
 
     # Ensure required modules
     try {
@@ -348,23 +349,44 @@ function Invoke-yamlChecks {
 
                 if ($check.Prometheus) {
                     try {
-                        # 1) Derive URL & Mode: prefer per-check override, else fall back to global
+                        # Derive URL & Mode: prefer per-check override, else fall back to global
                         $url = if ($check.Prometheus.Url) { $check.Prometheus.Url } else { $using:PrometheusUrl }
                         $headers = $using:PrometheusHeaders
 
-                        # 2) Build auth headers
-                            # $headers = Get-PrometheusHeaders `
-                            #     -Mode           $mode `
-                            #     -Username       $using:PrometheusUsername `
-                            #     -Password       $using:PrometheusPassword `
-                            #     -BearerTokenEnv $using:PrometheusBearerTokenEnv
+                        # lookup expected threshold:
+                        # if the YAML Expected is a string key in $thresholds, use that value,
+                        # otherwise cast it directly to double
+                        if ($check.Expected -is [string] -and $thresholds.ContainsKey($check.Expected)) {
+                            $expectedValue = [double]$thresholds[$check.Expected]
+                        }
+                        else {
+                            $expectedValue = [double]$check.Expected
+                        }
 
-                        # 3) Time window
-                        $endTime = (Get-Date).ToUniversalTime().ToString("o")
-                        $startTime = (Get-Date).AddHours(-1).ToUniversalTime().ToString("o")
-                        $step = $check.Prometheus.Range.Step ?? "5m"
+                        # Time window driven by your YAML Range.Duration
+                        $endTime = (Get-Date).ToUniversalTime()
+                        # pull in the Duration string (e.g. "24h", "1h", "30m", "2d")
+                        $durStr = $check.Prometheus.Range.Duration
 
-                        # 4) Execute the query
+                        # parse into a TimeSpan
+                        if ($durStr -match '^(\d+)([hmd])$') {
+                            $num = [int]$Matches[1]
+                            $unit = $Matches[2]
+                            switch ($unit) {
+                                'h' { $ts = New-TimeSpan -Hours   $num }
+                                'm' { $ts = New-TimeSpan -Minutes $num }
+                                'd' { $ts = New-TimeSpan -Days    $num }
+                            }
+                        }
+                        else {
+                            # fallback: assume it's just a number of hours
+                            $ts = New-TimeSpan -Hours ([double]$durStr)
+                        }
+
+                        $startTime = $endTime.Add(-$ts).ToUniversalTime().ToString("o")
+                        $endTime = $endTime.ToString("o")
+
+                        #  Execute the query
                         $result = Get-PrometheusData `
                             -Query   $check.Prometheus.Query `
                             -Url     $url `
@@ -372,13 +394,13 @@ function Invoke-yamlChecks {
                             -UseRange `
                             -StartTime $startTime `
                             -EndTime   $endTime `
-                            -Step      $step
+                            -Step      $check.Prometheus.Range.Step
                 
                         $items = @()
                         foreach ($r in $result.Results) {
                             $eval = Evaluate-PrometheusCheckResult `
                                 -Metric $r `
-                                -Expected ([double]($check.Expected)) `
+                                -Expected $expected `
                                 -Operator $check.Operator `
                                 -FailMessage $check.FailMessage
                         

@@ -7,28 +7,25 @@ layout: default
 
 # 📊 Prometheus Integration
 
-KubeBuddy can enrich its cluster health reports by querying Prometheus directly, whether running in, cluster or as an external endpoint.
-
+KubeBuddy can enrich its cluster health reports by querying Prometheus directly, whether running in-cluster or as an external endpoint.
 
 ## 🔍 Why Integrate Prometheus?
 
 By pulling time-series data you can detect:
 
-- API server latency (p99)
-- Node/pod CPU & memory usage
-- Pod restart patterns
-- Disk, network and capacity pressure
-
+- API server latency (p99)  
+- Node/pod CPU & memory usage  
+- Pod restart patterns  
+- Disk, network and capacity pressure  
 
 ## ✅ Supported Prometheus Modes
 
 | Mode     | Description                                           | Auth Required | Typical Use Case                      |
 |----------|-------------------------------------------------------|---------------|---------------------------------------|
-| `local`  | In-cluster Prometheus (e.g. kube-prometheus-stack)    | ❌             | No auth needed inside the cluster     |
-| `basic`  | External Prometheus with HTTP Basic auth              | ✅             | Behind an ingress or firewall         |
-| `bearer` | External Prometheus secured by bearer token           | ✅             | OAuth proxy, API gateway, etc.        |
-| `azure`  | Azure Monitor Managed Prometheus (AKS + Monitor)      | ✅ AAD token   | AKS + Azure Monitor workspace         |
-
+| `local`  | In-cluster Prometheus (e.g. kube-prometheus-stack)     | ❌            | No auth needed inside the cluster     |
+| `basic`  | External Prometheus with HTTP Basic auth              | ✅            | Behind an ingress or firewall         |
+| `bearer` | External Prometheus secured by bearer token           | ✅            | OAuth proxy, API gateway, etc.        |
+| `azure`  | Azure Monitor Managed Prometheus (AKS + Monitor)      | ✅ AAD token  | AKS + Azure Monitor workspace         |
 
 ## 🔐 How to Authenticate
 
@@ -78,7 +75,20 @@ Invoke-KubeBuddy `
 > p99 API-server latency over last hour
 > `histogram_quantile(0.99, rate(apiserver_request_duration_seconds_bucket[5m]))`
 
-KubeBuddy will surface that metric under “Control Plane → Configuration” in the HTML report.
+
+## ⏱️ Time-Window Configuration
+
+Rather than being fixed, the look-back window is now driven by your YAML’s `Range.Duration`. You can specify minutes (`m`), hours (`h`), or days (`d`):
+
+```yaml
+Prometheus:
+  Query: 'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)'
+  Range:
+    Step:    "5m"
+    Duration: "24h"    # supports "m"=minutes, "h"=hours, "d"=days
+```
+
+KubeBuddy will translate that into `start = now - 24h` (or 30m, or 2d, etc.) automatically.
 
 
 ## ▶️ CLI Usage
