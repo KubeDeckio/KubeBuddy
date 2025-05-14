@@ -605,9 +605,9 @@ $fallbackClusterMetricsHtml = @"
             🌐 KubeDeck.io
           </a>
         </div>
-        <div id="printContainer" style="margin-top: 4px;">
+       <!-- <div id="printContainer" style="margin-top: 4px;">
           <button id="savePdfBtn">📄 Save as PDF</button>
-        </div>
+        </div> -->
       </div>
     </div>
     <ul class="tabs">

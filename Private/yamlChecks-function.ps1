@@ -29,45 +29,15 @@ function Invoke-yamlChecks {
         return
     }
 
-    function Evaluate-PrometheusCheckResult {
-        param (
-            [object]$Metric,
-            [double]$Expected,
-            [string]$Operator,
-            [string]$FailMessage
-        )
-    
-        $values = $Metric.values
-        if (-not $values -or $values.Count -eq 0) {
-            return $null
-        }
-    
-        $avg = ($values | ForEach-Object { [double]($_[1]) }) | Measure-Object -Average | Select-Object -ExpandProperty Average
-    
-        $failed = $false
-        switch ($Operator.ToLower()) {
-            "greater_than" { $failed = $avg -gt $Expected }
-            "less_than"    { $failed = $avg -lt $Expected }
-            "equals"       { $failed = [math]::Round($avg, 5) -eq [math]::Round($Expected, 5) }
-            default        { return $null }  # unknown operator, skip
-        }
-    
-        if (-not $failed) {
-            return $null
-        }
-    
-        # Build result object
-        $labels = $Metric.metric.PSObject.Properties | ForEach-Object {
-            "$($_.Name): $($_.Value)"
-        } -join ", "
-    
-        return [pscustomobject]@{
-            MetricLabels = $labels
-            Average      = "{0:N4}" -f $avg
-            Message      = $FailMessage
-        }
-    }    
-
+    # if Prometheus settings are on the KubeData object, adopt them
+    if ($KubeData.PrometheusUrl) {
+        $PrometheusUrl = $KubeData.PrometheusUrl
+        $PrometheusMode = $KubeData.PrometheusMode
+        $PrometheusUsername = $KubeData.PrometheusUsername
+        $PrometheusPassword = $KubeData.PrometheusPassword
+        $PrometheusBearerTokenEnv = $KubeData.PrometheusBearerTokenEnv
+        $PrometheusHeaders = $kubedata.PrometheusHeaders
+    }
     function Get-ValidProperties {
         param (
             [array]$Items,
@@ -202,6 +172,45 @@ function Invoke-yamlChecks {
                 Error = $errorMessage
             }
         }
+
+        function Evaluate-PrometheusCheckResult {
+            param (
+                [object]$Metric,
+                [double]$Expected,
+                [string]$Operator,
+                [string]$FailMessage
+            )
+        
+            $values = $Metric.values
+            if (-not $values -or $values.Count -eq 0) {
+                return $null
+            }
+        
+            $avg = ($values | ForEach-Object { [double]($_[1]) }) | Measure-Object -Average | Select-Object -ExpandProperty Average
+        
+            $failed = $false
+            switch ($Operator.ToLower()) {
+                "greater_than" { $failed = $avg -gt $Expected }
+                "less_than" { $failed = $avg -lt $Expected }
+                "equals" { $failed = [math]::Round($avg, 5) -eq [math]::Round($Expected, 5) }
+                default { return $null }  # unknown operator, skip
+            }
+        
+            if (-not $failed) {
+                return $null
+            }
+        
+            # Build result object
+            $labels = $Metric.metric.PSObject.Properties | ForEach-Object {
+                "$($_.Name): $($_.Value)"
+            } -join ", "
+        
+            return [pscustomobject]@{
+                MetricLabels = $labels
+                Average      = "{0:N4}" -f $avg
+                Message      = $FailMessage
+            }
+        }        
 
         $localResults = @()
 
@@ -339,17 +348,31 @@ function Invoke-yamlChecks {
 
                 if ($check.Prometheus) {
                     try {
-                        $startTime = (Get-Date).AddHours(-1).ToString("o")
-                        $endTime = (Get-Date).ToString("o")
+                        # 1) Derive URL & Mode: prefer per-check override, else fall back to global
+                        $url = if ($check.Prometheus.Url) { $check.Prometheus.Url } else { $using:PrometheusUrl }
+                        $headers = $using:PrometheusHeaders
+
+                        # 2) Build auth headers
+                            # $headers = Get-PrometheusHeaders `
+                            #     -Mode           $mode `
+                            #     -Username       $using:PrometheusUsername `
+                            #     -Password       $using:PrometheusPassword `
+                            #     -BearerTokenEnv $using:PrometheusBearerTokenEnv
+
+                        # 3) Time window
+                        $endTime = (Get-Date).ToUniversalTime().ToString("o")
+                        $startTime = (Get-Date).AddHours(-1).ToUniversalTime().ToString("o")
                         $step = $check.Prometheus.Range.Step ?? "5m"
-                
-                        $result = Get-PrometheusData -Query $check.Prometheus.Query `
-                            -Url $check.Prometheus.Url `
-                            -Mode $check.Prometheus.Mode `
+
+                        # 4) Execute the query
+                        $result = Get-PrometheusData `
+                            -Query   $check.Prometheus.Query `
+                            -Url     $url `
+                            -Headers $headers `
                             -UseRange `
                             -StartTime $startTime `
-                            -EndTime $endTime `
-                            -Step $step
+                            -EndTime   $endTime `
+                            -Step      $step
                 
                         $items = @()
                         foreach ($r in $result.Results) {
@@ -381,7 +404,7 @@ function Invoke-yamlChecks {
                         }
                 
                         $localResults += $checkResult
-                        Write-Host "✅ Completed Prometheus check: $($check.ID)" -ForegroundColor Green
+                        Write-Host "✅ Completed Prometheus check: $($check.ID) - $($check.Name)                     " -ForegroundColor Green
                     }
                     catch {
                         Write-Host "❌ Prometheus check failed for $($check.ID): $_" -ForegroundColor Red
@@ -580,14 +603,16 @@ function Invoke-yamlChecks {
                 if ($check.ID -eq "NODE002") {
                     $sourceText = if ($usedPrometheus) {
                         "Data source: Prometheus (24h average)"
-                    } else {
+                    }
+                    else {
                         "Data source: kubectl top nodes (snapshot)"
                     }
                     $tooltipText = if ($tooltipText) { "$tooltipText<br><br>$sourceText" } else { $sourceText }
                 }
                 $tooltip = if ($tooltipText) {
                     "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$tooltipText</span></span>"
-                } else {
+                }
+                else {
                     ""
                 }
                 

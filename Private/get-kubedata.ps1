@@ -203,6 +203,13 @@ function Get-KubeData {
             return
         }
 
+        $data.PrometheusUrl            = $PrometheusUrl
+        $data.PrometheusMode           = $PrometheusMode
+        $data.PrometheusUsername       = $PrometheusUsername
+        $data.PrometheusPassword       = $PrometheusPassword
+        $data.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+        $data.PrometheusHeaders        = $headers
+
         $start = (Get-Date).AddDays(-1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         $end = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
