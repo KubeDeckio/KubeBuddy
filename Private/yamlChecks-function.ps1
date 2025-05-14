@@ -400,7 +400,7 @@ function Invoke-yamlChecks {
                         foreach ($r in $result.Results) {
                             $eval = Evaluate-PrometheusCheckResult `
                                 -Metric $r `
-                                -Expected $expected `
+                                -Expected $expectedValue `
                                 -Operator $check.Operator `
                                 -FailMessage $check.FailMessage
                         
