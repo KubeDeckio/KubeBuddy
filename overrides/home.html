@@ -399,16 +399,31 @@
     }
     .checks-bg {
       position: relative;
-      padding: 4rem 2rem;                 /* tweak to taste */
+      /* push it out to fill edge-to-edge */
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      padding: 6rem 2rem;
+      color: #fff;
+
       background: url('images/header.png') center/cover no-repeat;
-      color: #fff;                        /* or var(--md-default-fg-color) */
+      /* clip-path polygon to slope top 5% down, bottom 5% up */
+      clip-path: polygon(
+        0 5%,    /* top-left  sloped down  */
+        100% 0,  /* top-right flat */
+        100% 95%,/* bottom-right sloped up */
+        0 100%   /* bottom-left flat */
+      );
     }
+
+    /* optional dark overlay */
     .checks-bg::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);     /* same overlay */
+      background: rgba(0,0,0,0.4);
       z-index: 0;
+      clip-path: inherit; /* so overlay matches the same slope */
     }
     .checks-bg > * {
       position: relative;
