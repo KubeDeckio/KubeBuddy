@@ -108,7 +108,7 @@ checks:
         Duration: "24h"
     Operator:   "greater_than"
     Expected:   "cpu_critical"
-````
+```
 
 ## ⚙️ Script-Based Example
 

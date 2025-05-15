@@ -397,6 +397,23 @@
         padding: 1rem;
       }
     }
+    .checks-bg {
+      position: relative;
+      padding: 4rem 2rem;                 /* tweak to taste */
+      background: url('images/header.png') center/cover no-repeat;
+      color: #fff;                        /* or var(--md-default-fg-color) */
+    }
+    .checks-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);     /* same overlay */
+      z-index: 0;
+    }
+    .checks-bg > * {
+      position: relative;
+      z-index: 1;
+    }
   </style>
 
   <section class="hero-wrap">
@@ -445,7 +462,7 @@
   </section>
 
 
-  <section class="section">
+  <section class="section checks-bg">
     <h2>What KubeBuddy Checks</h2>
     <div class="feature-grid">
       <div class="feature-card">
