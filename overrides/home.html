@@ -438,6 +438,7 @@
   width: 100%;
   background: url('images/header.png') center/cover no-repeat;
   color: #fff;
+  padding-bottom: 8rem;
 }
 .hero-wrap::before {
   content: '';
@@ -456,31 +457,25 @@
   margin: 0 auto;
 }
 
-/* Metrics bar */
 .metrics-bar {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  background: var(--md-card-bg-color);
-  padding: 1rem 2rem;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  position: absolute;
+  bottom: 1rem;       /* lift it up from the bottom edge */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(224, 224, 224, 0.9); /* slight transparency */
+  padding: 0.5rem 2rem;
   box-shadow: var(--md-shadow);
-}
-.metric {
-  text-align: center;
-}
-.metric h4 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: var(--md-primary-fg-color);
-}
-.metric p {
-  margin: 0;
-  color: var(--md-text-secondary);
+  border-radius: 8px;
+  display: flex;
+  gap: 2rem;
 }
 
+.metrics-bar .metric h4 {
+  color: var(--md-primary-fg-color);
+}
+.metrics-bar .metric p {
+  color: var(--md-text-secondary);
+}
   </style>
 
 <!-- Hero + Metrics Section -->
@@ -488,14 +483,16 @@
   <div class="hero-content">
     <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
   </div>
+
+  <!-- Metrics Bar INSIDE hero -->
+  <div class="metrics-bar">
+    <div class="metric"><h4>90+</h4><p>Checks</p></div>
+    <div class="metric"><h4>Realtime</h4><p>Scanning</p></div>
+    <div class="metric"><h4>No</h4><p>Agents</p></div>
+    <div class="metric"><h4>v0.0.20</h4><p>Latest Release</p></div>
+  </div>
 </section>
 
-<div class="metrics-bar">
-  <div class="metric"><h4>90+</h4><p>Checks</p></div>
-  <div class="metric"><h4>Realtime</h4><p>Scanning</p></div>
-  <div class="metric"><h4>No</h4><p>Agents</p></div>
-  <div class="metric"><h4>v0.0.20</h4><p>Latest Release</p></div>
-</div>
 {% endblock %}
 
 
