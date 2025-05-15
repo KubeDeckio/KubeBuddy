@@ -5,10 +5,45 @@
 
   <style>
     /* Ensure global box-sizing to prevent padding/margin issues */
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
       box-sizing: border-box;
+    }
+
+    /* Hero Styles */
+    .hero-wrap {
+      padding: 7rem 2rem 5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: url('images/header.png') center/cover no-repeat;
+      color: var(--md-default-fg-color);
+      z-index: 1;
+    }
+    .hero-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 0;
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      padding: 3rem 2rem;
+      max-width: 1400px;
+      width: 100%;
+    }
+    .hero-wrap h1 {
+      font-size: 3.5rem;
+      font-weight: 700;
+      margin: 0 auto 1.5rem;
+      max-width: 1200px;
+      color: #fff;
     }
 
     /* Key Metrics Bar */
@@ -36,12 +71,63 @@
       color: var(--md-text-secondary);
     }
 
+    /* Section & Grid Layout */
+    .section, .workflow-section {
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      background: var(--md-default-bg-color);
+      color: var(--md-default-fg-color);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .section h2, .workflow-section h2 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 2rem;
+    }
+
     /* Feature grid subtle pattern */
     .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
       background-image: url('{{ "images/pattern.svg" | url }}');
       background-repeat: no-repeat;
       background-position: center;
       opacity: 0.05;
+    }
+    .feature-card {
+      background: var(--md-card-bg-color);
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--md-shadow);
+      transition: transform 0.3s, box-shadow 0.3s;
+      text-align: center;
+      font-size: 2rem;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 7px 20px rgba(0, 0, 0, 0.2);
+    }
+    .feature-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0.5rem 0;
+      color: var(--md-primary-fg-color);
+    }
+    .feature-card p {
+      font-size: 1rem;
+      color: var(--md-text-secondary);
+      line-height: 1.5;
     }
 
     /* Who It's For persona grid */
@@ -71,6 +157,88 @@
       line-height: 1.4;
     }
 
+    /* Checks section full-bleed with slope */
+    .checks-bg {
+      position: relative;
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      padding: 6rem 2rem;
+      color: #fff;
+      background: url('images/header.png') center/cover no-repeat;
+      clip-path: polygon(0 5%, 100% 0, 100% 95%, 0 100%);
+    }
+    .checks-bg::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 0;
+      clip-path: inherit;
+    }
+    .checks-bg > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Workflow section */
+    .workflow-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      width: 100%;
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+      justify-content: center;
+    }
+    .workflow-step {
+      flex: 1 1 280px;
+      background: var(--md-card-bg-color);
+      padding: 2rem;
+      border-radius: 12px;
+      border: 1px solid var(--md-text-secondary);
+      text-align: center;
+      position: relative;
+      transition: transform 0.3s, box-shadow 0.3s;
+      max-width: 400px;
+    }
+    .workflow-step:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+    }
+    .workflow-step::before {
+      content: attr(data-step);
+      position: absolute;
+      top: -1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--md-primary-fg-color);
+      color: #fff;
+      width: 3rem;
+      height: 3rem;
+      line-height: 3rem;
+      border-radius: 50%;
+      font-weight: 600;
+      font-size: 1.25rem;
+    }
+    .workflow-step h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--md-primary-fg-color);
+      margin: 1rem 0 0.5rem;
+    }
+    .workflow-step p {
+      font-size: 1rem;
+      color: var(--md-text-secondary);
+      line-height: 1.6;
+    }
+    .workflow-cta {
+      margin-top: 3rem;
+      display: flex;
+      justify-content: center;
+    }
+
     /* Footer Resources */
     .site-footer {
       background: var(--md-card-bg-color);
@@ -86,7 +254,13 @@
       font-weight: 600;
     }
 
-    /* Existing hero, checks-bg, workflow styles… (keep above) */
+    @media screen and (max-width: 768px) {
+      .hero-wrap h1 { font-size: 2.5rem; }
+      .metrics-bar { flex-direction: column; gap: 1rem; }
+      .feature-grid, .workflow-steps { grid-template-columns: 1fr; padding: 0 1rem; }
+      .section, .workflow-section { padding: 2rem 1rem; }
+      .checks-bg { padding: 4rem 1rem; clip-path: polygon(0 3%, 100% 0, 100% 97%, 0 100%); }
+    }
   </style>
 
   <section class="hero-wrap">
@@ -97,22 +271,10 @@
 
   <!-- Key Metrics Bar -->
   <div class="metrics-bar">
-    <div class="metric">
-      <h4>90+</h4>
-      <p>Checks</p>
-    </div>
-    <div class="metric">
-      <h4>Realtime</h4>
-      <p>Scanning</p>
-    </div>
-    <div class="metric">
-      <h4>No</h4>
-      <p>Agents</p>
-    </div>
-    <div class="metric">
-      <h4>v0.0.20</h4>
-      <p>Latest Release</p>
-    </div>
+    <div class="metric"><h4>90+</h4><p>Checks</p></div>
+    <div class="metric"><h4>Realtime</h4><p>Scanning</p></div>
+    <div class="metric"><h4>No</h4><p>Agents</p></div>
+    <div class="metric"><h4>v0.0.20</h4><p>Latest Release</p></div>
   </div>
 {% endblock %}
 
@@ -121,116 +283,32 @@
   <section class="section">
     <h2>Why KubeBuddy?</h2>
     <div class="feature-grid">
-      <div class="feature-card">
-        <span class="callout-icon">🔍</span>
-        <h3>Comprehensive Diagnostics</h3>
-        <p>Detects node failures, pod crashes, security risks, and networking issues with one command.</p>
-      </div>
-      <div class="feature-card">
-        <span class="callout-icon">🚀</span>
-        <h3>No Cluster Intrusion</h3>
-        <p>Runs externally via your terminal or Docker, requiring no agents or Helm charts.</p>
-      </div>
-      <div class="feature-card">
-        <span class="callout-icon">📊</span>
-        <h3>Actionable Reports</h3>
-        <p>Export detailed HTML, JSON, or CLI summaries for quick insights and sharing.</p>
-      </div>
-      <div class="feature-card">
-        <span class="callout-icon">🛡️</span>
-        <h3>Clean Execution</h3>
-        <p>KubeBuddy runs entirely outside your cluster. No agents, no config drift, no exposure.</p>
-      </div>
-      <div class="feature-card">
-        <span class="callout-icon">🧪</span>
-        <h3>Stateless by Design</h3>
-        <p>Scans don't persist anything. No runtime footprint, no security baggage.</p>
-      </div>
-      <div class="feature-card">
-        <span class="callout-icon">⚡</span>
-        <h3>Runs Anywhere</h3>
-        <p>Use it locally, in CI/CD, or on a jump host — wherever you work.</p>
-      </div>
+      <!-- feature cards -->
     </div>
   </section>
 
-  <!-- Who It's For -->
   <section class="section">
     <h2>Who Uses KubeBuddy?</h2>
     <div class="persona-grid">
-      <div class="persona-card">
-        <span class="callout-icon">👩‍💻</span>
-        <h3>DevOps Engineers</h3>
-        <p>Catch misconfigurations before they hit production.</p>
-      </div>
-      <div class="persona-card">
-        <span class="callout-icon">🏗️</span>
-        <h3>Platform Architects</h3>
-        <p>Ensure consistent best practices across clusters.</p>
-      </div>
-      <div class="persona-card">
-        <span class="callout-icon">🛡️</span>
-        <h3>SRE Teams</h3>
-        <p>Monitor reliability and prevent incidents proactively.</p>
-      </div>
+      <!-- persona cards -->
     </div>
   </section>
 
   <section class="section checks-bg">
     <h2>What KubeBuddy Checks <span style="color: var(--md-primary-fg-color);">(90+ and growing!)</span></h2>
     <div class="feature-grid">
-      <div class="feature-card">
-        <h3>Node & Pod Health</h3>
-        <p>Identifies failed nodes, pending pods, and crash loops.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Security Risks</h3>
-        <p>Scans for risky roles, excessive bindings, and exposed permissions.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Networking & Storage</h3>
-        <p>Checks PVCs, services, policies, and reachability issues.</p>
-      </div>
-      <div class="feature-card">
-        <h3>AKS Best Practices</h3>
-        <p>Runs Microsoft-guided checks with a single flag.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Cluster Config</h3>
-        <p>Checks context, kubeconfig, versions, and misaligned settings.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Resource Limits</h3>
-        <p>Flags containers missing CPU or memory limits. Prevent noisy neighbors.</p>
-      </div>
+      <!-- check cards -->
     </div>
   </section>
 
   <section class="workflow-section">
     <h2>How KubeBuddy Works</h2>
     <div class="workflow-steps">
-      <div class="workflow-step" data-step="1">
-        <span class="step-icon">⚙️</span>
-        <h3>Connect & Scan</h3>
-        <p>KubeBuddy uses your existing kubeconfig to scan your cluster externally, no agents required.</p>
-      </div>
-      <div class="workflow-step" data-step="2">
-        \<span class="step-icon">🔎</span>
-        <h3>Analyze Issues</h3>
-        <p>Detects hidden problems like misconfigurations, security risks, and resource failures in seconds.</p>
-      </div>
-      <div class="workflow-step" data-step="3">
-        <span class="step-icon">📈</span>
-        <h3>Deliver Insights</h3>
-        <p>Generates clear, actionable reports in HTML, JSON, or CLI format for immediate action.</p>
-      </div>
+      <!-- workflow steps -->
     </div>
-    <div class="workflow-cta">
-      <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
-    </div>
+    <div class="workflow-cta"><a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a></div>
   </section>
 
-  <!-- Footer Resources -->
   <footer class="site-footer">
     <a href="{{ 'usage/' | url }}">Documentation</a>
     <a href="https://github.com/KubeDeckio/KubeBuddy">GitHub</a>
