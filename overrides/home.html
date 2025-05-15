@@ -457,24 +457,39 @@
   margin: 0 auto;
 }
 
+/* Metrics bar */
 .metrics-bar {
   position: absolute;
-  bottom: 1rem;       /* lift it up from the bottom edge */
+  bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(224, 224, 224, 0.9); /* slight transparency */
+  background: rgba(224,224,224,0.9);
   padding: 0.5rem 2rem;
   box-shadow: var(--md-shadow);
   border-radius: 8px;
   display: flex;
   gap: 2rem;
+  width: 100%;
 }
 
-.metrics-bar .metric h4 {
-  color: var(--md-primary-fg-color);
+.metric {
+  text-align: center;
 }
-.metrics-bar .metric p {
+
+/* big, bold number/text */
+.metric-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--md-primary-fg-color);
+  line-height: 1;
+}
+
+/* smaller label under it */
+.metric-label {
+  font-size: 1rem;
   color: var(--md-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
   </style>
 
@@ -485,11 +500,25 @@
   </div>
 
   <!-- Metrics Bar INSIDE hero -->
-  <div class="metrics-bar">
-    <div class="metric"><h4>90+</h4><p>Checks</p></div>
-    <div class="metric"><h4>Realtime</h4><p>Scanning</p></div>
-    <div class="metric"><h4>No</h4><p>Agents</p></div>
-    <div class="metric"><h4>v0.0.20</h4><p>Latest Release</p></div>
+<div class="metrics-bar">
+  <div class="metric">
+    <div class="metric-value">90+</div>
+    <div class="metric-label">Checks</div>
+  </div>
+  <div class="metric">
+    <div class="metric-value">Realtime</div>
+    <div class="metric-label">Scanning</div>
+  </div>
+  <div class="metric">
+    <div class="metric-value">No</div>
+    <div class="metric-label">Agents</div>
+  </div>
+  <div class="metric">
+    <div class="metric-value">v0.0.20</div>
+    <div class="metric-label">Latest Release</div>
+  </div>
+</div>
+
   </div>
 </section>
 
