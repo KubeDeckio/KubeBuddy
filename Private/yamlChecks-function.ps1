@@ -12,7 +12,7 @@ function Invoke-yamlChecks {
     # Configuration
     $checksFolder = "$PSScriptRoot/yamlChecks"
     $kubectl = "kubectl"
-    $thresholds = Get-KubeBuddyThresholds -Silent
+    
 
     # Ensure required modules
     try {
@@ -29,7 +29,7 @@ function Invoke-yamlChecks {
         Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
         return
     }
-
+    
     # if Prometheus settings are on the KubeData object, adopt them
     if ($KubeData.PrometheusUrl) {
         $PrometheusUrl = $KubeData.PrometheusUrl
@@ -347,11 +347,18 @@ function Invoke-yamlChecks {
                     continue
                 }
 
+
                 if ($check.Prometheus) {
                     try {
+                        # skip unless we have a real URL
+                        if (-not $using:PrometheusUrl) {
+                            Write-Host "⚠️ Skipping Prometheus check $($check.ID): no PrometheusUrl configured." -ForegroundColor Yellow
+                            continue
+                        }
                         # Derive URL & Mode: prefer per-check override, else fall back to global
                         $url = if ($check.Prometheus.Url) { $check.Prometheus.Url } else { $using:PrometheusUrl }
                         $headers = $using:PrometheusHeaders
+                        $thresholds = Get-KubeBuddyThresholds -Silent
 
                         # lookup expected threshold:
                         # if the YAML Expected is a string key in $thresholds, use that value,
