@@ -463,12 +463,14 @@
 .metrics-bar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
-  margin: 2rem auto 0;               /* space from hero */
+  gap: 0;
+  margin: 2rem auto 0;
   max-width: 900px;
-  background: var(--md-card-bg-color); 
+  width: 100%;
+  background: var(--md-card-bg-color);
   border-radius: 8px;
-  overflow: hidden;                  /* clip dividers at edges */
-  box-shadow: 
+  overflow: hidden;
+  box-shadow:
     0 1px 3px rgba(0,0,0,0.12),
     0 1px 2px rgba(0,0,0,0.14);
 }
@@ -502,6 +504,32 @@
   letter-spacing: 0.05em;
 }
 
+/* small phones: one column */
+@media (max-width: 480px) {
+  .metrics-bar {
+    grid-template-columns: 1fr;
+  }
+  .metric:not(:last-child) {
+    /* swap vertical dividers for horizontal */
+    border-right: none;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+}
+
+/* tablets / larger phones: two columns */
+@media (min-width: 481px) and (max-width: 768px) {
+  .metrics-bar {
+    grid-template-columns: repeat(2,1fr);
+  }
+  .metric:not(:nth-child(2n)) {
+    /* only draw a divider on the right of odd items */
+    border-right: 1px solid rgba(0,0,0,0.08);
+  }
+  /* remove bottom border on the last row */
+  .metric:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+}
   </style>
 
 <!-- Hero + Metrics Section -->
