@@ -588,67 +588,73 @@ checks:
     URL: "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/"
     Script: |
       param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
-
+      
       $results = @()
       $workloadTypes = @("deployments", "statefulsets", "daemonsets")
-
+      
       $items = @()
       foreach ($type in $workloadTypes) {
-        $key = ($KubeData.Keys | Where-Object { $_.ToLower() -eq $type.ToLower() })[0]
-        $raw = if ($KubeData -and $key -and $KubeData[$key]) {
-          if ($KubeData[$type].PSObject.Properties.Name -contains 'items') {
-            $KubeData[$type].items
-          } else {
-            $KubeData[$type]
+          # ——— BEGIN PATCH ———
+          # Grab the list of property names on the PSCustomObject
+          $propNames = if ($KubeData) { $KubeData.PSObject.Properties.Name } else { @() }
+      
+          if ($propNames -contains $type) {
+              # Use the in-memory data
+              $blob = $KubeData.$type
+              $raw = if ($blob.PSObject.Properties.Name -contains 'items') { $blob.items } else { $blob }
           }
-        } else {
-          (kubectl get $type --all-namespaces -o json | ConvertFrom-Json).items
-        }
-        if ($ExcludeNamespaces) {
-          $raw = Exclude-Namespaces -items $raw
-        }
-        if ($Namespace) {
-          $raw = $raw | Where-Object { $_.metadata.namespace -eq $Namespace }
-        }
-
-        $kind = ($type -replace "s$") 
-        $kind = $kind.Substring(0, 1).ToUpper() + $kind.Substring(1)
-        $items += $raw | ForEach-Object {
-          if (-not $_.PSObject.Properties['kind']) {
-            $_ | Add-Member -NotePropertyName kind -NotePropertyValue $kind -PassThru
-          } else {
-            $_
+          else {
+              # Fall back to kubectl
+              $raw = (kubectl get $type --all-namespaces -o json | ConvertFrom-Json).items
           }
-        }
+          # ——— END PATCH ———
+      
+          if ($ExcludeNamespaces) {
+              $raw = Exclude-Namespaces -items $raw
+          }
+          if ($Namespace) {
+              $raw = $raw | Where-Object { $_.metadata.namespace -eq $Namespace }
+          }
+      
+          $kind = ($type -replace "s$")
+          $kind = $kind.Substring(0, 1).ToUpper() + $kind.Substring(1)
+          $items += $raw | ForEach-Object {
+              if (-not $_.PSObject.Properties['kind']) {
+                  $_ | Add-Member -NotePropertyName kind -NotePropertyValue $kind -PassThru
+              } else {
+                  $_
+              }
+          }
       }
-
+      
       foreach ($w in $items) {
-        $ns = $w.metadata.namespace
-        $name = $w.metadata.name
-        $kind = $w.kind
-        if (-not $w.spec -or -not $w.spec.template -or -not $w.spec.template.spec -or -not $w.spec.template.spec.containers) {
-          continue
-        }
-        $containers = $w.spec.template.spec.containers
-
-        foreach ($c in $containers) {
-          $missing = @()
-          if (-not $c.readinessProbe) { $missing += "readiness" }
-          if (-not $c.livenessProbe) { $missing += "liveness" }
-
-          if ($missing.Count -gt 0) {
-            $results += [PSCustomObject]@{
-              Namespace = $ns
-              Workload  = $name
-              Kind      = $kind
-              Container = $c.name
-              Missing   = $missing -join ", "
-            }
+          $ns = $w.metadata.namespace
+          $name = $w.metadata.name
+          $kind = $w.kind
+          if (-not $w.spec -or -not $w.spec.template -or -not $w.spec.template.spec -or -not $w.spec.template.spec.containers) {
+              continue
           }
-        }
+          $containers = $w.spec.template.spec.containers
+      
+          foreach ($c in $containers) {
+              $missing = @()
+              if (-not $c.readinessProbe) { $missing += "readiness" }
+              if (-not $c.livenessProbe)  { $missing += "liveness"  }
+      
+              if ($missing.Count -gt 0) {
+                  $results += [PSCustomObject]@{
+                      Namespace = $ns
+                      Workload  = $name
+                      Kind      = $kind
+                      Container = $c.name
+                      Missing   = $missing -join ", "
+                  }
+              }
+          }
       }
-
+      
       return $results
+
   - ID: "WRK008"
     Name: "Deployment Selector Without Matching Pods"
     Category: "Workloads"
