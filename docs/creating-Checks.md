@@ -9,182 +9,172 @@ hide:
 
 # Creating Checks
 
+KubeBuddy is a Kubernetes auditing and monitoring tool that helps identify misconfigurations, performance bottlenecks, and potential risks in your cluster.
 
-Kubebuddy is a Kubernetes auditing and monitoring tool that helps identify misconfigurations, resource issues, and potential security risks in your cluster.
+Checks are defined in YAML and evaluated by the `Invoke-yamlChecks` engine. Results can be rendered in HTML, text, or JSON reports.
 
-Checks in Kubebuddy are generated from **checks**—rules that evaluate cluster resources and produce issues when conditions are met.
+## 📦 Check Types
 
-### Types of Checks
+You can author three kinds of checks:
 
-- **Script-based:** Written in PowerShell for complex checks.
-- **Declarative:** YAML-based conditions for simple threshold checks.
+### 1. Script-Based (PowerShell)
+Use when you need full procedural logic:
 
-Kubebuddy processes checks using `Invoke-yamlChecks`, which outputs results suitable for Prometheus, Grafana, or custom tools like Slack/email.
+- Define a `Script:` block in PowerShell.
+- Receive `$KubeData`, plus `$Namespace` and `-ExcludeNamespaces` flags.
+- Return either:
+  - An array of PSCustomObjects, or
+  - A hashtable with `{ Items = <array>; IssueCount = <int> }`.
 
+### 2. Declarative
+Field-based checks for simple path/operator/value comparisons:
 
-## Check Types
+- Specify `Condition`, `Operator`, and `Expected`.
+- No scripting required—ideal for image-tag, label, or simple field checks.
 
-### 1. Script-Based Checks
+### 3. Prometheus (NEW!)
+Query Prometheus directly, with built-in threshold support:
 
-These use PowerShell for dynamic logic. Example checks:
+- Define a `Prometheus:` block with your PromQL.
+- Provide `Operator:` and `Expected:` to compare time-series averages.
+- Honor your global defaults (e.g. `cpu_critical`) via `Get-KubeBuddyThresholds`.
+- Control the look-back window via `Range.Duration` (supports `m`,`h`,`d`).
 
-- `SEC001`: Unused Secrets
-- `WRK004`: Misconfigured HPAs
+## 🧾 YAML Field Reference
 
-**Details:**
+| Field                          | Type           | Required  | Applies to        | Description                                                                                 |
+|--------------------------------|----------------|-----------|-------------------|---------------------------------------------------------------------------------------------|
+| `ID`                           | String         | ✅        | All               | Unique identifier (e.g. `POD001`, `PROM003`)                                                |
+| `Name`                         | String         | ✅        | All               | Human-readable name                                                                         |
+| `Category`                     | String         | ✅        | All               | Broad grouping (e.g. `Security`, `Performance`)                                             |
+| `Section`                      | String         | ✅        | All               | Sub-group for report navigation (e.g. `Pods`, `Nodes`)                                      |
+| `ResourceKind`                 | String         | ✅        | All               | Kubernetes kind (e.g. `Pod`, `Node`)                                                        |
+| `Severity`                     | String         | ✅        | All               | `Low`, `Medium`, `High`, `Warning`, etc.                                                    |
+| `Weight`                       | Integer        | ✅        | All               | Sorting/priority weight                                                                     |
+| `Description`                  | String         | ✅        | All               | What the check detects                                                                      |
+| `FailMessage`                  | String         | ✅        | All               | Message to show when the check finds issues                                                 |
+| `URL`                          | String         | ✅        | All               | Link to related docs                                                                        |
+| `SpeechBubble`                 | List[String]   | ✅        | All               | CLI-friendly messages                                                                        |
+| **Declarative only**           |                |           |                   |                                                                                             |
+| `Condition`                    | String         | ✅†       | Declarative       | JSON path, supports `[].` arrays (e.g. `spec.containers[].image`)                           |
+| `Operator`                     | String         | ✅†       | Declarative       | `equals`, `contains`, `greater_than`, etc.                                                  |
+| `Expected`                     | String/Number  | ✅†       | Declarative       | Value to compare against                                                                     |
+| **Script-Based only**          |                |           |                   |                                                                                             |
+| `Script`                       | PowerShell     | ✅‡       | Script-Based      | Inline PowerShell script block                                                               |
+| **Prometheus only**            |                |           |                   |                                                                                             |
+| `Prometheus.Query`             | String         | ✅§       | Prometheus        | PromQL query (range or instant)                                                              |
+| `Prometheus.Range.Step`        | String         | ✅§       | Prometheus        | Range-vector step (e.g. `5m`)                                                                 |
+| `Prometheus.Range.Duration`    | String         | ✅§       | Prometheus        | Look-back window (e.g. `30m`, `24h`, `2d`)                                                   |
+| `Operator`                     | String         | ✅§       | Prometheus        | How to compare average (e.g. `greater_than`)                                                 |
+| `Expected`                     | String/Number  | ✅§       | Prometheus        | Threshold value or threshold-name (e.g. `cpu_critical` or `0.8`)                             |
 
-- Defined using the `Script` field
-- Use `$KubeData`, `kubectl`, optional `$Namespace`, `$ExcludeNamespaces`
-- Output: `[pscustomobject]` with `Namespace`, `Resource`, `Value`, `Message`
-
-
-### 2. Declarative Checks
-
-Simpler checks defined with `Path`, `Operator`, and `Value`.
-
-- Example: `POD007` checks CPU usage > 80%
-
-**Details:**
-
-- No scripting required
-- Evaluated directly by `Invoke-yamlChecks`
-- Less flexible, easier to write
-
-
-## YAML Configuration Fields
-
-| Field             | Type           | Required | Description |
-|------------------|----------------|----------|-------------|
-| `ID`             | String         | Yes      | Unique check ID (e.g. `SEC001`) |
-| `Name`           | String         | Yes      | Human-readable name |
-| `Category`       | String         | Yes      | Category (e.g. Security, Workloads) |
-| `Section`        | String         | Yes      | Subcategory or section |
-| `ResourceKind`   | String         | Yes      | Kubernetes resource type |
-| `Severity`       | String         | Yes      | `Low`, `Medium`, `High`, `Warning` |
-| `Weight`         | Integer        | Yes      | Priority for sorting or filtering |
-| `Description`    | String         | Yes      | What the check looks for |
-| `FailMessage`    | String         | Yes      | Message if the check fails |
-| `URL`            | String         | Yes      | Link to Kubernetes docs |
-| `Operator`       | String         | No*      | Used for declarative checks only |
-| `Path`           | String         | No*      | Attribute to evaluate (declarative only) |
-| `Value`          | String/Number  | No*      | Threshold (declarative only) |
-| `Script`         | String Block   | No*      | PowerShell code (script-based only) |
-| `Recommendation.text` | String    | Yes      | Text recommendation |
-| `Recommendation.html` | HTML      | Yes      | HTML-formatted guidance |
-| `SpeechBubble`   | List of Strings| Yes      | Friendly messages for CLI output |
-
-\* `Operator`, `Path`, `Value` required for declarative. `Script` required for script-based.
+> † Declarative only  
+> ‡ Script-Based only  
+> § Prometheus only  
 
 
-## Script Parameters
-
-- `$KubeData`: Cached resource data
-- `$Namespace`: Optional namespace scope
-- `$ExcludeNamespaces`: Exclude system namespaces like `kube-system`
-
-## Example: Script-Based Check
+## 🔬 Prometheus Check Example
 
 ```yaml
 checks:
-  - ID: "POD008"
-    Name: "High Memory Usage Pods"
-    Category: "Pods"
-    Section: "Performance"
+  - ID: "PROM001"
+    Name: "High CPU Pods (Prometheus)"
+    Category: "Performance"
+    Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "Warning"
     Weight: 3
-    Description: "Detects pods with memory usage exceeding 80% of their limit."
-    FailMessage: "Pod memory usage exceeds 80% of limit."
-    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
-    Recommendation:
-      text: "Review pod memory usage and adjust resource limits or optimize the application."
-      html: |
-        <ul>
-          <li>Check memory: <code>kubectl top pod -n &lt;namespace&gt;</code></li>
-          <li>Adjust <code>resources.limits.memory</code></li>
-          <li>Optimize app usage if needed</li>
-        </ul>
+    Description: "Checks for pods with sustained high CPU usage over the last 24 hours."
+    FailMessage: "Some pods show high sustained CPU usage."
+    URL: "https://kubernetes.io/docs/concepts/cluster-administration/monitoring/"
     SpeechBubble:
-      - "🤖 Some pods are using too much memory!"
-      - "📌 Memory usage above 80% can lead to evictions."
+      - "🤖 High CPU usage detected via Prometheus!"
+      - "⚠️ Might indicate a misbehaving app."
+    Recommendation:
+      text: "Investigate high-CPU pods; adjust limits or optimize workloads."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Investigate High CPU Pods</h4>
+          <ul>
+            <li>Use <code>kubectl top pod</code> for live CPU stats.</li>
+            <li>Review app code or HPA settings.</li>
+            <li>Consider raising CPU requests/limits or scaling out.</li>
+          </ul>
+        </div>
+    Prometheus:
+      Query:  'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)'
+      Range:
+        Step:     "5m"
+        Duration: "24h"
+    Operator:   "greater_than"
+    Expected:   "cpu_critical"
+```
+
+## ⚙️ Script-Based Example
+
+```yaml
+checks:
+  - ID: "POD005"
+    Name: "CrashLoopBackOff Pods"
+    Category: "Workloads"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "Error"
+    Weight: 4
+    Description: "Identifies pods stuck in CrashLoopBackOff due to repeated crashes."
+    FailMessage: "Some pods are stuck restarting in CrashLoopBackOff."
+    URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy"
+    SpeechBubble:
+      - "💥 Pods in CrashLoopBackOff!"
+      - "🔍 Investigate container errors."
+    Recommendation:
+      text: "Check logs and fix misconfigurations."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li><code>kubectl logs &lt;pod&gt; -n &lt;ns&gt;</code></li>
+            <li><code>kubectl describe pod &lt;pod&gt; -n &lt;ns&gt;</code></li>
+          </ul>
+        </div>
     Script: |
       param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
-      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      $pods = if ($KubeData?.Pods) { $KubeData.Pods.items } else { (kubectl get pods -A -o json | ConvertFrom-Json).items }
       if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
-      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
-      $results = @()
-      foreach ($pod in $pods) {
-        foreach ($container in $pod.spec.containers) {
-          $limit = $container.resources.limits.memory
-          if (-not $limit) { continue }
-          $usage = $KubeData?.Metrics[$pod.metadata.namespace][$pod.metadata.name][$container.name].memory
-          if ($usage -and $usage -gt ($limit * 0.8)) {
-            $results += [pscustomobject]@{
-              Namespace = $pod.metadata.namespace
-              Resource  = "pod/$($pod.metadata.name)"
-              Value     = "$usage/$limit"
-              Message   = "Container $($container.name) memory usage exceeds 80% of limit."
-            }
+      $pods |
+        Where-Object {
+          $_.status.containerStatuses |
+          Where-Object { $_.state.waiting.reason -eq "CrashLoopBackOff" }
+        } |
+        ForEach-Object {
+          [PSCustomObject]@{
+            Namespace = $_.metadata.namespace
+            Pod       = $_.metadata.name
+            Restarts  = ($_.status.containerStatuses | Measure-Object -Property restartCount -Sum).Sum
           }
         }
-      }
-      return $results
-```
-
-## Example: Declarative Check
-
-```yaml
-checks:
-  - ID: "POD009"
-    Name: "High CPU Usage Pods"
-    Category: "Pods"
-    Section: "Performance"
-    ResourceKind: "Pod"
-    Severity: "High"
-    Weight: 3
-    Description: "Detects pods with CPU usage exceeding 80%."
-    FailMessage: "Pod CPU usage exceeds 80%."
-    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
-    Operator: "gt"
-    Path: "status.cpuUsage"
-    Value: "80%"
-    Recommendation:
-      text: "Review pod CPU usage and adjust resource limits or optimize the application."
-      html: |
-        <ul>
-          <li>Run <code>kubectl top pod -n &lt;namespace&gt;</code></li>
-          <li>Update <code>resources.limits.cpu</code></li>
-          <li>Improve app efficiency</li>
-        </ul>
-    SpeechBubble:
-      - "🤖 Some pods are consuming excessive CPU!"
-      - "📌 CPU usage above 80% can impact performance."
 ```
 
 
-## Best Practices
+## ✅ Best Practices
 
-- **Minimize noise:** Use Severity + Weight to prioritize
-- **Skip system namespaces:** Use `$ExcludeNamespaces`
-- **Make recommendations clear:** Use HTML + CLI-friendly messages
-- **Test checks thoroughly:** Especially for edge cases
-- **Use unique IDs:** Prevent collisions
-
+* **Use meaningful IDs** (`POD001`, `PROM002`, etc.)
+* Scope each check to **one responsibility**
+* For Prometheus, prefer **global threshold names** (e.g. `cpu_critical`) or numeric literals
+* Store your YAML in `yamlChecks/*.yaml`—no embedded JSON in PowerShell
 
 
-## Troubleshooting
+## 📂 Folder Layout
 
-| Issue                  | Fix |
-|------------------------|-----|
-| Check did not run              | Check script logic or `$KubeData` availability |
-| False positives        | Refine conditions, use `$ExcludeNamespaces` |
-| YAML syntax errors     | Use a linter (`yq`, `yamllint`) |
-| Integration not working| Verify output format and ingestion pipeline |
+```
+yamlChecks/
+├── workloads.yaml
+├── security.yaml
+└── prometheus.yaml
+```
 
-## Conclusion
 
-Kubebuddy Checks help monitor your cluster by using declarative or script-based checks. Define checks, test them with `Invoke-yamlChecks`, and integrate the output with your monitoring stack.
+## 📚 Resources
 
-For more help:
-
-- [Kubebuddy GitHub](#)
+* [Prometheus HTTP API](https://prometheus.io/docs/prometheus/latest/querying/api/)
+* [Kubernetes Pod Lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
+* [KubeBuddy Configuration](./kubebuddy-config.md)

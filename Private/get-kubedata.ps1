@@ -5,7 +5,13 @@ function Get-KubeData {
         [string]$ClusterName,
         [switch]$ExcludeNamespaces,
         [switch]$AKS,
-        [switch]$UseAksRestApi
+        [switch]$UseAksRestApi,
+        [switch]$IncludePrometheus,
+        [string]$PrometheusUrl, # Prometheus endpoint
+        [string]$PrometheusMode, # Authentication mode
+        [string]$PrometheusUsername,
+        [string]$PrometheusPassword,
+        [string]$PrometheusBearerTokenEnv
     )
 
     # Check for kubectl
@@ -180,6 +186,71 @@ function Get-KubeData {
             Write-Host "Critical error: Stopping execution due to failure in $($r.Label) - $($r.Error)" -ForegroundColor DarkGray
             return $false  # return error flag
             return
+        }
+    }
+
+    # Fetch Prometheus Metrics
+    if ($IncludePrometheus -and $PrometheusUrl) {
+        Write-Host "`n[📊 Fetching Prometheus Metrics]" -ForegroundColor Cyan
+
+        try {
+            $headers = Get-PrometheusHeaders -Mode $PrometheusMode `
+                -Username $PrometheusUsername -Password $PrometheusPassword `
+                -BearerTokenEnv $PrometheusBearerTokenEnv
+        }
+        catch {
+            Write-Host "❌ Prometheus auth failed: $_" -ForegroundColor Red
+            return
+        }
+
+        $data.PrometheusUrl            = $PrometheusUrl
+        $data.PrometheusMode           = $PrometheusMode
+        $data.PrometheusUsername       = $PrometheusUsername
+        $data.PrometheusPassword       = $PrometheusPassword
+        $data.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+        $data.PrometheusHeaders        = $headers
+
+        $start = (Get-Date).AddDays(-1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $end = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+        $prometheusQueries = @(
+            @{ Name = "NodeCpuUsagePercent"; Query = '(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100' },
+            @{ Name = "NodeCpuUsed"; Query = 'sum by(instance) (rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) * 1000' },
+            @{ Name = "NodeMemoryUsagePercent"; Query = '(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100' },
+            @{ Name = "NodeMemoryUsed"; Query = 'node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes' },
+            @{ Name = "NodeDiskUsagePercent"; Query = '
+                100 * (1 - (
+                    sum by(instance)(
+                        node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}
+                    )
+                    /
+                    sum by(instance)(
+                        node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}
+                    )
+                ))
+            ' },
+            @{ Name = "NodeNetworkReceiveRate"; Query = 'rate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*"}[5m])' },
+            @{ Name = "NodeNetworkTransmitRate"; Query = 'rate(node_network_transmit_bytes_total{device!~"lo|docker.*|veth.*"}[5m])' }
+        )
+        
+        
+
+        $data.PrometheusMetrics = @{}
+
+        foreach ($query in $prometheusQueries) {
+            Write-Host -NoNewline "▶️  Querying: $($query.Name)" -ForegroundColor Yellow
+            $result = Get-PrometheusData -Query $query.Query -Url $PrometheusUrl `
+                -Headers $headers -UseRange -StartTime $start -EndTime $end -Step "15m"
+
+            if ($result) {
+                $data.PrometheusMetrics[$query.Name] = $result.Results
+                Write-Host "`r✔️  Fetched $($query.Name).  " -ForegroundColor Green
+            }
+            else {
+                Write-Host "❌ Failed to fetch $($query.Name).  " -ForegroundColor Red
+                return $false  # return error flag
+                return
+            }
         }
     }
 

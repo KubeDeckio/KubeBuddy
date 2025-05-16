@@ -14,7 +14,13 @@ function Invoke-KubeBuddy {
         [string]$ResourceGroup,
         [string]$ClusterName,
         [string]$outputpath,
-        [switch]$UseAksRestApi  # Flag for AKS REST API mode
+        [switch]$UseAksRestApi, # Flag for AKS REST API mode
+        [switch]$IncludePrometheus, # Flag to include Prometheus data
+        [string]$PrometheusUrl, # Prometheus endpoint
+        [string]$PrometheusMode, # Authentication mode: local, basic, bearer, azure
+        [string]$PrometheusUsername, # Username for basic auth
+        [string]$PrometheusPassword, # Password for basic auth
+        [string]$PrometheusBearerTokenEnv  # Environment variable for bearer token
     )
 
     # Assign default value if $outputpath is not set
@@ -28,7 +34,8 @@ function Invoke-KubeBuddy {
     if ($fileExtension -in @(".html", ".txt")) {
         $reportDir = Split-Path -Parent $outputpath
         $reportBaseName = [System.IO.Path]::GetFileNameWithoutExtension($outputpath)
-    } else {
+    }
+    else {
         $reportDir = $outputpath
         $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
         $reportBaseName = "kubebuddy-report-$timestamp"
@@ -73,7 +80,8 @@ function Invoke-KubeBuddy {
     # Confirm context
     if ($yes) {
         Write-Host "`n🤖 Skipping context confirmation." -ForegroundColor Red
-    } else {
+    }
+    else {
         $confirmation = Read-Host "🤖 Is this the correct context? (y/n)"
         if ($confirmation.Trim().ToLower() -ne 'y') {
             Write-Host "🤖 Exiting. Please switch context and try again." -ForegroundColor Yellow
@@ -149,11 +157,33 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
             return
         }
-        $KubeData = Get-KubeData -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks -UseAksRestApi:$UseAksRestApi
+        $kubeDataParams = @{
+            SubscriptionId           = $SubscriptionId
+            ResourceGroup            = $ResourceGroup
+            ClusterName              = $ClusterName
+            ExcludeNamespaces        = $ExcludeNamespaces
+            Aks                      = $Aks
+            UseAksRestApi            = $UseAksRestApi
+            
+        }
+        
+        # Add Prometheus params only if IncludePrometheus is true
+        if ($IncludePrometheus) {
+            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
+            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
+            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
+            $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+        }
+        
+        $KubeData = Get-KubeData @kubeDataParams
+        
         if ($KubeData -eq $false) {
             Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
             return
         }
+
         Generate-K8sHTMLReport `
             -version $moduleVersion `
             -outputPath $htmlReportFile `
@@ -163,7 +193,14 @@ function Invoke-KubeBuddy {
             -ClusterName $ClusterName `
             -ExcludeNamespaces:$ExcludeNamespaces `
             -KubeData $KubeData
-        Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
+            
+        # Verify that the HTML file was actually created
+        if (Test-Path -Path $htmlReportFile) {
+            Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
+        }
+        else {
+            Write-Host "`n🚫 Failed to generate the HTML report. Please check for errors above." -ForegroundColor Red
+        }
         return
     }
 
@@ -173,11 +210,33 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
             return
         }
-        $KubeData = Get-KubeData -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks -UseAksRestApi:$UseAksRestApi
+        $kubeDataParams = @{
+            SubscriptionId           = $SubscriptionId
+            ResourceGroup            = $ResourceGroup
+            ClusterName              = $ClusterName
+            ExcludeNamespaces        = $ExcludeNamespaces
+            Aks                      = $Aks
+            UseAksRestApi            = $UseAksRestApi
+            
+        }
+        
+        # Add Prometheus params only if IncludePrometheus is true
+        if ($IncludePrometheus) {
+            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
+            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
+            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
+            $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+        }
+        
+        $KubeData = Get-KubeData @kubeDataParams
+        
         if ($KubeData -eq $false) {
             Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
             return
         }
+
         Generate-K8sTextReport `
             -ReportFile $txtReportFile `
             -ExcludeNamespaces:$ExcludeNamespaces `
@@ -186,6 +245,7 @@ function Invoke-KubeBuddy {
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName `
             -KubeData $KubeData
+            
         Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
         return
     }
@@ -196,18 +256,43 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
             return
         }
-        $KubeData = Get-KubeData -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -ExcludeNamespaces:$ExcludeNamespaces -Aks:$Aks -UseAksRestApi:$UseAksRestApi
+
+        $kubeDataParams = @{
+            SubscriptionId           = $SubscriptionId
+            ResourceGroup            = $ResourceGroup
+            ClusterName              = $ClusterName
+            ExcludeNamespaces        = $ExcludeNamespaces
+            Aks                      = $Aks
+            UseAksRestApi            = $UseAksRestApi
+            
+        }
+        
+        # Add Prometheus params only if IncludePrometheus is true
+        if ($IncludePrometheus) {
+            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
+            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
+            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
+            $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+        }
+        
+        $KubeData = Get-KubeData @kubeDataParams
+        
         if ($KubeData -eq $false) {
             Write-Host "`n🚫 Script terminated due to a connection error. Please ensure you can connect to your Kubernetes Cluster" -ForegroundColor Red
             return
         }
+
         Create-jsonReport `
             -outputpath $jsonReportFile `
             -KubeData $KubeData `
+            -ExcludeNamespaces:$ExcludeNamespaces `
             -aks:$Aks `
             -SubscriptionId $SubscriptionId `
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName
+
         Write-Host "`n🤖 ✅ Json report saved at: $jsonReportFile" -ForegroundColor Green
         return
     }

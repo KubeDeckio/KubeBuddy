@@ -4,7 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## \[0.0.19] - 2025-05-02
+## [0.0.20] - 2025-05-15
+
+### Added
+- **Prometheus Integration**  
+  - Support for running checks against Prometheus metrics, driven by new `Prometheus` blocks in the YAML checks.  
+  - `PROM001` “High CPU Pods (Prometheus)” – Detect pods with sustained high CPU usage over 24 h.  
+  - `PROM002` “High Memory Pods (Prometheus)” – Detect pods with sustained high memory usage over 24 h.  
+  - `PROM003` “Node CPU Saturation (Prometheus)” – Alert when nodes exceed critical CPU thresholds.  
+  - Introduced new `KubeData` properties: `PrometheusUrl`, `PrometheusMode`, `PrometheusUsername`, `PrometheusPassword`, `PrometheusBearerTokenEnv`, and `PrometheusHeaders`.
+
+### Changed
+- **HTML Report Enhancements**  
+  - Added info-icon tooltips on each check header to surface descriptions on hover.  
+  - Wrapped both “Findings” and “Recommendations” in collapsible sections to declutter long reports.  
+  - Introduced a styled “recommendation card” component (with banner/icon) and automatic “Docs:” links for each check.  
+  - Enclosed all tables in a `<div class='table-container'>` and moved to manual HTML-table generation with proper escaping to prevent XSS.  
+  - Prometheus-powered checks now automatically append “(Last 24 h)” to their titles to indicate metric time-windows.
+
+- **`Invoke-yamlChecks` overhaul for Prometheus**  
+  - Predeclare all Prometheus variables (`Url`, `Mode`, `Username`, `Password`, `BearerTokenEnv`, `Headers`) so they can be safely captured in the `-Parallel` runspace.  
+  - Updated threshold lookup to use `$using:thresholds` inside the parallel block.  
+  - Added guards to skip Prometheus checks cleanly when `PrometheusUrl` or `PrometheusHeaders` are missing or empty.
+
+### Fixed
+- Prevent “null-valued expression” errors by:
+  - Verifying threshold keys exist before casting.
+  - Checking for a non‐null, non‐empty `PrometheusHeaders` hashtable before attempting `.Keys` or HTTP calls.
+
+
+## [0.0.19] - 2025-05-02
 
 ### Fixed
 
