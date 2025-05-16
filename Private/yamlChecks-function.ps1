@@ -12,7 +12,7 @@ function Invoke-yamlChecks {
     # Configuration
     $checksFolder = "$PSScriptRoot/yamlChecks"
     $kubectl = "kubectl"
-    
+    $PrometheusHeaders = ""
 
     # Ensure required modules
     try {

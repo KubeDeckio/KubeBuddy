@@ -69,10 +69,15 @@
   }
   
     .md-header {
-      position: initial;
+      position: sticky;       /* stick to top */
+      top: 0;
+      z-index: 100;           /* above the hero background */
+      display: flex;          /* re-enable flex layout */
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
       background: var(--md-primary-fg-color);
       width: 100%;
-      margin: 0;
     }
 
     .md-main {
@@ -83,14 +88,11 @@
     
   
     .md-main__inner {
-      width: 100vw;
+      width: 100%;
+      max-width: none;        /* let it fill the container without 100vw quirks */
       margin: 0;
       padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      box-sizing: border-box;
-      overflow-x: hidden;
+      overflow-x: hidden; 
     }
     
     .md-main__inner.md-grid {
@@ -459,16 +461,16 @@
 
 /* Metrics bar */
 .metrics-bar {
-  position: absolute;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(114, 113, 113, 0.9);
-  padding: 0.5rem 2rem;
-  box-shadow: var(--md-shadow);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  width: 90%;
+  max-width: 700px;
+  margin: 2rem auto;         /* push it below your hero text */
+  padding: 1rem 2rem;
+  background: rgba(224,224,224,0.9);
   border-radius: 8px;
-  display: flex;
-  gap: 2rem;
+  box-shadow: var(--md-shadow);
 }
 
 .metric {
@@ -497,27 +499,27 @@
   <div class="hero-content">
     <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
   </div>
+</section>
 
   <!-- Metrics Bar INSIDE hero -->
-<div class="metrics-bar">
-  <div class="metric">
-    <div class="metric-value">90+</div>
-    <div class="metric-label">Checks</div>
+  <div class="metrics-bar">
+    <div class="metric">
+      <div class="metric-value">90+</div>
+      <div class="metric-label">Checks</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">Realtime</div>
+      <div class="metric-label">Scanning</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">No</div>
+      <div class="metric-label">Agents</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">v0.0.20</div>
+      <div class="metric-label">Latest Release</div>
+    </div>
   </div>
-  <div class="metric">
-    <div class="metric-value">Realtime</div>
-    <div class="metric-label">Scanning</div>
-  </div>
-  <div class="metric">
-    <div class="metric-value">No</div>
-    <div class="metric-label">Agents</div>
-  </div>
-  <div class="metric">
-    <div class="metric-value">v0.0.20</div>
-    <div class="metric-label">Latest Release</div>
-  </div>
-</div>
-</section>
 
 {% endblock %}
 
