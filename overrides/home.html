@@ -459,39 +459,49 @@
   margin: 0 auto;
 }
 
-/* Metrics bar */
+/* ====== Material-style metrics card ====== */
 .metrics-bar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1rem;
-  width: 90%;
-  max-width: 700px;
-  margin: 2rem auto;         /* push it below your hero text */
-  padding: 1rem 2rem;
-  background: rgba(224,224,224,0.9);
+  grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+  margin: 2rem auto 0;               /* space from hero */
+  max-width: 900px;
+  background: var(--md-card-bg-color); 
   border-radius: 8px;
-  box-shadow: var(--md-shadow);
+  overflow: hidden;                  /* clip dividers at edges */
+  box-shadow: 
+    0 1px 3px rgba(0,0,0,0.12),
+    0 1px 2px rgba(0,0,0,0.14);
 }
 
 .metric {
+  padding: 1.25rem 1rem;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-/* big, bold number/text */
+/* vertical divider on every item except the last */
+.metric:not(:last-child) {
+  border-right: 1px solid rgba(0,0,0,0.08);
+}
+
 .metric-value {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--md-primary-fg-color);
+  font-size: 1.75rem;
+  font-weight: 500;
   line-height: 1;
+  color: var(--md-primary-fg-color);
 }
 
-/* smaller label under it */
 .metric-label {
-  font-size: 1rem;
-  color: var(--md-primary-fg-color--light);
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--md-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
   </style>
 
 <!-- Hero + Metrics Section -->
