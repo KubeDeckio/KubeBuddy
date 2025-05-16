@@ -506,7 +506,7 @@
     margin: 2rem auto 0;
     max-width: 900px;
     width: 100%;
-    background: rgba(255,255,255,0.15);
+    background: rgba(255, 255, 255, 0.349);
     backdrop-filter: blur(10px);
     border-radius: 8px solid rgba(255,255,255,0.3);
     overflow: hidden;
@@ -657,7 +657,18 @@
       0 100%   /* bottom-left flat */
     );
   }
-  
+  /* Restore feature-card hover */
+.feature-grid .feature-card:hover {
+  transform: perspective(600px) rotateX(4deg) rotateY(-4deg) !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Restore workflow-step hover */
+.workflow-steps .workflow-step:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15) !important;
+}
+
 </style>
 
 <!-- Hero + Metrics Section -->
