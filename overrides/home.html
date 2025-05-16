@@ -575,19 +575,6 @@
   }
 </style>
 
-<script>
-  document.querySelectorAll('.metric-value').forEach(el=>{
-    const end = parseInt(el.textContent,10) || 0;
-    let i = 0;
-    const step = Math.ceil(end / 60);
-    const int = setInterval(()=>{
-      i += step;
-      el.textContent = i >= end ? end : i;
-      if(i >= end) clearInterval(int);
-    }, 16);
-  });  
-</script>
-
 <!-- Hero + Metrics Section -->
 <section class="hero-wrap">
   <div class="hero-content">
