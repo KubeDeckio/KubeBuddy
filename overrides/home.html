@@ -430,14 +430,8 @@
     padding: 6rem 2rem;
     color: #fff;
 
-    background: url("images/header.png") center/cover no-repeat !important;
-    /* clip-path polygon to slope top 5% down, bottom 5% up */
-    clip-path: polygon(
-      0 5%,
-      /* top-left  sloped down  */ 100% 0,
-      /* top-right flat */ 100% 95%,
-      /* bottom-right sloped up */ 0 100% /* bottom-left flat */
-    );
+    background: url("images/header.png") center center / cover fixed no-repeat !important;
+    scroll-snap-align: start;
   }
 
   /* optional dark overlay */
