@@ -537,7 +537,7 @@
     margin-top: 0.25rem;
     font-size: 0.75rem;
     font-weight: 500;
-    color: var(--md-text-secondary);
+    color: var(--md-primary-fg-color--light) !important;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -633,6 +633,29 @@
   .cta-button:active {
     transform: scale(0.97);
     box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+
+  .section:first-of-type {
+    background: none !important;
+    /* (you may also want to pull its padding a little tighter) */
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  
+  .section.checks-bg {
+    /* clear out any gradient from .section:nth-of-type(even) */
+    background: none !important;
+  
+    /* re-apply your slanted hero style */
+    background: url("images/header.png") center/cover no-repeat;
+    background-attachment: fixed;
+    background-size: cover;
+    clip-path: polygon(
+      0 5%,    /* top-left  sloped down  */
+      100% 0,  /* top-right flat */
+      100% 95%,/* bottom-right sloped up */
+      0 100%   /* bottom-left flat */
+    );
   }
   
 </style>
