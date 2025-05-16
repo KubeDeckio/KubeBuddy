@@ -64,6 +64,21 @@
     --md-code-fg: #e0e0e0;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    scroll-snap-type: y mandatory;
+  }
+  
+  .hero-wrap,
+  .section,
+  .workflow-section {
+    scroll-snap-align: start;
+  }
+  
+
   .md-header {
     position: sticky; /* stick to top */
     top: 0;
@@ -491,8 +506,9 @@
     margin: 2rem auto 0;
     max-width: 900px;
     width: 100%;
-    background: var(--md-card-bg-color);
-    border-radius: 8px;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 8px solid rgba(255,255,255,0.3);
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.14);
   }
@@ -573,6 +589,52 @@
       border-bottom: none;
     }
   }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0);      }
+  }
+  
+  /* apply to all feature & workflow cards */
+  .feature-card,
+  .workflow-step {
+    opacity: 0;
+    animation: fadeInUp 0.6s ease forwards;
+  }
+  
+  /* stagger them */
+  .feature-card:nth-child(1) { animation-delay: 0.1s; }
+  .feature-card:nth-child(2) { animation-delay: 0.2s; }
+  .feature-card:nth-child(3) { animation-delay: 0.3s; }
+  /* …and so on… */
+  
+  .workflow-step:nth-child(1) { animation-delay: 0.1s; }
+  .workflow-step:nth-child(2) { animation-delay: 0.2s; }
+  .workflow-step:nth-child(3) { animation-delay: 0.3s; }
+  
+  .section:nth-of-type(odd) {
+    background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(240,240,240,1) 100%);
+  }
+  .section:nth-of-type(even) {
+    background: linear-gradient(135deg, rgba(245,245,255,1) 0%, rgba(230,230,250,1) 100%);
+  }
+  
+  .feature-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform;
+  }
+  .feature-card:hover {
+    transform: perspective(600px) rotateX(4deg) rotateY(-4deg);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+  }
+  .cta-button {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .cta-button:active {
+    transform: scale(0.97);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  
 </style>
 
 <!-- Hero + Metrics Section -->
@@ -582,7 +644,7 @@
     <p class="hero-subhead">
       Stop guessing. Start fixing your cluster in seconds.
     </p>
-    <a href="#get-started" class="cta-button">Get Started</a>
+    <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
   </div>
 </section>
 <svg class="hero-wave" viewBox="0 0 1440 100" preserveAspectRatio="none">
