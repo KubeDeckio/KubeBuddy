@@ -429,6 +429,8 @@
     margin-right: calc(50% - 50vw);
     padding: 6rem 2rem;
     color: #fff;
+
+    background: url("images/header.png") center/cover no-repeat !important;
     /* clip-path polygon to slope top 5% down, bottom 5% up */
     clip-path: polygon(
       0 5%,
@@ -640,38 +642,53 @@
     padding-bottom: 0;
   }
   
-  .section.checks-bg {
-    background: url("images/header.png") center center / cover fixed no-repeat !important;
-    clip-path: polygon(
-      0 5%,    /* top-left  sloped down  */
-      100% 0,  /* top-right flat */
-      100% 95%,/* bottom-right sloped up */
-      0 100%   /* bottom-left flat */
-    ) !important;
-    padding: 7rem 2rem !important;  
-    margin-left: calc(50% - 50vw) !important;
-    margin-right: calc(50% - 50vw) !important;
-    width: 100vw !important;
-    position: relative !important;
-    color: #fff !important;
-  }
+/* make the “What KubeBuddy Checks” section look just like the hero: */
+.section.checks-bg {
+  /* kill any other background you may have inherited */
+  background: none !important;
+
+  /* pull in your hero image */
+  background-image: url("images/header.png");
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;    /* parallax scroll effect */
   
+  /* keep that slanted bottom and top edge */
+  clip-path: polygon(
+    0 5%,     /* top-left  sloped down  */
+    100% 0,   /* top-right flat         */
+    100% 95%, /* bottom-right sloped up */
+    0 100%    /* bottom-left flat       */
+  );
 
-  .section.checks-bg::before {
-    background: rgba(0,0,0,0.5) !important;
-    clip-path: inherit !important;
-  }
+  /* ensure the section spans the full width */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 7rem 2rem;  /* match your hero’s vertical padding */
+  position: relative;  /* so your overlay sits inside */
+  color: #fff;         /* lighten text if needed */
+}
 
-  .feature-grid .feature-card:hover {
-    transform: translateY(-8px) !important;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-  }
-  
-  .workflow-steps .workflow-step:hover {
-    transform: translateY(-8px) !important;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
-  }
+/* dark overlay (optional—same as hero’s) */
+.section.checks-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  clip-path: inherit;
+  z-index: 0;
+}
 
+.feature-grid .feature-card:hover {
+  transform: translateY(-8px) !important;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+.workflow-steps .workflow-step:hover {
+  transform: translateY(-8px) !important;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
 </style>
 
 <!-- Hero + Metrics Section -->
@@ -761,7 +778,7 @@
     </div>
   </section>
 
-  <section class="section check`s-bg">
+  <section class="section checks-bg">
     <h2>What KubeBuddy Checks</h2>
     <div class="feature-grid">
       <div class="feature-card">
