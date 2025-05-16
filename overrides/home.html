@@ -644,40 +644,44 @@
   
 /* make the “What KubeBuddy Checks” section look just like the hero: */
 .section.checks-bg {
-  /* kill any other background you may have inherited */
   background: none !important;
-
   /* pull in your hero image */
-  background-image: url("images/header.png");
-  background-position: center;
-  background-size: cover;
-  background-attachment: fixed;    /* parallax scroll effect */
+  background: url("images/header.png") center center / cover fixed no-repeat;
   
-  /* keep that slanted bottom and top edge */
-  clip-path: polygon(
-    0 5%,     /* top-left  sloped down  */
-    100% 0,   /* top-right flat         */
-    100% 95%, /* bottom-right sloped up */
-    0 100%    /* bottom-left flat       */
-  );
+/* slanted edges */
+clip-path: polygon(
+  0 5%,     /* top-left sloped down */
+  100% 0,   /* top-right flat */
+  100% 95%, /* bottom-right sloped up */
+  0 100%    /* bottom-left flat */
+);
 
-  /* ensure the section spans the full width */
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  padding: 7rem 2rem;  /* match your hero’s vertical padding */
-  position: relative;  /* so your overlay sits inside */
-  color: #fff;         /* lighten text if needed */
+/* full-width stretch */
+width: 100vw;
+margin-left: 50%  !important;
+margin-right: 50% !important;
+transform: translateX(-50%);
+
+/* spacing & stacking */
+padding: 7rem 2rem;
+position: relative;
+color: #fff;
 }
 
-/* dark overlay (optional—same as hero’s) */
+/* optional dark overlay */
 .section.checks-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  clip-path: inherit;
-  z-index: 0;
+content: "";
+position: absolute;
+inset: 0;
+background: rgba(0,0,0,0.5);
+clip-path: inherit;
+z-index: 0;
+}
+
+/* make sure your content floats above it */
+.section.checks-bg > * {
+position: relative;
+z-index: 1;
 }
 
 .feature-grid .feature-card:hover {
