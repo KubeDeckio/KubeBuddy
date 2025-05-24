@@ -321,3 +321,29 @@ function Resolve-NodeMetrics {
 
     return $filtered
 }
+
+function Normalize-Severity {
+    param([string]$rawSeverity)
+
+    # define your canonical map right here
+    $map = @{
+        'high'    = 'critical'
+        'error'   = 'critical'
+        'medium'  = 'warning'
+        'warning' = 'warning'
+        'low'     = 'info'
+        'info'    = 'info'
+    }
+
+    if (-not $rawSeverity) { return 'info' }
+    $key = $rawSeverity.Trim().ToLower()
+
+    if ($map.ContainsKey($key)) {
+        return $map[$key]
+    }
+    else {
+        return 'info'
+    }
+}
+
+  

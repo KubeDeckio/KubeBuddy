@@ -4,7 +4,7 @@ checks:
     Section: Nodes
     Category: Nodes
     ResourceKind: Node
-    Severity: High
+    Severity: critical
     Weight: 8
     Description: Detects nodes that are not in Ready state or reporting other warning conditions.
     FailMessage: One or more nodes are not Ready.
@@ -73,7 +73,7 @@ checks:
     Section: Nodes
     Category: Nodes
     ResourceKind: Node
-    Severity: Medium
+    Severity: warning
     Weight: 6
     Description: Detects nodes under high CPU, memory, or disk pressure.
     FailMessage: One or more nodes are under high resource usage.

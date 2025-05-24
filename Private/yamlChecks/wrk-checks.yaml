@@ -4,7 +4,7 @@ checks:
     Category: "Workloads"
     Section: "Workloads"
     ResourceKind: "DaemonSet"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 2
     Description: "Detects DaemonSets that have fewer running pods than desired."
     FailMessage: "DaemonSet is not running on all desired nodes."
@@ -55,7 +55,7 @@ checks:
     Category: "Workloads"
     Section: "Workloads"
     ResourceKind: "Deployment"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Detects Deployments where the number of available replicas is less than desired."
     FailMessage: "Deployment has fewer available replicas than desired."
@@ -106,7 +106,7 @@ checks:
     Category: "Workloads"
     Section: "Workloads"
     ResourceKind: "StatefulSet"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Detects StatefulSets where the number of ready replicas is less than the desired count."
     FailMessage: "StatefulSet has fewer ready replicas than desired."
@@ -157,7 +157,7 @@ checks:
     Category: "Workloads"
     Section: "Workloads"
     ResourceKind: "HorizontalPodAutoscaler"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 1
     Description: "Checks for HPAs that have missing targets, no metrics, or inactive scaling."
     FailMessage: "HPA is misconfigured, inactive, or not scaling correctly."
@@ -306,7 +306,7 @@ checks:
     Category: "Workloads"
     Section: "Workloads"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Checks for containers that are missing CPU or memory resource requests or limits."
     FailMessage: "One or more containers are missing resource requests or limits."
@@ -418,7 +418,7 @@ checks:
     Section: "Workloads"
     Category: "PDBs"
     ResourceKind: "PodDisruptionBudget"
-    Severity: "High"
+    Severity: "critical"
     Weight: 2
     Description: "Detects missing or weak PDBs for workloads"
     FailMessage: "Workload is unprotected or PDB is weak"
@@ -566,7 +566,7 @@ checks:
     Section: "Workloads"
     Category: "Probes"
     ResourceKind: "Deployment"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 4
     Description: "Detects containers without health probes (readiness/liveness)."
     FailMessage: "Missing readiness or liveness probes."
@@ -660,7 +660,7 @@ checks:
     Category: "Workloads"
     Section: "Workloads"
     ResourceKind: "Deployment"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 2
     Description: "Detects Deployments whose spec.selector does not match any existing Pods. This results in 0 replicas running."
     FailMessage: "Deployment selector does not match any Pods"

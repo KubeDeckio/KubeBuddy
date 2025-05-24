@@ -166,6 +166,7 @@ $heroRatingHtml
       $allChecksBySection = $html.HtmlBySection
       $checkStatusList += $html.StatusList
       $checkScoreList += $html.ScoreList
+      $issueHeroHtml      = $html.IssueHero
 
       $knownSections = $sectionToNavMap.Keys
 
@@ -611,7 +612,8 @@ $fallbackClusterMetricsHtml = @"
       </div>
     </div>
     <ul class="tabs">
-      <li class="tab active" data-tab="summary" data-tooltip="Summary">Summary</li>
+      <li class="tab active" data-tab="overview" data-tooltip="Overview">Overview</li>
+      <li class="tab" data-tab="summary" data-tooltip="Summary">Summary</li>
       <li class="tab" data-tab="nodes" data-tooltip="Nodes">Nodes</li>
       <li class="tab" data-tab="namespaces" data-tooltip="Namespaces">Namespaces</li>
       <li class="tab" data-tab="workloads" data-tooltip="Workloads">Workloads</li>
@@ -638,7 +640,7 @@ $fallbackClusterMetricsHtml = @"
 <button id="menuFab" class="menu-btn">
   <i id="menuIcon" class="material-icons">menu</i>
 </button>
-<div class="tab-content active" id="summary">
+<div class="tab-content active" id="overview">
   <div class="container">
     <h1 id="Health">Cluster Overview</h1>
     <p><strong>Cluster Name:</strong> $ClusterName</p>
@@ -653,8 +655,13 @@ $fallbackClusterMetricsHtml = @"
       <div class="health-status">
         $healthStatusHtml
       </div>
-    </div>
   </div>
+      $issueHeroHtml
+    </div>
+    $excludedNamespacesHtml
+  </div>
+</div>
+<div class="tab-content active" id="summary">
   <div class="container">
     <h1 id="summary">Cluster Summary</h1>
     <p><strong>Cluster Name:</strong> $ClusterName</p>
@@ -689,7 +696,6 @@ $fallbackClusterMetricsHtml = @"
         ⚠️ Warnings: <strong>$eventWarnings</strong>
       </div>
     </div>
-    $excludedNamespacesHtml
   </div>
 </div>
 <div class="tab-content" id="nodes">

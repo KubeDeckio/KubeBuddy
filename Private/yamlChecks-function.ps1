@@ -310,6 +310,8 @@ function Invoke-yamlChecks {
                             Total          = 0
                         }
 
+                        $checkResult.Severity = Normalize-Severity $checkResult.Severity
+
                         if ($scriptResult -is [hashtable] -and $scriptResult.ContainsKey("Items")) {
                             $items = $scriptResult["Items"]
                             $checkResult.Items = if ($items -is [array]) { $items } else { @($items) }
@@ -610,6 +612,15 @@ function Invoke-yamlChecks {
     # Convert ConcurrentBag to array and sort by Check ID
     $allResults = $allResults.ToArray() | Sort-Object -Property ID
 
+    # Hero metric counters
+    $heroCounts = @{ critical = 0; warning = 0; info = 0 }
+
+    foreach ($chk in $allResults) {
+        if ($chk.Total -gt 0 -and $heroCounts.ContainsKey($chk.Severity)) {
+            $heroCounts[$chk.Severity] += $chk.Total
+        }
+    }
+
     # HTML output
     if ($Html) {
         $sectionGroups = @{}
@@ -624,6 +635,15 @@ function Invoke-yamlChecks {
             }
             $sectionGroups[$section] += $result
         }
+
+        $heroHtml = @"
+    <h2>Check details</h2>
+    <div class="hero-metrics">
+    <div class="metric-card critical">❌ Critical: <strong>$($heroCounts.critical)</strong></div>
+    <div class="metric-card warning">⚠️ Warning: <strong>$($heroCounts.warning)</strong></div>
+    <div class="metric-card default">ℹ️ Info: <strong>$($heroCounts.info)</strong></div>
+  </div>
+"@
 
         foreach ($section in $sectionGroups.Keys) {
             $sectionHtml = ""
@@ -680,9 +700,9 @@ function Invoke-yamlChecks {
                             # pick last meaningful segment (fallback to whole path if somehow empty)
                             $last = if ($seg[-1]) { $seg[-1] } else { ($u.AbsolutePath.Trim('/')) }
                             # drop extension (.html, .md, etc)
-                            $base = $last -replace '\.[^.]+$',''
+                            $base = $last -replace '\.[^.]+$', ''
                             # replace hyphens and percent-encoding
-                            $base = $base -replace '%2[fF]','/' -replace '-',' '
+                            $base = $base -replace '%2[fF]', '/' -replace '-', ' '
                             # Title case
                             $displayName = (Get-Culture).TextInfo.ToTitleCase($base)
                             # optionally prefix common terms, e.g. Kubernetes, Prometheus, etc
@@ -697,7 +717,8 @@ function Invoke-yamlChecks {
                         
                             if ($recContent -match '</ul>') {
                                 $recContent = $recContent -replace '</ul>', "$urlHtml</ul>"
-                            } else {
+                            }
+                            else {
                                 $recContent += "<ul>$urlHtml</ul>"
                             }
                         }
@@ -906,6 +927,7 @@ $summary
         }
 
         return @{
+            IssueHero     = $heroHtml
             HtmlBySection = $collapsibleSectionMap
             StatusList    = $checkStatusList
             ScoreList     = $checkScoreList 
@@ -914,14 +936,26 @@ $summary
     
     # JSON output
     if ($Json) {
-        return @{ Total = ($allResults | Measure-Object -Sum -Property Total).Sum; Items = $allResults }
-    }
+        return @{
+          Hero = $heroCounts
+          TotalScore = ($allResults | Measure-Object -Sum -Property Total).Sum
+          Items = $allResults
+        }
+      }
+     
 
     if ($Text) {
         foreach ($result in $allResults) {
             Write-ToReport ""
             Write-ToReport "$($result.ID) - $($result.Name)"
             Write-ToReport "Total Issues: $($result.Total)"
+
+            Write-ToReport ""
+            Write-ToReport "=== Issue Summary ==="
+            Write-ToReport "Critical issues: $($heroCounts.critical)"
+            Write-ToReport "Warning issues:  $($heroCounts.warning)"
+            Write-ToReport "Info issues:     $($heroCounts.info)"
+            Write-ToReport ""
     
             if ($result.Items) {
                 $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID

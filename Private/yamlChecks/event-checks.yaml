@@ -4,7 +4,7 @@ checks:
     Section: Kubernetes Events
     Category: Events
     ResourceKind: events
-    Severity: medium
+    Severity: warning
     Weight: 2
     Description: Groups recent Warning events by Reason and Message.
     FailMessage: "Recurring warning events detected"
@@ -52,7 +52,7 @@ checks:
     Section: Kubernetes Events
     Category: Events
     ResourceKind: events
-    Severity: medium
+    Severity: warning
     Weight: 1
     Description: Lists all recent Warning events in the cluster.
     FailMessage: "Warning events found in recent Kubernetes logs"

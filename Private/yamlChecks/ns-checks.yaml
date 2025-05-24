@@ -4,7 +4,7 @@ checks:
     Section: Namespaces
     Category: Namespaces
     ResourceKind: namespaces
-    Severity: low
+    Severity: info
     Weight: 1
     Description: Finds namespaces with no running pods.
     Recommendation:
@@ -150,7 +150,7 @@ checks:
     Section: Namespaces
     Category: Namespaces
     ResourceKind: resourcequotas
-    Severity: medium
+    Severity: warning
     Weight: 3
     Description: Detects namespaces with missing or incomplete ResourceQuota definitions.
     Recommendation:
@@ -227,7 +227,7 @@ checks:
     Section: Namespaces
     Category: Namespaces
     ResourceKind: limitranges
-    Severity: medium
+    Severity: warning
     Weight: 2
     Description: Detects namespaces without a defined LimitRange.
     Recommendation:
@@ -285,7 +285,7 @@ checks:
     Category: "Namespaces"
     Section: "Namespaces"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 1
     Description: "Detects any pods running in the `default` namespace."
     FailMessage: "Pods found in the default namespace."

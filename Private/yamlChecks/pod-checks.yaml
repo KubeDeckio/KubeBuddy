@@ -4,7 +4,7 @@ checks:
     Category: "Workloads"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Detects pods that have restarted more than the defined threshold."
     FailMessage: "Some pods have restarted excessively, which may indicate instability or crashes."
@@ -80,7 +80,7 @@ checks:
     Category: "Workloads"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 2
     Description: "Flags pods that have been running longer than configured thresholds."
     FailMessage: "Some pods have been running longer than expected, which may indicate stale or unmanaged workloads."
@@ -150,7 +150,7 @@ checks:
     Category: "Workloads"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Error"
+    Severity: "critical"
     Weight: 4
     Description: "Detects pods in a failed phase, typically due to startup errors, crashes, or misconfiguration."
     FailMessage: "Some pods are stuck in the 'Failed' phase. These workloads are not running and require attention."
@@ -199,7 +199,7 @@ checks:
     Category: "Workloads"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Detects pods stuck in a 'Pending' state due to scheduling or resource issues."
     FailMessage: "Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions."
@@ -248,7 +248,7 @@ checks:
     Category: "Workloads"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Error"
+    Severity: "critical"
     Weight: 4
     Description: "Identifies pods stuck in a CrashLoopBackOff state due to repeated container crashes."
     FailMessage: "Some pods are stuck restarting in CrashLoopBackOff. These workloads are not stable."
@@ -301,7 +301,7 @@ checks:
     Category: "Workloads"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 2
     Description: "Detects pods created by 'kubectl debug' that haven't been cleaned up."
     FailMessage: "Leftover debug pods were found. These may waste resources or pose a security risk."
@@ -354,7 +354,7 @@ checks:
     Operator: "not_contains"
     Expected: ":latest"
     FailMessage: "Container image uses the 'latest' tag, which can lead to unpredictable deployments."
-    Severity: "High"
+    Severity: "critical"
     Weight: 3
     Recommendation:
       text: "Specify an explicit image tag (e.g., ':v1.2.3') to ensure consistent deployments."
@@ -380,7 +380,7 @@ checks:
     Category: "Security"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Flags Pods where automounting of API credentials is enabled, which may pose a security risk."
     Condition: "spec.automountServiceAccountToken"

@@ -4,7 +4,7 @@ checks:
     Category: "Performance"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Checks for pods with sustained high CPU usage over the last 24 hours using Prometheus metrics."
     FailMessage: "Some pods show high sustained CPU usage."
@@ -36,7 +36,7 @@ checks:
     Category: "Performance"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Detects pods with high memory usage over the last 24 hours based on Prometheus metrics."
     FailMessage: "Some pods are consistently using high memory."
@@ -67,7 +67,7 @@ checks:
     Category: "Networking"
     Section: "Pods"
     ResourceKind: "Pod"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 2
     Description: "Detects pods receiving large amounts of network traffic over the last 24 hours."
     FailMessage: "Some pods show high network RX throughput."
@@ -98,7 +98,7 @@ checks:
     Category: "Control Plane"
     Section: "Configuration"
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 5
     Description: "Detects high latency in Kubernetes API server requests over the last 24 hours."
     FailMessage: "API server latency exceeds healthy thresholds."
@@ -129,7 +129,7 @@ checks:
     Category: "Capacity"
     Section: "Nodes"
     ResourceKind: "Node"
-    Severity: "Info"
+    Severity: "info"
     Weight: 2
     Description: "Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours."
     FailMessage: "Node CPU is overcommitted by requests."

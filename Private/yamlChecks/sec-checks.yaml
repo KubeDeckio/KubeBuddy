@@ -5,7 +5,7 @@ checks:
     Name: "Orphaned Secrets"
     Description: "Detects Secrets not used by any workloads, ingresses, service accounts, or known custom resources."
     ResourceKind: "Secret"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 2
     Operator: "script"
     Script: |
@@ -134,7 +134,7 @@ checks:
     Name: "Pods using hostPID or hostNetwork"
     Description: "Flags pods that share the host's PID or network namespace, which can compromise isolation and node security."
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 4
     Operator: "script"
     Script: |
@@ -200,7 +200,7 @@ checks:
     Name: "Pods Running as Root"
     Description: "Detects pods running with UID 0 or no explicit runAsUser setting (defaults to root)."
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 5
     Operator: "script"
     Script: |
@@ -280,7 +280,7 @@ checks:
     Name: "Privileged Containers"
     Description: "Detects containers running with privileged mode enabled."
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 5
     Operator: "script"
     Script: |
@@ -343,7 +343,7 @@ checks:
     Name: "Pods Using hostIPC"
     Description: "Detects pods that use hostIPC, which can compromise pod isolation and allow access to shared memory on the host."
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 3
     Operator: "script"
     Script: |
@@ -397,7 +397,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 3
     Description: >
       Checks if pods are missing recommended securityContext fields such as runAsNonRoot,
@@ -471,7 +471,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Namespace"
-    Severity: "Low"
+    Severity: "info"
     Weight: 1
     Description: >
       Checks if namespaces are missing the 'pod-security.kubernetes.io/enforce' label
@@ -548,7 +548,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 4
     Description: >
       Detects secrets injected into pods via environment variables using env.valueFrom.secretKeyRef. `n
@@ -602,7 +602,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 3
     Description: >
       Checks containers that don't drop all Linux capabilities via securityContext.capabilities.drop = ['ALL'].
@@ -650,7 +650,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 3
     Description: >
       Flags pods that use hostPath volumes, which mount parts of the host filesystem.
@@ -694,7 +694,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 3
     Description: >
       Detects containers explicitly set to run as user 0 (root).
@@ -737,7 +737,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 2
     Description: >
       Flags containers that add extra Linux capabilities using securityContext.capabilities.add.
@@ -781,7 +781,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "Low"
+    Severity: "info"
     Weight: 1
     Description: >
       EmptyDir volumes are ephemeral and cleared on pod restart. Use only if data persistence is not needed.
@@ -823,7 +823,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 3
     Description: >
       Flags images that are not pulled from approved registries.
@@ -872,7 +872,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 3
     Description: "Flags pods using the default service account, which may have broad permissions."
     FailMessage: "Pod uses default ServiceAccount"
@@ -909,7 +909,7 @@ checks:
     Category: "Pod Security"
     Section: "Security"
     ResourceKind: "Pod"
-    Severity: "High"
+    Severity: "critical"
     Weight: 4
     Description: "Flags pods referencing Secrets that do not exist. This may cause runtime failures."
     FailMessage: "Pod references a missing Secret"
@@ -1002,7 +1002,7 @@ checks:
     Category: "Security"
     Section: "Security"
     ResourceKind: "ServiceAccount"
-    Severity: "Warning"
+    Severity: "warning"
     Weight: 3
     Description: "Flags ServiceAccounts where automounting of API credentials is enabled, affecting associated Pods."
     Condition: "automountServiceAccountToken"

@@ -4,7 +4,7 @@ checks:
     Section: Jobs
     Category: Jobs
     ResourceKind: jobs
-    Severity: medium
+    Severity: warning
     Weight: 2
     Description: Finds Jobs that have started but not completed within a threshold.
     FailMessage: "Job appears stuck (not completed within expected time)"
@@ -53,7 +53,7 @@ checks:
     Section: Jobs
     Category: Jobs
     ResourceKind: jobs
-    Severity: high
+    Severity: critical
     Weight: 3
     Description: Detects jobs with failures and no successful completions.
     FailMessage: "Job failed with no successful completions"

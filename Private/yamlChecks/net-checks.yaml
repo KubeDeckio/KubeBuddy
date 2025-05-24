@@ -5,7 +5,7 @@ checks:
     Name: "Services Without Endpoints"
     Description: "Identifies services that have no backing endpoints, which means no pods are matched."
     ResourceKind: "Service"
-    Severity: "High"
+    Severity: "critical"
     Weight: 2
     Operator: "script"
     Script: |
@@ -80,7 +80,7 @@ checks:
     Name: "Publicly Accessible Services"
     Description: "Detects services of type LoadBalancer or NodePort that are potentially exposed to the internet."
     ResourceKind: "Service"
-    Severity: "High"
+    Severity: "critical"
     Weight: 4
     Operator: "script"
     Script: |
@@ -172,7 +172,7 @@ checks:
     Name: "Ingress Health Validation"
     Description: "Validates ingress definitions for missing classes, invalid backends, missing TLS secrets, duplicate host/path entries, and incorrect path types."
     ResourceKind: "Ingress"
-    Severity: "High"
+    Severity: "critical"
     Weight: 3
     Operator: "script"
     Script: |
@@ -361,7 +361,7 @@ checks:
     Category: "Security"
     Section: "Networking"
     ResourceKind: "Namespace"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 3
     Description: >
       Detects namespaces that have running pods but no associated NetworkPolicy resources.
