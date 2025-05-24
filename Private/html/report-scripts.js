@@ -734,6 +734,42 @@ document.addEventListener('DOMContentLoaded', () => {
         update();
     }
 
+  // ──────────────────────────────────────────────────────────
+  // Severity‐filter for “Open Checks” table
+  const severityCards = document.querySelectorAll('.hero-metrics .metric-card[data-severity]');
+  const issueRows      = document.querySelectorAll('.issue-summary tbody tr');
+
+  severityCards.forEach(card => {
+    const sev   = card.dataset.severity;           // "critical"|"warning"|"info"
+    const arrow = document.createElement('span');
+    arrow.className = 'expand-arrow';
+    arrow.textContent = '▼';
+    card.appendChild(arrow);
+
+    card.addEventListener('click', () => {
+      const isActive = card.classList.toggle('active');
+
+      // reset all cards & arrows, then rows
+      severityCards.forEach(c => {
+        c.classList.remove('active');
+        c.querySelector('.expand-arrow').textContent = '▼';
+      });
+      issueRows.forEach(r => r.style.display = '');
+
+      if (isActive) {
+        card.classList.add('active');
+        arrow.textContent = '▲';
+        issueRows.forEach(r => {
+          if (r.dataset.severity !== sev) {
+            r.style.display = 'none';
+          }
+        });
+      }
+    });
+  });
+  // ──────────────────────────────────────────────────────────
+
+
 });
 
 function switchTab(tabName) {

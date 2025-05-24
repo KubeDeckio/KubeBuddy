@@ -612,14 +612,15 @@ function Invoke-yamlChecks {
     # Convert ConcurrentBag to array and sort by Check ID
     $allResults = $allResults.ToArray() | Sort-Object -Property ID
 
-    # Hero metric counters
+    # Hero metric counters (one point per failing check)
     $heroCounts = @{ critical = 0; warning = 0; info = 0 }
 
-    foreach ($chk in $allResults) {
-        if ($chk.Total -gt 0 -and $heroCounts.ContainsKey($chk.Severity)) {
-            $heroCounts[$chk.Severity] += $chk.Total
+    foreach ($chk in $allResults | Where-Object Total -gt 0) {
+        if ($heroCounts.ContainsKey($chk.Severity)) {
+            $heroCounts[$chk.Severity]++
         }
     }
+
 
     # HTML output
     if ($Html) {
@@ -637,14 +638,24 @@ function Invoke-yamlChecks {
         }
 
         $heroHtml = @"
-    <h2>Check details</h2>
-    <div class="hero-metrics">
-    <div class="metric-card critical">❌ Critical: <strong>$($heroCounts.critical)</strong></div>
-    <div class="metric-card warning">⚠️ Warning: <strong>$($heroCounts.warning)</strong></div>
-    <div class="metric-card default">ℹ️ Info: <strong>$($heroCounts.info)</strong></div>
+<h2>Issue Summary</h2>
+<p>
+  This section shows how many checks have failed at each severity level over the last run.
+  Click on a severity below to expand and review only those checks.
+</p>
+<div class="hero-metrics">
+  <div class="metric-card critical" data-severity="critical">
+    ❌ Critical: <strong>$($heroCounts.critical)</strong>
   </div>
+  <div class="metric-card warning" data-severity="warning">
+    ⚠️ Warning: <strong>$($heroCounts.warning)</strong>
+  </div>
+  <div class="metric-card default" data-severity="info">
+    ℹ️ Info: <strong>$($heroCounts.info)</strong>
+  </div>
+</div>
 "@
-
+        
         foreach ($section in $sectionGroups.Keys) {
             $sectionHtml = ""
 
@@ -937,11 +948,11 @@ $summary
     # JSON output
     if ($Json) {
         return @{
-          Hero = $heroCounts
-          TotalScore = ($allResults | Measure-Object -Sum -Property Total).Sum
-          Items = $allResults
+            Hero       = $heroCounts
+            TotalScore = ($allResults | Measure-Object -Sum -Property Total).Sum
+            Items      = $allResults
         }
-      }
+    }
      
 
     if ($Text) {

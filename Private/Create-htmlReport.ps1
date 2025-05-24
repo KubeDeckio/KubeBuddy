@@ -20,11 +20,12 @@ function Generate-K8sHTMLReport {
   
     $summaryHtml = if ($UseRichSummary) {
       $defaultText  # Pass actual HTML for summary
-    } else {
+    }
+    else {
       "<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>"
     }
   
-  @"
+    @"
 <div class="collapsible-container" id='$Id'>
 <details style='margin:10px 0;'>
   $summaryHtml
@@ -34,7 +35,7 @@ function Generate-K8sHTMLReport {
 </details>
 </div>
 "@
-}
+  }
   
 
   # Mapping of custom check sections to navigation categories
@@ -166,8 +167,7 @@ $heroRatingHtml
       $allChecksBySection = $html.HtmlBySection
       $checkStatusList += $html.StatusList
       $checkScoreList += $html.ScoreList
-      $issueHeroHtml      = $html.IssueHero
-
+      $issueHeroHtml = $html.IssueHero
       $knownSections = $sectionToNavMap.Keys
 
       foreach ($section in $allChecksBySection.Keys) {
@@ -278,10 +278,10 @@ $heroRatingHtml
   $totalChecks = $checkStatusList.Count
   $passedChecks = ($checkStatusList | Where-Object { $_.Status -eq 'Passed' }).Count
 
-  if ($aks) {
-    $totalChecks += $aksTotal
-    $passedChecks += $aksPass
-  }
+  # if ($aks) {
+  #   $totalChecks += $aksTotal
+  #   $passedChecks += $aksPass
+  # }
 
   $healthStatusHtml = @"
 <div class="health-status">
@@ -382,7 +382,7 @@ $heroRatingHtml
     $memChartJson = if ($memChartData) { $memChartData | ConvertTo-Json -Compress } else { "[]" }
   }
 
-    $clusterMetricsHtml = @"
+  $clusterMetricsHtml = @"
 <h2>Cluster Health Metrics (Last 24h)
   <span class='tooltip'>
     <span class='info-icon'>i</span>
@@ -409,51 +409,51 @@ $heroRatingHtml
 </div>
 "@
 
-foreach ($node in $KubeData.Nodes.items) {
-  $nodeName = $node.metadata.name
-  $osImage = $node.status.nodeInfo.osImage
-  $kernelVersion = $node.status.nodeInfo.kernelVersion
-  $kubeletVersion = $node.status.nodeInfo.kubeletVersion
-  $containerRuntime = $node.status.nodeInfo.containerRuntimeVersion
+  foreach ($node in $KubeData.Nodes.items) {
+    $nodeName = $node.metadata.name
+    $osImage = $node.status.nodeInfo.osImage
+    $kernelVersion = $node.status.nodeInfo.kernelVersion
+    $kubeletVersion = $node.status.nodeInfo.kubeletVersion
+    $containerRuntime = $node.status.nodeInfo.containerRuntimeVersion
 
-  $cpuMetrics = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
-  $memMetrics = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
-  $diskMetrics = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+    $cpuMetrics = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+    $memMetrics = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+    $diskMetrics = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
 
-  function Get-AverageAndChartData($metrics) {
+    function Get-AverageAndChartData($metrics) {
       if (-not $metrics) { return @{ Avg = "N/A"; Json = "[]" } }
       $values = $metrics.values | ForEach-Object {
-          [PSCustomObject]@{
-              timestamp = [int64]($_[0] * 1000)
-              value     = [double]$_[1]
-          }
+        [PSCustomObject]@{
+          timestamp = [int64]($_[0] * 1000)
+          value     = [double]$_[1]
+        }
       }
       $avg = [math]::Round(($values.value | Measure-Object -Average).Average, 2)
       return @{ Avg = $avg; Json = ($values | ConvertTo-Json -Compress) }
-  }
+    }
 
-  $cpuData = Get-AverageAndChartData $cpuMetrics
-  $memData = Get-AverageAndChartData $memMetrics
-  $diskData = Get-AverageAndChartData $diskMetrics
+    $cpuData = Get-AverageAndChartData $cpuMetrics
+    $memData = Get-AverageAndChartData $memMetrics
+    $diskData = Get-AverageAndChartData $diskMetrics
 
-  $cpuClass = if ($cpuData.Avg -eq "N/A") { "unknown" }
-      elseif ($cpuData.Avg -ge $thresholds.cpu_critical) { "critical" }
-      elseif ($cpuData.Avg -ge $thresholds.cpu_warning) { "warning" }
-      else { "normal" }
+    $cpuClass = if ($cpuData.Avg -eq "N/A") { "unknown" }
+    elseif ($cpuData.Avg -ge $thresholds.cpu_critical) { "critical" }
+    elseif ($cpuData.Avg -ge $thresholds.cpu_warning) { "warning" }
+    else { "normal" }
 
-  $memClass = if ($memData.Avg -eq "N/A") { "unknown" }
-      elseif ($memData.Avg -ge $thresholds.mem_critical) { "critical" }
-      elseif ($memData.Avg -ge $thresholds.mem_warning) { "warning" }
-      else { "normal" }
+    $memClass = if ($memData.Avg -eq "N/A") { "unknown" }
+    elseif ($memData.Avg -ge $thresholds.mem_critical) { "critical" }
+    elseif ($memData.Avg -ge $thresholds.mem_warning) { "warning" }
+    else { "normal" }
 
-  $diskClass = if ($diskData.Avg -eq "N/A") { "unknown" }
-      elseif ($diskData.Avg -ge 90) { "critical" }
-      elseif ($diskData.Avg -ge 75) { "warning" }
-      else { "normal" }
+    $diskClass = if ($diskData.Avg -eq "N/A") { "unknown" }
+    elseif ($diskData.Avg -ge 90) { "critical" }
+    elseif ($diskData.Avg -ge 75) { "warning" }
+    else { "normal" }
 
-  $nodeId = "node_$($nodeName -replace '[^a-zA-Z0-9]', '_')"
+    $nodeId = "node_$($nodeName -replace '[^a-zA-Z0-9]', '_')"
 
-  $nodeContent = @"
+    $nodeContent = @"
 <div class='collapsible-header' style='background: #0071FF; color: white; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 8px 8px 0 0;'>
   $nodeName
 </div>
@@ -489,7 +489,7 @@ foreach ($node in $KubeData.Nodes.items) {
 "@
 
 
-$summaryHtml = @"
+    $summaryHtml = @"
 <summary class="node-summary collapsible-arrow">
   <span class="summary-inner">
     <span class="node-name">Node: $nodeName</span>
@@ -503,13 +503,13 @@ $summaryHtml = @"
 "@
 
 
-$allNodeCards += ConvertToCollapsible -Id $nodeId -defaultText $summaryHtml -content $nodeContent -UseRichSummary
+    $allNodeCards += ConvertToCollapsible -Id $nodeId -defaultText $summaryHtml -content $nodeContent -UseRichSummary
 
-}
+  }
 
-$nodeCardsOnlyHtml = $allNodeCards
+  $nodeCardsOnlyHtml = $allNodeCards
 
-$nodeSectionHeader = @"
+  $nodeSectionHeader = @"
 <div class="container">
 <h2 style='margin-bottom: 10px;'>
   Node Conditions & Metrics (Last 24h)
@@ -536,7 +536,7 @@ $nodeSectionHeader = @"
 </div>
 "@
 
-$nodeCardHtml = $nodeSectionHeader
+  $nodeCardHtml = $nodeSectionHeader
 
   if ($ExcludeNamespaces) {
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
@@ -551,7 +551,7 @@ $nodeCardHtml = $nodeSectionHeader
     $excludedNamespacesHtml = ""
   }
 
-$fallbackClusterMetricsHtml = @"
+  $fallbackClusterMetricsHtml = @"
 <h2>Resource Usage 
   <span class="tooltip">
     <span class="info-icon">i</span>
@@ -795,10 +795,10 @@ $(if ($aks) {
 </html>
 "@
 
-if (-not $htmlTemplate) {
-  Write-Host "❌ HTML template content was empty. Report not generated." -ForegroundColor Red
-  return
-}
+  if (-not $htmlTemplate) {
+    Write-Host "❌ HTML template content was empty. Report not generated." -ForegroundColor Red
+    return
+  }
 
   $htmlTemplate | Set-Content $outputPath
 }
