@@ -661,7 +661,7 @@ $fallbackClusterMetricsHtml = @"
     $excludedNamespacesHtml
   </div>
 </div>
-<div class="tab-content active" id="summary">
+<div class="tab-content" id="summary">
   <div class="container">
     <h1 id="summary">Cluster Summary</h1>
     <p><strong>Cluster Name:</strong> $ClusterName</p>
