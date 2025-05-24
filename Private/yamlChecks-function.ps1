@@ -181,6 +181,14 @@ function Invoke-yamlChecks {
                 [string]$Operator,
                 [string]$FailMessage
             )
+
+            # no series or missing sub-fields?
+            if (-not $Metric -or
+                -not $Metric.metric -or
+                -not $Metric.values -or
+                $Metric.values.Count -eq 0) {
+                return $null
+            }
         
             $values = $Metric.values
             if (-not $values -or $values.Count -eq 0) {
@@ -665,24 +673,31 @@ function Invoke-yamlChecks {
                         $recContent = $check.Recommendation.html
                         # Append the URL as an <li> with "Docs: " label if not already present
                         if ($check.URL -and ($recContent -notmatch [regex]::Escape($check.URL))) {
-                            # Extract a display name from the URL
-                            $urlDisplayName = $check.URL -replace '.*#', ''  # Get the fragment after the last '#'
-                            if (-not $urlDisplayName) {
-                                $urlDisplayName = ($check.URL -split '/')[-1]  # Fallback to last path segment
+                            # parse URL
+                            $u = [uri]$check.URL
+                            # break path into segments, ignore empty ones
+                            $seg = $u.AbsolutePath.Trim('/').Split('/') | Where-Object { $_ }
+                            # pick last meaningful segment (fallback to whole path if somehow empty)
+                            $last = if ($seg[-1]) { $seg[-1] } else { ($u.AbsolutePath.Trim('/')) }
+                            # drop extension (.html, .md, etc)
+                            $base = $last -replace '\.[^.]+$',''
+                            # replace hyphens and percent-encoding
+                            $base = $base -replace '%2[fF]','/' -replace '-',' '
+                            # Title case
+                            $displayName = (Get-Culture).TextInfo.ToTitleCase($base)
+                            # optionally prefix common terms, e.g. Kubernetes, Prometheus, etc
+                            if ($u.Host -match 'kubernetes.io') {
+                                $displayName = "Kubernetes $displayName"
                             }
-                            # Clean up and format the display name
-                            $urlDisplayName = $urlDisplayName -replace '-', ' '
-                            $urlDisplayName = (Get-Culture).TextInfo.ToTitleCase($urlDisplayName)
-                            $urlDisplayName = "Kubernetes $urlDisplayName"
-                            $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$urlDisplayName</a></li>"
-
-                            # Check if recContent contains a <ul>
+                            elseif ($u.Host -match 'prometheus.io') {
+                                $displayName = "Prometheus $displayName"
+                            }
+                            # build the li
+                            $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$displayName</a></li>"
+                        
                             if ($recContent -match '</ul>') {
-                                # Insert the <li> before the closing </ul>
                                 $recContent = $recContent -replace '</ul>', "$urlHtml</ul>"
-                            }
-                            else {
-                                # If no <ul>, wrap the URL in a new <ul>
+                            } else {
                                 $recContent += "<ul>$urlHtml</ul>"
                             }
                         }
