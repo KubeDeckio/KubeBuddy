@@ -5,7 +5,7 @@ checks:
     Name: "Orphaned ConfigMaps"
     Description: "Detects ConfigMaps that are not referenced by any pod, workload, service, or ingress."
     ResourceKind: "ConfigMap"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 1
     FailMessage: "ConfigMap is not referenced by any workloads or services."
     URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"
@@ -99,7 +99,7 @@ checks:
     Name: "Duplicate ConfigMap Names"
     Description: "Detects ConfigMaps with identical names across different namespaces."
     ResourceKind: "ConfigMap"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 1
     FailMessage: "ConfigMap name reused in multiple namespaces."
     URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"
@@ -150,7 +150,7 @@ checks:
     Name: "Large ConfigMaps"
     Description: "Finds ConfigMaps larger than 1 MiB, which may impact performance or exceed platform limits."
     ResourceKind: "ConfigMap"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 2
     FailMessage: "ConfigMap exceeds 1 MiB in size."
     URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"

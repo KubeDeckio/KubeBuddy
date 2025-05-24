@@ -1,6 +1,6 @@
 ---
 template: home.html
-title: Documentation
+title: KubeBuddy
 nav_order: 2
 layout: default
 hide:

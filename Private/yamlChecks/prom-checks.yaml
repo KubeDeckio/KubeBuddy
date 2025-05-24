@@ -1,0 +1,156 @@
+checks:
+  - ID: "PROM001"
+    Name: "High CPU Pods (Prometheus)"
+    Category: "Performance"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "warning"
+    Weight: 3
+    Description: "Checks for pods with sustained high CPU usage over the last 24 hours using Prometheus metrics."
+    FailMessage: "Some pods show high sustained CPU usage."
+    URL: "https://kubernetes.io/docs/concepts/cluster-administration/monitoring/"
+    Recommendation:
+      text: "Investigate high CPU usage pods. Adjust limits or optimize workloads."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Investigate High CPU Pods</h4>
+          <ul>
+            <li>Use <code>kubectl top pod</code> to see real-time CPU usage.</li>
+            <li>Review app code or HPA settings for misbehaving containers.</li>
+            <li>Consider raising CPU requests/limits or scaling out.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Prometheus shows high CPU usage for some pods!"
+      - "⚠️ Might indicate a misbehaving app."
+    Prometheus:
+      Query: 'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)'
+      Range:
+        Step: "5m"
+        Duration: "24h"
+    Operator: "greater_than"
+    Expected: "cpu_critical"
+
+  - ID: "PROM002"
+    Name: "High Memory Usage Pods (Prometheus)"
+    Category: "Performance"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "warning"
+    Weight: 3
+    Description: "Detects pods with high memory usage over the last 24 hours based on Prometheus metrics."
+    FailMessage: "Some pods are consistently using high memory."
+    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+    Recommendation:
+      text: "Review memory usage and consider tuning container memory limits."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Investigate High Memory Pods</h4>
+          <ul>
+            <li>Use <code>kubectl top pod</code> to review memory usage.</li>
+            <li>Adjust <code>resources.limits.memory</code> appropriately.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🧠 Prometheus indicates memory-heavy pods!"
+      - "📉 Consider resource tuning."
+    Prometheus:
+      Query: 'sum(container_memory_usage_bytes{container!="",pod!=""}) by (pod)'
+      Range:
+        Step: "5m"
+        Duration: "24h"
+    Operator: "greater_than"
+    Expected: 5e+08  # ~500 MiB
+
+  - ID: "PROM003"
+    Name: "High Network Receive Rate (Prometheus)"
+    Category: "Networking"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "warning"
+    Weight: 2
+    Description: "Detects pods receiving large amounts of network traffic over the last 24 hours."
+    FailMessage: "Some pods show high network RX throughput."
+    URL: "https://kubernetes.io/docs/concepts/cluster-administration/networking/"
+    Recommendation:
+      text: "Check for possible DDoS, misrouted traffic, or excessive ingress."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Investigate Network Receive Rate</h4>
+          <ul>
+            <li>Use <code>kubectl top pod</code> or Prometheus UI.</li>
+            <li>Inspect service ingress patterns.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🌐 Network RX surge detected on some pods!"
+      - "📡 Investigate ingress traffic sources."
+    Prometheus:
+      Query: 'sum(rate(container_network_receive_bytes_total{pod!=""}[5m])) by (pod)'
+      Range:
+        Step: "5m"
+        Duration: "24h"
+    Operator: "greater_than"
+    Expected: 1e+06  # ~1 MB/s
+
+  - ID: "PROM004"
+    Name: "API Server High Latency"
+    Category: "Control Plane"
+    Section: "Configuration"
+    ResourceKind: "Pod"
+    Severity: "critical"
+    Weight: 5
+    Description: "Detects high latency in Kubernetes API server requests over the last 24 hours."
+    FailMessage: "API server latency exceeds healthy thresholds."
+    URL: "https://kubernetes.io/docs/concepts/overview/components/"
+    Recommendation:
+      text: "Investigate API server load, networking issues, or control plane bottlenecks."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Investigate API Server Latency</h4>
+          <ul>
+            <li>Check <code>kube-apiserver</code> logs.</li>
+            <li>Review <code>etcd</code> performance.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "⚠️ API server is responding slowly!"
+      - "⏱️ Check for pressure on control plane."
+    Prometheus:
+      Query: 'histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le))'
+      Range:
+        Step: "5m"
+        Duration: "24h"
+    Operator: "greater_than"
+    Expected: 0.5   # 500 ms
+
+  - ID: "PROM005"
+    Name: "Overcommitted CPU (Prometheus)"
+    Category: "Capacity"
+    Section: "Nodes"
+    ResourceKind: "Node"
+    Severity: "info"
+    Weight: 2
+    Description: "Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours."
+    FailMessage: "Node CPU is overcommitted by requests."
+    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+    Recommendation:
+      text: "Consider rescheduling pods or adjusting requests."
+      html: |
+        <div class="recommendation-content">
+          <h4>🛠️ Investigate CPU Overcommitment</h4>
+          <ul>
+            <li>Check node resource allocation.</li>
+            <li>Balance workloads more evenly.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🧮 Nodes are overcommitted on CPU!"
+      - "🛠️ Potential resource contention ahead."
+    Prometheus:
+      Query: 'sum(kube_pod_resource_request_cpu_cores) by (node) / sum(kube_node_status_allocatable_cpu_cores) by (node)'
+      Range:
+        Step: "5m"
+        Duration: "24h"
+    Operator: "greater_than"
+    Expected: 1.0

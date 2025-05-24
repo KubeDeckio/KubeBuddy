@@ -4,7 +4,7 @@ checks:
     Section: Storage
     Category: Volumes
     ResourceKind: PersistentVolumeClaim
-    Severity: Medium
+    Severity: warning
     Weight: 2
     Description: Detects PVCs not attached to any pod.
     FailMessage: PVC is not used by any running pod.

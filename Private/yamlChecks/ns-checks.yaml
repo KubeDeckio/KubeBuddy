@@ -4,7 +4,7 @@ checks:
     Section: Namespaces
     Category: Namespaces
     ResourceKind: namespaces
-    Severity: low
+    Severity: info
     Weight: 1
     Description: Finds namespaces with no running pods.
     Recommendation:
@@ -150,7 +150,7 @@ checks:
     Section: Namespaces
     Category: Namespaces
     ResourceKind: resourcequotas
-    Severity: medium
+    Severity: warning
     Weight: 3
     Description: Detects namespaces with missing or incomplete ResourceQuota definitions.
     Recommendation:
@@ -227,7 +227,7 @@ checks:
     Section: Namespaces
     Category: Namespaces
     ResourceKind: limitranges
-    Severity: medium
+    Severity: warning
     Weight: 2
     Description: Detects namespaces without a defined LimitRange.
     Recommendation:
@@ -280,3 +280,27 @@ checks:
 
       $results
     URL: "https://kubernetes.io/docs/concepts/policy/limit-range/"
+  - ID: "NS004"
+    Name: "Pods in Default Namespace"
+    Category: "Namespaces"
+    Section: "Namespaces"
+    ResourceKind: "Pod"
+    Severity: "warning"
+    Weight: 1
+    Description: "Detects any pods running in the `default` namespace."
+    FailMessage: "Pods found in the default namespace."
+    URL: "https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/"
+    SpeechBubble:
+      - "🤖 Pods detected in the default namespace!"
+      - "🚧 Move workloads into their own namespace."
+    Recommendation:
+      text: "Create and deploy into dedicated namespaces instead of `default`."
+      html: |
+        <ul>
+          <li>Use <code>kubectl get pods -n default</code> to list them.</li>
+          <li>Re-deploy your workloads into a custom namespace:</li>
+          <pre><code>kubectl create namespace my-app kubectl -n my-app apply -f your-manifests.yaml</code></pre>
+        </ul>
+    Condition: "metadata.namespace"
+    Operator: "not_equals"
+    Expected: "default"

@@ -167,6 +167,6 @@ $bestPracticesChecks = @(
         FailMessage    = "One or more node pools are not using v5 or newer SKU VMs, which may result in reduced performance and reliability during updates.";
         Severity       = "Medium";
         Recommendation = "Configure all node pools to use v5 or newer SKU VMs (e.g., Standard_D2_v5, Standard_E4_v6) with ephemeral OS disks for optimal performance and reliability.";
-        URL            = "https://learn.microsoft.com/azure/aks/best-practices-performance-scaling-large-workloads#use-v5-sku-vms";
+        URL            = "https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability#v5-sku-vms";
     }
 )
