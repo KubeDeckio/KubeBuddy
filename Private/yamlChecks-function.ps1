@@ -613,13 +613,11 @@ function Invoke-yamlChecks {
     $allResults = $allResults.ToArray() | Sort-Object -Property ID
 
     # Hero metric counters (one point per failing check)
-    $heroCounts = @{ critical = 0; warning = 0; info = 0 }
-
-    foreach ($chk in $allResults | Where-Object Total -gt 0) {
-        if ($heroCounts.ContainsKey($chk.Severity)) {
-            $heroCounts[$chk.Severity]++
-        }
-    }
+$panels = @{
+  critical = $allResults | Where-Object { $_.Severity -eq 'critical' -and $_.Total -gt 0 }
+  warning  = $allResults | Where-Object { $_.Severity -eq 'warning'  -and $_.Total -gt 0 }
+  info     = $allResults | Where-Object { $_.Severity -eq 'info'     -and $_.Total -gt 0 }
+}
 
 
     # HTML output
@@ -637,24 +635,55 @@ function Invoke-yamlChecks {
             $sectionGroups[$section] += $result
         }
 
-        $heroHtml = @"
+    # Hero summary cards
+    $heroHtml = @"
 <h2>Issue Summary</h2>
 <p>
   This section shows how many checks have failed at each severity level over the last run.
-  Click on a severity below to expand and review only those checks.
+  Click on a card below to expand and review those checks.
 </p>
 <div class="hero-metrics">
-  <div class="metric-card critical" data-severity="critical">
-    ❌ Critical: <strong>$($heroCounts.critical)</strong>
-  </div>
-  <div class="metric-card warning" data-severity="warning">
-    ⚠️ Warning: <strong>$($heroCounts.warning)</strong>
-  </div>
-  <div class="metric-card default" data-severity="info">
-    ℹ️ Info: <strong>$($heroCounts.info)</strong>
-  </div>
-</div>
 "@
+
+foreach ($sev in @('critical','warning','info')) {
+  $count   = $panels[$sev].Count
+  $panelId = "expand-$sev"
+  $label   = $sev.Substring(0,1).ToUpper() + $sev.Substring(1)
+
+  # build the inner list HTML
+  if ($count -gt 0) {
+    $items = $panels[$sev] | ForEach-Object {
+      "<div class='check-item'>
+         <a href='#$($_.ID)' class='check-id'>Check: $($_.ID)</a>
+         <span class='check-name'>$($_.Name) <em>($($_.Section))</em></span>
+       </div>"
+    } | Out-String
+    $clickAttr   = "onclick=`"toggleExpand('$panelId')`""
+    $arrowIcon   = '<span class="expand-icon material-icons">expand_more</span>'
+    $cardClass   = "metric-card $sev"
+  }
+  else {
+    $items       = "<div class='wide-content'><p>No issues in this category.</p></div>"
+    $clickAttr   = ''                      # no onclick
+    $arrowIcon   = ''                      # no arrow
+    $cardClass   = "metric-card $sev no-items"
+  }
+
+  $heroHtml += @"
+  <div class="$cardClass" id="card-$panelId">
+    <div class="card-content" $clickAttr>
+      <span class="category">$label</span>
+      <p>$count checks failed</p>
+      $arrowIcon
+    </div>
+    <div id="$panelId" class="expand-content scrollable-content">
+      <div class="wide-content">
+        $items
+      </div>
+    </div>
+  </div>
+"@
+}
         
         foreach ($section in $sectionGroups.Keys) {
             $sectionHtml = ""
@@ -926,7 +955,7 @@ $summary
                 $status = if ($check.Total -eq 0) { 'Passed' } else { 'Failed' }
                 $checkStatusList += [pscustomobject]@{
                     Id     = $check.ID
-                    Status = $status
+                    Status = $status 
                     Weight = $check.Weight
                 }
                 $checkScoreList += [pscustomobject]@{

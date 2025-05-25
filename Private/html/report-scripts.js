@@ -564,39 +564,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function paginateNodeCards(container, pagination, initialPageSize) {
         if (!container || !pagination) return;
-    
+
         let currentPage = 1;
-        let pageSize    = initialPageSize;  // now mutable
-    
+        let pageSize = initialPageSize;  // now mutable
+
         function getCards() {
             return Array.from(container.children);
         }
-    
+
         function totalPages(cards) {
             return Math.ceil(cards.length / pageSize) || 1;
         }
-    
+
         function render(cards) {
             const start = (currentPage - 1) * pageSize;
-            const end   = start + pageSize;
+            const end = start + pageSize;
             cards.forEach((card, idx) => {
                 card.style.display = (idx >= start && idx < end) ? '' : 'none';
             });
         }
-    
+
         function updateControls(cards) {
             pagination.innerHTML = '';
-    
+
             // Prev button
             const prev = document.createElement('button');
             prev.textContent = '←';
-            prev.disabled   = currentPage === 1;
+            prev.disabled = currentPage === 1;
             prev.addEventListener('click', () => {
                 currentPage = Math.max(1, currentPage - 1);
                 update();
             });
             pagination.appendChild(prev);
-    
+
             // Page buttons
             const pages = totalPages(cards);
             for (let i = 1; i <= pages; i++) {
@@ -609,43 +609,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 pagination.appendChild(btn);
             }
-    
+
             // Next button
             const next = document.createElement('button');
             next.textContent = '→';
-            next.disabled   = currentPage === pages;
+            next.disabled = currentPage === pages;
             next.addEventListener('click', () => {
                 currentPage = Math.min(pages, currentPage + 1);
                 update();
             });
             pagination.appendChild(next);
-    
+
             // **Cards-per-page selector**
             const sel = document.createElement('select');
             [5, 10, 25, 50].forEach(n => {
                 const opt = document.createElement('option');
-                opt.value       = n;
+                opt.value = n;
                 opt.textContent = `${n} per page`;
                 if (n === pageSize) opt.selected = true;
                 sel.appendChild(opt);
             });
             sel.addEventListener('change', () => {
-                pageSize    = +sel.value;
+                pageSize = +sel.value;
                 currentPage = 1;
                 update();
             });
             pagination.appendChild(sel);
         }
-    
+
         function update() {
             const cards = getCards();
             const pages = totalPages(cards);
             if (currentPage > pages) currentPage = pages;
-    
+
             render(cards);
             updateControls(cards);
         }
-    
+
         // initial render
         update();
     }
@@ -734,40 +734,22 @@ document.addEventListener('DOMContentLoaded', () => {
         update();
     }
 
-  // ──────────────────────────────────────────────────────────
-  // Severity‐filter for “Open Checks” table
-  const severityCards = document.querySelectorAll('.hero-metrics .metric-card[data-severity]');
-  const issueRows      = document.querySelectorAll('.issue-summary tbody tr');
+    // ──────────────────────────────────────────────────────────
+    window.toggleExpand = function (panelId) {
+        // find the panel
+        const panel = document.getElementById(panelId);
+        if (!panel) return;
 
-  severityCards.forEach(card => {
-    const sev   = card.dataset.severity;           // "critical"|"warning"|"info"
-    const arrow = document.createElement('span');
-    arrow.className = 'expand-arrow';
-    arrow.textContent = '▼';
-    card.appendChild(arrow);
+        // find *this* card
+        const card = panel.closest('.metric-card');
+        if (!card) return;
 
-    card.addEventListener('click', () => {
-      const isActive = card.classList.toggle('active');
+        // toggle this panel only
+        panel.classList.toggle('show');
+        card.classList.toggle('expanded');
+    };
 
-      // reset all cards & arrows, then rows
-      severityCards.forEach(c => {
-        c.classList.remove('active');
-        c.querySelector('.expand-arrow').textContent = '▼';
-      });
-      issueRows.forEach(r => r.style.display = '');
-
-      if (isActive) {
-        card.classList.add('active');
-        arrow.textContent = '▲';
-        issueRows.forEach(r => {
-          if (r.dataset.severity !== sev) {
-            r.style.display = 'none';
-          }
-        });
-      }
-    });
-  });
-  // ──────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────
 
 
 });

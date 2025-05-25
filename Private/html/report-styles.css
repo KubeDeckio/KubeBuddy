@@ -29,6 +29,7 @@ html {
   scroll-behavior: smooth;
   height: 100%;
   font-size: var(--font-size-base);
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -61,9 +62,9 @@ body {
   min-height: 100vh;
 }
 
-/* .main-content {
+.main-content {
   flex: 1;
-} */
+}
 
 /* Header and Tabs */
 .header {
@@ -693,6 +694,7 @@ table a:hover {
   justify-content: space-around;
   flex-wrap: wrap;
   margin-bottom: var(--spacing-lg);
+  align-items: flex-start;
 }
 
 .metric-card {
@@ -707,6 +709,7 @@ table a:hover {
   color: var(--text-light);
   box-shadow: var(--shadow-md);
   transition: transform var(--transition), box-shadow var(--transition);
+  position: relative; 
 }
 
 .metric-card:hover {
@@ -727,6 +730,9 @@ table a:hover {
 }
 
 .metric-card.default {
+  background: var(--brand-blue);
+}
+.metric-card.info {
   background: var(--brand-blue);
 }
 
@@ -1810,4 +1816,102 @@ body.print-mode canvas {
   /* after all other rules… */
 .table-pagination {
   display: flex !important;
+}
+
+
+.metric-card.expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* optional: style the expand arrow */
+.expand-icon {
+  float: right;
+  transition: transform 0.2s ease;
+}
+.metric-card.expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+/* your fadeIn keyframes */
+@keyframes panelFadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* make its inner area scrollable if it overflows */
+.scrollable-content {
+  overflow-y: auto;
+  max-height: 250px;
+}
+
+/* ensure your items don’t wrap weirdly */
+.wide-content {
+  min-width: 400px;
+}
+
+/* style each check entry */
+.check-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+/* the ID link */
+.check-id {
+  font-weight: bold;
+  color: #616161;
+  text-decoration: none;
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+.check-id:hover {
+  text-decoration: underline;
+}
+
+/* the name */
+.check-name {
+  color: #37474f;
+  font-size: 0.9rem;
+}
+
+.hero-metrics .metric-card {
+  position: relative;
+  flex-direction: column;
+  display: flex;
+  padding: 0%;
+  min-width: 0;
+}
+
+.hero-metrics .metric-card .wide-content {
+  min-width: 0;
+}
+
+.hero-metrics .metric-card .card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;    /* horizontally center everything */
+  position: relative;     /* so children can use align-self */
+  padding: var(--spacing-lg)
+}
+
+.hero-metrics .metric-card.expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.hero-metrics .metric-card .expand-content {
+  display: none;          /* still hidden by default */
+  position: static;       /* back in normal flow */
+  margin: 0;              /* no extra gutter */
+  padding: 0 1rem 1rem;   /* top 0, right/left 1rem, bottom 1rem */
+  border-top: 1px solid #eee;
+  background: #fafafa;
+  text-align: left;       /* left-align the inner list */
+}
+.hero-metrics .expand-content.show {
+  display: block;
+  animation: panelFadeIn 0.3s ease-in-out; 
+}
+.hero-metrics .metric-card .card-content .expand-icon {
+  align-self: flex-end;   /* push it to the right edge */
+  margin-top: auto;       /* optional: stick it at the bottom of the header area */
 }
