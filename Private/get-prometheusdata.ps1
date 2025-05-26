@@ -51,25 +51,31 @@ function Get-PrometheusHeaders {
 
 function Get-PrometheusData {
     param (
-        [Parameter(Mandatory)] [string]$Query,
-        [Parameter(Mandatory)] [string]$Url,
-        [hashtable]$Headers = @{},
-        [switch]$UseRange,
-        [string]$StartTime,
-        [string]$EndTime,
-        [string]$Step = "5m"
+        [Parameter(Mandatory)]
+        [string]$Query,
+
+        [Parameter(Mandatory)]
+        [string]$Url,
+
+        [hashtable]$Headers   = @{},
+        [switch]   $UseRange,
+        [string]  $StartTime,
+        [string]  $EndTime,
+        [string]  $Step       = "5m",
+
+        [int]
+        $TimeoutSec = 30
     )
 
     try {
         $encodedQuery = [uri]::EscapeDataString($Query)
         $uri = if ($UseRange -and $StartTime -and $EndTime) {
             "$Url/api/v1/query_range?query=$encodedQuery&start=$StartTime&end=$EndTime&step=$Step"
-        }
-        else {
+        } else {
             "$Url/api/v1/query?query=$encodedQuery"
         }
 
-        $response = Invoke-RestMethod -Uri $uri -Headers $Headers -TimeoutSec 10
+        $response = Invoke-RestMethod -Uri $uri -Headers $Headers -TimeoutSec $TimeoutSec
         if ($response.status -ne "success") {
             throw "Query failed: $($response.error ?? 'Unknown error')"
         }
@@ -81,8 +87,11 @@ function Get-PrometheusData {
         }
     }
     catch {
-            Write-Host "❌ Prometheus query failed: $_" -ForegroundColor Red
-            # return an empty result set instead of $null
-            return [PSCustomObject]@{ Query = $Query; Url = $Url; Results = @() }  
+        Write-Host "❌ Prometheus query failed: $_" -ForegroundColor Red
+        return [PSCustomObject]@{
+            Query   = $Query
+            Url     = $Url
+            Results = @()
+        }
     }
 }

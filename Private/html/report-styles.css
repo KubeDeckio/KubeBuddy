@@ -1920,3 +1920,31 @@ body.print-mode canvas {
   align-self: flex-end;   /* push it to the right edge */
   margin-top: auto;       /* optional: stick it at the bottom of the header area */
 }
+
+.quick-fix-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;  /* push ID/metrics to edges */
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* flex children */
+.fix-id {
+  flex: 0 0 auto;         /* don’t grow or shrink */
+}
+.fix-name {
+  color: var(--brand-blue);
+  flex: 1 1 auto;         /* take all remaining space */
+  margin: 0 12px;         /* a little breathing room */
+}
+.fix-metrics {
+  flex: 0 0 auto;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+/* no trailing border */
+.quick-fix-item:last-child {
+  border-bottom: none;
+}

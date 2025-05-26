@@ -124,7 +124,7 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     }
 
     # Use ScoreColor directly for the score box (hex color for inline style)
-$heroRatingHtml = @"
+    $heroRatingHtml = @"
 <h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
   <div class="metric-card normal">
@@ -178,6 +178,7 @@ $heroRatingHtml
   $customNavItems = @{}
   $checkStatusList = @()
   $hasCustomChecks = $false
+  $topFixHtml = ""
 
   foreach ($check in $checks) {
     $html = & $check.Cmd
@@ -189,6 +190,73 @@ $heroRatingHtml
       $checkScoreList += $html.ScoreList
       $issueHeroHtml = $html.IssueHero
       $knownSections = $sectionToNavMap.Keys
+
+      # ─── build a flat Id→Name lookup from your HtmlBySection ───
+      $flatChecks = @()
+      foreach ($sectionHtml in $allChecksBySection.Values) {
+        $ids = [regex]::Matches($sectionHtml, "<h2 id='([^']+)'")            | ForEach-Object { $_.Groups[1].Value }
+        $names = [regex]::Matches($sectionHtml, "<h2 id='[^']+'>\s*[^-]+-\s*([^<]+)") | ForEach-Object { $_.Groups[1].Value.Trim() }
+        for ($i = 0; $i -lt [Math]::Min($ids.Count, $names.Count); $i++) {
+          $flatChecks += [pscustomobject]@{ Id = $ids[$i]; Name = $names[$i] }
+        }
+      }
+
+      # ─── compute “lost %” and “gain pts” ───
+      $checkPriorities = $checkScoreList | ForEach-Object {
+        $id = $_.Id
+        $name = ($flatChecks | Where-Object Id -EQ $id).Name
+        $weight = [double] $_.Weight
+        $total = [double] $_.Total
+
+        # lost percentage
+        $lostPct = if ($total -gt 0) { [math]::Round( ($total / ($total + 1)) * 100, 1 ) } else { 0 }
+        # points you’d recover
+        $gainPts = [math]::Round( ($lostPct / 100) * $weight, 2 )
+
+        [pscustomobject]@{
+          ID      = $id
+          Name    = $name
+          Weight  = $weight
+          Total   = $total
+          LostPct = $lostPct
+          GainPts = $gainPts
+        }
+      }
+
+      # pick the top 5, sorted descending by LostPct
+      $top5ToFix = $checkPriorities |
+      Sort-Object LostPct -Descending |
+      Select-Object -First 5
+
+      # render each as its own "card" (just a div with a bottom border),
+      # in the same order as $top5ToFix
+      $itemsHtml = (
+        $top5ToFix | ForEach-Object {
+          $id = $_.ID
+          $name = $_.Name
+          $lost = $_.LostPct
+          $gain = $_.GainPts
+
+          @"
+<div class="quick-fix-item">
+  <a href="#$id" class="fix-id">$id</a> – <span class="fix-name">$name</span>
+  <small class="fix-metrics"> &bull; Gain $gain pts</small>
+</div>
+"@
+        }
+      ) -join "`n"
+
+      # now inject that into your wrapper
+      $topFixHtml = @"
+<h2>Top 5 Improvements</h2>
+<p class="quick-fix-intro">
+  These are the five checks whose remediation will yield the most immediate benefit to your overall Cluster Health Score.
+  Each card shows the cluster score points you’ll recover by fixing it.
+</p>
+<div class="quick-fixes-cards">
+  $itemsHtml
+</div>
+"@
 
       foreach ($section in $allChecksBySection.Keys) {
         # --- build your checksInSection exactly as you had it ---
@@ -282,12 +350,12 @@ $heroRatingHtml
   }
 
   $scoreClass = if ($clusterScore -ge 80) { "healthy" }
-              elseif ($clusterScore -ge 50) { "warning" }
-              else                         { "critical" }
+  elseif ($clusterScore -ge 50) { "warning" }
+  else { "critical" }
 
 
   # Cluster Health Score Bar
-$scoreBarHtml = @"
+  $scoreBarHtml = @"
 <div class="score-container">
   <h2 class="cluster-health-score">Cluster Health Score</h2>
   <p>Score: <strong>$clusterScore / 100</strong></p>
@@ -716,6 +784,7 @@ $scoreBarHtml = @"
         $healthStatusHtml
       </div>
   </div>
+      $topFixHtml    
       $issueHeroHtml
     </div>
     $excludedNamespacesHtml

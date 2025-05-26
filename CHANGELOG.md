@@ -4,33 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.20] - 2025-05-15
 
-### Added
-- **Prometheus Integration**  
-  - Support for running checks against Prometheus metrics, driven by new `Prometheus` blocks in the YAML checks.  
-  - `PROM001` “High CPU Pods (Prometheus)” – Detect pods with sustained high CPU usage over 24 h.  
-  - `PROM002` “High Memory Pods (Prometheus)” – Detect pods with sustained high memory usage over 24 h.  
-  - `PROM003` “Node CPU Saturation (Prometheus)” – Alert when nodes exceed critical CPU thresholds.  
-  - Introduced new `KubeData` properties: `PrometheusUrl`, `PrometheusMode`, `PrometheusUsername`, `PrometheusPassword`, `PrometheusBearerTokenEnv`, and `PrometheusHeaders`.
+## [0.0.20] – 2025-05-15
 
-### Changed
-- **HTML Report Enhancements**  
-  - Added info-icon tooltips on each check header to surface descriptions on hover.  
-  - Wrapped both “Findings” and “Recommendations” in collapsible sections to declutter long reports.  
-  - Introduced a styled “recommendation card” component (with banner/icon) and automatic “Docs:” links for each check.  
-  - Enclosed all tables in a `<div class='table-container'>` and moved to manual HTML-table generation with proper escaping to prevent XSS.  
-  - Prometheus-powered checks now automatically append “(Last 24 h)” to their titles to indicate metric time-windows.
+### What’s New
 
-- **`Invoke-yamlChecks` overhaul for Prometheus**  
-  - Predeclare all Prometheus variables (`Url`, `Mode`, `Username`, `Password`, `BearerTokenEnv`, `Headers`) so they can be safely captured in the `-Parallel` runspace.  
-  - Updated threshold lookup to use `$using:thresholds` inside the parallel block.  
-  - Added guards to skip Prometheus checks cleanly when `PrometheusUrl` or `PrometheusHeaders` are missing or empty.
+* **Prometheus integration**
+  We’ve wired KubeBuddy up to Prometheus so you can get real-time node and API-server metrics:
 
-### Fixed
-- Prevent “null-valued expression” errors by:
-  - Verifying threshold keys exist before casting.
-  - Checking for a non‐null, non‐empty `PrometheusHeaders` hashtable before attempting `.Keys` or HTTP calls.
+  * **CPU & Memory Usage** (PROM001 & PROM002): track average usage across all nodes over the last 24 hours.
+  * **Memory Saturation** (PROM003): see how much of each node’s allocatable memory is actually in use.
+  * **API Server Latency** (PROM004): alert you if request latency spikes beyond healthy thresholds.
+  * **CPU Overcommitment** (PROM005): flag any nodes whose pods are asking for more CPU than they can deliver.
+  * **New per-node Prometheus view**: click into any node’s card to see its individual metrics and time-series charts right in your report.
+  * Plus new `KubeData` settings (URL, mode, credentials, headers, etc.) to configure your Prometheus connection securely.
+
+* **“Hero” Issue-Summary cards**
+  Right at the top of your HTML report you’ll now see a row of big, color-coded cards showing how many checks failed at each severity level (Critical, Warning, Info).
+
+  * Click a card and it smoothly expands inline to list every failing check in that category.
+  * Built entirely with our new `.hero-metrics`, `.metric-card`, `.expand-content` and `.scrollable-content` CSS, plus a tiny `toggleExpand()` script for the show-and-hide behaviour.
+
+### Improvements
+
+* **HTML report polish**
+
+  * Hover over any check header to see a handy info-icon tooltip with the full description.
+  * Long “Findings” and “Recommendations” sections are now tucked into collapsible panels to keep your report neat.
+  * Each recommendation is wrapped in a stylish card with a banner and auto-linked “Docs:” reference.
+  * All tables live inside a `<div class="table-container">` and are built by hand to ensure proper HTML-escaping and XSS safety.
+
+* **Under-the-hood tweaks for Prometheus checks**
+
+  * All Prometheus parameters (`Url`, `Mode`, `Username`, etc.) are now predeclared so they work correctly inside PowerShell’s parallel runspaces.
+  * Threshold lookups in parallel blocks now use `$using:thresholds`.
+  * If you haven’t set a Prometheus URL or headers, KubeBuddy will quietly skip those checks (no noisy errors).
+
+### Fixes
+
+* **Null-value errors** eliminated by:
+
+  * Checking that each threshold key actually exists before casting.
+  * Verifying your `PrometheusHeaders` hashtable isn’t null or empty before poking its keys or making HTTP calls.
 
 
 ## [0.0.19] - 2025-05-02
