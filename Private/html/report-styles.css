@@ -1927,17 +1927,23 @@ body.print-mode canvas {
   justify-content: space-between;  /* push ID/metrics to edges */
   padding: 8px 0;
   border-bottom: 1px solid #eee;
+  padding-bottom: 12px;
 }
 
 /* flex children */
 .fix-id {
-  flex: 0 0 auto;         /* don’t grow or shrink */
+  font-weight: 600;
+  color: #0071FF;
+  text-decoration: none;
+  flex: 0 0 auto; 
 }
+
 .fix-name {
-  color: var(--brand-blue);
+  font-size: 1rem;
   flex: 1 1 auto;         /* take all remaining space */
   margin: 0 12px;         /* a little breathing room */
 }
+
 .fix-metrics {
   flex: 0 0 auto;
   color: #666;
