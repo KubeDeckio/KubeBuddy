@@ -79,6 +79,7 @@ body {
   box-shadow: var(--shadow-md);
   position: relative;
   z-index: 1000;
+  width: 100vw;
 }
 
 .header-top {
