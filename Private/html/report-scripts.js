@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function getScoreColor(score) {
-        if (score < 40) return '#B71C1C';
-        if (score < 70) return '#ffa000';
+        if (score < 50) return '#B71C1C';
+        if (score < 80) return '#ffa000';
         return '#4CAF50';
     }
 
@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         requestAnimationFrame(() => {
             progress.style.width = `${score}%`;
-            progress.style.background = color;
+            progress.style.setProperty('--stripe-base', color);
             if (dot) {
                 dot.style.left = `${score - 4}%`;
                 dot.style.display = 'block';
@@ -751,6 +751,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ──────────────────────────────────────────────────────────
 
+    // ──────────────────────────────────────────────────────────
+    // let links like <a href="#MyCheckId"> … </a> open the right tab & expand the detail
+
+    function openFromHash() {
+        const hash = window.location.hash.slice(1);
+        if (!hash) return;
+        const detail = document.getElementById(hash);
+        if (!detail) return;
+
+        // 1) switch to its tab
+        const panel = detail.closest('.tab-content');
+        if (panel?.id) switchTab(panel.id);
+
+        // 2) open *all* ancestor <details> first (so nested ones are actually visible)
+        let parent = detail.parentElement;
+        while (parent) {
+            if (parent.tagName?.toLowerCase() === 'details' && !parent.open) {
+                parent.open = true;
+            }
+            parent = parent.parentElement;
+        }
+
+        // 3) open the target detail
+        if (!detail.open) detail.open = true;
+
+        // 4) open any further nested <details> inside it
+        detail.querySelectorAll('details').forEach(d => {
+            if (!d.open) d.open = true;
+        });
+
+        // 5) scroll into view
+        detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // on load and whenever someone does window.location.hash = ...
+    window.addEventListener('hashchange', openFromHash);
+    openFromHash();
 
 });
 

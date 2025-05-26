@@ -26,8 +26,8 @@ function Generate-K8sHTMLReport {
     }
   
     @"
-<div class="collapsible-container" id='$Id'>
-<details style='margin:10px 0;'>
+<div class="collapsible-container">
+<details id='$Id' style='margin:10px 0;'>
   $summaryHtml
   <div style='padding-top: 15px;'>
     $content
@@ -281,17 +281,25 @@ $heroRatingHtml
     "#F44336"
   }
 
+  $scoreClass = if ($clusterScore -ge 80) { "healthy" }
+              elseif ($clusterScore -ge 50) { "warning" }
+              else                         { "critical" }
+
+
   # Cluster Health Score Bar
-  $scoreBarHtml = @"
+$scoreBarHtml = @"
 <div class="score-container">
   <h2 class="cluster-health-score">Cluster Health Score</h2>
   <p>Score: <strong>$clusterScore / 100</strong></p>
   <div class="progress-bar" style="--cluster-score: $clusterScore;" role="progressbar" aria-label="Cluster Health Score: $clusterScore out of 100">
-    <div class="progress" style="width: 0%;">
+    <div class="progress $scoreClass" style="width: 0%;">
       <span class="progress-text">$clusterScore%</span>
     </div>
   </div>
-  <p style="margin-top:10px; font-size:16px;">This score is calculated from key checks across nodes, workloads, security, and configuration best practices. A higher score means fewer issues and better adherence to Kubernetes standards.</p>
+  <p style="margin-top:10px; font-size:16px;">
+    This score is calculated from key checks across nodes, workloads, security, and configuration best practices.
+    A higher score means fewer issues and better adherence to Kubernetes standards.
+  </p>
 </div>
 "@
 

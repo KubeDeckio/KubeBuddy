@@ -81,10 +81,8 @@ function Get-PrometheusData {
         }
     }
     catch {
-        catch {
             Write-Host "❌ Prometheus query failed: $_" -ForegroundColor Red
             # return an empty result set instead of $null
-            return [PSCustomObject]@{ Query = $Query; Url = $Url; Results = @() }
-        }    
+            return [PSCustomObject]@{ Query = $Query; Url = $Url; Results = @() }  
     }
 }
