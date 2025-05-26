@@ -124,14 +124,34 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     }
 
     # Use ScoreColor directly for the score box (hex color for inline style)
-    $heroRatingHtml = @"
+$heroRatingHtml = @"
 <h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
-<div class="metric-card normal">✅ Passed: <strong>$aksPass</strong></div>
-<div class="metric-card critical">❌ Failed: <strong>$aksFail</strong></div>
-<div class="metric-card default">📊 Total Checks: <strong>$aksTotal</strong></div>
-<div class="metric-card default">🎯 Score: <strong>$aksScore%</strong></div>
-<div class="metric-card $ratingColorClass">⭐ Rating: <strong>$aksRating</strong></div>
+  <div class="metric-card normal">
+    <div class="card-content">
+      <p>✅ Passed: <strong>$aksPass</strong></p>
+    </div>
+  </div>
+  <div class="metric-card critical">
+    <div class="card-content">
+      <p>❌ Failed: <strong>$aksFail</strong></p>
+    </div>
+  </div>
+  <div class="metric-card default">
+    <div class="card-content">
+      <p>📊 Total Checks: <strong>$aksTotal</strong></p>
+    </div>
+  </div>
+  <div class="metric-card default">
+    <div class="card-content">
+      <p>🎯 Score: <strong>$aksScore%</strong></p>
+    </div>
+  </div>
+  <div class="metric-card $ratingColorClass">
+    <div class="card-content">
+      <p>⭐ Rating: <strong>$aksRating</strong></p>
+    </div>
+  </div>
 </div>
 "@
 
@@ -390,8 +410,18 @@ $heroRatingHtml
   </span>
 </h2>
 <div class='hero-metrics'>
-  <div class='metric-card $cpuClassProm'>🖥 Avg CPU: <strong>$avgCpu%</strong><br><span>$(if ($cpuClassProm -eq 'normal') { 'Normal' } elseif ($cpuClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span></div>
-  <div class='metric-card $memClassProm'>💾 Avg Memory: <strong>$avgMem%</strong><br><span>$(if ($memClassProm -eq 'normal') { 'Normal' } elseif ($memClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span></div>
+  <div class='metric-card $cpuClassProm'>
+    <div class='card-content'>
+      <p>🖥 Avg CPU: <strong>$avgCpu%</strong></p>
+      <span>$(if ($cpuClassProm -eq 'normal') { 'Normal' } elseif ($cpuClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span>
+    </div>
+  </div>
+  <div class='metric-card $memClassProm'>
+    <div class='card-content'>
+      <p>💾 Avg Memory: <strong>$avgMem%</strong></p>
+      <span>$(if ($memClassProm -eq 'normal') { 'Normal' } elseif ($memClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span>
+    </div>
+  </div>
 </div>
 <div class='chart-wrapper'>
   <div class='chart-item'>
@@ -465,9 +495,21 @@ $heroRatingHtml
        <strong>Runtime:</strong> $containerRuntime</p>
 
     <div class='hero-metrics'>
-      <div class='metric-card $cpuClass'>🖥 CPU: <strong>$($cpuData.Avg)%</strong></div>
-      <div class='metric-card $memClass'>💾 Memory: <strong>$($memData.Avg)%</strong></div>
-      <div class='metric-card $diskClass'>🗄 Disk: <strong>$($diskData.Avg)%</strong></div>
+      <div class='metric-card $cpuClass'>
+        <div class='card-content'>
+          <p>🖥 CPU: <strong>$($cpuData.Avg)%</strong></p>
+        </div>
+      </div>
+      <div class='metric-card $memClass'>
+        <div class='card-content'>
+          <p>💾 Memory: <strong>$($memData.Avg)%</strong></p>
+        </div>
+      </div>
+      <div class='metric-card $diskClass'>
+        <div class='card-content'>
+          <p>🗄 Disk: <strong>$($diskData.Avg)%</strong></p>
+        </div>
+      </div>
     </div>
 
     <div class='chart-wrapper row-3'>
@@ -562,8 +604,18 @@ $heroRatingHtml
 </h2>
 <p style="font-size: 14px; color: #666; margin-top: -10px;">🕒 Snapshot time: <strong>$today</strong></p>
 <div class="hero-metrics">
-  <div class="metric-card $cpuClassTop">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
-  <div class="metric-card $memClassTop">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
+  <div class="metric-card $cpuClassTop">
+    <div class="card-content">
+      <p>🖥 CPU: <strong>$cpuUsage%</strong></p>
+      <p>$cpuStatus</p>
+    </div>
+  </div>
+  <div class="metric-card $memClassTop">
+    <div class="card-content">
+      <p>💾 Memory: <strong>$memUsage%</strong></p>
+      <p>$memStatus</p>
+    </div>
+  </div>
 </div>
 "@
   
@@ -690,10 +742,14 @@ $heroRatingHtml
     <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of recent warning and error events.</span></span></h2>
     <div class="hero-metrics">
       <div class="metric-card $errorClass" data-tab="events" style="cursor: pointer;" title="Click to view Kubernetes Events">
-        ❌ Errors: <strong>$eventErrors</strong>
+        <div class="card-content">
+          <p>❌ Errors: <strong>$eventErrors</strong></p>
+        </div>
       </div>
       <div class="metric-card $warningClass" data-tab="events" style="cursor: pointer;" title="Click to view Kubernetes Events">
-        ⚠️ Warnings: <strong>$eventWarnings</strong>
+        <div class="card-content">
+          <p>⚠️ Warnings: <strong>$eventWarnings</strong></p>
+        </div>
       </div>
     </div>
   </div>

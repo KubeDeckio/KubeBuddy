@@ -654,7 +654,7 @@ foreach ($sev in @('critical','warning','info')) {
   if ($count -gt 0) {
     $items = $panels[$sev] | ForEach-Object {
       "<div class='check-item'>
-         <a href='#$($_.ID)' class='check-id'>Check: $($_.ID)</a>
+         <a href='#$($_.ID)' class='check-id'>$($_.ID)</a>
          <span class='check-name'>$($_.Name) <em>($($_.Section))</em></span>
        </div>"
     } | Out-String
