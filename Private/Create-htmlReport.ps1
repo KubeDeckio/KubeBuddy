@@ -225,38 +225,46 @@ $heroRatingHtml
 
       # pick the top 5, sorted descending by LostPct
       $top5ToFix = $checkPriorities |
-      Sort-Object LostPct -Descending |
+      Sort-Object GainPts -Descending |
       Select-Object -First 5
 
-      # render each as its own "card" (just a div with a bottom border),
-      # in the same order as $top5ToFix
+
       $itemsHtml = (
         $top5ToFix | ForEach-Object {
           $id = $_.ID
           $name = $_.Name
-          $lost = $_.LostPct
           $gain = $_.GainPts
 
+          # categorize urgency
+          if ($_.LostPct -gt 0.7) { $lostCat = "High" }
+          elseif ($_.LostPct -gt 0.4) { $lostCat = "Medium" }
+          else { $lostCat = "Low" }
+
           @"
-<div class="quick-fix-item">
-  <a href="#$id" class="fix-id">$id</a> – <strong class="fix-name">$name</strong>
-  <small class="fix-metrics"> Gain $gain pts</small>
+<div class="quick-fix-card" data-lostpct="$lostCat">
+  <header class="card-header">
+    <span class="material-icons fix-icon">healing</span>
+    <a href="#$id" class="fix-id">$id</a>
+    <span class="fix-metrics">+ $gain pts</span>
+  </header>
+  <p class="fix-name">$name</p>
 </div>
 "@
         }
       ) -join "`n"
 
-      # now inject that into your wrapper
+      # now inject that into your grid wrapper
       $topFixHtml = @"
 <h2>Top 5 Improvements</h2>
 <p class="quick-fix-intro">
   These are the five checks whose remediation will yield the most immediate benefit to your overall Cluster Health Score.
   Each card shows the cluster score points you’ll recover by fixing it.
 </p>
-<div class="quick-fixes-cards">
+<div class="quick-fixes-grid">
   $itemsHtml
 </div>
 "@
+
 
       foreach ($section in $allChecksBySection.Keys) {
         # --- build your checksInSection exactly as you had it ---

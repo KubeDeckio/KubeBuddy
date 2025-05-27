@@ -1920,36 +1920,82 @@ body.print-mode canvas {
   margin-top: auto;       /* optional: stick it at the bottom of the header area */
 }
 
-.quick-fix-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;  /* push ID/metrics to edges */
-  padding: 8px 0;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 12px;
+/* 1) grid wrapper */
+.quick-fixes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--spacing-lg);
+  margin: var(--spacing-md) 0;
+  margin-bottom: var(--spacing-lg);
+
 }
 
-/* flex children */
+/* 2) card itself */
+.quick-fix-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--border-radius);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.14),
+              0 1px 10px rgba(0, 0, 0, 0.12),
+              0 3px 5px rgba(0, 0, 0, 0.2);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition),
+              box-shadow var(--transition);
+}
+.quick-fix-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2),
+              0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* 3) header row */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* 4) ID link */
 .fix-id {
   font-weight: 600;
   color: #0071FF;
   text-decoration: none;
-  flex: 0 0 auto; 
+  flex: 0 0 auto;
 }
 
-.fix-name {
-  font-size: 1rem;
-  flex: 1 1 auto;         /* take all remaining space */
-  margin: 0 12px;         /* a little breathing room */
-}
-
+/* 5) points */
 .fix-metrics {
   flex: 0 0 auto;
   color: #666;
   font-size: 0.875rem;
 }
 
-/* no trailing border */
-.quick-fix-item:last-child {
-  border-bottom: none;
+/* 6) name/body */
+.fix-name {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #333;
+  flex: 1 1 auto;
+}
+
+/* 7) accent stripe by urgency */
+.quick-fix-card[data-lostpct="High"] {
+  border-left: 4px solid var(--error-color);
+}
+.quick-fix-card[data-lostpct="Medium"] {
+  border-left: 4px solid var(--warning-color);
+}
+.quick-fix-card[data-lostpct="Low"] {
+  border-left: 4px solid var(--success-color);
+}
+
+/* 8) icon styling */
+.fix-icon {
+  font-size: 1.25rem;
+  margin-right: var(--spacing-sm);
+  /* color could match your .fix-id or brand color */
 }
