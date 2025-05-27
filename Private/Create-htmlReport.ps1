@@ -239,7 +239,7 @@ $heroRatingHtml
 
           @"
 <div class="quick-fix-item">
-  <a href="#$id" class="fix-id">$id</a> – <span class="fix-name">$name</span>
+  <a href="#$id" class="fix-id">$id</a> – <strong class="fix-name">$name</strong>
   <small class="fix-metrics"> Gain $gain pts</small>
 </div>
 "@

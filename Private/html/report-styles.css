@@ -79,7 +79,6 @@ body {
   box-shadow: var(--shadow-md);
   position: relative;
   z-index: 1000;
-  width: 100vw;
 }
 
 .header-top {
@@ -587,7 +586,7 @@ table a:hover {
   background: rgba(0, 113, 255, 0.1);
 }
 
-.collapsible-container[id$="_recommendations"] details[open] .recommendation-card {
+.collapsible-container details[id$="_recommendations"][open] .recommendation-card {
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: var(--border-radius);
@@ -598,7 +597,7 @@ table a:hover {
   transition: transform var(--transition), box-shadow var(--transition);
 }
 
-.collapsible-container[id$="_recommendations"] details[open] .recommendation-card:hover {
+.collapsible-container details[id$="_recommendations"][open] .recommendation-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
