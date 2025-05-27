@@ -785,11 +785,25 @@ document.addEventListener('DOMContentLoaded', () => {
         detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // on load and whenever someone does window.location.hash = ...
+    // wire up hash-change to open+expand on direct links
     window.addEventListener('hashchange', openFromHash);
     openFromHash();
 
+    // ── Auto-open <details> when clicking a fix link ─────────────────────────
+    document.querySelectorAll('.quick-fix-card .fix-id').forEach(link => {
+      link.addEventListener('click', e => {
+        const checkId = link.getAttribute('href').substring(1);
+        const detailsEl = document.querySelector(`details#${checkId}`);
+        if (detailsEl && detailsEl.tagName.toLowerCase() === 'details') {
+          detailsEl.open = true;
+          setTimeout(() => {
+            detailsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
+      });
+    });
 });
+
 
 function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));

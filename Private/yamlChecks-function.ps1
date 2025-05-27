@@ -210,9 +210,11 @@ function Invoke-yamlChecks {
             }
         
             # Build result object
-            $labels = $Metric.metric.PSObject.Properties | ForEach-Object {
-                "$($_.Name): $($_.Value)"
-            } -join ", "
+            $labels = (
+                $Metric.metric.PSObject.Properties |
+                ForEach-Object { "$($_.Name): $($_.Value)" }
+            ) -join ", "
+
         
             return [pscustomobject]@{
                 MetricLabels = $labels
@@ -613,11 +615,11 @@ function Invoke-yamlChecks {
     $allResults = $allResults.ToArray() | Sort-Object -Property ID
 
     # Hero metric counters (one point per failing check)
-$panels = @{
-  critical = $allResults | Where-Object { $_.Severity -eq 'critical' -and $_.Total -gt 0 }
-  warning  = $allResults | Where-Object { $_.Severity -eq 'warning'  -and $_.Total -gt 0 }
-  info     = $allResults | Where-Object { $_.Severity -eq 'info'     -and $_.Total -gt 0 }
-}
+    $panels = @{
+        critical = $allResults | Where-Object { $_.Severity -eq 'critical' -and $_.Total -gt 0 }
+        warning  = $allResults | Where-Object { $_.Severity -eq 'warning' -and $_.Total -gt 0 }
+        info     = $allResults | Where-Object { $_.Severity -eq 'info' -and $_.Total -gt 0 }
+    }
 
 
     # HTML output
@@ -635,8 +637,8 @@ $panels = @{
             $sectionGroups[$section] += $result
         }
 
-    # Hero summary cards
-    $heroHtml = @"
+        # Hero summary cards
+        $heroHtml = @"
 <h2>Issue Summary</h2>
 <p>
   This section shows how many checks have failed at each severity level over the last run.
@@ -645,31 +647,31 @@ $panels = @{
 <div class="hero-metrics">
 "@
 
-foreach ($sev in @('critical','warning','info')) {
-  $count   = $panels[$sev].Count
-  $panelId = "expand-$sev"
-  $label   = $sev.Substring(0,1).ToUpper() + $sev.Substring(1)
+        foreach ($sev in @('critical', 'warning', 'info')) {
+            $count = $panels[$sev].Count
+            $panelId = "expand-$sev"
+            $label = $sev.Substring(0, 1).ToUpper() + $sev.Substring(1)
 
-  # build the inner list HTML
-  if ($count -gt 0) {
-    $items = $panels[$sev] | ForEach-Object {
-      "<div class='check-item'>
+            # build the inner list HTML
+            if ($count -gt 0) {
+                $items = $panels[$sev] | ForEach-Object {
+                    "<div class='check-item'>
          <a href='#$($_.ID)' class='check-id'>$($_.ID)</a>
          <span class='check-name'>$($_.Name) <em>($($_.Section))</em></span>
        </div>"
-    } | Out-String
-    $clickAttr   = "onclick=`"toggleExpand('$panelId')`""
-    $arrowIcon   = '<span class="expand-icon material-icons">expand_more</span>'
-    $cardClass   = "metric-card $sev"
-  }
-  else {
-    $items       = "<div class='wide-content'><p>No issues in this category.</p></div>"
-    $clickAttr   = ''                      # no onclick
-    $arrowIcon   = ''                      # no arrow
-    $cardClass   = "metric-card $sev no-items"
-  }
+                } | Out-String
+                $clickAttr = "onclick=`"toggleExpand('$panelId')`""
+                $arrowIcon = '<span class="expand-icon material-icons">expand_more</span>'
+                $cardClass = "metric-card $sev"
+            }
+            else {
+                $items = "<div class='wide-content'><p>No issues in this category.</p></div>"
+                $clickAttr = ''                      # no onclick
+                $arrowIcon = ''                      # no arrow
+                $cardClass = "metric-card $sev no-items"
+            }
 
-  $heroHtml += @"
+            $heroHtml += @"
   <div class="$cardClass" id="card-$panelId">
     <div class="card-content" $clickAttr>
       <span class="category">$label</span>
@@ -683,7 +685,7 @@ foreach ($sev in @('critical','warning','info')) {
     </div>
   </div>
 "@
-}
+        }
         
         foreach ($section in $sectionGroups.Keys) {
             $sectionHtml = ""

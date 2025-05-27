@@ -123,11 +123,18 @@ checks:
     Script: |
       param ($KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
+      # names to ignore
+      $ignore = @('kube-root-ca','istio-ca-root')
+      
       $configMaps = if ($KubeData?.ConfigMaps) {
         $KubeData.ConfigMaps
       } else {
         (kubectl get configmaps -A -o json | ConvertFrom-Json).items
       }
+
+      # then filter out the system ones
+      $configMaps = $configMaps |
+          Where-Object { $ignore -notcontains $_.metadata.name }
 
       if ($ExcludeNamespaces) {
           $configMaps = Exclude-Namespaces -items $configMaps

@@ -29,9 +29,19 @@ checks:
         $endpoints = Exclude-Namespaces -items $endpoints
       }
 
+      $epSlices = if ($KubeData?.EndpointSlices) {
+        $KubeData.EndpointSlices.items
+      } else {
+        (kubectl get endpointslices --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $epSlices = Exclude-Namespaces -items $epSlices
+      }
+
       if ($Namespace) {
         $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
         $endpoints = $endpoints | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $epSlices = $epSlices | Where-Object { $_.metadata.namespace -eq $Namespace }
       }
 
       $results = @()
@@ -43,13 +53,21 @@ checks:
           $_.metadata.name -eq $svc.metadata.name
         }
 
-        if (-not $ep -or -not $ep.subsets -or $ep.subsets.Count -eq 0) {
-          $results += [pscustomobject]@{
-            Namespace = $svc.metadata.namespace
-            Resource  = "service/$($svc.metadata.name)"
-            Value     = $svc.metadata.name
-            Message   = "No endpoints available"
-          }
+       $slice = $epSlices | Where-Object {
+         $_.metadata.namespace -eq $ns -and
+         $_.metadata.labels.'kubernetes.io/service-name' -eq $name
+       }
+
+       if (
+         (-not $ep        -or -not $ep.subsets        -or $ep.subsets.Count  -eq 0) `
+         -and
+         ($slice.Count    -eq 0)
+       ) {
+         $results += [PSCustomObject]@{
+           Namespace   = $ns
+           Service     = $svc.metadata.name       # was “Resource”/“Value”
+           Issue       = "No endpoints or endpoint slices"  # was “Message”
+         }
         }
       }
 
