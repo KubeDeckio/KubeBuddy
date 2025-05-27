@@ -243,7 +243,7 @@ $heroRatingHtml
           @"
 <div class="quick-fix-card" data-lostpct="$lostCat">
   <header class="card-header">
-    <span class="material-icons fix-icon">healing</span>
+    <span class="material-icons fix-icon">home_repair_service</span>
     <a href="#$id" class="fix-id">$id</a>
     <span class="fix-metrics">+ $gain pts</span>
   </header>

@@ -145,6 +145,27 @@ Set these to control behavior inside the container:
 | `AZURE_TENANT_ID`     | Azure tenant ID                 |
 | `USE_AKS_REST_API`    | `"true"` to use Azure REST APIs |
 
+### 📈 Prometheus Integration (Optional)
+
+| Variable                       | Description                                                                       |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| `INCLUDE_PROMETHEUS`           | `"true"` to fetch Prometheus metrics alongside Kubernetes data                    |
+| `PROMETHEUS_URL`               | The HTTP(S) endpoint of your Prometheus server                                    |
+| `PROMETHEUS_MODE`              | Authentication mode: `local`, `basic`, `bearer`, or `azure`                       |
+| `PROMETHEUS_USERNAME`          | Username for Basic auth (when `PROMETHEUS_MODE=basic`)                            |
+| `PROMETHEUS_PASSWORD`          | Password for Basic auth (when `PROMETHEUS_MODE=basic`)                            |
+| `PROMETHEUS_BEARER_TOKEN_ENV`  | Name of the environment variable that contains your Bearer token (when `bearer`)  |
+
+> ⚠️ **Notes**  
+> - **Enable first**: nothing else works unless `INCLUDE_PROMETHEUS="true"`.  
+> - **Bearer mode**: set both  
+>   ```bash
+>   -e MY_PROM_TOKEN="<token>" \
+>   -e PROMETHEUS_BEARER_TOKEN_ENV="MY_PROM_TOKEN"
+>   ```  
+>   so that `Get-PrometheusHeaders` can read `$Env:MY_PROM_TOKEN`.  
+
+
 ### 🔧 Optional
 
 | Variable             | Description                               |

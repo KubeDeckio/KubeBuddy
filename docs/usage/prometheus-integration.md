@@ -127,6 +127,26 @@ Invoke-KubeBuddy `
   -OutputPath "/reports/cluster.json"
 ```
 
+## 🐳 Docker Usage with Prometheus
+
+For full Docker details, see the [Docker Usage](docker-usage.md) guide.  Here’s a minimal Prometheus-enabled example:
+
+```bash
+export tagId="v0.0.19"
+
+docker run -it --rm \
+  -e KUBECONFIG="/home/kubeuser/.kube/config" \
+  -e HTML_REPORT="true" \
+  -e INCLUDE_PROMETHEUS="true" \
+  -e PROMETHEUS_URL="https://prom.example.com" \
+  -e PROMETHEUS_MODE="basic" \
+  -e PROMETHEUS_USERNAME="admin" \
+  -e PROMETHEUS_PASSWORD="s3cr3t" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+
+
 ## 📘 Related Docs
 
 * [Azure Monitor Prometheus Overview](https://learn.microsoft.com/azure/azure-monitor/prometheus-metrics-overview)

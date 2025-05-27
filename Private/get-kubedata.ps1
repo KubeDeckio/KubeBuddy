@@ -93,6 +93,7 @@ function Get-KubeData {
         @{ Name = "Services"; Cmd = { kubectl get svc --all-namespaces -o json }; Key = "Services"; Items = $false },
         @{ Name = "Ingresses"; Cmd = { kubectl get ingress --all-namespaces -o json }; Key = "Ingresses"; Items = $true },
         @{ Name = "Endpoints"; Cmd = { kubectl get endpoints --all-namespaces -o json }; Key = "Endpoints"; Items = $false },
+        @{ Name = "EndpointSlices"; Cmd = { kubectl get endpointslices --all-namespaces -o json }; Key = "EndpointSlices"; Items = $false },
         @{ Name = "ConfigMaps"; Cmd = { kubectl get configmaps --all-namespaces -o json }; Key = "ConfigMaps"; Items = $true },
         @{ Name = "Secrets"; Cmd = { kubectl get secrets --all-namespaces -o json }; Key = "Secrets"; Items = $true },
         @{ Name = "PersistentVolumes"; Cmd = { kubectl get pv -o json }; Key = "PersistentVolumes"; Items = $true },

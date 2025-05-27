@@ -132,9 +132,8 @@ checks:
         (kubectl get configmaps -A -o json | ConvertFrom-Json).items
       }
 
-      # then filter out the system ones
-      $configMaps = $configMaps |
-          Where-Object { $ignore -notcontains $_.metadata.name }
+      $pattern = ($ignore -join '|')
+      $configMaps = $configMaps | Where-Object { $_.metadata.name -notmatch $pattern }
 
       if ($ExcludeNamespaces) {
           $configMaps = Exclude-Namespaces -items $configMaps
@@ -146,7 +145,7 @@ checks:
         $namespaces = ($g.Group | ForEach-Object { $_.metadata.namespace }) -join ", "
         [pscustomobject]@{
           Namespace = "-"
-          Resource  = $g.Name
+          ConfigMap  = $g.Name
           Value     = "-"
           Message   = "Found in namespaces: $namespaces"
         }

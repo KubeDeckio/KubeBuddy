@@ -790,7 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openFromHash();
 
     // ── Auto-open <details> when clicking a fix link ─────────────────────────
-    document.querySelectorAll('.quick-fix-card .fix-id').forEach(link => {
+    document.querySelectorAll('.quick-fix-card .fix-id, .check-id').forEach(link => {
       link.addEventListener('click', e => {
         const checkId = link.getAttribute('href').substring(1);
         const detailsEl = document.querySelector(`details#${checkId}`);

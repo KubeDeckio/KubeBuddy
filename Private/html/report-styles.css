@@ -1863,7 +1863,7 @@ body.print-mode canvas {
 /* the ID link */
 .check-id {
   font-weight: bold;
-  color: #616161;
+  color: #0071FF;
   text-decoration: none;
   margin-right: 0.5rem;
   font-size: 0.9rem;
@@ -1997,5 +1997,4 @@ body.print-mode canvas {
 .fix-icon {
   font-size: 1.25rem;
   margin-right: var(--spacing-sm);
-  /* color could match your .fix-id or brand color */
 }

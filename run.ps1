@@ -8,18 +8,27 @@ $OutputPath = "/app/Reports"
 $Yes = $true
 
 # Optional values
-$ClusterName    = $env:CLUSTER_NAME
-$ResourceGroup  = $env:RESOURCE_GROUP
+$ClusterName = $env:CLUSTER_NAME
+$ResourceGroup = $env:RESOURCE_GROUP
 $SubscriptionId = $env:SUBSCRIPTION_ID
-$ExcludeNS      = $env:EXCLUDE_NAMESPACES -eq "true"
-$HtmlReport     = $env:HTML_REPORT -eq "true"
-$txtReport      = $env:TXT_REPORT -eq "true"
-$jsonReport     = $env:JSON_REPORT -eq "true"
-$Aks            = $env:AKS_MODE -eq "true"
-$ClientId       = $env:AZURE_CLIENT_ID
-$ClientSecret   = $env:AZURE_CLIENT_SECRET
-$TenantId       = $env:AZURE_TENANT_ID
-$UseAksRestApi  = $env:USE_AKS_REST_API -eq "true"
+$ExcludeNS = $env:EXCLUDE_NAMESPACES -eq "true"
+$HtmlReport = $env:HTML_REPORT -eq "true"
+$txtReport = $env:TXT_REPORT -eq "true"
+$jsonReport = $env:JSON_REPORT -eq "true"
+$Aks = $env:AKS_MODE -eq "true"
+$ClientId = $env:AZURE_CLIENT_ID
+$ClientSecret = $env:AZURE_CLIENT_SECRET
+$TenantId = $env:AZURE_TENANT_ID
+$UseAksRestApi = $env:USE_AKS_REST_API -eq "true"
+
+# ─── Prometheus options ───────────────────────────────────────────────
+$IncludePrometheus = $env:INCLUDE_PROMETHEUS -eq "true"
+$PrometheusUrl = $env:PROMETHEUS_URL
+$PrometheusMode = $env:PROMETHEUS_MODE
+$PrometheusUsername = $env:PROMETHEUS_USERNAME
+$PrometheusPassword = $env:PROMETHEUS_PASSWORD
+$PrometheusBearerTokenEnv = $env:PROMETHEUS_BEARER_TOKEN_ENV
+
 
 # Require at least one report format
 if (-not ($HtmlReport -or $txtReport -or $jsonReport)) {
@@ -88,17 +97,23 @@ if ($Aks) {
 
 # Run KubeBuddy
 $parameters = @{
-    ClusterName       = $ClusterName
-    ResourceGroup     = $ResourceGroup
-    SubscriptionId    = $SubscriptionId
-    ExcludeNamespaces = $ExcludeNS
-    HtmlReport        = $HtmlReport
-    txtReport         = $txtReport
-    jsonReport        = $jsonReport
-    Aks               = $Aks
-    outputpath        = $OutputPath
-    yes               = $Yes
-    UseAksRestApi     = $UseAksRestApi
+    ClusterName              = $ClusterName
+    ResourceGroup            = $ResourceGroup
+    SubscriptionId           = $SubscriptionId
+    ExcludeNamespaces        = $ExcludeNS
+    HtmlReport               = $HtmlReport
+    txtReport                = $txtReport
+    jsonReport               = $jsonReport
+    Aks                      = $Aks
+    outputpath               = $OutputPath
+    yes                      = $Yes
+    UseAksRestApi            = $UseAksRestApi
+    IncludePrometheus        = $IncludePrometheus
+    PrometheusUrl            = $PrometheusUrl
+    PrometheusMode           = $PrometheusMode
+    PrometheusUsername       = $PrometheusUsername
+    PrometheusPassword       = $PrometheusPassword
+    PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
 }
 
 try {
@@ -109,7 +124,8 @@ try {
     $fullPath = Resolve-Path $OutputPath -ErrorAction SilentlyContinue
     if ($fullPath) {
         Write-Host "`n🤖 Thank you for Using KubeBuddy. Have a nice day!" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "`n❌ No report generated. Check for errors above." -ForegroundColor Red
         exit 1
     }
