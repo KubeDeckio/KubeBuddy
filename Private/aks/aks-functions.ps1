@@ -12,70 +12,75 @@ function Invoke-AKSBestPractices {
 
     function Validate-Context {
         param ($ResourceGroup, $ClusterName)
-        if ($KubeData) { return $true | Out-Null }
-
-        $currentContext = kubectl config current-context
+    
+        if ($KubeData) { return $true }
+    
+        $currentContext = kubectl config current-context 2>$null
+        $aksContext = $null
+    
         try {
             $aksContext = az aks show --resource-group $ResourceGroup --name $ClusterName --query "name" -o tsv --only-show-errors 2>&1
             if ($LASTEXITCODE -ne 0 -or -not $aksContext) {
-                throw "Failed to retrieve AKS context. Please verify the resource group and cluster name."
+                throw "Failed to retrieve AKS context."
             }
         }
         catch {
             Write-Error "❌ Error fetching AKS context: $_"
             throw "Critical error: Unable to continue without AKS context."
         }
-
-        if ($Text) {
-            Write-Host "🔄 Checking Kubernetes context..." -ForegroundColor Cyan
-            Write-Host "   - Current context: '$currentContext'" -ForegroundColor Yellow
-            Write-Host "   - Expected AKS cluster: '$aksContext'" -ForegroundColor Yellow
-
-            if ($currentContext -eq $aksContext) {
-                Write-Host "✅ Kubernetes context matches. Proceeding with the scan." -ForegroundColor Green
-                return $true
+    
+        # If not already set to correct context, try to fix it
+        if ($currentContext -ne $aksContext) {
+            Write-Host "🔄 Attempting to set kubectl context using az aks get-credentials..." -ForegroundColor Yellow
+            try {
+                az aks get-credentials --resource-group $ResourceGroup --name $ClusterName --overwrite-existing --only-show-errors
+                $currentContext = kubectl config current-context
             }
-            else {
-                Write-Host "⚠️ WARNING: Context mismatch." -ForegroundColor Red
-                return $false
+            catch {
+                Write-Host "❌ Failed to set kubectl context automatically." -ForegroundColor Red
+                throw
             }
         }
-
-        $msg = @(
-            "🔄 Checking your Kubernetes context...",
-            "",
-            "   - You're currently using context: '$currentContext'.",
-            "   - The expected AKS cluster context is: '$aksContext'.",
-            ""
-        )
-
+    
+        # Try a kubectl command to validate credentials
+        $nsCheck = kubectl get ns -o name 2>&1
+        if ($nsCheck -match "To sign in" -or $nsCheck -match "authorization") {
+            Write-Host "❗ Detected token/auth error with kubectl. Attempting non-interactive fix..." -ForegroundColor Yellow
+    
+            if (Get-Command kubelogin -ErrorAction SilentlyContinue) {
+                try {
+                    $spnProvided = $env:AZURE_CLIENT_ID -and $env:AZURE_CLIENT_SECRET -and $env:AZURE_TENANT_ID
+                    if ($spnProvided) {
+                        kubelogin convert-kubeconfig -l spn `
+                            --client-id $env:AZURE_CLIENT_ID `
+                            --client-secret $env:AZURE_CLIENT_SECRET `
+                            --tenant-id $env:AZURE_TENANT_ID
+                    } else {
+                        kubelogin convert-kubeconfig -l azurecli
+                    }
+                    Write-Host "✅ kubelogin applied successfully." -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "❌ kubelogin failed: $_" -ForegroundColor Red
+                    throw
+                }
+            }
+            else {
+                Write-Host "❌ kubelogin not installed and cluster auth failed." -ForegroundColor Red
+                throw "kubelogin required to fix non-interactive auth issue."
+            }
+        }
+    
+        # Final validation
         if ($currentContext -eq $aksContext) {
-            $msg += @("✅ The context is correct.")
-            Write-SpeechBubble -msg $msg -color "Green" -icon "🤖"
+            Write-Host "✅ Context verified: $currentContext" -ForegroundColor Green
             return $true
-        }
-        else {
-            $msg += @(
-                "⚠️ WARNING: Context mismatch!",
-                "",
-                "❌ Commands may target the wrong cluster.",
-                "",
-                "💡 Run: kubectl config use-context $aksContext"
-            )
-            Write-SpeechBubble -msg $msg -color "Yellow" -icon "🤖" -lastColor "Red"
-            Write-SpeechBubble -msg @("🤖 Please confirm if you want to continue.") -color "Yellow" -icon "🤖"
-            $confirmation = Read-Host "🤖 Continue anyway? (yes/no)"
-            Clear-Host
-            if ($confirmation -match "^(y|yes)$") {
-                Write-SpeechBubble -msg @("⚠️ Proceeding despite mismatch...") -color "Yellow" -icon "🤖"
-                return $true
-            }
-            else {
-                Write-SpeechBubble -msg @("❌ Exiting to prevent incorrect execution.") -color "Red" -icon "🤖"
-                exit 1
-            }
+        } else {
+            Write-Host "⚠️ WARNING: Context mismatch. Expected: $aksContext, Got: $currentContext" -ForegroundColor Red
+            return $false
         }
     }
+   
 
     function Get-AKSClusterInfo {
         param (

@@ -14,12 +14,12 @@ function Get-PrometheusHeaders {
             }
             $username = $Credential.UserName
             $password = $Credential.GetNetworkCredential().Password
-            $pair = "$username:$password"
+            $pair = "$($username):$($password)"
             $headers["Authorization"] = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
         }
         "bearer" {
             if (-not $BearerTokenEnv) { throw "Bearer token env var name required." }
-            $token = $Env:$BearerTokenEnv
+            $token = $Env:BearerTokenEnv
             if (-not $token) { throw "Token not found in env var: $BearerTokenEnv" }
             $headers["Authorization"] = "Bearer $token"
         }
