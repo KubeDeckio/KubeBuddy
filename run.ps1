@@ -29,6 +29,9 @@ $PrometheusBearerTokenEnv = $env:PROMETHEUS_BEARER_TOKEN_ENV
 # Convert username/password to PSCredential
 $PrometheusCredential = $null
 if ($env:PROMETHEUS_USERNAME -and $env:PROMETHEUS_PASSWORD) {
+    # Suppress PSUseConvertToSecureStringWithPlainText rule
+    # This is acceptable in trusted automation contexts (e.g., CI/CD with ephemeral containers)
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingConvertToSecureStringWithPlainText", "", Justification = "Safe in containerized CI context")]
     $securePassword = ConvertTo-SecureString $env:PROMETHEUS_PASSWORD -AsPlainText -Force
     $PrometheusCredential = New-Object System.Management.Automation.PSCredential ($env:PROMETHEUS_USERNAME, $securePassword)
 }
