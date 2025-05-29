@@ -12,6 +12,7 @@ function Invoke-yamlChecks {
     # Configuration
     $checksFolder = "$PSScriptRoot/yamlChecks"
     $kubectl = "kubectl"
+    $PrometheusHeaders = ""
 
     # Ensure required modules
     try {
@@ -28,7 +29,16 @@ function Invoke-yamlChecks {
         Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
         return
     }
-
+    
+    # if Prometheus settings are on the KubeData object, adopt them
+    if ($KubeData.PrometheusUrl) {
+        $PrometheusUrl = $KubeData.PrometheusUrl
+        $PrometheusMode = $KubeData.PrometheusMode
+        $PrometheusUsername = $KubeData.PrometheusUsername
+        $PrometheusPassword = $KubeData.PrometheusPassword
+        $PrometheusBearerTokenEnv = $KubeData.PrometheusBearerTokenEnv
+        $PrometheusHeaders = $kubedata.PrometheusHeaders
+    }
     function Get-ValidProperties {
         param (
             [array]$Items,
@@ -164,6 +174,55 @@ function Invoke-yamlChecks {
             }
         }
 
+        function Evaluate-PrometheusCheckResult {
+            param (
+                [object]$Metric,
+                [double]$Expected,
+                [string]$Operator,
+                [string]$FailMessage
+            )
+
+            # no series or missing sub-fields?
+            if (-not $Metric -or
+                -not $Metric.metric -or
+                -not $Metric.values -or
+                $Metric.values.Count -eq 0) {
+                return $null
+            }
+        
+            $values = $Metric.values
+            if (-not $values -or $values.Count -eq 0) {
+                return $null
+            }
+        
+            $avg = ($values | ForEach-Object { [double]($_[1]) }) | Measure-Object -Average | Select-Object -ExpandProperty Average
+        
+            $failed = $false
+            switch ($Operator.ToLower()) {
+                "greater_than" { $failed = $avg -gt $Expected }
+                "less_than" { $failed = $avg -lt $Expected }
+                "equals" { $failed = [math]::Round($avg, 5) -eq [math]::Round($Expected, 5) }
+                default { return $null }  # unknown operator, skip
+            }
+        
+            if (-not $failed) {
+                return $null
+            }
+        
+            # Build result object
+            $labels = (
+                $Metric.metric.PSObject.Properties |
+                ForEach-Object { "$($_.Name): $($_.Value)" }
+            ) -join ", "
+
+        
+            return [pscustomobject]@{
+                MetricLabels = $labels
+                Average      = "{0:N4}" -f $avg
+                Message      = $FailMessage
+            }
+        }        
+
         $localResults = @()
 
         try {
@@ -231,12 +290,15 @@ function Invoke-yamlChecks {
                         }
 
                         $scriptBlock = [scriptblock]::Create($check.Script)
-                        $scriptResult = if ($check.ID -eq "NODE002") {
-                            & $scriptBlock -KubeData $using:KubeData -Thresholds $using:thresholds
+                        $scriptParams = @{
+                            KubeData          = $using:KubeData
+                            Namespace         = $using:Namespace
+                            ExcludeNamespaces = $using:ExcludeNamespaces
+                            Html              = $using:Html
+                            Thresholds        = $using:thresholds
                         }
-                        else {
-                            & $scriptBlock -KubeData $using:KubeData -Namespace $using:Namespace -ExcludeNamespaces:$using:ExcludeNamespaces
-                        }
+                        
+                        $scriptResult = & $scriptBlock @scriptParams
 
                         $checkResult = @{
                             ID             = $check.ID
@@ -252,6 +314,8 @@ function Invoke-yamlChecks {
                             Items          = @()
                             Total          = 0
                         }
+
+                        $checkResult.Severity = Normalize-Severity $checkResult.Severity
 
                         if ($scriptResult -is [hashtable] -and $scriptResult.ContainsKey("Items")) {
                             $items = $scriptResult["Items"]
@@ -271,7 +335,14 @@ function Invoke-yamlChecks {
                             # Catch anything else not a hashtable or array, but still not null
                             $checkResult.Items = @($scriptResult)
                             $checkResult.Total = 1
-                        }                        
+                        }    
+                        
+                        if ($scriptResult -is [hashtable] -and $scriptResult.ContainsKey("UsedPrometheus")) {
+                            $checkResult.UsedPrometheus = $scriptResult.UsedPrometheus
+                        }
+                        elseif ($scriptResult -is [array] -and $scriptResult[0]?.UsedPrometheus -ne $null) {
+                            $checkResult.UsedPrometheus = $scriptResult[0].UsedPrometheus
+                        }                                            
 
                         if ($checkResult.Total -eq 0) {
                             $checkResult.Message = "No issues detected for $($check.Name)."
@@ -290,6 +361,107 @@ function Invoke-yamlChecks {
                     }
                     continue
                 }
+
+
+                if ($check.Prometheus) {
+                    try {
+                        # skip unless we have a real URL
+                        if (-not $using:PrometheusUrl) {
+                            Write-Host "⚠️ Skipping Prometheus check $($check.ID): no PrometheusUrl configured." -ForegroundColor Yellow
+                            continue
+                        }
+                        # Derive URL & Mode: prefer per-check override, else fall back to global
+                        $url = if ($check.Prometheus.Url) { $check.Prometheus.Url } else { $using:PrometheusUrl }
+                        $headers = $using:PrometheusHeaders
+                        $thresholds = Get-KubeBuddyThresholds -Silent
+
+                        # lookup expected threshold:
+                        # if the YAML Expected is a string key in $thresholds, use that value,
+                        # otherwise cast it directly to double
+                        if ($check.Expected -is [string] -and $thresholds.ContainsKey($check.Expected)) {
+                            $expectedValue = [double]$thresholds[$check.Expected]
+                        }
+                        else {
+                            $expectedValue = [double]$check.Expected
+                        }
+
+                        # Time window driven by your YAML Range.Duration
+                        $endTime = (Get-Date).ToUniversalTime()
+                        # pull in the Duration string (e.g. "24h", "1h", "30m", "2d")
+                        $durStr = $check.Prometheus.Range.Duration
+
+                        # parse into a TimeSpan
+                        if ($durStr -match '^(\d+)([hmd])$') {
+                            $num = [int]$Matches[1]
+                            $unit = $Matches[2]
+                            switch ($unit) {
+                                'h' { $ts = New-TimeSpan -Hours   $num }
+                                'm' { $ts = New-TimeSpan -Minutes $num }
+                                'd' { $ts = New-TimeSpan -Days    $num }
+                            }
+                        }
+                        else {
+                            # fallback: assume it's just a number of hours
+                            $ts = New-TimeSpan -Hours ([double]$durStr)
+                        }
+
+                        $startTime = $endTime.Add(-$ts).ToUniversalTime().ToString("o")
+                        $endTime = $endTime.ToString("o")
+
+                        #  Execute the query
+                        $result = Get-PrometheusData `
+                            -Query   $check.Prometheus.Query `
+                            -Url     $url `
+                            -Headers $headers `
+                            -UseRange `
+                            -StartTime $startTime `
+                            -EndTime   $endTime `
+                            -Step      $check.Prometheus.Range.Step
+                
+                        $items = @()
+                        foreach ($r in $result.Results) {
+                            $eval = Evaluate-PrometheusCheckResult `
+                                -Metric $r `
+                                -Expected $expectedValue `
+                                -Operator $check.Operator `
+                                -FailMessage $check.FailMessage
+                        
+                            if ($eval) {
+                                $items += $eval
+                            }
+                        }
+                        
+                
+                        $checkResult = @{
+                            ID             = $check.ID
+                            Name           = $check.Name
+                            Category       = $check.Category
+                            Section        = $check.Section
+                            ResourceKind   = $check.ResourceKind
+                            Severity       = $check.Severity
+                            Weight         = $check.Weight
+                            Description    = $check.Description
+                            Recommendation = $check.Recommendation
+                            URL            = $check.URL
+                            Items          = $items
+                            Total          = $items.Count
+                        }
+
+                        $checkResult.Severity = Normalize-Severity $checkResult.Severity
+                
+                        $localResults += $checkResult
+                        Write-Host "✅ Completed Prometheus check: $($check.ID) - $($check.Name)                     " -ForegroundColor Green
+                    }
+                    catch {
+                        Write-Host "❌ Prometheus check failed for $($check.ID): $_" -ForegroundColor Red
+                        $localResults += @{
+                            ID    = $check.ID
+                            Name  = $check.Name
+                            Error = "Prometheus check failed: $_"
+                        }
+                    }
+                    continue
+                }                
 
                 # Non-script check logic
                 $data = $null
@@ -370,6 +542,8 @@ function Invoke-yamlChecks {
                     Total          = 0
                 }
 
+                $checkResult.Severity = Normalize-Severity $checkResult.Severity
+
                 foreach ($item in $data) {
                     try {
                         $value = $item
@@ -447,6 +621,14 @@ function Invoke-yamlChecks {
     # Convert ConcurrentBag to array and sort by Check ID
     $allResults = $allResults.ToArray() | Sort-Object -Property ID
 
+    # Hero metric counters (one point per failing check)
+    $panels = @{
+        critical = $allResults | Where-Object { $_.Severity -eq 'critical' -and $_.Total -gt 0 }
+        warning  = $allResults | Where-Object { $_.Severity -eq 'warning' -and $_.Total -gt 0 }
+        info     = $allResults | Where-Object { $_.Severity -eq 'info' -and $_.Total -gt 0 }
+    }
+
+
     # HTML output
     if ($Html) {
         $sectionGroups = @{}
@@ -462,16 +644,86 @@ function Invoke-yamlChecks {
             $sectionGroups[$section] += $result
         }
 
+        # Hero summary cards
+        $heroHtml = @"
+<h2>Issue Summary</h2>
+<p>
+  This section shows how many checks have failed at each severity level over the last run.
+  Click on a card below to expand and review those checks.
+</p>
+<div class="hero-metrics">
+"@
+
+        foreach ($sev in @('critical', 'warning', 'info')) {
+            $count = $panels[$sev].Count
+            $panelId = "expand-$sev"
+            $label = $sev.Substring(0, 1).ToUpper() + $sev.Substring(1)
+
+            # build the inner list HTML
+            if ($count -gt 0) {
+                $items = $panels[$sev] | ForEach-Object {
+                    "<div class='check-item'>
+         <a href='#$($_.ID)' class='check-id'>$($_.ID)</a>
+         <span class='check-name'>$($_.Name) <em>($($_.Section))</em></span>
+       </div>"
+                } | Out-String
+                $clickAttr = "onclick=`"toggleExpand('$panelId')`""
+                $arrowIcon = '<span class="expand-icon material-icons">expand_more</span>'
+                $cardClass = "metric-card $sev"
+            }
+            else {
+                $items = "<div class='wide-content'><p>No issues in this category.</p></div>"
+                $clickAttr = ''                      # no onclick
+                $arrowIcon = ''                      # no arrow
+                $cardClass = "metric-card $sev no-items"
+            }
+
+            $heroHtml += @"
+  <div class="$cardClass" id="card-$panelId">
+    <div class="card-content" $clickAttr>
+      <span class="category">$label</span>
+      <p>$count checks failed</p>
+      $arrowIcon
+    </div>
+    <div id="$panelId" class="expand-content scrollable-content">
+      <div class="wide-content">
+        $items
+      </div>
+    </div>
+  </div>
+"@
+        }
+        
         foreach ($section in $sectionGroups.Keys) {
             $sectionHtml = ""
 
             foreach ($check in $sectionGroups[$section]) {
-                $tooltip = if ($check.Description) {
-                    "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$($check.Description)</span></span>"
+                $usedPrometheus = if ($check.ID -eq "NODE002" -and ($check.UsedPrometheus -eq $true)) { $true } else { $false }
+                $prometheusSuffix = if ($check.ID -eq "NODE002" -and $usedPrometheus) { " (Last 24h)" } else { "" }
+                
+                # Tooltip generation can stay as-is
+                $tooltipText = ""
+                if ($check.Description) {
+                    $tooltipText = $check.Description
                 }
-                else { "" }
+                if ($check.ID -eq "NODE002") {
+                    $sourceText = if ($usedPrometheus) {
+                        "Data source: Prometheus (24h average)"
+                    }
+                    else {
+                        "Data source: kubectl top nodes (snapshot)"
+                    }
+                    $tooltipText = if ($tooltipText) { "$tooltipText<br><br>$sourceText" } else { $sourceText }
+                }
+                $tooltip = if ($tooltipText) {
+                    "<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>$tooltipText</span></span>"
+                }
+                else {
+                    ""
+                }
+                
+                $header = "<h2 id='$($check.ID)'>$($check.ID) - $($check.Name)$prometheusSuffix $tooltip</h2>"
 
-                $header = "<h2 id='$($check.ID)'>$($check.ID) - $($check.Name) $tooltip</h2>"
 
                 $resourceKind = $check.ResourceKind
                 $displayNames = Get-ResourceKindDisplayNames -ResourceKind $resourceKind
@@ -490,28 +742,36 @@ function Invoke-yamlChecks {
                         $recContent = $check.Recommendation.html
                         # Append the URL as an <li> with "Docs: " label if not already present
                         if ($check.URL -and ($recContent -notmatch [regex]::Escape($check.URL))) {
-                            # Extract a display name from the URL
-                            $urlDisplayName = $check.URL -replace '.*#', ''  # Get the fragment after the last '#'
-                            if (-not $urlDisplayName) {
-                                $urlDisplayName = ($check.URL -split '/')[-1]  # Fallback to last path segment
+                            # parse URL
+                            $u = [uri]$check.URL
+                            # break path into segments, ignore empty ones
+                            $seg = $u.AbsolutePath.Trim('/').Split('/') | Where-Object { $_ }
+                            # pick last meaningful segment (fallback to whole path if somehow empty)
+                            $last = if ($seg[-1]) { $seg[-1] } else { ($u.AbsolutePath.Trim('/')) }
+                            # drop extension (.html, .md, etc)
+                            $base = $last -replace '\.[^.]+$', ''
+                            # replace hyphens and percent-encoding
+                            $base = $base -replace '%2[fF]', '/' -replace '-', ' '
+                            # Title case
+                            $displayName = (Get-Culture).TextInfo.ToTitleCase($base)
+                            # optionally prefix common terms, e.g. Kubernetes, Prometheus, etc
+                            if ($u.Host -match 'kubernetes.io') {
+                                $displayName = "Kubernetes $displayName"
                             }
-                            # Clean up and format the display name
-                            $urlDisplayName = $urlDisplayName -replace '-', ' '
-                            $urlDisplayName = (Get-Culture).TextInfo.ToTitleCase($urlDisplayName)
-                            $urlDisplayName = "Kubernetes $urlDisplayName"
-                            $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$urlDisplayName</a></li>"
-
-                            # Check if recContent contains a <ul>
+                            elseif ($u.Host -match 'prometheus.io') {
+                                $displayName = "Prometheus $displayName"
+                            }
+                            # build the li
+                            $urlHtml = "<li><strong>Docs:</strong> <a href='$($check.URL)' target='_blank'>$displayName</a></li>"
+                        
                             if ($recContent -match '</ul>') {
-                                # Insert the <li> before the closing </ul>
                                 $recContent = $recContent -replace '</ul>', "$urlHtml</ul>"
                             }
                             else {
-                                # If no <ul>, wrap the URL in a new <ul>
                                 $recContent += "<ul>$urlHtml</ul>"
                             }
                         }
-@"
+                        @"
 <div class="recommendation-card">
 <div class="recommendation-banner">
   <span class="material-icons">tips_and_updates</span>
@@ -704,18 +964,21 @@ $summary
                 $status = if ($check.Total -eq 0) { 'Passed' } else { 'Failed' }
                 $checkStatusList += [pscustomobject]@{
                     Id     = $check.ID
-                    Status = $status
+                    Status = $status 
                     Weight = $check.Weight
                 }
-                $checkScoreList += [pscustomobject]@{
-                    Id     = $check.ID
-                    Weight = $check.Weight
-                    Total  = if ($status -eq 'Passed') { 0 } else { 1 }
-                }                
+                if ($check.Weight -ne $null -and -not $check.Error -and $check.ID) {
+                    $checkScoreList += [pscustomobject]@{
+                        Id     = $check.ID
+                        Weight = $check.Weight
+                        Total = if ($status -eq 'Passed') { 0 } else { $check.Total }
+                    }
+                }                       
             }
         }
 
         return @{
+            IssueHero     = $heroHtml
             HtmlBySection = $collapsibleSectionMap
             StatusList    = $checkStatusList
             ScoreList     = $checkScoreList 
@@ -724,10 +987,34 @@ $summary
     
     # JSON output
     if ($Json) {
-        return @{ Total = ($allResults | Measure-Object -Sum -Property Total).Sum; Items = $allResults }
+        $validChecks = $allResults | Where-Object {
+            $_.Weight -ne $null -and
+            -not $_.Error -and
+            $_.ID -ne $null
+        }
+        
+        $totalWeight = ($validChecks | Measure-Object -Property Weight -Sum).Sum
+        $failedWeight = ($validChecks | Where-Object { $_.Total -gt 0 } | Measure-Object -Property Weight -Sum).Sum
+        $scorePercent = if ($totalWeight -gt 0) {
+            [math]::Round(100 - (($failedWeight / $totalWeight) * 100), 2)
+        } else { 100 }
+        
+        return @{
+            Hero       = $panels
+            TotalScore = $scorePercent
+            Items      = $allResults
+        }     
     }
+     
 
     if ($Text) {
+        Write-ToReport ""
+        Write-ToReport "=== Issue Summary ==="
+        Write-ToReport "Critical issues: $($panels.critical.count)"
+        Write-ToReport "Warning issues:  $($panels.warning.count)"
+        Write-ToReport "Info issues:     $($panels.info.count)"
+        Write-ToReport ""
+        Write-ToReport "=== Check Results ==="
         foreach ($result in $allResults) {
             Write-ToReport ""
             Write-ToReport "$($result.ID) - $($result.Name)"

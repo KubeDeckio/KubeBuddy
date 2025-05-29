@@ -4,7 +4,53 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## \[0.0.19] - 2025-05-02
+
+## [0.0.20] – 2025-05-15
+
+### What’s New
+
+* **Prometheus integration**
+  We’ve wired KubeBuddy up to Prometheus so you can get real-time node and API-server metrics:
+
+  * **CPU & Memory Usage** (PROM001 & PROM002): track average usage across all nodes over the last 24 hours.
+  * **Memory Saturation** (PROM003): see how much of each node’s allocatable memory is actually in use.
+  * **API Server Latency** (PROM004): alert you if request latency spikes beyond healthy thresholds.
+  * **CPU Overcommitment** (PROM005): flag any nodes whose pods are asking for more CPU than they can deliver.
+  * **New per-node Prometheus view**: click into any node’s card to see its individual metrics and time-series charts right in your report.
+  * Plus new `KubeData` settings (URL, mode, credentials, headers, etc.) to configure your Prometheus connection securely.
+
+* **Top 5 Impprovements**: The Overview page now surfaces the five checks whose remediation yields the greatest cluster-health score gain, showing estimated points gain per issue.
+
+* **“Hero” Issue-Summary cards**
+  Right at the top of your HTML report you’ll now see a row of big, color-coded cards showing how many checks failed at each severity level (Critical, Warning, Info).
+
+  * Click a card and it smoothly expands inline to list every failing check in that category.
+  * Built entirely with our new `.hero-metrics`, `.metric-card`, `.expand-content` and `.scrollable-content` CSS, plus a tiny `toggleExpand()` script for the show-and-hide behaviour.
+
+### Improvements
+
+* **HTML report polish**
+
+  * Hover over any check header to see a handy info-icon tooltip with the full description.
+  * Long “Findings” and “Recommendations” sections are now tucked into collapsible panels to keep your report neat.
+  * Each recommendation is wrapped in a stylish card with a banner and auto-linked “Docs:” reference.
+  * All tables live inside a `<div class="table-container">` and are built by hand to ensure proper HTML-escaping and XSS safety.
+
+* **Under-the-hood tweaks for Prometheus checks**
+
+  * All Prometheus parameters (`Url`, `Mode`, `Username`, etc.) are now predeclared so they work correctly inside PowerShell’s parallel runspaces.
+  * Threshold lookups in parallel blocks now use `$using:thresholds`.
+  * If you haven’t set a Prometheus URL or headers, KubeBuddy will quietly skip those checks (no noisy errors).
+
+### Fixes
+
+* **Null-value errors** eliminated by:
+
+  * Checking that each threshold key actually exists before casting.
+  * Verifying your `PrometheusHeaders` hashtable isn’t null or empty before poking its keys or making HTTP calls.
+
+
+## [0.0.19] - 2025-05-02
 
 ### Fixed
 

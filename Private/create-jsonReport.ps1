@@ -22,7 +22,7 @@ function Create-JsonReport {
             kubernetesVersion = $k8sVersion
             generatedAt       = $generatedAt
         }
-        checks = @{}
+        checks   = @{}
     }
 
     # Run YAML-based checks
@@ -86,10 +86,79 @@ function Create-JsonReport {
 
     # Calculate score from all checks
     $allChecks = $yamlCheckResults.Items
-    if ($aks -and $aksCheckResults -and $aksCheckResults.Items) {
-        $allChecks += $aksCheckResults.Items
+
+    $validChecks = $allChecks | Where-Object {
+        $_.Weight -ne $null -and
+        -not $_.Error -and
+        $_.ID -ne $null
     }
-    $results.metadata.score = Get-ClusterHealthScore -Checks $allChecks
+    
+    $results.metadata.score = Get-ClusterHealthScore -Checks $validChecks
+    
+    # ----- Add Prometheus Metrics to JSON -----
+    if ($KubeData.PrometheusMetrics) {
+        # Cluster-level averages
+        $cpuValues = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } }
+        $memValues = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } }
+        $clusterMetrics = [PSCustomObject]@{
+            avgCpuPercent = [math]::Round(($cpuValues | Measure-Object -Average).Average, 2)
+            avgMemPercent = [math]::Round(($memValues | Measure-Object -Average).Average, 2)
+            cpuTimeSeries = (
+                $KubeData.PrometheusMetrics.NodeCpuUsagePercent |
+                ForEach-Object { $_.values | ForEach-Object { [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] } } } |
+                Group-Object timestamp |
+                ForEach-Object { [PSCustomObject]@{ timestamp = $_.Name; value = [math]::Round(($_.Group | Measure-Object -Property value -Average).Average, 2) } } |
+                Sort-Object timestamp
+            )
+            memTimeSeries = (
+                $KubeData.PrometheusMetrics.NodeMemoryUsagePercent |
+                ForEach-Object { $_.values | ForEach-Object { [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] } } } |
+                Group-Object timestamp |
+                ForEach-Object { [PSCustomObject]@{ timestamp = $_.Name; value = [math]::Round(($_.Group | Measure-Object -Property value -Average).Average, 2) } } |
+                Sort-Object timestamp
+            )
+        }
+
+        # Node-level metrics
+        $nodeMetricsList = @()
+        foreach ($node in $KubeData.Nodes.items) {
+            $name = $node.metadata.name
+        
+            $cpuMatch = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $name }
+            $memMatch = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $name }
+            $diskMatch = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $name }
+        
+            $cpuSeries = if ($cpuMatch -and $cpuMatch.values) {
+                $cpuMatch.values | ForEach-Object {
+                    [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] }
+                }
+            } else { @() }
+        
+            $memSeries = if ($memMatch -and $memMatch.values) {
+                $memMatch.values | ForEach-Object {
+                    [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] }
+                }
+            } else { @() }
+        
+            $diskSeries = if ($diskMatch -and $diskMatch.values) {
+                $diskMatch.values | ForEach-Object {
+                    [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] }
+                }
+            } else { @() }
+        
+            $nodeMetricsList += [PSCustomObject]@{
+                nodeName   = $name
+                cpuAvg     = if ($cpuSeries.Count -gt 0) { [math]::Round(($cpuSeries.value | Measure-Object -Average).Average, 2) } else { 'N/A' }
+                memAvg     = if ($memSeries.Count -gt 0) { [math]::Round(($memSeries.value | Measure-Object -Average).Average, 2) } else { 'N/A' }
+                diskAvg    = if ($diskSeries.Count -gt 0) { [math]::Round(($diskSeries.value | Measure-Object -Average).Average, 2) } else { 'N/A' }
+                cpuSeries  = $cpuSeries
+                memSeries  = $memSeries
+                diskSeries = $diskSeries
+            }
+        }
+
+        $results.metrics = @{ cluster = $clusterMetrics; nodes = $nodeMetricsList }
+    }
 
     # Write JSON
     $results | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $OutputPath

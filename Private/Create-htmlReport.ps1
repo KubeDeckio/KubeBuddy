@@ -14,13 +14,21 @@ function Generate-K8sHTMLReport {
     param(
       [string]$Id,
       [string]$defaultText,
-      [string]$content
+      [string]$content,
+      [switch]$UseRichSummary
     )
-          
+  
+    $summaryHtml = if ($UseRichSummary) {
+      $defaultText  # Pass actual HTML for summary
+    }
+    else {
+      "<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>"
+    }
+  
     @"
-<div class="collapsible-container" id='$Id'>
-<details style='margin:10px 0;'>
-  <summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>
+<div class="collapsible-container">
+<details id='$Id' style='margin:10px 0;'>
+  $summaryHtml
   <div style='padding-top: 15px;'>
     $content
   </div>
@@ -28,6 +36,7 @@ function Generate-K8sHTMLReport {
 </div>
 "@
   }
+  
 
   # Mapping of custom check sections to navigation categories
   $sectionToNavMap = @{
@@ -118,11 +127,31 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     $heroRatingHtml = @"
 <h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
-<div class="metric-card normal">✅ Passed: <strong>$aksPass</strong></div>
-<div class="metric-card critical">❌ Failed: <strong>$aksFail</strong></div>
-<div class="metric-card default">📊 Total Checks: <strong>$aksTotal</strong></div>
-<div class="metric-card default">🎯 Score: <strong>$aksScore%</strong></div>
-<div class="metric-card $ratingColorClass">⭐ Rating: <strong>$aksRating</strong></div>
+  <div class="metric-card normal">
+    <div class="card-content">
+      <p>✅ Passed: <strong>$aksPass</strong></p>
+    </div>
+  </div>
+  <div class="metric-card critical">
+    <div class="card-content">
+      <p>❌ Failed: <strong>$aksFail</strong></p>
+    </div>
+  </div>
+  <div class="metric-card default">
+    <div class="card-content">
+      <p>📊 Total Checks: <strong>$aksTotal</strong></p>
+    </div>
+  </div>
+  <div class="metric-card default">
+    <div class="card-content">
+      <p>🎯 Score: <strong>$aksScore%</strong></p>
+    </div>
+  </div>
+  <div class="metric-card $ratingColorClass">
+    <div class="card-content">
+      <p>⭐ Rating: <strong>$aksRating</strong></p>
+    </div>
+  </div>
 </div>
 "@
 
@@ -149,6 +178,7 @@ $heroRatingHtml
   $customNavItems = @{}
   $checkStatusList = @()
   $hasCustomChecks = $false
+  $topFixHtml = ""
 
   foreach ($check in $checks) {
     $html = & $check.Cmd
@@ -158,8 +188,83 @@ $heroRatingHtml
       $allChecksBySection = $html.HtmlBySection
       $checkStatusList += $html.StatusList
       $checkScoreList += $html.ScoreList
-
+      $issueHeroHtml = $html.IssueHero
       $knownSections = $sectionToNavMap.Keys
+
+      # ─── build a flat Id→Name lookup from your HtmlBySection ───
+      $flatChecks = @()
+      foreach ($sectionHtml in $allChecksBySection.Values) {
+        $ids = [regex]::Matches($sectionHtml, "<h2 id='([^']+)'")            | ForEach-Object { $_.Groups[1].Value }
+        $names = [regex]::Matches($sectionHtml, "<h2 id='[^']+'>\s*[^-]+-\s*([^<]+)") | ForEach-Object { $_.Groups[1].Value.Trim() }
+        for ($i = 0; $i -lt [Math]::Min($ids.Count, $names.Count); $i++) {
+          $flatChecks += [pscustomobject]@{ Id = $ids[$i]; Name = $names[$i] }
+        }
+      }
+
+      # ─── compute “lost %” and “gain pts” ───
+      $checkPriorities = $checkScoreList | ForEach-Object {
+        $id = $_.Id
+        $name = ($flatChecks | Where-Object Id -EQ $id).Name
+        $weight = [double] $_.Weight
+        $total = [double] $_.Total
+
+        # lost percentage
+        $lostPct = if ($total -gt 0) { [math]::Round( ($total / ($total + 1)) * 100, 1 ) } else { 0 }
+        # points you’d recover
+        $gainPts = [math]::Round( ($lostPct / 100) * $weight, 2 )
+
+        [pscustomobject]@{
+          ID      = $id
+          Name    = $name
+          Weight  = $weight
+          Total   = $total
+          LostPct = $lostPct
+          GainPts = $gainPts
+        }
+      }
+
+      # pick the top 5, sorted descending by LostPct
+      $top5ToFix = $checkPriorities |
+      Sort-Object GainPts -Descending |
+      Select-Object -First 5
+
+
+      $itemsHtml = (
+        $top5ToFix | ForEach-Object {
+          $id = $_.ID
+          $name = $_.Name
+          $gain = $_.GainPts
+
+          # categorize urgency
+          if ($_.LostPct -gt 0.7) { $lostCat = "High" }
+          elseif ($_.LostPct -gt 0.4) { $lostCat = "Medium" }
+          else { $lostCat = "Low" }
+
+          @"
+<div class="quick-fix-card" data-lostpct="$lostCat">
+  <header class="card-header">
+    <span class="material-icons fix-icon">home_repair_service</span>
+    <a href="#$id" class="fix-id">$id</a>
+    <span class="fix-metrics">+ $gain pts</span>
+  </header>
+  <p class="fix-name">$name</p>
+</div>
+"@
+        }
+      ) -join "`n"
+
+      # now inject that into your grid wrapper
+      $topFixHtml = @"
+<h2>Top 5 Improvements</h2>
+<p class="quick-fix-intro">
+  These are the five checks whose remediation will yield the most immediate benefit to your overall Cluster Health Score.
+  Each card shows the cluster score points you’ll recover by fixing it.
+</p>
+<div class="quick-fixes-grid">
+  $itemsHtml
+</div>
+"@
+
 
       foreach ($section in $allChecksBySection.Keys) {
         # --- build your checksInSection exactly as you had it ---
@@ -252,29 +357,37 @@ $heroRatingHtml
     "#F44336"
   }
 
-# Cluster Health Score Bar
-$scoreBarHtml = @"
+  $scoreClass = if ($clusterScore -ge 80) { "healthy" }
+  elseif ($clusterScore -ge 50) { "warning" }
+  else { "critical" }
+
+
+  # Cluster Health Score Bar
+  $scoreBarHtml = @"
 <div class="score-container">
   <h2 class="cluster-health-score">Cluster Health Score</h2>
   <p>Score: <strong>$clusterScore / 100</strong></p>
   <div class="progress-bar" style="--cluster-score: $clusterScore;" role="progressbar" aria-label="Cluster Health Score: $clusterScore out of 100">
-    <div class="progress" style="width: 0%;">
+    <div class="progress $scoreClass" style="width: 0%;">
       <span class="progress-text">$clusterScore%</span>
     </div>
   </div>
-  <p style="margin-top:10px; font-size:16px;">This score is calculated from key checks across nodes, workloads, security, and configuration best practices. A higher score means fewer issues and better adherence to Kubernetes standards.</p>
+  <p style="margin-top:10px; font-size:16px;">
+    This score is calculated from key checks across nodes, workloads, security, and configuration best practices.
+    A higher score means fewer issues and better adherence to Kubernetes standards.
+  </p>
 </div>
 "@
 
   $totalChecks = $checkStatusList.Count
   $passedChecks = ($checkStatusList | Where-Object { $_.Status -eq 'Passed' }).Count
 
-  if ($aks) {
-    $totalChecks += $aksTotal
-    $passedChecks += $aksPass
-  }
+  # if ($aks) {
+  #   $totalChecks += $aksTotal
+  #   $passedChecks += $aksPass
+  # }
 
-$healthStatusHtml = @"
+  $healthStatusHtml = @"
 <div class="health-status">
   <h2>Passed / Failed Checks</h2>
   <div class="status-container">
@@ -324,8 +437,232 @@ $healthStatusHtml = @"
   $excludedNamespaces = Get-ExcludedNamespaces -Silent
   $errorClass = if ($eventErrors -ge $thresholds.event_errors_critical) { "critical" } elseif ($eventErrors -ge $thresholds.event_errors_warning) { "warning" } else { "normal" }
   $warningClass = if ($eventWarnings -ge $thresholds.event_warnings_critical) { "critical" } elseif ($eventWarnings -ge $thresholds.event_warnings_warning) { "warning" } else { "normal" }
-  $cpuClass = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
-  $memClass = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } else { "normal" }
+  $cpuClassTop = if ($cpuUsage -ge $thresholds.cpu_critical) { "critical" } elseif ($cpuUsage -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
+  $memClassTop = if ($memUsage -ge [double]$thresholds.mem_critical) { "critical" } elseif ($memUsage -ge [double]$thresholds.mem_warning) { "warning" } else { "normal" }
+
+
+  # Initialize Prometheus HTML content
+  $clusterMetricsHtml = ""
+  $nodeMetricsHtml = ""
+  if ($KubeData.PrometheusMetrics -and $KubeData.PrometheusMetrics.NodeCpuUsagePercent) {
+    Write-Host "📊 Generating Prometheus metrics for Summary and Nodes tabs..." -ForegroundColor Cyan
+
+    # Cluster Metrics for Summary Tab
+    $avgCpu = [math]::Round(($KubeData.PrometheusMetrics.NodeCpuUsagePercent | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } } | Measure-Object -Average).Average, 2)
+    $avgMem = [math]::Round(($KubeData.PrometheusMetrics.NodeMemoryUsagePercent | ForEach-Object { $_.values | ForEach-Object { [double]$_[1] } } | Measure-Object -Average).Average, 2)
+    $cpuClassProm = if ($avgCpu -ge $thresholds.cpu_critical) { "critical" } elseif ($avgCpu -ge $thresholds.cpu_warning) { "warning" } else { "normal" }
+    $memClassProm = if ($avgMem -ge $thresholds.mem_critical) { "critical" } elseif ($avgMem -ge $thresholds.mem_warning) { "warning" } else { "normal" }
+
+    # Aggregate CPU chart data (average across nodes)
+    $cpuChartData = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | ForEach-Object {
+      $_.values | ForEach-Object {
+        [PSCustomObject]@{
+          timestamp = [int64]($_[0] * 1000)  # Convert seconds to milliseconds
+          value     = [double]$_[1]
+        }
+      }
+    } | Group-Object timestamp | ForEach-Object {
+      [PSCustomObject]@{
+        timestamp = $_.Name
+        value     = [math]::Round(($_.Group | Measure-Object -Property value -Average).Average, 2)
+      }
+    } | Sort-Object timestamp
+    $cpuChartJson = if ($cpuChartData) { $cpuChartData | ConvertTo-Json -Compress } else { "[]" }
+
+    # Aggregate Memory chart data (average across nodes)
+    $memChartData = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | ForEach-Object {
+      $_.values | ForEach-Object {
+        [PSCustomObject]@{
+          timestamp = [int64]($_[0] * 1000)
+          value     = [double]$_[1]  # Keep as percentage
+        }
+      }
+    } | Group-Object timestamp | ForEach-Object {
+      [PSCustomObject]@{
+        timestamp = $_.Name
+        value     = [math]::Round(($_.Group | Measure-Object -Property value -Average).Average, 2)
+      }
+    } | Sort-Object timestamp
+    $memChartJson = if ($memChartData) { $memChartData | ConvertTo-Json -Compress } else { "[]" }
+  }
+
+  $clusterMetricsHtml = @"
+<h2>Cluster Health Metrics (Last 24h)
+  <span class='tooltip'>
+    <span class='info-icon'>i</span>
+    <span class='tooltip-text'>Historical CPU and memory metrics from Prometheus, averaged over the last 24 hours.</span>
+  </span>
+</h2>
+<div class='hero-metrics'>
+  <div class='metric-card $cpuClassProm'>
+    <div class='card-content'>
+      <p>🖥 Avg CPU: <strong>$avgCpu%</strong></p>
+      <span>$(if ($cpuClassProm -eq 'normal') { 'Normal' } elseif ($cpuClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span>
+    </div>
+  </div>
+  <div class='metric-card $memClassProm'>
+    <div class='card-content'>
+      <p>💾 Avg Memory: <strong>$avgMem%</strong></p>
+      <span>$(if ($memClassProm -eq 'normal') { 'Normal' } elseif ($memClassProm -eq 'warning') { 'Warning' } else { 'Critical' })</span>
+    </div>
+  </div>
+</div>
+<div class='chart-wrapper'>
+  <div class='chart-item'>
+    <h3>Cluster CPU Usage (%)</h3>
+    <p>Historical CPU metrics from Prometheus, averaged over the last 24 hours.</p>
+    <canvas id='clusterCpuChart' data-values='$cpuChartJson'></canvas>
+  </div>
+</div>
+<div class='chart-wrapper'>
+  <div class='chart-item'>
+    <h3>Cluster Memory Usage (%)</h3>
+    <p>Historical Memory metrics from Prometheus, averaged over the last 24 hours.</p>
+    <canvas id='clusterMemChart' data-values='$memChartJson'></canvas>
+  </div>
+</div>
+"@
+
+  foreach ($node in $KubeData.Nodes.items) {
+    $nodeName = $node.metadata.name
+    $osImage = $node.status.nodeInfo.osImage
+    $kernelVersion = $node.status.nodeInfo.kernelVersion
+    $kubeletVersion = $node.status.nodeInfo.kubeletVersion
+    $containerRuntime = $node.status.nodeInfo.containerRuntimeVersion
+
+    $cpuMetrics = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+    $memMetrics = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+    $diskMetrics = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $nodeName }
+
+    function Get-AverageAndChartData($metrics) {
+      if (-not $metrics) { return @{ Avg = "N/A"; Json = "[]" } }
+      $values = $metrics.values | ForEach-Object {
+        [PSCustomObject]@{
+          timestamp = [int64]($_[0] * 1000)
+          value     = [double]$_[1]
+        }
+      }
+      $avg = [math]::Round(($values.value | Measure-Object -Average).Average, 2)
+      return @{ Avg = $avg; Json = ($values | ConvertTo-Json -Compress) }
+    }
+
+    $cpuData = Get-AverageAndChartData $cpuMetrics
+    $memData = Get-AverageAndChartData $memMetrics
+    $diskData = Get-AverageAndChartData $diskMetrics
+
+    $cpuClass = if ($cpuData.Avg -eq "N/A") { "unknown" }
+    elseif ($cpuData.Avg -ge $thresholds.cpu_critical) { "critical" }
+    elseif ($cpuData.Avg -ge $thresholds.cpu_warning) { "warning" }
+    else { "normal" }
+
+    $memClass = if ($memData.Avg -eq "N/A") { "unknown" }
+    elseif ($memData.Avg -ge $thresholds.mem_critical) { "critical" }
+    elseif ($memData.Avg -ge $thresholds.mem_warning) { "warning" }
+    else { "normal" }
+
+    $diskClass = if ($diskData.Avg -eq "N/A") { "unknown" }
+    elseif ($diskData.Avg -ge 90) { "critical" }
+    elseif ($diskData.Avg -ge 75) { "warning" }
+    else { "normal" }
+
+    $nodeId = "node_$($nodeName -replace '[^a-zA-Z0-9]', '_')"
+
+    $nodeContent = @"
+<div class='collapsible-header' style='background: #0071FF; color: white; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 8px 8px 0 0;'>
+  $nodeName
+</div>
+<div class='recommendation-card node-card'>
+  <div style='padding: 15px;'>
+    <p><strong>OS:</strong> $osImage<br>
+       <strong>Kernel:</strong> $kernelVersion<br>
+       <strong>Kubelet:</strong> $kubeletVersion<br>
+       <strong>Runtime:</strong> $containerRuntime</p>
+
+    <div class='hero-metrics'>
+      <div class='metric-card $cpuClass'>
+        <div class='card-content'>
+          <p>🖥 CPU: <strong>$($cpuData.Avg)%</strong></p>
+        </div>
+      </div>
+      <div class='metric-card $memClass'>
+        <div class='card-content'>
+          <p>💾 Memory: <strong>$($memData.Avg)%</strong></p>
+        </div>
+      </div>
+      <div class='metric-card $diskClass'>
+        <div class='card-content'>
+          <p>🗄 Disk: <strong>$($diskData.Avg)%</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <div class='chart-wrapper row-3'>
+      <div class='chart-item'>
+        <h3>CPU Usage (%)</h3>
+        <canvas class='node-chart' data-values='$($cpuData.Json)'></canvas>
+      </div>
+      <div class='chart-item'>
+        <h3>Memory Usage (%)</h3>
+        <canvas class='node-chart' data-values='$($memData.Json)'></canvas>
+      </div>
+      <div class='chart-item'>
+        <h3>Disk Usage (%)</h3>
+        <canvas class='node-chart' data-values='$($diskData.Json)'></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+"@
+
+
+    $summaryHtml = @"
+<summary class="node-summary collapsible-arrow">
+  <span class="summary-inner">
+    <span class="node-name">Node: $nodeName</span>
+    <span class="summary-metrics">
+      <span class="metric-badge $cpuClass">CPU: $($cpuData.Avg)%</span>
+      <span class="metric-badge $memClass">Mem: $($memData.Avg)%</span>
+      <span class="metric-badge $diskClass">Disk: $($diskData.Avg)%</span>
+    </span> 
+  </span>
+</summary>
+"@
+
+
+    $allNodeCards += ConvertToCollapsible -Id $nodeId -defaultText $summaryHtml -content $nodeContent -UseRichSummary
+
+  }
+
+  $nodeCardsOnlyHtml = $allNodeCards
+
+  $nodeSectionHeader = @"
+<div class="container">
+<h2 style='margin-bottom: 10px;'>
+  Node Conditions & Metrics (Last 24h)
+  <span class='tooltip'>
+    <span class='info-icon'>i</span>
+    <span class='tooltip-text'>
+      This section provides detailed metrics and configuration for each Kubernetes node including CPU, memory, and disk usage, as well as OS and runtime details.
+    </span>
+  </span>
+</h2>
+<div class="material-input with-icon">
+  <i class="material-icons">search</i>
+  <div style="position: relative; width: 100%;">
+    <input type="text" id="nodeFilterInput" placeholder=" " />
+    <label for="nodeFilterInput">Search Nodes</label>
+  </div>
+</div>
+<div id="filteredNodeCardsWrapper">
+  <div id="filteredNodeCards">
+    $nodeCardsOnlyHtml
+  </div>
+  <div id="nodeCardPagination" class="table-pagination"></div>
+</div>
+</div>
+"@
+
+  $nodeCardHtml = $nodeSectionHeader
 
   if ($ExcludeNamespaces) {
     $excludedList = ($excludedNamespaces | ForEach-Object { "<span class='excluded-ns'>$_</span>" }) -join " • "
@@ -340,6 +677,33 @@ $healthStatusHtml = @"
     $excludedNamespacesHtml = ""
   }
 
+  $fallbackClusterMetricsHtml = @"
+<h2>Resource Usage 
+  <span class="tooltip">
+    <span class="info-icon">i</span>
+    <span class="tooltip-text">
+      Cluster-wide CPU and memory usage. This reflects a snapshot taken at report generation time.
+    </span>
+  </span>
+</h2>
+<p style="font-size: 14px; color: #666; margin-top: -10px;">🕒 Snapshot time: <strong>$today</strong></p>
+<div class="hero-metrics">
+  <div class="metric-card $cpuClassTop">
+    <div class="card-content">
+      <p>🖥 CPU: <strong>$cpuUsage%</strong></p>
+      <p>$cpuStatus</p>
+    </div>
+  </div>
+  <div class="metric-card $memClassTop">
+    <div class="card-content">
+      <p>💾 Memory: <strong>$memUsage%</strong></p>
+      <p>$memStatus</p>
+    </div>
+  </div>
+</div>
+"@
+  
+
   $htmlTemplate = @"
 <!DOCTYPE html>
 <html lang='en'>
@@ -349,6 +713,9 @@ $healthStatusHtml = @"
 <title>Kubernetes Cluster Report</title>
 <link rel='icon' href='https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/assets/images/favicon.ico' type='image/x-icon'>
 <link href='https://fonts.googleapis.com/icon?family=Material+Icons' rel='stylesheet'>
+<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'></script>
     <style>
         $cssContent
     </style>
@@ -374,14 +741,21 @@ $healthStatusHtml = @"
           <a href="https://kubedeck.io" target="_blank" style="color: #ffffff; text-decoration: underline;">
             🌐 KubeDeck.io
           </a>
+          </div>
+        <div>
+          Documentation 
+          <a href="https://kubebuddy.io" target="_blank" style="color: #ffffff; text-decoration: underline;">
+            📄 KubeBuddy.io
+          </a>
         </div>
-        <div id="printContainer" style="margin-top: 4px;">
+       <!-- <div id="printContainer" style="margin-top: 4px;">
           <button id="savePdfBtn">📄 Save as PDF</button>
-        </div>
+        </div> -->
       </div>
     </div>
     <ul class="tabs">
-      <li class="tab active" data-tab="summary" data-tooltip="Summary">Summary</li>
+      <li class="tab active" data-tab="overview" data-tooltip="Overview">Overview</li>
+      <li class="tab" data-tab="summary" data-tooltip="Summary">Summary</li>
       <li class="tab" data-tab="nodes" data-tooltip="Nodes">Nodes</li>
       <li class="tab" data-tab="namespaces" data-tooltip="Namespaces">Namespaces</li>
       <li class="tab" data-tab="workloads" data-tooltip="Workloads">Workloads</li>
@@ -405,8 +779,10 @@ $healthStatusHtml = @"
   <ul class="nav-items"></ul>
 </div>
 <div id="navScrim" class="nav-scrim"></div>
-<button id="menuFab">☰</button>
-<div class="tab-content active" id="summary">
+<button id="menuFab" class="menu-btn">
+  <i id="menuIcon" class="material-icons">menu</i>
+</button>
+<div class="tab-content active" id="overview">
   <div class="container">
     <h1 id="Health">Cluster Overview</h1>
     <p><strong>Cluster Name:</strong> $ClusterName</p>
@@ -421,8 +797,14 @@ $healthStatusHtml = @"
       <div class="health-status">
         $healthStatusHtml
       </div>
-    </div>
   </div>
+      $topFixHtml    
+      $issueHeroHtml
+    </div>
+    $excludedNamespacesHtml
+  </div>
+</div>
+<div class="tab-content" id="summary">
   <div class="container">
     <h1 id="summary">Cluster Summary</h1>
     <p><strong>Cluster Name:</strong> $ClusterName</p>
@@ -441,29 +823,26 @@ $healthStatusHtml = @"
     <table>
       <tr><td>Avg: <strong>$podAvg</strong></td><td>Max: <strong>$podMax</strong></td><td>Min: <strong>$podMin</strong></td><td>Total Nodes: <strong>$podTotalNodes</strong></td></tr>
     </table>
-    <h2>Resource Usage 
-      <span class="tooltip">
-        <span class="info-icon">i</span>
-        <span class="tooltip-text">
-          Cluster-wide CPU and memory usage. This reflects a snapshot taken at report generation time.
-        </span>
-      </span>
-    </h2>
-    <p style="font-size: 14px; color: #666; margin-top: -10px;">🕒 Snapshot time: <strong>$today</strong></p>
-    <div class="hero-metrics">
-      <div class="metric-card $cpuClass">🖥 CPU: <strong>$cpuUsage%</strong><br><span>$cpuStatus</span></div>
-      <div class="metric-card $memClass">💾 Memory: <strong>$memUsage%</strong><br><span>$memStatus</span></div>
-    </div>
+    $(
+      if ($KubeData.PrometheusMetrics) {
+        $clusterMetricsHtml
+      } else {
+        $fallbackClusterMetricsHtml
+      }
+    )
     <h2>Cluster Events <span class="tooltip"><span class="info-icon">i</span><span class="tooltip-text">Summary of recent warning and error events.</span></span></h2>
     <div class="hero-metrics">
-      <div class="metric-card $errorClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
-        ❌ Errors: <strong>$eventErrors</strong>
+      <div class="metric-card $errorClass" data-tab="events" style="cursor: pointer;" title="Click to view Kubernetes Events">
+        <div class="card-content">
+          <p>❌ Errors: <strong>$eventErrors</strong></p>
+        </div>
       </div>
-      <div class="metric-card $warningClass" onclick="switchTab('events')" style="cursor: pointer;" title="Click to view Kubernetes Events">
-        ⚠️ Warnings: <strong>$eventWarnings</strong>
+      <div class="metric-card $warningClass" data-tab="events" style="cursor: pointer;" title="Click to view Kubernetes Events">
+        <div class="card-content">
+          <p>⚠️ Warnings: <strong>$eventWarnings</strong></p>
+        </div>
       </div>
     </div>
-    $excludedNamespacesHtml
   </div>
 </div>
 <div class="tab-content" id="nodes">
@@ -471,6 +850,10 @@ $healthStatusHtml = @"
     <h1>Node Conditions & Resources</h1>
     <div class="table-container">$collapsibleNodesHtml</div>
   </div>
+      $(
+      if ($KubeData.PrometheusMetrics) {
+    $nodeCardHtml
+      })
 </div>
 <div class="tab-content" id="namespaces">
   <div class="container">
@@ -558,5 +941,11 @@ $(if ($aks) {
 </body>
 </html>
 "@
+
+  if (-not $htmlTemplate) {
+    Write-Host "❌ HTML template content was empty. Report not generated." -ForegroundColor Red
+    return
+  }
+
   $htmlTemplate | Set-Content $outputPath
 }

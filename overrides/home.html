@@ -1,22 +1,18 @@
-{% extends "main.html" %}
+{% extends "main.html" %} {% block tabs %} {{ super() }}
 
-{% block tabs %}
-  {{ super() }}
-
-  <style>
-    /* Ensure global box-sizing to prevent padding/margin issues */
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-    }
-    
+<style>
+  /* Ensure global box-sizing to prevent padding/margin issues */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 
   /* Define fallback variables for when no theme is detected */
   :root {
-    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color: #0071ff;
     --md-primary-fg-color--light: #02baff;
-    --md-primary-fg-color--dark: #005AD1;
+    --md-primary-fg-color--dark: #005ad1;
     --md-default-fg-color--light: #02baff;
     --md-accent-fg-color: #02baff;
     --md-primary-bg-color: #f5f5f5;
@@ -32,9 +28,9 @@
   }
 
   [data-md-color-scheme="light"] {
-    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color: #0071ff;
     --md-primary-fg-color--light: #02baff;
-    --md-primary-fg-color--dark: #005AD1;
+    --md-primary-fg-color--dark: #005ad1;
     --md-default-fg-color--light: #02baff;
     --md-accent-fg-color: var(--md-primary-fg-color--light);
     --md-primary-bg-color: #ffffff;
@@ -50,9 +46,9 @@
   }
 
   [data-md-color-scheme="dark"] {
-    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color: #0071ff;
     --md-primary-fg-color--light: #02baff;
-    --md-primary-fg-color--dark: #005AD1;
+    --md-primary-fg-color--dark: #005ad1;
     --md-default-fg-color--light: #02baff;
     --md-accent-fg-color: var(--md-primary-fg-color--light);
     --md-primary-bg-color: #121212;
@@ -67,346 +63,663 @@
     --md-code-bg: #121212;
     --md-code-fg: #e0e0e0;
   }
-  
-    .md-header {
-      position: initial;
-      background: var(--md-primary-fg-color);
-      width: 100%;
-      margin: 0;
-    }
 
-    .md-main {
-      width: 100vw;
-      margin: 0;
-      padding: 0;
-    }
-    
+  html {
+    scroll-behavior: smooth;
+  }
   
-    .md-main__inner {
-      width: 100vw;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      box-sizing: border-box;
-      overflow-x: hidden;
-    }
-    
-    .md-main__inner.md-grid {
-      max-width: 100% !important;
-      width: 100% !important;
-      padding: 0 !important;
-      margin: 0 !important;
-    }
-    
-    .md-grid.md-typeset {
-      max-width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 2rem;
-    }
-    .section, .workflow-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      width: 100%;
-    }
+  body {
+    scroll-snap-type: y mandatory;
+  }
+  
+  .hero-wrap,
+  .section,
+  .workflow-section {
+    scroll-snap-align: start;
+  }
+  
 
-    .section h2,
-    .workflow-section h2 {
+  .md-header {
+    position: sticky; /* stick to top */
+    top: 0;
+    z-index: 100; /* above the hero background */
+    display: flex; /* re-enable flex layout */
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    background: var(--md-primary-fg-color);
+    width: 100%;
+  }
+
+  .md-main {
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+  }
+
+  .md-main__inner {
+    width: 100%;
+    max-width: none; /* let it fill the container without 100vw quirks */
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  .md-main__inner.md-grid {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .md-grid.md-typeset {
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 2rem;
+  }
+  .section,
+  .workflow-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  .section h2,
+  .workflow-section h2 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+  }
+
+  .section,
+  .workflow-section {
+    width: 100%;
+    margin: 0 auto; /* Ensure section is centered */
+    padding: 2rem;
+    background: var(--md-default-bg-color);
+    color: var(--md-default-fg-color);
+    text-align: center;
+    display: flex; /* Use flex to center children */
+    flex-direction: column;
+    align-items: center; /* Center children horizontally */
+  }
+
+  .hero-wrap {
+    padding: 7rem 2rem 5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin: 0 auto;
+    display: flex; /* Use flex to center children */
+    flex-direction: column;
+    align-items: center; /* Center children horizontally */
+    background: url("images/header.png") center/cover no-repeat;
+    color: var(--md-default-fg-color);
+    z-index: 1;
+  }
+
+  @media (prefers-color-scheme: light) {
+    .hero-wrap {
+      color: var(--md-default-fg-color);
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .hero-wrap {
+      color: #fff;
+    }
+  }
+
+  .hero-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7); /* darker overlay */
+    z-index: 0;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    padding: 3rem 2rem;
+    text-align: center;
+    max-width: 1400px;
+    width: 100%;
+  }
+
+  .hero-wrap h1 {
+    font-size: 3.5rem;
+    font-weight: 700;
+    margin: 0 auto 1.5rem;
+    max-width: 1200px;
+  }
+
+  .hero-wrap p {
+    font-size: 1.5rem;
+    max-width: 800px;
+    color: #ffffff !important;
+    margin: 0 auto 2.5rem;
+    line-height: 1.6;
+  }
+
+  .cta-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    background-color: var(--md-primary-fg-color);
+    color: #fff !important;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 113, 255, 0.25);
+    text-decoration: none;
+  }
+  .cta-button:hover {
+    background-color: var(--md-primary-fg-color);
+    transform: translateY(-2px);
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto !important; /* Override potential inherited styles */
+    padding: 0 2rem;
+    justify-items: center; /* Center grid items */
+  }
+
+  .feature-card {
+    background: var(--md-card-bg-color);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--md-shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+    text-align: center;
+    font-size: 2rem;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 7px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .feature-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+    color: var(--md-primary-fg-color);
+  }
+
+  .feature-card p {
+    font-size: 1rem;
+    color: var(--md-text-secondary);
+    line-height: 1.5;
+  }
+
+  .info-card {
+    background: var(--md-card-bg-color);
+    color: var(--md-default-fg-color);
+    border: 1px solid var(--md-text-secondary);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    margin: 3rem auto;
+    max-width: 800px;
+    box-shadow: var(--md-shadow);
+  }
+
+  .info-card h3 {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .info-card p {
+    font-size: 1.1rem;
+    color: var(--md-text-secondary);
+    line-height: 1.6;
+  }
+
+  .workflow-section {
+    background: none;
+  }
+
+  .workflow-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    width: 100%;
+    max-width: 1200px;
+    margin: 2rem auto !important; /* Override potential inherited styles */
+    padding: 0 2rem;
+    justify-content: center; /* Center flex items */
+  }
+
+  .workflow-step {
+    flex: 1 1 280px;
+    background: var(--md-card-bg-color);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid var(--md-text-secondary);
+    box-shadow: none;
+    text-align: center;
+    position: relative;
+    transition: transform 0.3s, box-shadow 0.3s;
+    max-width: 400px;
+  }
+
+  .workflow-step:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+  }
+
+  .workflow-step::before {
+    content: attr(data-step);
+    position: absolute;
+    top: -1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--md-primary-fg-color);
+    color: #fff;
+    width: 3rem;
+    height: 3rem;
+    line-height: 3rem;
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 1.25rem;
+  }
+
+  .workflow-step h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--md-primary-fg-color);
+    margin: 1rem 0 0.5rem;
+  }
+
+  .workflow-step p {
+    font-size: 1rem;
+    color: var(--md-text-secondary);
+    line-height: 1.6;
+  }
+
+  .workflow-step .step-icon {
+    font-size: 2.5rem;
+    color: var(--md-accent-fg-color);
+  }
+
+  .workflow-cta {
+    margin-top: 3rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .workflow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: -2rem; top: 50%;
+    width: 2rem; height: 2px;
+    background: var(--md-primary-fg-color);
+    transform: translateY(-50%);
+  }
+  @media (max-width: 768px) {
+    .workflow-step:not(:last-child)::after { display: none; }
+  }
+  
+
+  @media screen and (max-width: 768px) {
+    .hero-wrap h1 {
       font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 2rem;
+      max-width: 90%;
     }
-  
+
+    .hero-wrap p {
+      font-size: 1.25rem;
+      max-width: 90%;
+    }
+
+    .feature-grid,
+    .workflow-steps {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      padding: 0 1rem;
+      max-width: 100%;
+    }
+
+    .workflow-step {
+      flex: 1 1 100%;
+      max-width: 100%;
+    }
+
     .section,
     .workflow-section {
-      width: 100%;
-      margin: 0 auto; /* Ensure section is centered */
-      padding: 2rem;
-      background: var(--md-default-bg-color);
-      color: var(--md-default-fg-color);
-      text-align: center;
-      display: flex; /* Use flex to center children */
-      flex-direction: column;
-      align-items: center; /* Center children horizontally */
+      padding: 2rem 1rem;
     }
-  
+
     .hero-wrap {
-      padding: 7rem 2rem 5rem;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      width: 100%;
-      margin: 0 auto;
-      display: flex; /* Use flex to center children */
-      flex-direction: column;
-      align-items: center; /* Center children horizontally */
-      background: url('images/header.png') center/cover no-repeat;
-      color: var(--md-default-fg-color);
-      z-index: 1;
+      padding: 4rem 1rem 3rem;
     }
 
-  
-    @media (prefers-color-scheme: light) {
-      .hero-wrap {
-        color: var(--md-default-fg-color);
-      }
-    }
-  
-    @media (prefers-color-scheme: dark) {
-      .hero-wrap {
-        color: #fff;
-      }
-    }
-  
-    .hero-wrap::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.7); /* darker overlay */
-      z-index: 0;
-    }
-    
-    .hero-content {
-      position: relative;
-      z-index: 1;
-      padding: 3rem 2rem;
-      text-align: center;
-      max-width: 1400px;
-      width: 100%;
-    }    
-  
-    .hero-wrap h1 {
-      font-size: 3.5rem;
-      font-weight: 700;
-      margin: 0 auto 1.5rem;
-      max-width: 1200px;
-    }
-  
-    .hero-wrap p {
-      font-size: 1.5rem;
-      max-width: 800px;
-      color: #ffffff !important;
-      margin: 0 auto 2.5rem;
-      line-height: 1.6;
-    }
-  
-    .cta-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.75rem 1.75rem;
-      font-size: 1.1rem;
-      font-weight: 600;
-      border-radius: 8px;
-      background-color: var(--md-primary-fg-color);
-      color: #fff !important;
-      border: none;
-      cursor: pointer;
-      transition: background-color 0.2s ease, transform 0.2s ease;
-      box-shadow: 0 2px 6px rgba(0, 113, 255, 0.25);
-      text-decoration: none;
-    }
-    .cta-button:hover {
-      background-color: var(--md-primary-fg-color);
-      transform: translateY(-2px);
-    }
-    
-  
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 2rem;
-      width: 100%;
-      max-width: 1200px;
-      margin: 0 auto !important; /* Override potential inherited styles */
-      padding: 0 2rem;
-      justify-items: center; /* Center grid items */
-    }
-  
-    .feature-card {
-      background: var(--md-card-bg-color);
-      padding: 1.5rem;
-      border-radius: 12px;
-      box-shadow: var(--md-shadow);
-      transition: transform 0.3s, box-shadow 0.3s;
-      text-align: center;
-      font-size: 2rem;
-      width: 100%;
-      max-width: 400px;
-    }
-  
-    .feature-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 7px 20px rgba(0, 0, 0, 0.2);
-    }
-  
-    .feature-card h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin: 0.5rem 0;
-      color: var(--md-primary-fg-color);
-    }
-  
-    .feature-card p {
-      font-size: 1rem;
-      color: var(--md-text-secondary);
-      line-height: 1.5;
-    }
-  
-    .info-card {
-      background: var(--md-card-bg-color);
-      color: var(--md-default-fg-color);
-      border: 1px solid var(--md-text-secondary);
-      border-radius: 12px;
-      padding: 2rem;
-      text-align: center;
-      margin: 3rem auto;
-      max-width: 800px;
-      box-shadow: var(--md-shadow);
-    }
-    
-    .info-card h3 {
-      font-size: 1.75rem;
-      margin-bottom: 1rem;
-    }
-    
-    .info-card p {
-      font-size: 1.1rem;
-      color: var(--md-text-secondary);
-      line-height: 1.6;
-    }    
-  
-    .workflow-section {
-      background: none;
-    }
-  
-    .workflow-steps {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2rem;
-      width: 100%;
-      max-width: 1200px;
-      margin: 2rem auto !important; /* Override potential inherited styles */
-      padding: 0 2rem;
-      justify-content: center; /* Center flex items */
-    }
-  
-    .workflow-step {
-      flex: 1 1 280px;
-      background: var(--md-card-bg-color);
-      padding: 2rem;
-      border-radius: 12px;
-      border: 1px solid var(--md-text-secondary);
-      box-shadow: none;
-      text-align: center;
-      position: relative;
-      transition: transform 0.3s, box-shadow 0.3s;
-      max-width: 400px;
-    }
-  
-    .workflow-step:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
-    }
-  
-    .workflow-step::before {
-      content: attr(data-step);
-      position: absolute;
-      top: -1.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--md-primary-fg-color);
-      color: #fff;
-      width: 3rem;
-      height: 3rem;
-      line-height: 3rem;
-      border-radius: 50%;
-      font-weight: 600;
-      font-size: 1.25rem;
-    }
-  
-    .workflow-step h3 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--md-primary-fg-color);
-      margin: 1rem 0 0.5rem;
-    }
-  
-    .workflow-step p {
-      font-size: 1rem;
-      color: var(--md-text-secondary);
-      line-height: 1.6;
-    }
-  
-    .workflow-step .step-icon {
-      font-size: 2.5rem;
-      color: var(--md-accent-fg-color);
+    .callout {
+      padding: 1rem;
+      max-width: 90%;
     }
 
-    .workflow-cta {
-      margin-top: 3rem;
-      display: flex;
-      justify-content: center;
-    }    
-  
-    @media screen and (max-width: 768px) {
-      .hero-wrap h1 {
-        font-size: 2.5rem;
-        max-width: 90%;
-      }
-  
-      .hero-wrap p {
-        font-size: 1.25rem;
-        max-width: 90%;
-      }
-  
-      .feature-grid,
-      .workflow-steps {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        padding: 0 1rem;
-        max-width: 100%;
-      }
-  
-      .workflow-step {
-        flex: 1 1 100%;
-        max-width: 100%;
-      }
-  
-      .section,
-      .workflow-section {
-        padding: 2rem 1rem;
-      }
-  
-      .hero-wrap {
-        padding: 4rem 1rem 3rem;
-      }
-  
-      .callout {
-        padding: 1rem;
-        max-width: 90%;
-      }
-  
-      .md-header {
-        padding: 1rem;
-      }
+    .md-header {
+      padding: 1rem;
     }
-  </style>
+  }
+  .checks-bg {
+    position: relative;
+    /* push it out to fill edge-to-edge */
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding: 6rem 2rem;
+    color: #fff;
 
-  <section class="hero-wrap">
-    <div class="hero-content">
-      <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
-    </div>
-  </section>  
-{% endblock %}
+    background: url("images/header.png") center center / cover fixed no-repeat !important;
+    scroll-snap-align: start;
+  }
 
-{% block content %}
+  /* optional dark overlay */
+  .checks-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 0;
+    clip-path: inherit; /* so overlay matches the same slope */
+  }
+  .checks-bg > * {
+    position: relative;
+    z-index: 1;
+  }
+  /* Hero banner */
+  .hero-wrap {
+    padding: 7rem 2rem 5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    background: url("images/header.png") center/cover no-repeat;
+    color: #fff;
+    padding-bottom: 8rem;
+  }
+  .hero-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+  }
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .hero-wrap h1 {
+    font-size: 3.5rem;
+    margin: 0 auto;
+  }
+
+  .hero-subhead {
+    font-size: 1.25rem;
+    margin: 1rem auto 2rem;
+    max-width: 800px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  .hero-wave {
+    display: block;
+    width: 100%;
+    margin-bottom: -5px;  /* pull it up slightly */
+  }
+  .hero-wrap {
+    background-attachment: fixed;
+    background-size: cover;
+  }
+  
+
+  /* ====== Material-style metrics card ====== */
+  .metrics-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0;
+    margin: 2rem auto 0;
+    max-width: 900px;
+    width: 100%;
+    background: rgba(2, 186, 255, 0.1) !important;
+    backdrop-filter: blur(10px);
+    border-radius: 8px solid rgba(255,255,255,0.3);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.14);
+  }
+
+  .metric {
+    padding: 1.25rem 1rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* vertical divider on every item except the last */
+  .metric:not(:last-child) {
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .metric-value {
+    font-size: 1.75rem;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--md-primary-fg-color);
+  }
+
+  .metric-label {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--md-primary-fg-color--light) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .metric {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .metric:hover { transform: translateY(-2px); }
+  .metric::after {
+    content: '';
+    position: absolute; top:50%; left:50%;
+    width: 0; height: 0;
+    background: rgba(0,113,255,0.1);
+    border-radius: 50%;
+    transform: translate(-50%,-50%);
+    transition: width 0.4s ease, height 0.4s ease;
+  }
+  .metric:active::after {
+    width: 300px; height: 300px;
+    transition: 0s;
+  }
+  
+
+  /* small phones: one column */
+  @media (max-width: 480px) {
+    .metrics-bar {
+      grid-template-columns: 1fr;
+    }
+    .metric:not(:last-child) {
+      /* swap vertical dividers for horizontal */
+      border-right: none;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  /* tablets / larger phones: two columns */
+  @media (min-width: 481px) and (max-width: 768px) {
+    .metrics-bar {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .metric:not(:nth-child(2n)) {
+      /* only draw a divider on the right of odd items */
+      border-right: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    /* remove bottom border on the last row */
+    .metric:nth-last-child(-n + 2) {
+      border-bottom: none;
+    }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0);      }
+  }
+  
+  /* apply to all feature & workflow cards */
+  .feature-card,
+  .workflow-step {
+    opacity: 0;
+    animation: fadeInUp 0.6s ease forwards;
+  }
+  
+  /* stagger them */
+  .feature-card:nth-child(1) { animation-delay: 0.1s; }
+  .feature-card:nth-child(2) { animation-delay: 0.2s; }
+  .feature-card:nth-child(3) { animation-delay: 0.3s; }
+  /* …and so on… */
+  
+  .workflow-step:nth-child(1) { animation-delay: 0.1s; }
+  .workflow-step:nth-child(2) { animation-delay: 0.2s; }
+  .workflow-step:nth-child(3) { animation-delay: 0.3s; }
+  
+  .section:nth-of-type(odd) {
+    background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(240,240,240,1) 100%);
+  }
+  .section:nth-of-type(even) {
+    background: linear-gradient(135deg, rgba(245,245,255,1) 0%, rgba(230,230,250,1) 100%);
+  }
+  
+  .feature-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform;
+  }
+  .feature-card:hover {
+    transform: perspective(600px) rotateX(4deg) rotateY(-4deg);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+  }
+  .cta-button {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .cta-button:active {
+    transform: scale(0.97);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+
+  .section:first-of-type {
+    background: none !important;
+    /* (you may also want to pull its padding a little tighter) */
+    padding-top: 0;
+    padding-bottom: 6rem;
+  }
+  
+/* make the “What KubeBuddy Checks” section look just like the hero: */
+.section.checks-bg {
+  
+/* slanted edges */
+clip-path: polygon(
+  0 5%,     /* top-left sloped down */
+  100% 0,   /* top-right flat */
+  100% 95%, /* bottom-right sloped up */
+  0 100%    /* bottom-left flat */
+);
+
+/* full-width stretch */
+width: 100vw;
+margin-left: 50%  !important;
+margin-right: 50% !important;
+
+/* spacing & stacking */
+padding: 7rem 2rem;
+position: relative;
+color: #fff;
+}
+
+/* optional dark overlay */
+.section.checks-bg::before {
+content: "";
+position: absolute;
+inset: 0;
+background: rgba(0,0,0,0.5);
+clip-path: inherit;
+z-index: 0;
+}
+
+/* make sure your content floats above it */
+.section.checks-bg > * {
+position: relative;
+z-index: 1;
+}
+
+.feature-grid .feature-card:hover {
+  transform: translateY(-8px) !important;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+
+.workflow-steps .workflow-step:hover {
+  transform: translateY(-8px) !important;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+</style>
+
+<!-- Hero + Metrics Section -->
+<section class="hero-wrap">
+  <div class="hero-content">
+    <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
+    <p class="hero-subhead">
+      Stop guessing. Start fixing your cluster in seconds.
+    </p>
+    <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
+  </div>
+</section>
+<svg class="hero-wave" viewBox="0 0 1440 100" preserveAspectRatio="none">
+  <path d="M0,100 C360,0 1080,200 1440,100 L1440,100 L0,100 Z" fill="var(--md-default-bg-color)"/>
+</svg>
+
+<!-- Metrics Bar INSIDE hero -->
+<div class="metrics-bar">
+  <div class="metric">
+    <div class="metric-value">90+</div>
+    <div class="metric-label">Checks</div>
+  </div>
+  <div class="metric">
+    <div class="metric-value">Realtime</div>
+    <div class="metric-label">Scanning</div>
+  </div>
+  <div class="metric">
+    <div class="metric-value">No</div>
+    <div class="metric-label">Agents</div>
+  </div>
+  <div class="metric">
+    <div class="metric-value">v0.0.20</div>
+    <div class="metric-label">Latest Release</div>
+  </div>
+</div>
+
+{% endblock %} {% block content %}
 <div class="md-grid md-typeset">
   <section class="section">
     <h2>Why KubeBuddy?</h2>
@@ -414,38 +727,52 @@
       <div class="feature-card">
         <span class="callout-icon">🔍</span>
         <h3>Comprehensive Diagnostics</h3>
-        <p>Detects node failures, pod crashes, security risks, and networking issues with one command.</p>
+        <p>
+          Detects node failures, pod crashes, security risks, and networking
+          issues with one command.
+        </p>
       </div>
       <div class="feature-card">
         <span class="callout-icon">🚀</span>
         <h3>No Cluster Intrusion</h3>
-        <p>Runs externally via your terminal or Docker, requiring no agents or Helm charts.</p>
+        <p>
+          Runs externally via your terminal or Docker, requiring no agents or
+          Helm charts.
+        </p>
       </div>
       <div class="feature-card">
         <span class="callout-icon">📊</span>
         <h3>Actionable Reports</h3>
-        <p>Export detailed HTML, JSON, or CLI summaries for quick insights and sharing.</p>
+        <p>
+          Export detailed HTML, JSON, or CLI summaries for quick insights and
+          sharing.
+        </p>
       </div>
       <div class="feature-card">
         <span class="callout-icon">🛡️</span>
         <h3>Clean Execution</h3>
-        <p>KubeBuddy runs entirely outside your cluster. No agents, no config drift, no exposure.</p>
+        <p>
+          KubeBuddy runs entirely outside your cluster. No agents, no config
+          drift, no exposure.
+        </p>
       </div>
       <div class="feature-card">
         <span class="callout-icon">🧪</span>
         <h3>Stateless by Design</h3>
-        <p>Scans don't persist anything. No runtime footprint, no security baggage.</p>
+        <p>
+          Scans don't persist anything. No runtime footprint, no security
+          baggage.
+        </p>
       </div>
       <div class="feature-card">
         <span class="callout-icon">⚡</span>
         <h3>Runs Anywhere</h3>
         <p>Use it locally, in CI/CD, or on a jump host — wherever you work.</p>
-      </div>            
+      </div>
     </div>
   </section>
 
-
-  <section class="section">
+  <section class="section checks-bg">
     <h2>What KubeBuddy Checks</h2>
     <div class="feature-grid">
       <div class="feature-card">
@@ -454,7 +781,9 @@
       </div>
       <div class="feature-card">
         <h3>Security Risks</h3>
-        <p>Scans for risky roles, excessive bindings, and exposed permissions.</p>
+        <p>
+          Scans for risky roles, excessive bindings, and exposed permissions.
+        </p>
       </div>
       <div class="feature-card">
         <h3>Networking & Storage</h3>
@@ -470,8 +799,11 @@
       </div>
       <div class="feature-card">
         <h3>Resource Limits</h3>
-        <p>Flags containers missing CPU or memory limits. Prevent noisy neighbors.</p>
-      </div>      
+        <p>
+          Flags containers missing CPU or memory limits. Prevent noisy
+          neighbors.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -481,21 +813,31 @@
       <div class="workflow-step" data-step="1">
         <span class="step-icon">⚙️</span>
         <h3>Connect & Scan</h3>
-        <p>KubeBuddy uses your existing kubeconfig to scan your cluster externally, no agents required.</p>
+        <p>
+          KubeBuddy uses your existing kubeconfig to scan your cluster
+          externally, no agents required.
+        </p>
       </div>
       <div class="workflow-step" data-step="2">
         <span class="step-icon">🔎</span>
         <h3>Analyze Issues</h3>
-        <p>Detects hidden problems like misconfigurations, security risks, and resource failures in seconds.</p>
+        <p>
+          Detects hidden problems like misconfigurations, security risks, and
+          resource failures in seconds.
+        </p>
       </div>
       <div class="workflow-step" data-step="3">
         <span class="step-icon">📈</span>
         <h3>Deliver Insights</h3>
-        <p>Generates clear, actionable reports in HTML, JSON, or CLI format for immediate action.</p>
+        <p>
+          Generates clear, actionable reports in HTML, JSON, or CLI format for
+          immediate action.
+        </p>
       </div>
     </div>
     <div class="workflow-cta">
       <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
     </div>
-      </section>
-{% endblock %}
+  </section>
+  {% endblock %}
+</div>

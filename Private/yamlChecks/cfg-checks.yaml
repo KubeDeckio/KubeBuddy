@@ -5,7 +5,7 @@ checks:
     Name: "Orphaned ConfigMaps"
     Description: "Detects ConfigMaps that are not referenced by any pod, workload, service, or ingress."
     ResourceKind: "ConfigMap"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 1
     FailMessage: "ConfigMap is not referenced by any workloads or services."
     URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"
@@ -99,7 +99,7 @@ checks:
     Name: "Duplicate ConfigMap Names"
     Description: "Detects ConfigMaps with identical names across different namespaces."
     ResourceKind: "ConfigMap"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 1
     FailMessage: "ConfigMap name reused in multiple namespaces."
     URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"
@@ -123,11 +123,17 @@ checks:
     Script: |
       param ($KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
+      # names to ignore
+      $ignore = @('kube-root-ca','istio-ca-root')
+      
       $configMaps = if ($KubeData?.ConfigMaps) {
         $KubeData.ConfigMaps
       } else {
         (kubectl get configmaps -A -o json | ConvertFrom-Json).items
       }
+
+      $pattern = ($ignore -join '|')
+      $configMaps = $configMaps | Where-Object { $_.metadata.name -notmatch $pattern }
 
       if ($ExcludeNamespaces) {
           $configMaps = Exclude-Namespaces -items $configMaps
@@ -139,7 +145,7 @@ checks:
         $namespaces = ($g.Group | ForEach-Object { $_.metadata.namespace }) -join ", "
         [pscustomobject]@{
           Namespace = "-"
-          Resource  = $g.Name
+          ConfigMap  = $g.Name
           Value     = "-"
           Message   = "Found in namespaces: $namespaces"
         }
@@ -150,7 +156,7 @@ checks:
     Name: "Large ConfigMaps"
     Description: "Finds ConfigMaps larger than 1 MiB, which may impact performance or exceed platform limits."
     ResourceKind: "ConfigMap"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 2
     FailMessage: "ConfigMap exceeds 1 MiB in size."
     URL: "https://kubernetes.io/docs/concepts/configuration/configmap/"

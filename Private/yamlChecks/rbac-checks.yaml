@@ -5,7 +5,7 @@ checks:
     Name: "RBAC Misconfigurations"
     Description: "Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces in RoleBindings and ClusterRoleBindings."
     ResourceKind: "ClusterRoleBinding"
-    Severity: "High"
+    Severity: "critical"
     Weight: 4
     Operator: "script"
     Script: |
@@ -393,7 +393,7 @@ checks:
     Name: "Orphaned ServiceAccounts"
     Description: "Finds ServiceAccounts not used by any pods or referenced in RoleBindings or ClusterRoleBindings."
     ResourceKind: "ServiceAccount"
-    Severity: "Medium"
+    Severity: "warning"
     Weight: 2
     Operator: "script"
     Script: |
@@ -498,7 +498,7 @@ checks:
     Name: "Orphaned and Ineffective Roles"
     Description: "Flags Roles and ClusterRoles that are unused, lack subjects, or define no rules."
     ResourceKind: "Role, ClusterRole"
-    Severity: "Low"
+    Severity: "info"
     Weight: 1
     Operator: "script"
     Script: |
