@@ -123,17 +123,34 @@ function Create-JsonReport {
         $nodeMetricsList = @()
         foreach ($node in $KubeData.Nodes.items) {
             $name = $node.metadata.name
-            $cpuSeries = ($KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $name }).values |
-            ForEach-Object { [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] } }
-            $memSeries = ($KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $name }).values |
-            ForEach-Object { [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] } }
-            $diskSeries = ($KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $name }).values |
-            ForEach-Object { [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] } }
+        
+            $cpuMatch = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $name }
+            $memMatch = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $name }
+            $diskMatch = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $name }
+        
+            $cpuSeries = if ($cpuMatch -and $cpuMatch.values) {
+                $cpuMatch.values | ForEach-Object {
+                    [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] }
+                }
+            } else { @() }
+        
+            $memSeries = if ($memMatch -and $memMatch.values) {
+                $memMatch.values | ForEach-Object {
+                    [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] }
+                }
+            } else { @() }
+        
+            $diskSeries = if ($diskMatch -and $diskMatch.values) {
+                $diskMatch.values | ForEach-Object {
+                    [PSCustomObject]@{ timestamp = [int64]($_[0] * 1000); value = [double]$_[1] }
+                }
+            } else { @() }
+        
             $nodeMetricsList += [PSCustomObject]@{
                 nodeName   = $name
-                cpuAvg     = [math]::Round(($cpuSeries.value | Measure-Object -Average).Average, 2)
-                memAvg     = [math]::Round(($memSeries.value | Measure-Object -Average).Average, 2)
-                diskAvg    = [math]::Round(($diskSeries.value | Measure-Object -Average).Average, 2)
+                cpuAvg     = if ($cpuSeries.Count -gt 0) { [math]::Round(($cpuSeries.value | Measure-Object -Average).Average, 2) } else { 'N/A' }
+                memAvg     = if ($memSeries.Count -gt 0) { [math]::Round(($memSeries.value | Measure-Object -Average).Average, 2) } else { 'N/A' }
+                diskAvg    = if ($diskSeries.Count -gt 0) { [math]::Round(($diskSeries.value | Measure-Object -Average).Average, 2) } else { 'N/A' }
                 cpuSeries  = $cpuSeries
                 memSeries  = $memSeries
                 diskSeries = $diskSeries
