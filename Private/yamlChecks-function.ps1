@@ -290,12 +290,15 @@ function Invoke-yamlChecks {
                         }
 
                         $scriptBlock = [scriptblock]::Create($check.Script)
-                        $scriptResult = if ($check.ID -eq "NODE002") {
-                            & $scriptBlock -KubeData $using:KubeData -Thresholds $using:thresholds
+                        $scriptParams = @{
+                            KubeData          = $using:KubeData
+                            Namespace         = $using:Namespace
+                            ExcludeNamespaces = $using:ExcludeNamespaces
+                            Html              = $using:Html
+                            Thresholds        = $using:thresholds
                         }
-                        else {
-                            & $scriptBlock -KubeData $using:KubeData -Namespace $using:Namespace -ExcludeNamespaces:$using:ExcludeNamespaces
-                        }
+                        
+                        $scriptResult = & $scriptBlock @scriptParams
 
                         $checkResult = @{
                             ID             = $check.ID
@@ -443,6 +446,8 @@ function Invoke-yamlChecks {
                             Items          = $items
                             Total          = $items.Count
                         }
+
+                        $checkResult.Severity = Normalize-Severity $checkResult.Severity
                 
                         $localResults += $checkResult
                         Write-Host "✅ Completed Prometheus check: $($check.ID) - $($check.Name)                     " -ForegroundColor Green
@@ -536,6 +541,8 @@ function Invoke-yamlChecks {
                     Items          = @()
                     Total          = 0
                 }
+
+                $checkResult.Severity = Normalize-Severity $checkResult.Severity
 
                 foreach ($item in $data) {
                     try {

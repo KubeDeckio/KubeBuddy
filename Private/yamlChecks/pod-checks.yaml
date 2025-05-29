@@ -354,7 +354,7 @@ checks:
     Operator: "not_contains"
     Expected: ":latest"
     FailMessage: "Container image uses the 'latest' tag, which can lead to unpredictable deployments."
-    Severity: "critical"
+    Severity: critical
     Weight: 3
     Recommendation:
       text: "Specify an explicit image tag (e.g., ':v1.2.3') to ensure consistent deployments."

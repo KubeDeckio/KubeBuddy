@@ -327,6 +327,7 @@ function Normalize-Severity {
 
     # define your canonical map right here
     $map = @{
+        'critical' = 'critical'
         'high'    = 'critical'
         'error'   = 'critical'
         'medium'  = 'warning'

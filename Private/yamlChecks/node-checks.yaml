@@ -97,7 +97,7 @@ checks:
       - "⚠️ High usage may lead to evictions or degraded performance."
     URL: "https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/"
     Script: |
-      param($KubeData, $Thresholds, [switch]$Html )
+      param($KubeData, $Thresholds, [switch]$Html)
       
       $nodes = if ($KubeData?.Nodes) {
           $KubeData.Nodes.items
@@ -189,6 +189,13 @@ checks:
       }
       
       foreach ($node in $nodes) {
+
+          # Ensure node is in 'Ready' state before processing
+          $readyCondition = $node.status.conditions | Where-Object { $_.type -eq "Ready" }
+          if (-not $readyCondition -or $readyCondition.status -ne "True") {
+              continue
+          }
+
           $name = $node.metadata.name
           $cpuAlloc = [int]($node.status.allocatable.cpu -replace "m", "")
           $memAlloc = [math]::Round(([int]($node.status.allocatable.memory -replace "Ki", "")) / 1024)
@@ -285,36 +292,38 @@ checks:
                   $diskPct = "$diskPct%"
               }
           }
-
-           # choose how we render the status cells
+      
+            # decide formatting based on HTML switch
             if ($Html) {
-                $cpuCell = Format-CPUStatus  -status $cpuStatus  -percent $cpuPct  -warnThreshold $cpu_warn  -critThreshold $cpu_crit
-                $memCell = Format-MemoryStatus -status $memStatus -percent $memPct -warnThreshold $mem_warn -critThreshold $mem_crit
-                $diskCell= Format-DiskStatus   -status $diskStatus -percent ([double]($diskPct -replace '%','')) `
-                                                 -warnThreshold $disk_warn -critThreshold $disk_crit
-            }
-            else {
-                # plain text fallback
+                $cpuCell  = Format-CPUStatus  -status $cpuStatus  -percent $cpuPct  -warnThreshold $cpu_warn  -critThreshold $cpu_crit
+                $memCell  = Format-MemoryStatus -status $memStatus -percent $memPct -warnThreshold $mem_warn -critThreshold $mem_crit
+                $diskCell = if ($diskPct -match '^\d+(\.\d+)?%$') {
+                    $pctVal = [double]($diskPct -replace '%', '')
+                    Format-DiskStatus -status $diskStatus -percent $pctVal -warnThreshold $disk_warn -critThreshold $disk_crit
+                } else {
+                    Format-DiskStatus -status $diskStatus -percent 0 -warnThreshold $disk_warn -critThreshold $disk_crit
+                }
+            } else {
                 $cpuCell  = $cpuStatus
                 $memCell  = $memStatus
                 $diskCell = $diskStatus
             }
-      
-          $results += [pscustomobject]@{
-              Node          = $name
-              "CPU Status"  = $cpuCell
-              "CPU %"       = "$cpuPct%"
-              "CPU Used"    = if ($cpuUsed) { "$cpuUsed mC" } else { "-" }
-              "CPU Total"   = "$cpuAlloc mC"
-              "Mem Status"  = $memCell
-              "Mem %"       = "$memPct%"
-              "Mem Used"    = if ($memUsed) { "$memUsed Mi" } else { "-" }
-              "Mem Total"   = "$memAlloc Mi"
-              "Disk %"      = $diskPct
-              "Disk Status" = $diskCell
-              UsedPrometheus = $usePrometheus
+            
+            $results += [pscustomobject]@{
+                Node          = $name
+                "CPU Status"  = $cpuCell
+                "CPU %"       = "$cpuPct%"
+                "CPU Used"    = if ($cpuUsed) { "$cpuUsed mC" } else { "-" }
+                "CPU Total"   = "$cpuAlloc mC"
+                "Mem Status"  = $memCell
+                "Mem %"       = "$memPct%"
+                "Mem Used"    = if ($memUsed) { "$memUsed Mi" } else { "-" }
+                "Mem Total"   = "$memAlloc Mi"
+                "Disk %"      = $diskPct
+                "Disk Status" = $diskCell
+                UsedPrometheus = $usePrometheus
+            }
 
-          }
       }
       
       return @{
