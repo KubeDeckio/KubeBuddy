@@ -1,8 +1,7 @@
 function Get-PrometheusHeaders {
     param (
         [string]$Mode,
-        [string]$Username,
-        [string]$Password,
+        [System.Management.Automation.PSCredential]$Credential,
         [string]$BearerTokenEnv
     )
 
@@ -10,14 +9,17 @@ function Get-PrometheusHeaders {
 
     switch ($Mode.ToLower()) {
         "basic" {
-            if (-not $Username -or -not $Password) {
-                throw "Username and Password required for basic auth."
+            if (-not $Credential) {
+                throw "Credential is required for basic authentication."
             }
-            $headers["Authorization"] = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${Username}:${Password}"))
+            $username = $Credential.UserName
+            $password = $Credential.GetNetworkCredential().Password
+            $pair = "$username:$password"
+            $headers["Authorization"] = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($pair))
         }
         "bearer" {
             if (-not $BearerTokenEnv) { throw "Bearer token env var name required." }
-            $token = $Env:BearerTokenEnv
+            $token = $Env:$BearerTokenEnv
             if (-not $token) { throw "Token not found in env var: $BearerTokenEnv" }
             $headers["Authorization"] = "Bearer $token"
         }
@@ -42,8 +44,12 @@ function Get-PrometheusHeaders {
                 $headers["Authorization"] = "Bearer $token"
             }
         }
-        "local" { }
-        default { throw "Unsupported auth mode: $Mode" }
+        "local" {
+            # No auth headers needed
+        }
+        default {
+            throw "Unsupported auth mode: $Mode"
+        }
     }
 
     return $headers

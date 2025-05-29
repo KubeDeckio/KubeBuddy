@@ -18,9 +18,8 @@ function Invoke-KubeBuddy {
         [switch]$IncludePrometheus, # Flag to include Prometheus data
         [string]$PrometheusUrl, # Prometheus endpoint
         [string]$PrometheusMode, # Authentication mode: local, basic, bearer, azure
-        [string]$PrometheusUsername, # Username for basic auth
-        [string]$PrometheusPassword, # Password for basic auth
-        [string]$PrometheusBearerTokenEnv  # Environment variable for bearer token
+        [string]$PrometheusBearerTokenEnv,  # Environment variable for bearer token
+        [System.Management.Automation.PSCredential]$PrometheusCredential # Credential for Prometheus basic auth
     )
 
     # Assign default value if $outputpath is not set
@@ -172,9 +171,10 @@ function Invoke-KubeBuddy {
             $kubeDataParams.IncludePrometheus        = $IncludePrometheus
             $kubeDataParams.PrometheusUrl            = $PrometheusUrl
             $kubeDataParams.PrometheusMode           = $PrometheusMode
-            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
-            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
             $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+            if ($PrometheusCredential) {
+                $kubeDataParams.PrometheusCredential = $PrometheusCredential
+            }
         }
         
         $KubeData = Get-KubeData @kubeDataParams
@@ -225,9 +225,10 @@ function Invoke-KubeBuddy {
             $kubeDataParams.IncludePrometheus        = $IncludePrometheus
             $kubeDataParams.PrometheusUrl            = $PrometheusUrl
             $kubeDataParams.PrometheusMode           = $PrometheusMode
-            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
-            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
             $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+            if ($PrometheusCredential) {
+                $kubeDataParams.PrometheusCredential = $PrometheusCredential
+            }
         }
         
         $KubeData = Get-KubeData @kubeDataParams
@@ -272,9 +273,10 @@ function Invoke-KubeBuddy {
             $kubeDataParams.IncludePrometheus        = $IncludePrometheus
             $kubeDataParams.PrometheusUrl            = $PrometheusUrl
             $kubeDataParams.PrometheusMode           = $PrometheusMode
-            $kubeDataParams.PrometheusUsername       = $PrometheusUsername
-            $kubeDataParams.PrometheusPassword       = $PrometheusPassword
             $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+            if ($PrometheusCredential) {
+                $kubeDataParams.PrometheusCredential = $PrometheusCredential
+            }
         }
         
         $KubeData = Get-KubeData @kubeDataParams
