@@ -1,6 +1,6 @@
 @{
     Rules = @{
-        PSUseConvertToSecureStringWithPlainText = @{
+        PSAvoidUsingConvertToSecureStringWithPlainText = @{
             Severity = 'None'
         }
     }
