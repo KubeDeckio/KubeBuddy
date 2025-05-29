@@ -9,9 +9,8 @@ function Get-KubeData {
         [switch]$IncludePrometheus,
         [string]$PrometheusUrl, # Prometheus endpoint
         [string]$PrometheusMode, # Authentication mode
-        [string]$PrometheusUsername,
-        [string]$PrometheusPassword,
-        [string]$PrometheusBearerTokenEnv
+        [string]$PrometheusBearerTokenEnv,
+        [System.Management.Automation.PSCredential]$PrometheusCredential
     )
 
     # Check for kubectl
@@ -196,7 +195,7 @@ function Get-KubeData {
 
         try {
             $headers = Get-PrometheusHeaders -Mode $PrometheusMode `
-                -Username $PrometheusUsername -Password $PrometheusPassword `
+                -Credential $PrometheusCredential `
                 -BearerTokenEnv $PrometheusBearerTokenEnv
         }
         catch {
@@ -204,12 +203,10 @@ function Get-KubeData {
             return
         }
 
-        $data.PrometheusUrl            = $PrometheusUrl
-        $data.PrometheusMode           = $PrometheusMode
-        $data.PrometheusUsername       = $PrometheusUsername
-        $data.PrometheusPassword       = $PrometheusPassword
+        $data.PrometheusUrl = $PrometheusUrl
+        $data.PrometheusMode = $PrometheusMode
         $data.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
-        $data.PrometheusHeaders        = $headers
+        $data.PrometheusHeaders = $headers
 
         $start = (Get-Date).AddDays(-1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         $end = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -229,7 +226,8 @@ function Get-KubeData {
                         node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}
                     )
                 ))
-            ' },
+            ' 
+            },
             @{ Name = "NodeNetworkReceiveRate"; Query = 'rate(node_network_receive_bytes_total{device!~"lo|docker.*|veth.*"}[5m])' },
             @{ Name = "NodeNetworkTransmitRate"; Query = 'rate(node_network_transmit_bytes_total{device!~"lo|docker.*|veth.*"}[5m])' }
         )

@@ -25,9 +25,13 @@ $UseAksRestApi = $env:USE_AKS_REST_API -eq "true"
 $IncludePrometheus = $env:INCLUDE_PROMETHEUS -eq "true"
 $PrometheusUrl = $env:PROMETHEUS_URL
 $PrometheusMode = $env:PROMETHEUS_MODE
-$PrometheusUsername = $env:PROMETHEUS_USERNAME
-$PrometheusPassword = $env:PROMETHEUS_PASSWORD
 $PrometheusBearerTokenEnv = $env:PROMETHEUS_BEARER_TOKEN_ENV
+# Convert username/password to PSCredential
+$PrometheusCredential = $null
+if ($env:PROMETHEUS_USERNAME -and $env:PROMETHEUS_PASSWORD) {
+    $securePassword = ConvertTo-SecureString $env:PROMETHEUS_PASSWORD -AsPlainText -Force
+    $PrometheusCredential = New-Object System.Management.Automation.PSCredential ($env:PROMETHEUS_USERNAME, $securePassword)
+}
 
 
 # Require at least one report format
@@ -111,8 +115,7 @@ $parameters = @{
     IncludePrometheus        = $IncludePrometheus
     PrometheusUrl            = $PrometheusUrl
     PrometheusMode           = $PrometheusMode
-    PrometheusUsername       = $PrometheusUsername
-    PrometheusPassword       = $PrometheusPassword
+    PrometheusCredential     = $PrometheusCredential
     PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
 }
 
