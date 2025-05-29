@@ -67,6 +67,7 @@ nav:
       - Overview: usage/index.md
       - PowerShell: usage/powershell-usage.md
       - Docker: usage/docker-usage.md
+      - Prometheus Integration: usage/prometheus-integration.md
       - Config File: usage/kubebuddy-config.md
       - Checks: usage/checks.md
       - AKS Best Practices: usage/aks-best-practice-checks.md
