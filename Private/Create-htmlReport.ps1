@@ -741,6 +741,12 @@ $heroRatingHtml
           <a href="https://kubedeck.io" target="_blank" style="color: #ffffff; text-decoration: underline;">
             🌐 KubeDeck.io
           </a>
+          </div>
+        <div>
+          Documentation 
+          <a href="https://kubebuddy.io" target="_blank" style="color: #ffffff; text-decoration: underline;">
+            📄 KubeBuddy.io
+          </a>
         </div>
        <!-- <div id="printContainer" style="margin-top: 4px;">
           <button id="savePdfBtn">📄 Save as PDF</button>

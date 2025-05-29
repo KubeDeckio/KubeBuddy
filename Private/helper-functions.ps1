@@ -138,14 +138,21 @@ function Generate-K8sTextReport {
         Write-ToReport "`n[📊 Node Metrics]"
         foreach ($node in $KubeData.Nodes.items) {
             $n = $node.metadata.name
-            $c = ($KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $n }).values | ForEach-Object { [double]$_[1] }
-            $m = ($KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $n }).values | ForEach-Object { [double]$_[1] }
-            $d = ($KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $n }).values | ForEach-Object { [double]$_[1] }
-            $avgC = if ($c) { [math]::Round(($c | Measure-Object -Average).Average, 2) } else { 'N/A' }
-            $avgM = if ($m) { [math]::Round(($m | Measure-Object -Average).Average, 2) } else { 'N/A' }
-            $avgD = if ($d) { [math]::Round(($d | Measure-Object -Average).Average, 2) } else { 'N/A' }
+        
+            $cpuMatch = $KubeData.PrometheusMetrics.NodeCpuUsagePercent | Where-Object { $_.metric.instance -match $n }
+            $memMatch = $KubeData.PrometheusMetrics.NodeMemoryUsagePercent | Where-Object { $_.metric.instance -match $n }
+            $diskMatch = $KubeData.PrometheusMetrics.NodeDiskUsagePercent | Where-Object { $_.metric.instance -match $n }
+        
+            $c = if ($cpuMatch -and $cpuMatch.values) { $cpuMatch.values | ForEach-Object { [double]$_[1] } } else { @() }
+            $m = if ($memMatch -and $memMatch.values) { $memMatch.values | ForEach-Object { [double]$_[1] } } else { @() }
+            $d = if ($diskMatch -and $diskMatch.values) { $diskMatch.values | ForEach-Object { [double]$_[1] } } else { @() }
+        
+            $avgC = if ($c.Count -gt 0) { [math]::Round(($c | Measure-Object -Average).Average, 2) } else { 'N/A' }
+            $avgM = if ($m.Count -gt 0) { [math]::Round(($m | Measure-Object -Average).Average, 2) } else { 'N/A' }
+            $avgD = if ($d.Count -gt 0) { [math]::Round(($d | Measure-Object -Average).Average, 2) } else { 'N/A' }
+        
             Write-ToReport "Node: $n - CPU: $avgC% | Mem: $avgM% | Disk: $avgD%"
-        }
+        }        
     }
 
     $score = Get-ClusterHealthScore -Checks $yamlCheckResults.Items

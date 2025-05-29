@@ -451,8 +451,8 @@ body {
 }
 
 .progress-text {
-  position: absolute;
-  top: 50%;
+  position: relative;
+  top: 10%;
   left: 50%;
   transform: translate(-50%, -50%);
   font-weight: 700;

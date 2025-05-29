@@ -86,11 +86,15 @@ function Create-JsonReport {
 
     # Calculate score from all checks
     $allChecks = $yamlCheckResults.Items
-    if ($aks -and $aksCheckResults -and $aksCheckResults.Items) {
-        $allChecks += $aksCheckResults.Items
-    }
-    $results.metadata.score = Get-ClusterHealthScore -Checks $allChecks
 
+    $validChecks = $allChecks | Where-Object {
+        $_.Weight -ne $null -and
+        -not $_.Error -and
+        $_.ID -ne $null
+    }
+    
+    $results.metadata.score = Get-ClusterHealthScore -Checks $validChecks
+    
     # ----- Add Prometheus Metrics to JSON -----
     if ($KubeData.PrometheusMetrics) {
         # Cluster-level averages

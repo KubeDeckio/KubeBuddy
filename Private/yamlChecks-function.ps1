@@ -967,11 +967,13 @@ $summary
                     Status = $status 
                     Weight = $check.Weight
                 }
-                $checkScoreList += [pscustomobject]@{
-                    Id     = $check.ID
-                    Weight = $check.Weight
-                    Total  = if ($status -eq 'Passed') { 0 } else { 1 }
-                }                
+                if ($check.Weight -ne $null -and -not $check.Error -and $check.ID) {
+                    $checkScoreList += [pscustomobject]@{
+                        Id     = $check.ID
+                        Weight = $check.Weight
+                        Total = if ($status -eq 'Passed') { 0 } else { $check.Total }
+                    }
+                }                       
             }
         }
 
@@ -985,26 +987,38 @@ $summary
     
     # JSON output
     if ($Json) {
-        return @{
-            Hero       = $heroCounts
-            TotalScore = ($allResults | Measure-Object -Sum -Property Total).Sum
-            Items      = $allResults
+        $validChecks = $allResults | Where-Object {
+            $_.Weight -ne $null -and
+            -not $_.Error -and
+            $_.ID -ne $null
         }
+        
+        $totalWeight = ($validChecks | Measure-Object -Property Weight -Sum).Sum
+        $failedWeight = ($validChecks | Where-Object { $_.Total -gt 0 } | Measure-Object -Property Weight -Sum).Sum
+        $scorePercent = if ($totalWeight -gt 0) {
+            [math]::Round(100 - (($failedWeight / $totalWeight) * 100), 2)
+        } else { 100 }
+        
+        return @{
+            Hero       = $panels
+            TotalScore = $scorePercent
+            Items      = $allResults
+        }     
     }
      
 
     if ($Text) {
+        Write-ToReport ""
+        Write-ToReport "=== Issue Summary ==="
+        Write-ToReport "Critical issues: $($panels.critical.count)"
+        Write-ToReport "Warning issues:  $($panels.warning.count)"
+        Write-ToReport "Info issues:     $($panels.info.count)"
+        Write-ToReport ""
+        Write-ToReport "=== Check Results ==="
         foreach ($result in $allResults) {
             Write-ToReport ""
             Write-ToReport "$($result.ID) - $($result.Name)"
             Write-ToReport "Total Issues: $($result.Total)"
-
-            Write-ToReport ""
-            Write-ToReport "=== Issue Summary ==="
-            Write-ToReport "Critical issues: $($heroCounts.critical)"
-            Write-ToReport "Warning issues:  $($heroCounts.warning)"
-            Write-ToReport "Info issues:     $($heroCounts.info)"
-            Write-ToReport ""
     
             if ($result.Items) {
                 $validProps = Get-ValidProperties -Items $result.Items -CheckID $result.ID
