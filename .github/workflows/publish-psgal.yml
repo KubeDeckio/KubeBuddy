@@ -61,7 +61,7 @@ jobs:
 
       - name: Run PSScriptAnalyzer and format output in Markdown
         run: |
-          $results = Invoke-ScriptAnalyzer -Path ./ -Recurse -Severity 'Error', 'Warning' -ExcludeRule PSAvoidUsingWriteHost
+          $results = Invoke-ScriptAnalyzer -Path ./ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1 -Severity 'Error', 'Warning' -ExcludeRule PSAvoidUsingWriteHost
 
           $warnings = $results | Where-Object { $_.Severity -eq 'Warning' }
           $errors = $results | Where-Object { $_.Severity -eq 'Error' }

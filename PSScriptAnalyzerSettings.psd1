@@ -1,0 +1,7 @@
+@{
+    Rules = @{
+        PSUseConvertToSecureStringWithPlainText = @{
+            Severity = 'None'
+        }
+    }
+}
