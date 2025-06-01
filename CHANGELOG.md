@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixes
 
-* Fixed an issue where teh code would not actually run the checks.
+* Fixed an issue where the code would not actually run the checks.
 
 ## [0.0.20] – 2025-05-29
 
