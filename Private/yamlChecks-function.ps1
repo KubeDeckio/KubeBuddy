@@ -39,6 +39,30 @@ function Invoke-yamlChecks {
         $PrometheusBearerTokenEnv = $KubeData.PrometheusBearerTokenEnv
         $PrometheusHeaders = $kubedata.PrometheusHeaders
     }
+
+                        # PSAI enhancement: only run if OpenAI key is set
+if ($env:OpenAIKey -and -not $script:PSAIRecommendationAgent) {
+    $script:PSAIRecommendationAgent = New-Agent -Instructions @"
+You are a Kubernetes advisor assistant. Your job is to improve health check advice. You'll receive:
+- plain text recommendations
+- optional HTML content
+- speech bubbles for chatbot output
+
+Clarify the text, improve the HTML, and rewrite the bubbles to be informative and helpful.
+
+Format output with:
+Text:
+<improved text>
+
+HTML:
+<improved html>
+
+SpeechBubble:
+- Line one
+- Line two
+- Line three
+"@
+    }
     function Get-ValidProperties {
         param (
             [array]$Items,
@@ -225,6 +249,7 @@ function Invoke-yamlChecks {
 
         $localResults = @()
 
+
         try {
             $yamlContent = Get-Content $_.FullName -Raw | ConvertFrom-Yaml
             if (-not $yamlContent.checks) {
@@ -245,6 +270,128 @@ function Invoke-yamlChecks {
                 }
 
                 Write-Host "🤖 Processing check: $($check.ID) - $($check.Name)..." -ForegroundColor Cyan
+
+                # Optional: Enhance recommendation content using PSAI
+if ($env:OpenAIKey -and $using:PSAIRecommendationAgent -and $check.Recommendation) {
+# Optional: summarize findings into a markdown-style string
+function Format-FindingSummary {
+    param ([array]$Items)
+    if (-not $Items -or $Items.Count -eq 0) { return "No issues were detected." }
+
+    $maxExamples = 2
+    $total = $Items.Count
+
+    $lines = $Items | Select-Object -First $maxExamples | ForEach-Object {
+        if ($_.Namespace -and $_.Resource -match 'statefulset/(.+)') {
+            $stsName = $Matches[1]
+            "- StatefulSet '$stsName' in namespace '$($_.Namespace)' has issue: $($_.Message)"
+        }
+        else {
+            # fallback generic summary
+            $summaryParts = @()
+            foreach ($p in $_.PSObject.Properties) {
+                if ($p.Value -ne $null -and $p.Value -ne "" -and $p.Value -ne "-") {
+                    $summaryParts += "$($p.Name): $($p.Value)"
+                }
+            }
+            "- " + ($summaryParts -join "; ")
+        }
+    }
+
+    if ($total -gt $maxExamples) {
+        $lines += "- ...and $($total - $maxExamples) more issues not shown here."
+    }
+
+    return ($lines -join "`n")
+}
+
+$findingSummary = Format-FindingSummary -Items $check.Items
+
+$prompt = @"
+You are a Kubernetes expert. Improve the following health check recommendation using the actual results from a recent scan.
+
+---
+🔍 Findings (sample):
+$findingSummary
+
+---
+🧾 Evaluation Script (PowerShell):
+$($check.Script)
+
+---
+📄 Original Text:
+$($check.Recommendation.text)
+
+---
+💡 Original HTML:
+$($check.Recommendation.html)
+
+---
+💬 Original SpeechBubble:
+$($check.SpeechBubble -join "`n")
+
+✍️ Please rewrite all 3 fields to be clearer, more actionable, and tailored to the findings above.
+
+- Include real examples from the findings when possible.
+- Use the logic in the script to understand the purpose of the check.
+- Avoid general best practices unless they apply directly.
+
+Text:
+HTML:
+SpeechBubble:
+"@
+
+    try {
+        $response = $using:PSAIRecommendationAgent | Get-AgentResponse $prompt
+
+        function Parse-PSAIRecommendationResponse {
+            param ([string]$Response)
+            $sections = @{ Text = ""; HTML = ""; SpeechBubble = @() }
+            $lines = $Response -split "`r?`n"
+            $current = ""
+            foreach ($line in $lines) {
+                if ($line -match '^Text:\s*$') { $current = 'Text'; continue }
+                elseif ($line -match '^HTML:\s*$') { $current = 'HTML'; continue }
+                elseif ($line -match '^SpeechBubble:\s*$') { $current = 'SpeechBubble'; continue }
+
+                switch ($current) {
+                    'Text' { $sections.Text += $line + "`n" }
+                    'HTML' { $sections.HTML += $line + "`n" }
+                    'SpeechBubble' {
+                        if ($line -match '^\s*-\s*(.*)$') {
+                            $sections.SpeechBubble += $Matches[1].Trim()
+                        }
+                    }
+                }
+            }
+            $sections.Text = $sections.Text.Trim()
+            $sections.HTML = $sections.HTML.Trim()
+            return $sections
+        }
+
+        $enhanced = Parse-PSAIRecommendationResponse -Response $response
+
+        # Normalize into hashtable format
+        if ($check.Recommendation -isnot [hashtable]) {
+            $check.Recommendation = @{
+                text = $enhanced.Text
+                html = $enhanced.HTML
+            }
+        } else {
+            $check.Recommendation.text = $enhanced.Text
+            $check.Recommendation.html = $enhanced.HTML
+        }
+        
+        # Optional: flag this check as AI-enhanced
+        $check.Recommendation["EnhancedByAI"] = $true
+        $check.SpeechBubble = $enhanced.SpeechBubble
+        
+    }
+    catch {
+        Write-Host "⚠️ PSAI enhancement failed for $($check.ID): $_" -ForegroundColor Yellow
+    }
+}
+
 
                 # Custom script block execution
                 if ($check.Script) {
@@ -775,7 +922,7 @@ function Invoke-yamlChecks {
 <div class="recommendation-card">
 <div class="recommendation-banner">
   <span class="material-icons">tips_and_updates</span>
-  Recommended Actions
+  Recommended Actions$(if ($check.Recommendation.EnhancedByAI) { " (AI Enhanced)" })
 </div>
   $recContent
 </div>

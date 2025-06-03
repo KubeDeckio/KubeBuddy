@@ -40,6 +40,10 @@ function Invoke-KubeBuddy {
         $reportBaseName = "kubebuddy-report-$timestamp"
     }
 
+    Install-Module -Name PSAI
+
+Import-module -Name PSAI
+
     # Ensure the output directory exists
     if (!(Test-Path -Path $reportDir)) {
         Write-Host "📂 Creating directory: $reportDir" -ForegroundColor Yellow
