@@ -911,6 +911,7 @@ code {
 /* Buttons and Floaters */
 #backToTop,
 #menuFab {
+  font-family: 'Roboto', sans-serif;
   position: fixed;
   bottom: var(--spacing-lg);
   right: var(--spacing-lg);
@@ -1997,4 +1998,18 @@ body.print-mode canvas {
 .fix-icon {
   font-size: 1.25rem;
   margin-right: var(--spacing-sm);
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem; /* Smaller font for badge-like appearance */
+  font-weight: 500; /* Medium weight for clarity */
+  color: #fff; /* White text for contrast */
+  background-color: #6200ee; /* Material Design purple (or your theme's secondary color) */
+  border-radius: 12px; /* High radius for pill shape */
+  padding: 4px 8px; /* Compact padding */
+  margin-left: 8px; /* Slightly increased for spacing */
+  text-transform: uppercase; /* Optional: for badge emphasis */
+  line-height: 1; /* Tight line height for vertical centering */
 }

@@ -18,7 +18,7 @@ function Invoke-KubeBuddy {
         [switch]$IncludePrometheus, # Flag to include Prometheus data
         [string]$PrometheusUrl, # Prometheus endpoint
         [string]$PrometheusMode, # Authentication mode: local, basic, bearer, azure
-        [string]$PrometheusBearerTokenEnv,  # Environment variable for bearer token
+        [string]$PrometheusBearerTokenEnv, # Environment variable for bearer token
         [System.Management.Automation.PSCredential]$PrometheusCredential # Credential for Prometheus basic auth
     )
 
@@ -39,10 +39,6 @@ function Invoke-KubeBuddy {
         $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
         $reportBaseName = "kubebuddy-report-$timestamp"
     }
-
-    Install-Module -Name PSAI
-
-Import-module -Name PSAI
 
     # Ensure the output directory exists
     if (!(Test-Path -Path $reportDir)) {
@@ -161,20 +157,20 @@ Import-module -Name PSAI
             return
         }
         $kubeDataParams = @{
-            SubscriptionId           = $SubscriptionId
-            ResourceGroup            = $ResourceGroup
-            ClusterName              = $ClusterName
-            ExcludeNamespaces        = $ExcludeNamespaces
-            Aks                      = $Aks
-            UseAksRestApi            = $UseAksRestApi
+            SubscriptionId    = $SubscriptionId
+            ResourceGroup     = $ResourceGroup
+            ClusterName       = $ClusterName
+            ExcludeNamespaces = $ExcludeNamespaces
+            Aks               = $Aks
+            UseAksRestApi     = $UseAksRestApi
             
         }
         
         # Add Prometheus params only if IncludePrometheus is true
         if ($IncludePrometheus) {
-            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
-            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
-            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.IncludePrometheus = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl = $PrometheusUrl
+            $kubeDataParams.PrometheusMode = $PrometheusMode
             $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
             if ($PrometheusCredential) {
                 $kubeDataParams.PrometheusCredential = $PrometheusCredential
@@ -215,20 +211,20 @@ Import-module -Name PSAI
             return
         }
         $kubeDataParams = @{
-            SubscriptionId           = $SubscriptionId
-            ResourceGroup            = $ResourceGroup
-            ClusterName              = $ClusterName
-            ExcludeNamespaces        = $ExcludeNamespaces
-            Aks                      = $Aks
-            UseAksRestApi            = $UseAksRestApi
+            SubscriptionId    = $SubscriptionId
+            ResourceGroup     = $ResourceGroup
+            ClusterName       = $ClusterName
+            ExcludeNamespaces = $ExcludeNamespaces
+            Aks               = $Aks
+            UseAksRestApi     = $UseAksRestApi
             
         }
         
         # Add Prometheus params only if IncludePrometheus is true
         if ($IncludePrometheus) {
-            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
-            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
-            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.IncludePrometheus = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl = $PrometheusUrl
+            $kubeDataParams.PrometheusMode = $PrometheusMode
             $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
             if ($PrometheusCredential) {
                 $kubeDataParams.PrometheusCredential = $PrometheusCredential
@@ -263,20 +259,20 @@ Import-module -Name PSAI
         }
 
         $kubeDataParams = @{
-            SubscriptionId           = $SubscriptionId
-            ResourceGroup            = $ResourceGroup
-            ClusterName              = $ClusterName
-            ExcludeNamespaces        = $ExcludeNamespaces
-            Aks                      = $Aks
-            UseAksRestApi            = $UseAksRestApi
+            SubscriptionId    = $SubscriptionId
+            ResourceGroup     = $ResourceGroup
+            ClusterName       = $ClusterName
+            ExcludeNamespaces = $ExcludeNamespaces
+            Aks               = $Aks
+            UseAksRestApi     = $UseAksRestApi
             
         }
         
         # Add Prometheus params only if IncludePrometheus is true
         if ($IncludePrometheus) {
-            $kubeDataParams.IncludePrometheus        = $IncludePrometheus
-            $kubeDataParams.PrometheusUrl            = $PrometheusUrl
-            $kubeDataParams.PrometheusMode           = $PrometheusMode
+            $kubeDataParams.IncludePrometheus = $IncludePrometheus
+            $kubeDataParams.PrometheusUrl = $PrometheusUrl
+            $kubeDataParams.PrometheusMode = $PrometheusMode
             $kubeDataParams.PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
             if ($PrometheusCredential) {
                 $kubeDataParams.PrometheusCredential = $PrometheusCredential
