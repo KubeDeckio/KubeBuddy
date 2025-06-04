@@ -417,7 +417,7 @@ function Add-AIRecommendationIfNeeded {
 
     if ($checkResult.Total -gt 0 -and $env:OpenAIKey) {
         try {
-            Write-Host "🤖 Fetching AI recommendation for [$($checkResult.ID)]..." -ForegroundColor Cyan
+            Write-Host "🤖 Fetching AI recommendation for $($checkResult.ID)..." -ForegroundColor Cyan
 
             $aiRec = Get-AIRecommendation -CheckID $checkResult.ID `
                                           -CheckName $checkResult.Name `
@@ -430,14 +430,14 @@ function Add-AIRecommendationIfNeeded {
                     text   = $aiRec.text.Trim()
                     source = "AI"
                 }
-                Write-Host "`✅ AI recommendation received for [$($checkResult.ID)]" -ForegroundColor Green
+                Write-Host "`✅ AI recommendation received for $($checkResult.ID)" -ForegroundColor Green
             }
             else {
-                Write-Host "`⚠️  No usable AI response for [$($checkResult.ID)]: $_" -ForegroundColor DarkYellow
+                Write-Host "`⚠️  No usable AI response for $($checkResult.ID): $_" -ForegroundColor DarkYellow
             }
         }
         catch {
-            Write-Host "❌ AI enrichment failed for [$($checkResult.ID)]: $_" -ForegroundColor Red
+            Write-Host "❌ AI enrichment failed for $($checkResult.ID): $_" -ForegroundColor Red
         }
     }
 

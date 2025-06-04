@@ -14,9 +14,8 @@ function Remove-AllEmojis {
 }
 
 function Get-DisplayWidth($text) {
-    if ($text -eq "") { return 0 }  # Handle empty lines correctly
+    if (-not $text) { return 0 }  # Handles $null, empty string, etc.
 
-    # Enumerate characters for width calculation
     $runes = $text.EnumerateRunes()
     $visibleWidth = 0
 
@@ -27,18 +26,52 @@ function Get-DisplayWidth($text) {
     return $visibleWidth
 }
 
+function Wrap-Line {
+    param (
+        [string]$line,
+        [int]$maxWidth
+    )
+
+    $wrapped = @()
+    while ($line.Length -gt $maxWidth) {
+        $segment = $line.Substring(0, $maxWidth)
+        $wrapped += $segment
+        $line = $line.Substring($maxWidth)
+    }
+    if ($line.Length -gt 0) {
+        $wrapped += $line
+    }
+    return $wrapped
+}
+
 function Write-SpeechBubble {
     param (
         [string[]]$msg,           
         [string]$color = "Cyan",  
-        [string]$icon = "🤖",  # No emojis
+        [string]$icon = "🤖", # No emojis
         [string]$lastColor = "Red",
         [int]$delay = 50  # Typing effect speed (milliseconds per word)
     )
 
 
-    # Remove all emojis before processing
-    $msg = $msg | ForEach-Object { Remove-AllEmojis $_ }
+    $maxConsoleWidth = $Host.UI.RawUI.WindowSize.Width
+    $availableBubbleWidth = [math]::Min($maxConsoleWidth - 15, 100)  # Padding from left and borders
+    
+    $msgInput = $msg
+    $msg = @()
+    
+    foreach ($line in $msgInput) {
+        if ($null -eq $line -or $line.Trim() -eq "") {
+            # Preserve empty lines
+            $msg += ""
+            continue
+        }
+    
+        $cleaned = Remove-AllEmojis $line
+        $wrapped = Wrap-Line -line $cleaned -maxWidth $availableBubbleWidth
+        $msg += $wrapped
+    }
+    
 
     # Calculate the max line width dynamically
     $maxLength = ($msg | ForEach-Object { Get-DisplayWidth $_ } | Measure-Object -Maximum).Maximum
@@ -61,12 +94,22 @@ function Write-SpeechBubble {
         $rightBorder = " │"
         $lineColor = $color 
 
-        # Move last line forward and keep its `│` cyan
-        if ($i -eq $msg.Length - 1) {
-            $lineText = " " + $lineText  
-            $rightBorder = " │"
+        # Apply coloring logic:
+        # If this message is an AI block (detected by prior context), color all recommendation lines yellow
+        $lineColor = $color  # default
+
+        if ($msg -match "📎 Recommendation:") {
+            # If it's an AI recommendation block, make all lines following 📎 yellow
+            $recommendationIndex = ($msg | Select-String "Recommendation:").LineNumber
+            if ($i -ge $recommendationIndex) {
+                $lineColor = $lastColor
+            }
+        }
+        elseif ($i -eq $msg.Length - 1) {
+            # Fallback: just color the last line yellow
             $lineColor = $lastColor
         }
+
 
         # Pad the line to fit the box width correctly
         $paddedLine = $lineText.PadRight($maxLength + 1)
