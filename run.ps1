@@ -21,6 +21,12 @@ $ClientSecret = $env:AZURE_CLIENT_SECRET
 $TenantId = $env:AZURE_TENANT_ID
 $UseAksRestApi = $env:USE_AKS_REST_API -eq "true"
 
+# AI values
+$OpenAIKey = $env:OPENAI_API_KEY  # New: capture OpenAI key
+if ($OpenAIKey) {
+    $env:OpenAIKey = $OpenAIKey   # PSAI uses this
+}
+
 # ─── Prometheus options ───────────────────────────────────────────────
 $IncludePrometheus = $env:INCLUDE_PROMETHEUS -eq "true"
 $PrometheusUrl = $env:PROMETHEUS_URL
