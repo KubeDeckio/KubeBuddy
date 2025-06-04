@@ -1065,10 +1065,12 @@ $summary
             Write-ToReport "Severity: $($result.Severity)"
             $recText = Get-RecommendationText -rec $result.Recommendation -TextOutput
             $aiSuffix = ""
-            if ($recText.Recommendation.source -eq "AI") {
+            if ($result.Recommendation -is [hashtable] -and $result.Recommendation.source -eq "AI") {
                 $aiSuffix = "AI Generated "
             }
+            $recText = Get-RecommendationText -rec $result.Recommendation -TextOutput
             Write-ToReport "$($aiSuffix)Recommendation: $recText"
+            
             if ($result.URL) {
                 Write-ToReport "URL: $($result.URL)"
             }

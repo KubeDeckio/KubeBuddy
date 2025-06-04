@@ -443,6 +443,7 @@ function Add-AIRecommendationIfNeeded {
 
     return $checkResult
 }
+
 function Get-RecommendationText {
     param (
         [object]$rec,
