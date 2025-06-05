@@ -683,6 +683,40 @@ z-index: 1;
   transform: translateY(-8px) !important;
   box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
 }
+
+.ai-highlight {
+  background: linear-gradient(135deg, rgba(0,113,255,0.07), rgba(0,113,255,0.03));
+  border: 1px solid var(--md-primary-fg-color--light);
+  box-shadow: 0 2px 12px rgba(0, 113, 255, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.ai-highlight:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 113, 255, 0.2);
+}
+
+.ai-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  color: var(--md-primary-fg-color);
+}
+
+.ai-title {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--md-primary-fg-color);
+  margin: 0.5rem 0 1rem;
+}
+
+.ai-description {
+  font-size: 1.1rem;
+  color: var(--md-default-fg-color);
+  line-height: 1.6;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
 </style>
 
 <!-- Hero + Metrics Section -->
@@ -808,9 +842,10 @@ z-index: 1;
   </section>
 
   <section class="section">
-    <div class="info-card">
-      <h3>🤖 Now with Built-In AI Guidance</h3>
-      <p>
+    <div class="info-card ai-highlight" style="animation: fadeInUp 0.6s ease forwards;">
+      <div class="ai-icon">🤖</div>
+      <h3 class="ai-title">Now with Built-In AI Guidance</h3>
+      <p class="ai-description">
         Struggling to interpret raw metrics or vague warnings? KubeBuddy now integrates with OpenAI to give clear, actionable advice for each issue — with real examples from your cluster.
       </p>
     </div>
