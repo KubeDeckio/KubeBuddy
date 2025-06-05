@@ -132,6 +132,32 @@ Set these to control behavior inside the container:
 | `TXT_REPORT`  | `"true"` for plain text   |
 | `JSON_REPORT` | `"true"` for JSON output  |
 
+### 🤖 AI Recommendations (Optional)
+
+| Variable    | Description                                                                   |
+| ----------- | ----------------------------------------------------------------------------- |
+| `OpenAIKey` | Your OpenAI API key. Sets `$env:OpenAIKey` inside the container for PSAI use. |
+
+> ✅ If `OpenAIKey` is provided, KubeBuddy uses GPT (via [PSAI](https://www.powershellgallery.com/packages/PSAI)) to generate AI-powered recommendations for failing checks:
+>     • **Short text summary** (shown in the plain-text report)
+>     • **Rich HTML block** (included in the HTML report)
+>
+> 🔒 If the key is missing or invalid, AI generation is skipped silently (no errors).
+
+#### How to Use
+
+1. **Get an OpenAI key** from [platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
+2. **Pass it into your Docker container** like this:
+
+```bash
+docker run -it --rm \
+  -e OpenAIKey="sk-..." \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
 ### ☁️ AKS Mode (Optional, for AKS Clusters)
 
 | Variable              | Description                     |

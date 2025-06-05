@@ -34,3 +34,43 @@ Run KubeBuddy in a container to:
 - Run AKS-specific checks with SPN credentials.
 
 📌 **[Docker Usage](docker-usage.md)** – Guide for using KubeBuddy with Docker.
+
+## 🧠 AI Recommendations (OpenAI)
+
+KubeBuddy now supports AI-powered recommendation generation using OpenAI (ChatGPT) via the [PSAI PowerShell module](https://x.com/dfinke).
+
+### How it Works
+
+When KubeBuddy detects issues in your cluster, it can prompt an AI agent to generate:
+
+- A brief **text summary** of recommended actions
+- A rich **HTML block** with actionable suggestions, formatted for inclusion in reports
+
+These recommendations are embedded directly in the **HTML**, **text**, and **JSON** reports.
+
+### Requirements
+
+To enable AI enrichment, you must provide an OpenAI API key:
+
+```powershell
+$env:OpenAIKey = "<your-openai-api-key>"
+```
+
+You can generate a key from:  
+🔗 https://platform.openai.com/account/api-keys
+
+> If no key is provided (`$env:OpenAIKey` is empty), KubeBuddy will skip AI enrichment and fallback to static/manual recommendations.
+
+### Where AI Output Appears
+
+- **HTML Report**: AI-generated actions appear in a collapsible card labeled `(AI Enhanced)` under each check that supports it.
+- **Text Report**: Recommendations are marked with the prefix `AI Generated Recommendation:` if they were created by the AI.
+- **JSON Report**: The recommendation object includes:
+  ```json
+  {
+    "text": "...",
+    "html": "...",
+    "source": "AI"
+  }
+  ```
+

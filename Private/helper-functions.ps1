@@ -335,12 +335,12 @@ function Normalize-Severity {
     # define your canonical map right here
     $map = @{
         'critical' = 'critical'
-        'high'    = 'critical'
-        'error'   = 'critical'
-        'medium'  = 'warning'
-        'warning' = 'warning'
-        'low'     = 'info'
-        'info'    = 'info'
+        'high'     = 'critical'
+        'error'    = 'critical'
+        'medium'   = 'warning'
+        'warning'  = 'warning'
+        'low'      = 'info'
+        'info'     = 'info'
     }
 
     if (-not $rawSeverity) { return 'info' }
@@ -354,4 +354,118 @@ function Normalize-Severity {
     }
 }
 
-  
+function Get-AIRecommendation {
+    param (
+        [string]$CheckID,
+        [string]$CheckName,
+        [string]$Description,
+        [array]$Findings
+    )
+
+    if (-not $env:OpenAIKey) { return $null }
+
+    try {
+        # Prompt for dual-format response
+        $prompt = @"
+You are an expert Kubernetes advisor. A check called '$CheckID - $CheckName' returned issues. Here's the context:
+
+--- Description ---
+$Description
+
+--- Findings (JSON) ---
+$($Findings | ConvertTo-Json -Depth 5)
+
+--- Task ---
+Please provide:
+1. A **brief summary** of the recommended actions in plain text (1–3 sentences).
+2. A **detailed recommendation section** in plain HTML (wrapped in a <ul> or <div> if appropriate), suitable for embedding in a report.
+
+Only return the following structure in your response:
+
+--- Text Summary ---
+<short text summary here>
+
+--- HTML Recommendation ---
+<html content here>
+"@
+
+        # Create the agent and get the response
+        $Agent = New-Agent -Instructions "You are a Kubernetes troubleshooting expert. Keep answers short, actionable, and useful."
+        $response = $Agent | Get-AgentResponse $prompt
+
+        if ([string]::IsNullOrWhiteSpace($response)) {
+            return $null
+        }
+
+        # Split out the text and HTML sections
+        $textSummary = ($response -split '--- HTML Recommendation ---')[0] -replace '--- Text Summary ---', '' -replace '^\s+', '' -replace '\s+$', ''
+        $htmlBlock   = ($response -split '--- HTML Recommendation ---')[1].Trim()
+
+        return @{
+            text = $textSummary
+            html = $htmlBlock
+        }
+    }
+    catch {
+        Write-Host "⚠️ PSAI failed for $($CheckID): $_" -ForegroundColor Yellow
+        return $null
+    }
+}
+
+function Add-AIRecommendationIfNeeded {
+    param ([object]$checkResult)
+
+    if ($checkResult.Total -gt 0 -and $env:OpenAIKey) {
+        try {
+            Write-Host "🤖 Fetching AI recommendation for $($checkResult.ID)..." -ForegroundColor Cyan
+
+            $aiRec = Get-AIRecommendation -CheckID $checkResult.ID `
+                                          -CheckName $checkResult.Name `
+                                          -Description $checkResult.Description `
+                                          -Findings $checkResult.Items
+
+            if ($aiRec -and $aiRec.html) {
+                $checkResult.Recommendation = @{
+                    html   = $aiRec.html.Trim()
+                    text   = $aiRec.text.Trim()
+                    source = "AI"
+                }
+                Write-Host "`✅ AI recommendation received for $($checkResult.ID)" -ForegroundColor Green
+            }
+            else {
+                Write-Host "`⚠️  No usable AI response for $($checkResult.ID): $_" -ForegroundColor DarkYellow
+            }
+        }
+        catch {
+            Write-Host "❌ AI enrichment failed for $($checkResult.ID): $_" -ForegroundColor Red
+        }
+    }
+
+    return $checkResult
+}
+
+function Get-RecommendationText {
+    param (
+        [object]$rec,
+        [switch]$TextOutput,
+        [switch]$JsonOutput
+    )
+
+    if ($TextOutput -or $JsonOutput) {
+        if ($rec -is [hashtable]) {
+            if ($rec.text) {
+                return $rec.text
+            }
+            else {
+                return "<HTML recommendation available>"
+            }
+        }
+        elseif ($rec -is [string]) {
+            return $rec
+        }
+        return "No recommendation provided."
+    }
+
+    # For HTML context, do NOT return anything
+    return $null
+}

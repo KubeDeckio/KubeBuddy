@@ -121,7 +121,7 @@ checks:
       html: |
         <div class="recommendation-content">
           <ul>
-            <li>Run <code>kubectl describe sts <name> -n <namespace></code> to view rollout and events.</li>
+            <li>Run <code>kubectl describe sts name -n namespace</code> to view rollout and events.</li>
             <li>Check pod logs and PersistentVolumeClaim bindings.</li>
             <li>Confirm storage class availability and node scheduling constraints.</li>
           </ul>

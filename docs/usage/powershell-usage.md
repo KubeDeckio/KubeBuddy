@@ -17,6 +17,16 @@ Before running KubeBuddy powered by KubeDeck, ensure you:
 - Have **Azure CLI (az cli)** installed if using AKS features.
 - Are **logged into Azure** and using the correct subscription for AKS monitoring.
 
+### (Optional) Enable AI Recommendations
+
+If you’d like to use OpenAI to automatically generate enhanced recommendations, set your OpenAI API key as an environment variable:
+
+```powershell
+$env:OpenAIKey = "<your-openai-api-key>"
+```
+
+KubeBuddy will detect this and enrich reports with AI-generated summaries and HTML guidance where applicable.
+
 ## 🔗 Related Guide
 
 If you're running AKS checks or using the `-Aks` flag, see the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for prerequisites and role setup.

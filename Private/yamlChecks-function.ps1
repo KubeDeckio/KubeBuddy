@@ -17,6 +17,9 @@ function Invoke-yamlChecks {
     # Ensure required modules
     try {
         Import-Module powershell-yaml -ErrorAction Stop
+        if ($env:OpenAIKey) {
+            Import-Module PSAI -ErrorAction SilentlyContinue
+        }        
         # Import all PowerShell modules from $PSScriptRoot
         Get-ChildItem -Path $PSScriptRoot -Filter "*.ps1" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
             Import-Module $_.FullName -ErrorAction Stop
@@ -160,6 +163,9 @@ function Invoke-yamlChecks {
         try {
             Import-Module powershell-yaml -ErrorAction Stop
             # Import all PowerShell modules from $using:PSScriptRoot
+            if ($env:OpenAIKey) {
+                Import-Module PSAI -ErrorAction SilentlyContinue
+            }
             Get-ChildItem -Path $using:PSScriptRoot -Filter "*.ps1" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
                 Import-Module $_.FullName -ErrorAction Stop
             }
@@ -348,6 +354,7 @@ function Invoke-yamlChecks {
                             $checkResult.Message = "No issues detected for $($check.Name)."
                         }
 
+
                         $localResults += $checkResult
                         Write-Host "`✅ Completed check: $($check.ID) - $($check.Name)                     " -ForegroundColor Green
                     }
@@ -448,6 +455,7 @@ function Invoke-yamlChecks {
                         }
 
                         $checkResult.Severity = Normalize-Severity $checkResult.Severity
+
                 
                         $localResults += $checkResult
                         Write-Host "✅ Completed Prometheus check: $($check.ID) - $($check.Name)                     " -ForegroundColor Green
@@ -589,6 +597,7 @@ function Invoke-yamlChecks {
                 if ($checkResult.Total -eq 0) {
                     $checkResult.Message = "No issues detected for $($check.Name)."
                 }
+
                 $localResults += $checkResult
                 Write-Host "`r✅ Completed check: $($check.ID) - $($check.Name)      " -ForegroundColor Green
             }
@@ -602,15 +611,22 @@ function Invoke-yamlChecks {
             }
         }
 
-        # Return results from this parallel iteration
-        $localResults
+        # If OpenAIKey is set, apply AI enrichment to each check result
+        if ($env:OpenAIKey) {
+            $localResults = $localResults | ForEach-Object {
+                Add-AIRecommendationIfNeeded -checkResult $_
+            }
+        }
+
+        return $localResults
+
     } -ThrottleLimit 5
 
-    # Aggregate results into ConcurrentBag
+    # ✅ Collect all results
     foreach ($result in $parallelResults) {
         if ($result) {
             if ($result -is [array]) {
-                $result | ForEach-Object { $allResults.Add($_) }
+                foreach ($r in $result) { $allResults.Add($r) }
             }
             else {
                 $allResults.Add($result)
@@ -771,11 +787,15 @@ function Invoke-yamlChecks {
                                 $recContent += "<ul>$urlHtml</ul>"
                             }
                         }
+                        $aiSuffix = ""
+                        if ($check.Recommendation -is [hashtable] -and $check.Recommendation.source -eq "AI") {
+                            $aiSuffix = " <span class='ai-badge'>AI gENERATED</span>"
+                        }
                         @"
 <div class="recommendation-card">
 <div class="recommendation-banner">
   <span class="material-icons">tips_and_updates</span>
-  Recommended Actions
+  Recommended Actions$aiSuffix
 </div>
   $recContent
 </div>
@@ -805,11 +825,17 @@ function Invoke-yamlChecks {
                             # If no URL, still wrap the plain string in a <ul>
                             $recContent = "<ul><li>$recContent</li></ul>"
                         }
+
+                        $aiSuffix = ""
+                        if ($check.Recommendation -is [hashtable] -and $check.Recommendation.source -eq "AI") {
+                            $aiSuffix = " <span class='ai-badge'>AI Generated</span>"
+                        }
+
                         @"
 <div class="recommendation-card">
 <div class="recommendation-banner">
   <span class="material-icons">tips_and_updates</span>
-  Recommended Actions
+  Recommended Actions$aiSuffix
 </div>
   $recContent
 </div>
@@ -971,7 +997,7 @@ $summary
                     $checkScoreList += [pscustomobject]@{
                         Id     = $check.ID
                         Weight = $check.Weight
-                        Total = if ($status -eq 'Passed') { 0 } else { $check.Total }
+                        Total  = if ($status -eq 'Passed') { 0 } else { $check.Total }
                     }
                 }                       
             }
@@ -997,7 +1023,8 @@ $summary
         $failedWeight = ($validChecks | Where-Object { $_.Total -gt 0 } | Measure-Object -Property Weight -Sum).Sum
         $scorePercent = if ($totalWeight -gt 0) {
             [math]::Round(100 - (($failedWeight / $totalWeight) * 100), 2)
-        } else { 100 }
+        }
+        else { 100 }
         
         return @{
             Hero       = $panels
@@ -1036,7 +1063,14 @@ $summary
     
             Write-ToReport "Category: $($result.Category)"
             Write-ToReport "Severity: $($result.Severity)"
-            Write-ToReport "Recommendation: $($result.Recommendation)"
+            $recText = Get-RecommendationText -rec $result.Recommendation -TextOutput
+            $aiSuffix = ""
+            if ($result.Recommendation -is [hashtable] -and $result.Recommendation.source -eq "AI") {
+                $aiSuffix = "AI Generated "
+            }
+            $recText = Get-RecommendationText -rec $result.Recommendation -TextOutput
+            Write-ToReport "$($aiSuffix)Recommendation: $recText"
+            
             if ($result.URL) {
                 Write-ToReport "URL: $($result.URL)"
             }

@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## \[0.0.22] – 2025-06-04
+
+### Added
+
+* **AI Recommendations with PSAI Integration**
+  KubeBuddy now supports AI-powered recommendations, leveraging OpenAI's ChatGPT via the excellent [PSAI module by @dfinke](https://x.com/dfinke):
+
+  * When checks return findings, KubeBuddy automatically prompts GPT to generate:
+
+    * A **short plain-text summary** of recommended actions
+    * A **detailed HTML block** with actionable advice and documentation links
+  * These recommendations are:
+
+    * Embedded in the **HTML report** as collapsible "Recommended Actions" cards (with `AI Enhanced` labels)
+    * Shown in the **text report** with a clear prefix: `AI Generated Recommendation:`
+    * Included in the **JSON output** under the `Recommendation` object, with `.text`, `.html`, and `.source` fields (`source = "AI"`)
+  * Graceful fallback: if no `OpenAIKey` is set or the AI call fails, checks fall back to static/manual recommendations or omit the section entirely
+
 ## [0.0.21] – 2025-05-29
 
 ### Fixes
