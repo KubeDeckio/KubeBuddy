@@ -729,15 +729,14 @@ z-index: 1;
 
 /* Replace your existing .ai-badge block with this: */
 .ai-badge {
-  display: inline-block;
   padding: 4px 8px;
   border-radius: 12px;
   color: white;
-  font-weight: 500;
-  font-size: 0.75rem;
-  text-transform: uppercase;
+  font-weight: 800;
+  font-size: 1.5rem;
   letter-spacing: 1px;
   margin-left: 10px;
+  margin-right: 10px;
   background: linear-gradient(135deg, #8e2de2, #6200ee);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -762,13 +761,13 @@ z-index: 1;
 /* Keyframes for the pulsing glow */
 @keyframes pulseGlow {
   0% {
-    box-shadow: 0 0 10px rgba(142, 45, 226, 0.4);
+    box-shadow: 0 0 20px rgba(142, 45, 226, 0.4);
   }
   50% {
-    box-shadow: 0 0 20px rgba(142, 45, 226, 0.7);
+    box-shadow: 0 0 30px rgba(142, 45, 226, 0.7);
   }
   100% {
-    box-shadow: 0 0 10px rgba(142, 45, 226, 0.4);
+    box-shadow: 0 0 20px rgba(142, 45, 226, 0.4);
   }
 }
 
@@ -787,7 +786,7 @@ z-index: 1;
     <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
     <p class="hero-subhead">
       Stop guessing. Start fixing your cluster in seconds – now with 
-      <span class="ai-badge">built-in AI</span> guidance.
+      <span class="ai-badge">built-in 🤖 AI</span> guidance.
     </p>
     <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
   </div>
