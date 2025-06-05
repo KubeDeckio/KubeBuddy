@@ -2001,15 +2001,43 @@ body.print-mode canvas {
 }
 
 .ai-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.75rem; /* Smaller font for badge-like appearance */
-  font-weight: 500; /* Medium weight for clarity */
-  color: #fff; /* White text for contrast */
-  background-color: #6200ee; /* Material Design purple (or your theme's secondary color) */
-  border-radius: 12px; /* High radius for pill shape */
-  padding: 4px 8px; /* Compact padding */
-  margin-left: 8px; /* Slightly increased for spacing */
-  text-transform: uppercase; /* Optional: for badge emphasis */
-  line-height: 1; /* Tight line height for vertical centering */
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-left: 10px;
+  background: linear-gradient(135deg, #8e2de2, #6200ee);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 12px rgba(142, 45, 226, 0.4);
+  position: relative;
+  overflow: hidden;
+  animation: pulseGlow 2s infinite;
+}
+
+.pai-badge::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8e2de2, #6200ee);
+  opacity: 0.6;
+  z-index: -1;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 10px rgba(142, 45, 226, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(142, 45, 226, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(142, 45, 226, 0.4);
+  }
 }
