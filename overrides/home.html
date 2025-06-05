@@ -717,6 +717,46 @@ z-index: 1;
   margin: 0 auto;
 }
 
+.ai-ribbon {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 140px;
+  height: 140px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ai-ribbon::before {
+  content: "";
+  position: absolute;
+  display: block;
+  width: 200%;
+  height: 40px;
+  background: var(--md-primary-fg-color);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transform: rotate(-45deg);
+  top: 30px;
+  left: -45px;
+}
+
+.ai-label {
+  position: absolute;
+  transform: rotate(-45deg);
+  top: 42px;
+  left: -30px;
+  width: 200px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #fff;
+  background: none;
+  pointer-events: auto;
+}
+
+
 </style>
 
 <!-- Hero + Metrics Section -->
@@ -728,10 +768,10 @@ z-index: 1;
     </p>
     <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
   </div>
+  <div class="ai-ribbon">
+    <span class="ai-label">🤖 Built-In AI</span>
+  </div>  
 </section>
-<svg class="hero-wave" viewBox="0 0 1440 100" preserveAspectRatio="none">
-  <path d="M0,100 C360,0 1080,200 1440,100 L1440,100 L0,100 Z" fill="var(--md-default-bg-color)"/>
-</svg>
 
 <!-- Metrics Bar INSIDE hero -->
 <div class="metrics-bar">
