@@ -33,7 +33,11 @@ RUN mkdir -p /app/Reports && \
 
 # Install powershell-yaml module
 RUN pwsh -Command "Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted; \
-Install-Module -Name powershell-yaml,PSAI -Scope AllUsers -Force
+Install-Module -Name powershell-yaml -Scope AllUsers -Force
+
+# Install PSAI module
+RUN pwsh -Command "Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted; \
+Install-Module -Name PSAI -Scope AllUsers -Force
 
 # Copy KubeBuddy module files
 COPY --chown=10001:10001 KubeBuddy.psm1 /usr/local/share/powershell/Modules/KubeBuddy/KubeBuddy.psm1
