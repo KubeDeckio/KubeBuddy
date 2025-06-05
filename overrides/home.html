@@ -686,12 +686,16 @@ z-index: 1;
 
 .section.ai-section {
   position: relative;
-  background: linear-gradient(135deg, rgba(240,248,255,1), rgba(225,240,255,1));
-  clip-path: polygon(0 0, 100% 0, 100% 95%, 0 100%);
+  width: 100vw; /* force full viewport width */
+  margin-left: calc(50% - 50vw); /* pull it left */
+  margin-right: calc(50% - 50vw); /* pull it right */
   padding: 6rem 2rem 5rem;
-  width: 100%;
+  background: linear-gradient(135deg, #8e2de2, #6200ee);
+  clip-path: polygon(0 0, 100% 0, 100% 95%, 0 100%);
   overflow: hidden;
+  color: #fff;
 }
+
 
 .ai-highlight {
   background: linear-gradient(135deg, rgba(0,113,255,0.07), rgba(0,113,255,0.03));
@@ -879,9 +883,6 @@ z-index: 1;
         Struggling to interpret raw metrics or vague warnings? KubeBuddy now integrates with OpenAI to give clear, actionable advice for each issue — with real examples from your cluster.
       </p>
     </div>
-    <svg class="section-trim" viewBox="0 0 1440 100" preserveAspectRatio="none">
-      <path d="M0,0 C480,100 960,0 1440,100 L1440,0 L0,0 Z" fill="var(--md-default-bg-color)"/>
-    </svg>
   </section>
   
 
