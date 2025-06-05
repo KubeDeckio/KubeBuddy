@@ -39,7 +39,9 @@ function Show-YamlCheckInteractive {
                 "📌 $($check.Description)",
                 "",
                 "📎 Recommendation:",
-                $recommendationText
+                $recommendationText,
+                "",
+                "⚠️ Total Issues: $($check.Total)"
             )
         }
 
