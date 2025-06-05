@@ -606,13 +606,13 @@
   .workflow-step:nth-child(2) { animation-delay: 0.2s; }
   .workflow-step:nth-child(3) { animation-delay: 0.3s; }
   
-  .section:nth-of-type(odd) {
+  {{/*  .section:nth-of-type(odd) {
     background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(240,240,240,1) 100%);
   }
   .section:nth-of-type(even) {
     background: linear-gradient(135deg, rgba(245,245,255,1) 0%, rgba(230,230,250,1) 100%);
   }
-  
+    */}}
   .feature-card {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     will-change: transform;
@@ -690,7 +690,6 @@ z-index: 1;
   margin-left: calc(50% - 50vw); /* pull it left */
   margin-right: calc(50% - 50vw); /* pull it right */
   padding: 6rem 2rem 5rem;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 95%);
   overflow: hidden;
   color: #fff;
   background-color: none !important;
@@ -878,7 +877,7 @@ z-index: 1;
       <div class="ai-icon">🤖</div>
       <h3 class="ai-title">Now with Built-In AI Guidance</h3>
       <p class="ai-description">
-        Struggling to interpret raw metrics or vague warnings? KubeBuddy now integrates with OpenAI to give clear, actionable advice for each issue — with real examples from your cluster.
+        Struggling to interpret raw metrics or vague warnings? KubeBuddy now integrates with OpenAI to give clear, actionable advice for each issue, with real examples from your cluster.
       </p>
     </div>
   </section>
