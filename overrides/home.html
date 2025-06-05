@@ -684,6 +684,15 @@ z-index: 1;
   box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
 }
 
+.section.ai-section {
+  position: relative;
+  background: linear-gradient(135deg, rgba(240,248,255,1), rgba(225,240,255,1));
+  clip-path: polygon(0 0, 100% 0, 100% 95%, 0 100%);
+  padding: 6rem 2rem 5rem;
+  width: 100%;
+  overflow: hidden;
+}
+
 .ai-highlight {
   background: linear-gradient(135deg, rgba(0,113,255,0.07), rgba(0,113,255,0.03));
   border: 1px solid var(--md-primary-fg-color--light);
@@ -717,45 +726,28 @@ z-index: 1;
   margin: 0 auto;
 }
 
-.ai-ribbon {
+.ai-badge {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 140px;
-  height: 140px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.ai-ribbon::before {
-  content: "";
-  position: absolute;
-  display: block;
-  width: 200%;
-  height: 40px;
+  bottom: 20px;
+  right: 20px;
   background: var(--md-primary-fg-color);
-  color: #fff;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-  transform: rotate(-45deg);
-  top: 30px;
-  left: -45px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.95;
 }
 
-.ai-label {
-  position: absolute;
-  transform: rotate(-45deg);
-  top: 42px;
-  left: -30px;
-  width: 200px;
-  text-align: center;
-  font-size: 0.75rem;
-  font-weight: bold;
-  color: #fff;
-  background: none;
-  pointer-events: auto;
+.section-trim {
+  display: block;
+  width: 100%;
+  height: 80px;
+  margin-top: -1px;
 }
-
 
 </style>
 
@@ -768,9 +760,7 @@ z-index: 1;
     </p>
     <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
   </div>
-  <div class="ai-ribbon">
-    <span class="ai-label">🤖 Built-In AI</span>
-  </div>  
+  <div class="ai-badge">🤖 Built-In AI</div>
 </section>
 
 <!-- Metrics Bar INSIDE hero -->
@@ -881,7 +871,7 @@ z-index: 1;
     </div>
   </section>
 
-  <section class="section">
+  <section class="section ai-section">
     <div class="info-card ai-highlight" style="animation: fadeInUp 0.6s ease forwards;">
       <div class="ai-icon">🤖</div>
       <h3 class="ai-title">Now with Built-In AI Guidance</h3>
@@ -889,7 +879,11 @@ z-index: 1;
         Struggling to interpret raw metrics or vague warnings? KubeBuddy now integrates with OpenAI to give clear, actionable advice for each issue — with real examples from your cluster.
       </p>
     </div>
+    <svg class="section-trim" viewBox="0 0 1440 100" preserveAspectRatio="none">
+      <path d="M0,0 C480,100 960,0 1440,100 L1440,0 L0,0 Z" fill="var(--md-default-bg-color)"/>
+    </svg>
   </section>
+  
 
   <section class="workflow-section">
     <h2>How KubeBuddy Works</h2>
