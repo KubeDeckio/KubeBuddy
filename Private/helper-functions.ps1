@@ -184,6 +184,7 @@ function Get-KubeBuddyThresholds {
                 event_warnings_critical = $config.thresholds.event_warnings_critical ?? 100
                 pods_per_node_warning   = $config.thresholds.pods_per_node_warning ?? 80
                 pods_per_node_critical  = $config.thresholds.pods_per_node_critical ?? 90
+                storage_usage_threshold = $config.thresholds.storage_usage_threshold ?? 80
                 excluded_checks         = $config.excluded_checks ?? @()
                 trusted_registries      = $config.trusted_registries ?? @("mcr.microsoft.com/")
             }
@@ -214,6 +215,7 @@ function Get-KubeBuddyThresholds {
         event_warnings_critical = 100
         pods_per_node_warning   = 80
         pods_per_node_critical  = 90
+        storage_usage_threshold = 80
         excluded_checks         = @()
         trusted_registries      = @("mcr.microsoft.com/")
     }

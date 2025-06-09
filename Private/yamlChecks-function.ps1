@@ -517,13 +517,37 @@ function Invoke-yamlChecks {
                     }
                 }
 
-                if (-not $data) {
-                    Write-Host "❌ No $($check.ResourceKind) data available." -ForegroundColor Red
+                if ($data -eq $null) {
+                    Write-Host "❌ Failed to fetch $($check.ResourceKind) data." -ForegroundColor Red
                     $localResults += @{
-                        ID      = $check.ID
-                        Name    = $check.Name
-                        Message = "No $($check.ResourceKind) data available."
+                        ID    = $check.ID
+                        Name  = $check.Name
+                        Error = "Failed to fetch $($check.ResourceKind) data."
                     }
+                    continue
+                }
+
+                if ($data.Count -eq 0) {
+                    Write-Host "✅ No $($check.ResourceKind) resources found. Passing check." -ForegroundColor Green
+            
+                    # build the exact same “success” result object you do in the non‐script branch
+                    $checkResult = [pscustomobject]@{
+                        ID             = $check.ID
+                        Name           = $check.Name
+                        Category       = $check.Category
+                        Section        = $check.Section
+                        ResourceKind   = $check.ResourceKind
+                        Severity       = Normalize-Severity $check.Severity
+                        Weight         = $check.Weight
+                        Description    = $check.Description
+                        Recommendation = $check.Recommendation
+                        URL            = $check.URL
+                        Items          = @()
+                        Total          = 0
+                        Message        = "No issues detected for $($check.Name)."
+                    }
+            
+                    $localResults += $checkResult
                     continue
                 }
 

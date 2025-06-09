@@ -4,13 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
 ## \[0.0.23] – 2025-06-09
 
 ### Added
 
-* **Pod Density per Node check (NODE003)**  
-  - Calculates pod density as `(running pods ÷ max‑pods capacity) × 100`.  
-  - Alerts when percentage crosses warning (80% default) or critical (90% default) thresholds.  
+* **Expanded Storage Checks:** Introduced a comprehensive set of new checks to enhance Kubernetes storage monitoring and optimization:
+    * **PV001: Orphaned Persistent Volumes:** Detects Persistent Volumes not bound to any Persistent Volume Claim, helping to reclaim unused storage.
+    * **PVC002: PVCs Using Default StorageClass:** Flags PVCs that implicitly rely on a default `storageClassName`, encouraging explicit configuration for better clarity and portability.
+    * **PVC003: ReadWriteMany PVCs on Incompatible Storage:** Warns about PVCs requesting `ReadWriteMany` access mode when the underlying storage is typically block-based and doesn't support concurrent writes from multiple nodes, preventing potential data corruption.
+    * **PVC004: Unbound Persistent Volume Claims:** Flags PVCs stuck in a `Pending` phase, often indicating issues with the StorageClass, available PVs, or the storage provisioner.
+    * **SC001: Deprecated StorageClass Provisioners:** Identifies StorageClasses using deprecated or legacy in-tree provisioners, recommending migration to CSI drivers for future compatibility.
+    * **SC002: StorageClass Prevents Volume Expansion:** Detects StorageClasses that do not allow volume expansion, which can limit dynamic scaling of stateful applications.
+    * **SC003: High Cluster Storage Usage:** Monitors the overall percentage of used storage across the cluster, alerting when usage exceeds predefined thresholds (80%). _Uses Prometheus_.
+
+* **Pod Density per Node check (NODE003)**
+    * Calculates pod density as `(running pods ÷ max‑pods capacity) × 100`.
+    * Alerts when percentage crosses warning (80% default) or critical (90% default) thresholds.
 
 ## \[0.0.22] – 2025-06-04
 
