@@ -11,12 +11,6 @@
 [![Publish Module to PowerShell Gallery](https://github.com/KubeDeckio/KubeBuddy/actions/workflows/publish-psgal.yml/badge.svg)](https://github.com/KubeDeckio/KubeBuddy/actions/workflows/publish-psgal.yml)
 ![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/KubeBuddy.svg)
 ![Downloads](https://img.shields.io/powershellgallery/dt/KubeBuddy.svg)
-![GHCR pulls](https://img.shields.io/dynamic/json
-  ?label=downloads
-  &url=https://ipitio.github.io/backage/KubeDeckio/KubeBuddy/kubebuddy.json
-  &query=$.downloads
-  &logo=github
-)
 ![License](https://img.shields.io/github/license/KubeDeckIo/KubeBuddy.svg)
 
 ---
