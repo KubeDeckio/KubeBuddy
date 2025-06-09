@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## \[0.0.23] – 2025-06-09
+
+### Added
+
+* **Pod Density per Node check (NODE003)**  
+  - Calculates pod density as `(running pods ÷ max‑pods capacity) × 100`.  
+  - Alerts when percentage crosses warning (80% default) or critical (90% default) thresholds.  
+
 ## \[0.0.22] – 2025-06-04
 
 ### Added
@@ -22,13 +30,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     * Included in the **JSON output** under the `Recommendation` object, with `.text`, `.html`, and `.source` fields (`source = "AI"`)
   * Graceful fallback: if no `OpenAIKey` is set or the AI call fails, checks fall back to static/manual recommendations or omit the section entirely
 
-## [0.0.21] – 2025-05-29
+## \[0.0.21] – 2025-05-29
 
 ### Fixes
 
 * Fixed an issue where the code would not actually run the checks.
 
-## [0.0.20] – 2025-05-29
+## \[0.0.20] – 2025-05-29
 
 ### What’s New
 

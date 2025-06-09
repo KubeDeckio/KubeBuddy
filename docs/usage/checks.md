@@ -94,6 +94,7 @@ Each table includes:
 |---------|---------------------------|-------------------------------------------------------|----------|--------|
 | NODE001 | Node Readiness            | Nodes not ready or with critical conditions.          | High     | 3      |
 | NODE002 | Node Resource Pressure    | High usage of CPU, memory, or disk.                   | High     | 3      |
+| NODE003 | Max Pods per Node         | Node pod count exceeds configured threshold.          | Warning  | 2      |
 
 
 ### Control Plane

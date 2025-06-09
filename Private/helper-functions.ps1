@@ -182,6 +182,8 @@ function Get-KubeBuddyThresholds {
                 event_errors_critical   = $config.thresholds.event_errors_critical ?? 20
                 event_warnings_warning  = $config.thresholds.event_warnings_warning ?? 50
                 event_warnings_critical = $config.thresholds.event_warnings_critical ?? 100
+                pods_per_node_warning   = $config.thresholds.pods_per_node_warning ?? 80
+                pods_per_node_critical  = $config.thresholds.pods_per_node_critical ?? 90
                 excluded_checks         = $config.excluded_checks ?? @()
                 trusted_registries      = $config.trusted_registries ?? @("mcr.microsoft.com/")
             }
@@ -210,6 +212,8 @@ function Get-KubeBuddyThresholds {
         event_errors_critical   = 20
         event_warnings_warning  = 50
         event_warnings_critical = 100
+        pods_per_node_warning   = 80
+        pods_per_node_critical  = 90
         excluded_checks         = @()
         trusted_registries      = @("mcr.microsoft.com/")
     }
@@ -399,7 +403,7 @@ Only return the following structure in your response:
 
         # Split out the text and HTML sections
         $textSummary = ($response -split '--- HTML Recommendation ---')[0] -replace '--- Text Summary ---', '' -replace '^\s+', '' -replace '\s+$', ''
-        $htmlBlock   = ($response -split '--- HTML Recommendation ---')[1].Trim()
+        $htmlBlock = ($response -split '--- HTML Recommendation ---')[1].Trim()
 
         return @{
             text = $textSummary
@@ -420,9 +424,9 @@ function Add-AIRecommendationIfNeeded {
             Write-Host "🤖 Fetching AI recommendation for $($checkResult.ID)..." -ForegroundColor Cyan
 
             $aiRec = Get-AIRecommendation -CheckID $checkResult.ID `
-                                          -CheckName $checkResult.Name `
-                                          -Description $checkResult.Description `
-                                          -Findings $checkResult.Items
+                -CheckName $checkResult.Name `
+                -Description $checkResult.Description `
+                -Findings $checkResult.Items
 
             if ($aiRec -and $aiRec.html) {
                 $checkResult.Recommendation = @{
