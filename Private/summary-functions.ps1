@@ -96,7 +96,7 @@ function Show-ApiServerHealth {
     # 4. Return output
     if ($Html) {
         $latLine = if ($p99Ms) {
-            "<p><strong>latency (p99):</strong> <span style='color:#0071FF'>$p99Ms ms</span></p>"
+            "<p><strong>latency (p99):</strong> <span style='color: var(--brand-blue)'>$p99Ms ms</span></p>"
         } else {
             "<p style='color:#999'>Metrics endpoint unavailable</p>"
         }
