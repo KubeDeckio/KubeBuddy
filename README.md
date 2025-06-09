@@ -13,7 +13,16 @@
 ![Downloads](https://img.shields.io/powershellgallery/dt/KubeBuddy.svg)
 ![License](https://img.shields.io/github/license/KubeDeckIo/KubeBuddy.svg)
 
----
+**Conatiner Details**
+
+<!-- Option 2: flexbox for modern browsers -->
+<div style="display: flex; gap: 0.5rem; align-items: center;">
+  <img src="https://ghcr-badge.egpl.dev/kubedeckio/kubebuddy/latest_tag?color=%2344cc11&ignore=latest&label=current+version&trim=" alt="current version">
+  <img src="https://ghcr-badge.egpl.dev/kubedeckio/kubebuddy/tags?color=%2344cc11&ignore=latest&n=3&label=image+tags&trim="         alt="image tags">
+  <img src="https://ghcr-badge.egpl.dev/kubedeckio/kubebuddy/size?color=%2344cc11&tag=latest&label=image+size&trim="          alt="image size">
+</div>
+
+</br>
 
 **KubeBuddy** is a PowerShell-based Kubernetes assistant that helps you monitor cluster health, workloads, networking, security, and more. It generates **HTML** and **text-based reports** to help you quickly assess your Kubernetes environment.
 
@@ -21,7 +30,6 @@
 
 For complete installation, usage, and advanced configuration instructions, visit the **[KubeBuddy Documentation](https://kubebuddy.kubedeck.io)**.
 
----
 
 ## Features
 
@@ -35,7 +43,6 @@ For complete installation, usage, and advanced configuration instructions, visit
 - **PowerShell Support:** Install via PowerShell Gallery and run on Windows, macOS, or Linux.
 - **AKS Best Practices Check:** Checks Azure Kubernetes Service (AKS) clusters for Best Practices. (Currently 34 fully automated tests!)
 
----
 
 ## Installation
 
@@ -52,7 +59,6 @@ Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
 
 For additional installation methods, refer to the **[KubeBuddy Documentation](https://kubebuddy.kubedeck.io).**
 
----
 
 ## Usage
 
@@ -84,7 +90,6 @@ Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceG
   Invoke-KubeBuddy -txtReport -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
   ```
 
----
 
 ## Configuration
 
@@ -115,13 +120,11 @@ This file should be placed at:
 
 If missing, **KubeBuddy** falls back to default settings.
 
----
 
 ## Changelog
 
 All notable changes to this project are documented in the **[CHANGELOG](./CHANGELOG.md).**
 
----
 
 ## License
 
