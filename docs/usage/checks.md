@@ -73,13 +73,21 @@ Each table includes:
 
 ### Networking
 
-| ID      | Name                                   | Description                                                                       | Severity | Weight |
-| ------- | -------------------------------------- | --------------------------------------------------------------------------------- | -------- | ------ |
-| NET001  | Services Without Endpoints             | No active endpoints; likely causes downtime.                                      | Medium   | 2      |
-| NET002  | Publicly Accessible Services           | LoadBalancer/NodePort services that expose the cluster.                           | High     | 2      |
-| NET003  | Ingress Health Validation              | Misconfigured Ingress resources affecting access.                                 | Medium   | 2      |
-| NET004  | Namespace Missing Network Policy       | Detects namespaces with pods but no NetworkPolicy, allowing unrestricted traffic. | Medium   | 3      |
-| PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours.   | Medium   | 2      |
+| ID | Name | Description | Severity | Weight |
+|---|---|---|---|---|
+| NET001 | Services Without Endpoints | Identifies services that have no backing endpoints, which means no pods are matched. | critical | 2 |
+| NET002 | Publicly Accessible Services | Detects services of type LoadBalancer or NodePort that are potentially exposed to the internet. | critical | 4 |
+| NET003 | Ingress Health Validation | Validates ingress definitions for missing classes, invalid backends, missing TLS secrets, duplicate host/path entries, and incorrect path types. | critical | 3 |
+| NET004 | Namespace Missing Network Policy | Detects namespaces that have running pods but no associated NetworkPolicy resources. This could allow unrestricted pod-to-pod communication. | warning | 3 |
+| NET005 | Ingress Host/Path Conflicts | Identifies Ingress resources that define conflicting host and path combinations, leading to unpredictable routing. | critical | 5 |
+| NET006 | Ingress Using Wildcard Hosts | Identifies Ingress resources that utilize wildcard hosts (e.g., '\*https://www.google.com/search?q=.example.com'), which may offer broader exposure than intended. | medium | 2 |
+| NET007 | Service TargetPort Mismatch | Identifies services whose 'targetPort' does not match any 'containerPort' in the backing pods, preventing traffic delivery. | critical | 4 |
+| NET008 | ExternalName Service to Internal IP | Identifies 'ExternalName' type services pointing to private IP ranges, which might indicate a misconfiguration or an unusual routing pattern. | medium | 2 |
+| NET009 | Overly Permissive Network Policy | Identifies NetworkPolicies that define 'policyTypes' but have no rules, effectively allowing all traffic for that type, or containing overly broad 'ipBlock' rules. | high | 4 |
+| NET010 | Network Policy Overly Permissive IPBlock | Flags NetworkPolicies that include '0.0.0.0/0' in their 'ipBlock' rules, effectively allowing traffic to/from all IPs for that rule, which can be a security risk. | high | 5 |
+| NET011 | Network Policy Missing PolicyTypes | Detects NetworkPolicies that do not explicitly define 'policyTypes'. While defaulting to Ingress in some older versions, explicit definition improves clarity and future compatibility across different CNI plugins and Kubernetes versions. | low | 1 |
+| NET012 | Pod HostNetwork Usage | Identifies pods configured to use 'hostNetwork: true', which allows direct access to the node's network interfaces, bypassing Kubernetes networking. | high | 4 |
+| PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours. | Medium | 2 |
 
 ### Nodes
 

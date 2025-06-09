@@ -20,6 +20,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     * **SC002: StorageClass Prevents Volume Expansion:** Detects StorageClasses that do not allow volume expansion, which can limit dynamic scaling of stateful applications.
     * **SC003: High Cluster Storage Usage:** Monitors the overall percentage of used storage across the cluster, alerting when usage exceeds predefined thresholds (80%). _Uses Prometheus_.
 
+* **Expanded Networking Checks:** Added several new checks to identify common misconfigurations and security risks in Kubernetes networking:
+    * **NET005: Ingress Host/Path Conflicts:** Detects Ingress resources with overlapping host and path combinations, which can lead to unpredictable traffic routing.
+    * **NET006: Ingress Using Wildcard Hosts:** Flags Ingress resources using wildcard hostnames (`*.example.com`), which may provide broader access than intended and should be reviewed.
+    * **NET007: Service TargetPort Mismatch:** Identifies Services where the `targetPort` does not match any `containerPort` in the backing pods, preventing effective traffic delivery.
+    * **NET008: ExternalName Service to Internal IP:** Highlights `ExternalName` type Services configured to point to private IP ranges, potentially indicating an unusual or misconfigured internal routing pattern.
+    * **NET009: Overly Permissive Network Policy:** Warns about NetworkPolicies that define `policyTypes` but lack specific rules (allowing all traffic for that type) or include overly broad `ipBlock` definitions like `0.0.0.0/0`.
+    * **NET010: Network Policy Overly Permissive IPBlock:** Specifically identifies NetworkPolicies that utilize `0.0.0.0/0` in their `ipBlock` rules, granting unrestricted access which poses a significant security risk.
+    * **NET011: Network Policy Missing PolicyTypes:** Flags NetworkPolicies that do not explicitly define `policyTypes`, improving clarity and ensuring consistent behavior across different Kubernetes versions and CNI plugins.
+    * **NET012: Pod HostNetwork Usage:** Identifies pods configured with `hostNetwork: true`, which allows direct access to the node's network interfaces, bypassing Kubernetes network isolation and potentially increasing security risk.
+
 * **Pod Density per Node check (NODE003)**
     * Calculates pod density as `(running pods ÷ max‑pods capacity) × 100`.
     * Alerts when percentage crosses warning (80% default) or critical (90% default) thresholds.
