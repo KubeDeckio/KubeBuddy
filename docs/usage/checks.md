@@ -189,16 +189,16 @@ Each table includes:
 ## Usage Notes
 
 - **Severity**  
-   - **Low**: Cosmetic or cleanup  
-   - **Medium**: May affect performance or reliability  
-   - **High**: Causes downtime or poses security risk  
-   - **Warning/Info**: Advisory thresholds  
+    - **Low**: Cosmetic or cleanup  
+    - **Medium**: May affect performance or reliability  
+    - **High**: Causes downtime or poses security risk  
+    - **Warning/Info**: Advisory thresholds  
 
 - **Weight**  
-   - Scores range 1 (low impact) to 5 (high impact)  
-   - Higher weight = greater effect on cluster score  
+    - Scores range 1 (low impact) to 5 (high impact)  
+    - Higher weight = greater effect on cluster score  
 
 - **Interpreting Reports**  
-   - **Passed**: no items listed  
-   - **Failed**: lists affected resources + suggested fixes  
-   - Click IDs to jump to detailed recommendations in the report  
+    - **Passed**: no items listed  
+    - **Failed**: lists affected resources + suggested fixes  
+    - Click IDs to jump to detailed recommendations in the report  
