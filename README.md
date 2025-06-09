@@ -13,7 +13,7 @@
 ![Downloads](https://img.shields.io/powershellgallery/dt/KubeBuddy.svg)
 ![License](https://img.shields.io/github/license/KubeDeckIo/KubeBuddy.svg)
 
-**Conatiner Details**
+**Container Details**
 
 <!-- Option 2: flexbox for modern browsers -->
 <div style="display: flex; gap: 0.5rem; align-items: center;">
