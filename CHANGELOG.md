@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+* **Automatic dark mode**: The HTML report now respects your browser’s `prefers-color-scheme` setting and will automatically switch to a dark theme when your system is in dark mode.
+
 * **Expanded Storage Checks:** Introduced a comprehensive set of new checks to enhance Kubernetes storage monitoring and optimization:
     * **PV001: Orphaned Persistent Volumes:** Detects Persistent Volumes not bound to any Persistent Volume Claim, helping to reclaim unused storage.
     * **PVC002: PVCs Using Default StorageClass:** Flags PVCs that implicitly rely on a default `storageClassName`, encouraging explicit configuration for better clarity and portability.
