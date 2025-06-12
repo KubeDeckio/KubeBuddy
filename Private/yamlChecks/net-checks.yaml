@@ -438,3 +438,620 @@ checks:
         IssueCount = $results.Count
       }
 
+  - ID: "NET005"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Ingress Host/Path Conflicts"
+    Description: "Identifies Ingress resources that define conflicting host and path combinations, leading to unpredictable routing."
+    ResourceKind: "Ingress"
+    Severity: "critical"
+    Weight: 5
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $ingresses = if ($KubeData?.Ingresses) {
+        $KubeData.Ingresses.items
+      } else {
+        (kubectl get ingress --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $ingresses = Exclude-Namespaces -items $ingresses
+      }
+
+      if ($Namespace) {
+        $ingresses = $ingresses | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $results = @()
+      $hostPathMap = @{} # Key: "namespace|hostname|path", Value: "ingressName"
+
+      foreach ($i in $ingresses) {
+        $ns = $i.metadata.namespace
+        $name = $i.metadata.name
+
+        if (-not $i.spec.rules) { continue }
+
+        foreach ($rule in $i.spec.rules) {
+          $hostName = $rule.host ?? "*" # Use wildcard for default host if not specified
+
+          if ($rule.http.paths) {
+            foreach ($path in $rule.http.paths) {
+              $fullPath = $path.path ?? "/" # Default path to "/" if not specified
+              $pathKey = "$ns|$hostName|$fullPath"
+
+              if ($hostPathMap.ContainsKey($pathKey)) {
+                $conflictIngress = $hostPathMap[$pathKey]
+                $results += [pscustomobject]@{
+                  Namespace        = $ns
+                  Resource         = "ingress/$name"
+                  ConflictingHost  = $hostName
+                  ConflictingPath  = $fullPath
+                  ConflictingWith  = "ingress/$conflictIngress"
+                  Message          = "Duplicate host/path combination found"
+                }
+              } else {
+                $hostPathMap[$pathKey] = $name
+              }
+            }
+          }
+        }
+      }
+      
+      return $results
+    FailMessage: "Conflicting Ingress host/path definitions found"
+    Recommendation:
+      text: "Resolve conflicting host and path combinations across Ingress resources to ensure predictable routing. Each host/path pair should be unique."
+      html: |
+        <div class="recommendation-content">
+          <h4>🚫 Resolve Ingress Conflicts</h4>
+          <ul>
+            <li>Ensure that each unique host and path combination is defined in only one Ingress resource.</li>
+            <li>Use specific hostnames instead of broad wildcards where possible to prevent unintended conflicts.</li>
+            <li>Review your Ingress definitions for overlapping rules and consolidate or adjust as necessary.</li>
+            <li>Test routing after making changes to confirm correct behavior.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking for Ingress resources with overlapping host/path rules."
+      - ""
+      - "📌 Conflicts can lead to unexpected routing of traffic."
+      - ""
+      - "⚠️ Ensure each host/path combination is unique across ingresses."
+    URL: "https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-ingresses"
+
+  - ID: "NET006"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Ingress Using Wildcard Hosts"
+    Description: "Identifies Ingress resources that utilize wildcard hosts (e.g., '*.example.com'), which may offer broader exposure than intended."
+    ResourceKind: "Ingress"
+    Severity: "medium"
+    Weight: 2
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $ingresses = if ($KubeData?.Ingresses) {
+        $KubeData.Ingresses.items
+      } else {
+        (kubectl get ingress --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $ingresses = Exclude-Namespaces -items $ingresses
+      }
+
+      if ($Namespace) {
+        $ingresses = $ingresses | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $results = @()
+
+      foreach ($i in $ingresses) {
+        $ns = $i.metadata.namespace
+        $name = $i.metadata.name
+
+        if ($i.spec.rules) {
+          foreach ($rule in $i.spec.rules) {
+            if ($rule.host -and $rule.host.StartsWith("*.")) {
+              $results += [pscustomobject]@{
+                Namespace = $ns
+                Resource  = "ingress/$name"
+                Value     = $rule.host
+                Message   = "Ingress uses wildcard host"
+              }
+            }
+          }
+        }
+      }
+      
+      return $results
+    FailMessage: "Ingress resources using wildcard hosts found"
+    Recommendation:
+      text: "Review Ingress resources using wildcard hosts. Prefer explicit hostnames for tighter security and clearer routing intent where possible."
+      html: |
+        <div class="recommendation-content">
+          <h4>⭐ Review Wildcard Ingresses</h4>
+          <ul>
+            <li>Evaluate if a wildcard host is truly necessary for the application's routing requirements.</li>
+            <li>Where possible, replace wildcards with specific hostnames to limit unintentional exposure.</li>
+            <li>Ensure that security policies and firewalls are in place to control access to wildcard-enabled Ingresses.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking for Ingresses with wildcard hostnames."
+      - ""
+      - "📌 Wildcards can sometimes be overly broad."
+      - ""
+      - "⚠️ Consider using explicit hostnames for tighter security."
+    URL: "https://kubernetes.io/docs/concepts/services-networking/ingress/#hostname-wildcards"
+
+  - ID: "NET007"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Service TargetPort Mismatch"
+    Description: "Identifies services whose 'targetPort' does not match any 'containerPort' in the backing pods, preventing traffic delivery."
+    ResourceKind: "Service"
+    Severity: "critical"
+    Weight: 4
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $services = if ($KubeData?.Services) {
+        $KubeData.Services.items | Where-Object { $_.spec.type -ne "ExternalName" }
+      } else {
+        (kubectl get services --all-namespaces -o json | ConvertFrom-Json).items | Where-Object { $_.spec.type -ne "ExternalName" }
+      }
+      if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+      }
+      
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+
+      if ($Namespace) {
+        $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $results = @()
+
+      foreach ($svc in $services) {
+        $ns = $svc.metadata.namespace
+        $name = $svc.metadata.name
+        $selector = $svc.spec.selector
+
+        if (-not $selector) { continue } # Services without selectors (e.g., ExternalName or headless) are out of scope for this check
+
+        $matchingPods = $pods | Where-Object { 
+          $_.metadata.namespace -eq $ns -and
+          $_.status.phase -eq "Running" -and
+          $_.status.containerStatuses.Status -eq "Running" -and
+          ($_.metadata.labels.GetEnumerator() | Where-Object { $selector.ContainsKey($_.Key) -and $_.Value -eq $selector[$_.Key] }).Count -eq $selector.Count
+        }
+
+        if (-not $matchingPods) { continue } # No running pods to check against
+
+        foreach ($portMapping in $svc.spec.ports) {
+          $svcTargetPort = $portMapping.targetPort.ToString()
+
+          # Check if any matching pod has a container port that matches the service's targetPort
+          $portMatches = $false
+          foreach ($pod in $matchingPods) {
+            foreach ($container in $pod.spec.containers) {
+              if ($container.ports) {
+                foreach ($containerPort in $container.ports) {
+                  if (($containerPort.name -eq $svcTargetPort) -or ($containerPort.containerPort.ToString() -eq $svcTargetPort)) {
+                    $portMatches = $true
+                    break # Port found in this container
+                  }
+                }
+              }
+              if ($portMatches) { break } # Port found in this pod
+            }
+            if ($portMatches) { break } # Port found across matching pods
+          }
+
+          if (-not $portMatches) {
+            $results += [pscustomobject]@{
+              Namespace = $ns
+              Resource  = "service/$name"
+              Value     = "$svcTargetPort"
+              Message   = "Service targetPort '$svcTargetPort' not found in backing pods"
+            }
+          }
+        }
+      }
+      
+      return $results
+    FailMessage: "Services with targetPort mismatches found in backing pods"
+    Recommendation:
+      text: "Ensure that all 'targetPort' definitions in services correctly match a 'containerPort' (by number or name) defined in the pods selected by the service."
+      html: |
+        <div class="recommendation-content">
+          <h4>🎯 Fix Service TargetPort Mismatches</h4>
+          <ul>
+            <li>Verify the <code>targetPort</code> in your Service definition. It should either be a numerical port or a named port.</li>
+            <li>Check the <code>containerPorts</code> in the Pods selected by the Service.</li>
+            <li>Ensure the `targetPort` (by number) or `name` (for named ports) in the Pod's `containerPort` matches the Service's `targetPort`.</li>
+            <li>A common fix is to ensure consistent naming conventions or directly use port numbers.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking if service 'targetPort' matches a pod's 'containerPort'."
+      - ""
+      - "📌 A mismatch means the service can't route traffic to the pods."
+      - ""
+      - "⚠️ This is a common cause of service connectivity issues."
+    URL: "https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service"
+
+  - ID: "NET008"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "ExternalName Service to Internal IP"
+    Description: "Identifies 'ExternalName' type services pointing to private IP ranges, which might indicate a misconfiguration or an unusual routing pattern."
+    ResourceKind: "Service"
+    Severity: "medium"
+    Weight: 2
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $services = if ($KubeData?.Services) {
+        $KubeData.Services.items | Where-Object { $_.spec.type -eq "ExternalName" }
+      } else {
+        (kubectl get services --all-namespaces -o json | ConvertFrom-Json).items | Where-Object { $_.spec.type -eq "ExternalName" }
+      }
+      if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+      }
+
+      if ($Namespace) {
+        $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $internalIpPatterns = @(
+        '^10\.', '^172\.(1[6-9]|2[0-9]|3[0-1])\.', '^192\.168\.',
+        '^127\.', '^169\.254\.', '^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\.' # 100.64.0.0/10
+      )
+  
+      $isInternal = {
+        param($ip)
+        foreach ($pattern in $internalIpPatterns) {
+          if ($ip -match $pattern) { return $true }
+        }
+        return $false
+      }
+      
+      $results = @()
+
+      foreach ($svc in $services) {
+        $ns = $svc.metadata.namespace
+        $name = $svc.metadata.name
+        $externalName = $svc.spec.externalName
+
+        if ($externalName -and ($externalName -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')) { # Check if it's an IP address
+          if (&$isInternal $externalName) {
+            $results += [pscustomobject]@{
+              Namespace = $ns
+              Resource  = "service/$name"
+              Value     = $externalName
+              Message   = "ExternalName service points to internal IP address"
+            }
+          }
+        }
+      }
+      
+      return $results
+    FailMessage: "ExternalName services pointing to internal IPs found"
+    Recommendation:
+      text: "Review 'ExternalName' services pointing to internal IPs. Consider using a regular Service with an EndpointSlice for internal traffic, or clarify intent if valid."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔄 Review ExternalName to Internal IP</h4>
+          <ul>
+            <li><code>ExternalName</code> services are primarily for CNAME-like redirection to external DNS names.</li>
+            <li>If routing to an internal IP address, consider if a standard `Service` with manually created `EndpointSlice` or a `Service` with `type: ClusterIP` backed by pods is more appropriate.</li>
+            <li>Ensure this configuration is intentional and does not bypass intended network segmentation or security policies.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking ExternalName services for internal IP targets."
+      - ""
+      - "📌 ExternalName services are for external DNS."
+      - ""
+      - "⚠️ Pointing to internal IPs can be unusual or a misconfig."
+    URL: "https://kubernetes.io/docs/concepts/services-networking/service/#externalname"
+
+  - ID: "NET009"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Overly Permissive Network Policy"
+    Description: "Identifies NetworkPolicies that define 'policyTypes' but have no rules, effectively allowing all traffic for that type, or containing overly broad 'ipBlock' rules."
+    ResourceKind: "NetworkPolicy"
+    Severity: "high"
+    Weight: 4
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $netpols = if ($KubeData?.NetworkPolicies) {
+        $KubeData.NetworkPolicies.items
+      } else {
+        (kubectl get networkpolicy --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $netpols = Exclude-Namespaces -items $netpols
+      }
+
+      if ($Namespace) {
+        $netpols = $netpols | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $results = @()
+  
+      foreach ($np in $netpols) {
+        $ns = $np.metadata.namespace
+        $name = $np.metadata.name
+        $isPermissive = $false
+        $message = ""
+  
+        # Check for policyTypes with empty rules
+        if ($np.spec.policyTypes) {
+          if ($np.spec.policyTypes -contains "Ingress" -and (-not $np.spec.ingress -or $np.spec.ingress.Count -eq 0)) {
+            $isPermissive = $true
+            $message += "Allows all Ingress traffic (empty ingress rules). "
+          }
+          if ($np.spec.policyTypes -contains "Egress" -and (-not $np.spec.egress -or $np.spec.egress.Count -eq 0)) {
+            $isPermissive = $true
+            $message += "Allows all Egress traffic (empty egress rules). "
+          }
+        }
+  
+        # Check for overly broad ipBlock rules (0.0.0.0/0)
+        # Note: Kubernetes 1.20+ treats empty 'from'/'to' rules as 'all' and 'ipBlock: { except: [] }' is equivalent to '0.0.0.0/0'
+        # This script specifically checks for explicit 0.0.0.0/0, which is still a clear indicator of broad access.
+        if ($np.spec.ingress) {
+          foreach ($ingressRule in $np.spec.ingress) {
+            if ($ingressRule.from) {
+              foreach ($from in $ingressRule.from) {
+                if ($from.ipBlock -and $from.ipBlock.cidr -eq "0.0.0.0/0") {
+                  $isPermissive = $true
+                  $message += "Ingress rule contains '0.0.0.0/0' ipBlock. "
+                }
+              }
+            }
+          }
+        }
+        if ($np.spec.egress) {
+          foreach ($egressRule in $np.spec.egress) {
+            if ($egressRule.to) {
+              foreach ($to in $egressRule.to) {
+                if ($to.ipBlock -and $to.ipBlock.cidr -eq "0.0.0.0/0") {
+                  $isPermissive = $true
+                  $message += "Egress rule contains '0.0.0.0/0' ipBlock. "
+                }
+              }
+            }
+          }
+        }
+  
+        if ($isPermissive) {
+          $results += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "networkpolicy/$name"
+            Value     = $np.spec.policyTypes -join ", "
+            Message   = $message.Trim()
+          }
+        }
+      }
+      
+      return $results
+    FailMessage: "Overly permissive Network Policies found"
+    Recommendation:
+      text: "Review NetworkPolicies with empty rules or broad IP blocks. Ensure policies enforce the principle of least privilege, explicitly defining allowed traffic."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 Restrict Overly Permissive Network Policies</h4>
+          <ul>
+            <li>Ensure `policyTypes` are paired with explicit `ingress` and `egress` rules that define allowed traffic.</li>
+            <li>Avoid empty `ingress` or `egress` sections if the `policyTypes` are defined, as this defaults to allowing all traffic for that type.</li>
+            <li>Limit the use of `ipBlock: 0.0.0.0/0`. Instead, define specific CIDR ranges for necessary external communication.</li>
+            <li>Adopt a "deny-by-default" approach and explicitly allow only required communication.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking NetworkPolicies for overly permissive rules."
+      - ""
+      - "📌 Empty rules or '0.0.0.0/0' can open up your network."
+      - ""
+      - "⚠️ Ensure policies only allow explicitly needed traffic."
+    URL: "https://kubernetes.io/docs/concepts/services-networking/network-policies/"
+
+  - ID: "NET010"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Network Policy Overly Permissive IPBlock"
+    Description: "Flags NetworkPolicies that include '0.0.0.0/0' in their 'ipBlock' rules, effectively allowing traffic to/from all IPs for that rule, which can be a security risk."
+    ResourceKind: "NetworkPolicy"
+    Severity: "high"
+    Weight: 5
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $netpols = if ($KubeData?.NetworkPolicies) {
+        $KubeData.NetworkPolicies.items
+      } else {
+        (kubectl get networkpolicy --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $netpols = Exclude-Namespaces -items $netpols
+      }
+
+      if ($Namespace) {
+        $netpols = $netpols | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $results = @()
+  
+      foreach ($np in $netpols) {
+        $ns = $np.metadata.namespace
+        $name = $np.metadata.name
+        $foundOverlyPermissive = $false
+        $messageDetails = @()
+
+        # Check Ingress rules for 0.0.0.0/0 ipBlock
+        if ($np.spec.ingress) {
+          foreach ($ingressRule in $np.spec.ingress) {
+            if ($ingressRule.from) {
+              foreach ($from in $ingressRule.from) {
+                if ($from.ipBlock -and $from.ipBlock.cidr -eq "0.0.0.0/0") {
+                  $foundOverlyPermissive = $true
+                  $messageDetails += "Ingress rule allows '0.0.0.0/0' (all IPs)"
+                }
+              }
+            }
+          }
+        }
+
+        # Check Egress rules for 0.0.0.0/0 ipBlock
+        if ($np.spec.egress) {
+          foreach ($egressRule in $np.spec.egress) {
+            if ($egressRule.to) {
+              foreach ($to in $egressRule.to) {
+                if ($to.ipBlock -and $to.ipBlock.cidr -eq "0.0.0.0/0") {
+                  $foundOverlyPermissive = $true
+                  $messageDetails += "Egress rule allows '0.0.0.0/0' (all IPs)"
+                }
+              }
+            }
+          }
+        }
+  
+        if ($foundOverlyPermissive) {
+          $results += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "networkpolicy/$name"
+            Value     = "0.0.0.0/0"
+            Message   = $messageDetails -join "; "
+          }
+        }
+      }
+      
+      return $results
+    FailMessage: "Network Policies with '0.0.0.0/0' ipBlock found"
+    Recommendation:
+      text: "Replace '0.0.0.0/0' ipBlock in NetworkPolicies with specific CIDR ranges to enforce the principle of least privilege. Only allow traffic to/from necessary IPs."
+      html: |
+        <div class="recommendation-content">
+          <h4>🚫 Restrict '0.0.0.0/0' in Network Policies</h4>
+          <ul>
+            <li>Avoid using `ipBlock: 0.0.0.0/0` in NetworkPolicies unless absolutely required for specific, well-understood use cases (e.g., public internet access).</li>
+            <li>Identify the precise CIDR ranges or specific IP addresses that need to be allowed.</li>
+            <li>For egress, if public internet access is needed, consider egress gateways or more restrictive network policies to control outbound traffic.</li>
+            <li>This is a critical security vulnerability if unintended.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Looking for NetworkPolicies that allow all IPs."
+      - ""
+      - "📌 '0.0.0.0/0' is an open door."
+      - ""
+      - "⚠️ This is a security risk. Be specific with IPs!"
+    URL: "https://kubernetes.io/docs/concepts/services-networking/network-policies/#the-ipblock-specifier"
+
+  - ID: "NET011"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Network Policy Missing PolicyTypes"
+    Description: "Detects NetworkPolicies that do not explicitly define 'policyTypes'. While defaulting to Ingress in some older versions, explicit definition improves clarity and future compatibility across different CNI plugins and Kubernetes versions."
+    ResourceKind: "NetworkPolicy"
+    Severity: "low"
+    Weight: 1
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $netpols = if ($KubeData?.NetworkPolicies) {
+        $KubeData.NetworkPolicies.items
+      } else {
+        (kubectl get networkpolicy --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $netpols = Exclude-Namespaces -items $netpols
+      }
+
+      if ($Namespace) {
+        $netpols = $netpols | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $results = @()
+  
+      foreach ($np in $netpols) {
+        $ns = $np.metadata.namespace
+        $name = $np.metadata.name
+        
+        # Check if policyTypes field is missing or empty array
+        if (-not $np.spec.policyTypes -or $np.spec.policyTypes.Count -eq 0) {
+          $results += [pscustomobject]@{
+            Namespace = $ns
+            Resource  = "networkpolicy/$name"
+            Value     = "N/A" # or could be "Missing" / "Empty"
+            Issue     = "PolicyTypes field is missing or empty"
+          }
+        }
+      }
+      
+      return $results
+    FailMessage: "NetworkPolicy does not explicitly define 'policyTypes'"
+    Recommendation:
+      text: "Explicitly define 'policyTypes' (e.g., [Ingress, Egress]) in NetworkPolicies for clarity and to prevent unexpected behavior with future Kubernetes versions or different CNI plugins."
+      html: |
+        <div class="recommendation-content">
+          <h4>📝 Define Network PolicyTypes</h4>
+          <ul>
+            <li>Always explicitly define `policyTypes` in your NetworkPolicy, such as `policyTypes: [Ingress]` or `policyTypes: [Ingress, Egress]`.</li>
+            <li>This clearly indicates whether the policy applies to inbound, outbound, or both types of traffic.</li>
+            <li>It prevents reliance on default behaviors, which can vary or change between Kubernetes versions or CNI implementations.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking NetworkPolicies for missing 'policyTypes'."
+      - ""
+      - "📌 It defaults to Ingress, but explicit is better."
+      - ""
+      - "⚠️ Define them for clarity and future compatibility."
+    URL: "https://kubernetes.io/docs/concepts/services-networking/network-policies/#policy-types"
+
+  - ID: "NET012"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Pod HostNetwork Usage"
+    Description: "Identifies pods configured to use 'hostNetwork: true', which allows direct access to the node's network interfaces, bypassing Kubernetes networking."
+    ResourceKind: "Pod"
+    Severity: "high"
+    Weight: 4
+    Condition: "spec.hostNetwork"
+    Operator: "not_equals"
+    Expected: "true"
+    FailMessage: "Pod is using hostNetwork: true"
+    Recommendation:
+      text: "Avoid 'hostNetwork: true' unless absolutely necessary. For most cases, Kubernetes' built-in networking (e.g., Services, Ingress, NetworkPolicies) provides better isolation and security."
+      html: |
+        <div class="recommendation-content">
+          <h4>⚠️ Avoid HostNetwork Usage</h4>
+          <ul>
+            <li>Using `hostNetwork: true` is a security risk as it grants the pod direct access to the node's network stack.</li>
+            <li>This bypasses many Kubernetes network security features and network policies.</li>
+            <li>Only use `hostNetwork` for specific, highly privileged use cases (e.g., CNI plugins, network observability tools) and limit access via RBAC and Pod Security Standards.</li>
+            <li>For typical applications, rely on ClusterIP, NodePort, or LoadBalancer services for exposure.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Looking for pods using 'hostNetwork: true'."
+      - ""
+      - "📌 This bypasses Kubernetes' network isolation."
+      - ""
+      - "⚠️ High security risk. Avoid unless critical."
+    URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/#host-networking"

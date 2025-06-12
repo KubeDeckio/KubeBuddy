@@ -23,10 +23,11 @@
     # Paths to scripts
     PrivateData = @{
         PSData = @{
-            Tags         = @('Kubernetes', 'K8s', 'Monitoring', 'Reporting', 'KubeDeck')
-            LicenseUri   = ''
-            ProjectUri   = ''
-            ReleaseNotes = 'Initial release of KubeBuddy.'
+            Tags         = @('Kubernetes', 'K8s', 'Monitoring', 'Reporting', 'KubeDeck', 'best-practices', 'DevOps', 'PowerShell', 'health-checks', 'kube-buddy')
+            License     = 'MIT'
+            LicenseUri   = 'https://github.com/kubedeckio/kubebuddy?tab=MIT-1-ov-file'
+            ProjectUri   = 'https://kubebuddy.io'
+            ReleaseNotes = 'https://kubebuddy.kubedeck.io/changelog/'
         }
     }
 }

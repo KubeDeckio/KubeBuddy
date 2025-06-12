@@ -1007,7 +1007,7 @@ checks:
     Description: "Flags ServiceAccounts where automounting of API credentials is enabled, affecting associated Pods."
     Condition: "automountServiceAccountToken"
     Operator: "not_equals"
-    Expected: "true,null"
+    Expected: "false"
     FailMessage: "Some ServiceAccounts have automountServiceAccountToken enabled, potentially exposing API credentials to Pods."
     URL: "https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
     Recommendation:

@@ -1,4 +1,70 @@
 checks:
+  - ID: PV001
+    Name: Orphaned Persistent Volumes
+    Section: Storage
+    Category: Volumes
+    ResourceKind: PersistentVolume
+    Severity: warning
+    Weight: 3
+    Description: Detects Persistent Volumes that are not bound to any Persistent Volume Claim.
+    FailMessage: Persistent Volume is not bound to any PVC.
+    URL: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes
+    Recommendation:
+      text: Review and delete orphaned Persistent Volumes to reclaim storage.
+      html: |
+        <div class="recommendation-content">
+          <h4>🗑️ Clean Up Orphaned PVs</h4>
+          <ul>
+            <li><strong>Audit:</strong> Verify the PV is truly unneeded using <code>kubectl describe pv &lt;name&gt;</code>.</li>
+            <li><strong>Delete:</strong> Remove unneeded PVs with <code>kubectl delete pv &lt;name&gt;</code>.</li>
+            <li><strong>Caution:</strong> Ensure no future PVC will bind to it before deletion.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "Persistent Volumes are the actual storage."
+        - "These are NOT claimed by any PVC."
+        - "They might be leftovers."
+        - "Double check before deleting."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      function Get-KubeJson($kind) {
+          (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+
+      $pvs = if ($KubeData -and $KubeData.PersistentVolumes) {
+          $KubeData.PersistentVolumes.items
+      } else {
+          Get-KubeJson "pv"
+      }
+
+      $pvcs = if ($KubeData -and $KubeData.PersistentVolumeClaims) {
+          $KubeData.PersistentVolumeClaims.items
+      } else {
+          Get-KubeJson "pvc"
+      }
+
+      if ($ExcludeNamespaces) {
+          $pvcs = Exclude-Namespaces -items $pvcs
+      }
+
+      if (-not $pvs -or $pvs.Count -eq 0) {
+          return @()
+      }
+
+      $boundPVNames = $pvcs | Where-Object { $_.spec.volumeName } | Select-Object -ExpandProperty spec.volumeName
+
+      $orphanedPVs = $pvs | Where-Object { $_.status.phase -ne "Bound" -and $_.metadata.name -notin $boundPVNames }
+
+      $orphanedPVs | ForEach-Object {
+          [PSCustomObject]@{
+              Resource  = "pv/$($_.metadata.name)"
+              Value     = $_.spec.capacity.storage
+              Message   = "PV is not bound to any PVC"
+              Namespace = "(cluster)"
+          }
+      }
+
   - ID: PVC001
     Name: Unused Persistent Volume Claims
     Section: Storage
@@ -73,3 +139,244 @@ checks:
           Message   = "PVC is not used by any running pod"
         }
       }
+
+  - ID: PVC002
+    Name: PVCs Using Default StorageClass
+    Section: Storage
+    Category: Volumes
+    ResourceKind: PersistentVolumeClaim
+    Severity: Low
+    Weight: 1
+    Description: Detects PVCs that do not explicitly specify a storageClassName.
+    FailMessage: PVC does not explicitly define a storageClassName.
+    URL: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
+    Recommendation:
+      text: Explicitly specify storageClassName in PVCs for clarity and portability, reducing reliance on default configurations.
+      html: |
+        <div class="recommendation-content">
+          <h4>✍️ Specify StorageClass for PVCs</h4>
+          <ul>
+            <li><strong>Edit:</strong> Add <code>storageClassName: &lt;your-storage-class-name&gt;</code> to the PVC spec.</li>
+            <li><strong>Consistency:</strong> Ensure consistent storage provisioning across environments.</li>
+            <li><strong>Awareness:</strong> Understand which StorageClass is truly being used.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "PVCs can rely on a default StorageClass."
+        - "But explicit is often better."
+        - "Define storageClassName for clarity."
+        - "Avoid surprises if the default changes."
+    Condition: spec.storageClassName
+    Operator: equals
+    Expected: null
+  - ID: PVC003
+    Name: ReadWriteMany PVCs on Incompatible Storage
+    Section: Storage
+    Category: Volumes
+    ResourceKind: PersistentVolumeClaim
+    Severity: High
+    Weight: 5
+    Description: Detects PVCs requesting ReadWriteMany access mode where the underlying storage is typically block-based and does not support concurrent writes from multiple nodes.
+    FailMessage: PVC requests ReadWriteMany but is likely on non-shared block storage.
+    URL: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+    Recommendation:
+      text: Change access mode to ReadWriteOnce if only one pod needs access, or use a shared file system (e.g., NFS, GlusterFS, CephFS) for ReadWriteMany.
+      html: |
+        <div class="recommendation-content">
+          <h4>⚠️ Review ReadWriteMany PVCs</h4>
+          <ul>
+            <li><strong>Verify:</strong> Confirm if the storage backend truly supports concurrent writes.</li>
+            <li><strong>Adjust:</strong> If not, change PVC access mode to <code>ReadWriteOnce</code>.</li>
+            <li><strong>Migrate:</strong> For shared data, use appropriate shared file storage solutions.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "ReadWriteMany allows multiple pods to write."
+        - "Block storage (like EBS) usually can't do this."
+        - "This can lead to data corruption!"
+        - "Ensure your storage supports RWX for this PVC."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      function Get-KubeJson($kind) {
+          (kubectl get $kind --all-namespaces -o json | ConvertFrom-Json).items
+      }
+
+      $pvcs = if ($KubeData -and $KubeData.PersistentVolumeClaims) {
+          $KubeData.PersistentVolumeClaims.items
+      } else {
+          Get-KubeJson "pvc"
+      }
+      if ($ExcludeNamespaces) {
+          $pvcs = Exclude-Namespaces -items $pvcs
+      }
+      if ($Namespace) {
+          $pvcs = $pvcs | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $storageClasses = if ($KubeData -and $KubeData.StorageClasses) {
+          $KubeData.StorageClasses.items
+      } else {
+          Get-KubeJson "storageclass"
+      }
+
+      $blockStorageProvisioners = @(
+          "kubernetes.io/aws-ebs", "ebs.csi.aws.com",
+          "kubernetes.io/gce-pd", "pd.csi.storage.gke.io",
+          "kubernetes.io/azure-disk", "disk.csi.azure.com",
+          "kubernetes.io/cinder", "cinder.csi.openstack.org",
+          "kubernetes.io/portworx-volume",
+          "rancher.io/local-path"
+      )
+
+      $incompatiblePVCs = @()
+
+      foreach ($pvc in $pvcs) {
+          if ($pvc.spec.accessModes -contains "ReadWriteMany") {
+              $storageClassName = $pvc.spec.storageClassName
+              if (-not $storageClassName) {
+                  $incompatiblePVCs += [PSCustomObject]@{
+                      Namespace = $pvc.metadata.namespace
+                      Resource  = "pvc/$($pvc.metadata.name)"
+                      Value     = $pvc.spec.accessModes -join ", "
+                      Message   = "PVC requests ReadWriteMany access mode but uses default StorageClass (potential block storage)."
+                  }
+                  continue
+              }
+
+              $sc = $storageClasses | Where-Object { $_.metadata.name -eq $storageClassName } | Select-Object -First 1
+
+              if ($sc) {
+                  if ($blockStorageProvisioners -contains $sc.provisioner) {
+                      $incompatiblePVCs += [PSCustomObject]@{
+                          Namespace = $pvc.metadata.namespace
+                          Resource  = "pvc/$($pvc.metadata.name)"
+                          Value     = "Access Modes: $($pvc.spec.accessModes -join ", "), Provisioner: $($sc.provisioner)"
+                          Message   = "PVC requests ReadWriteMany access mode, but StorageClass '$($sc.provisioner)' is typically for block storage."
+                      }
+                  }
+              }
+          }
+      }
+
+      $incompatiblePVCs
+  - ID: PVC004
+    Name: Unbound Persistent Volume Claims
+    Section: Storage
+    Category: Volumes
+    ResourceKind: PersistentVolumeClaim
+    Severity: High
+    Weight: 3
+    Description: Detects Persistent Volume Claims that are in a Pending phase and have not been bound to a Persistent Volume.
+    FailMessage: PVC is in Pending state and not bound to a PV.
+    URL: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
+    Recommendation:
+      text: Investigate why the PVC is stuck in Pending. This often indicates issues with the StorageClass, available PVs, or the underlying storage provisioner.
+      html: |
+        <div class="recommendation-content">
+          <h4>🚫 Troubleshoot Unbound PVCs</h4>
+          <ul>
+            <li><strong>Describe PVC:</strong> Use <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> to see events and reasons for Pending.</li>
+            <li><strong>Check StorageClass:</strong> Ensure the specified StorageClass exists and is correctly configured.</li>
+            <li><strong>Review Provisioner:</strong> Verify the storage provisioner is running and healthy.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "This PVC is waiting for storage."
+        - "But it's stuck in 'Pending'."
+        - "Check StorageClass, PVs, or your provisioner."
+        - "It needs help to get bound!"
+    Condition: status.phase
+    Operator: equals
+    Expected: Pending
+  - ID: SC001
+    Name: Deprecated StorageClass Provisioners
+    Section: Storage
+    Category: StorageClasses
+    ResourceKind: StorageClass
+    Severity: High
+    Weight: 4
+    Description: Detects StorageClasses using deprecated or legacy in-tree provisioners, which should be migrated to CSI drivers.
+    FailMessage: StorageClass uses a deprecated or in-tree provisioner.
+    URL: https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner
+    Recommendation:
+      text: Migrate to a CSI-compliant StorageClass. This typically involves creating a new CSI-based StorageClass and then migrating existing PVCs.
+      html: |
+        <div class="recommendation-content">
+          <h4>🔄 Migrate Deprecated StorageClasses</h4>
+          <ul>
+            <li><strong>Identify:</strong> Pinpoint PVCs using the deprecated StorageClass.</li>
+            <li><strong>Create:</strong> Define a new StorageClass with the appropriate CSI driver.</li>
+            <li><strong>Migrate:</strong> Follow the migration path for your specific storage provider to move data.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "Older storage provisioners are being removed."
+        - "Switch to CSI drivers for future compatibility."
+        - "This is a key long-term maintenance item."
+        - "Plan your migration now!"
+    Condition: provisioner
+    Operator: not_contains
+    Expected: kubernetes.io/
+  - ID: SC002
+    Name: StorageClass Prevents Volume Expansion
+    Section: Storage
+    Category: StorageClasses
+    ResourceKind: StorageClass
+    Severity: Medium
+    Weight: 2
+    Description: Identifies StorageClasses that do not permit volume expansion, which can limit dynamic scaling of stateful applications.
+    FailMessage: StorageClass does not allow volume expansion.
+    URL: https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion
+    Recommendation:
+      text: "If dynamic volume resizing is desired, modify the StorageClass to set allowVolumeExpansion: true. Note: some underlying storage systems may not support this feature."
+      html: |
+        <div class="recommendation-content">
+          <h4>📈 Enable Volume Expansion</h4>
+          <ul>
+            <li><strong>Assess:</strong> Determine if your applications need dynamic volume resizing.</li>
+            <li><strong>Configure:</strong> Add or set <code>allowVolumeExpansion: true</code> in the StorageClass definition.</li>
+            <li><strong>Backend Check:</strong> Ensure your storage backend supports online volume expansion.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "Need more storage? Sometimes volumes can grow."
+        - "But your StorageClass might prevent it."
+        - "Check 'allowVolumeExpansion'."
+        - "Ensures dynamic resizing is possible."
+    Condition: allowVolumeExpansion
+    Operator: not_equals
+    Expected: true
+  - ID: SC003
+    Name: High Cluster Storage Usage (Prometheus)
+    Section: Storage
+    Category: Utilization
+    ResourceKind: Node # This check is more cluster-wide, but tying to Node or Cluster makes sense
+    Severity: warning
+    Weight: 4
+    Description: Monitors the overall percentage of used storage across the cluster.
+    FailMessage: Cluster storage usage is above recommended threshold.
+    URL: https://kubernetes.io/docs/concepts/storage/volumes/
+    Recommendation:
+      text: Identify large volumes or inefficient applications, and consider scaling up storage or cleaning up old data.
+      html: |
+        <div class="recommendation-content">
+          <h4>📊 Manage Storage Consumption</h4>
+          <ul>
+            <li><strong>Identify:</strong> Use monitoring tools to find namespaces/pods consuming the most storage.</li>
+            <li><strong>Clean Up:</strong> Delete old data, snapshots, or unused PVCs/PVs.</li>
+            <li><strong>Scale:</strong> Plan for increasing storage capacity or optimizing storage allocation.</li>
+          </ul>
+        </div>
+      SpeechBubble:
+        - "Your cluster's storage is getting full!"
+        - "Time to find the hogs."
+        - "Clean up or add more capacity."
+        - "Don't run out of space!"
+    Prometheus:
+      Query: 100 - (sum(node_disk_bytes_free) / sum(node_disk_bytes_total)) * 100
+      Range:
+        Duration: 24h
+        Step: 5m
+    Operator: greater_than
+    Expected: storage_usage_threshold # This assumes you'll define 'storage_usage_threshold' in your Get-KubeBuddyThresholds
