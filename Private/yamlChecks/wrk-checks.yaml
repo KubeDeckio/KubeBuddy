@@ -779,3 +779,115 @@ checks:
       }
   
       return $results
+  - ID: "WRK009"
+    Name: "Deployment, Pod, and Service Label Consistency"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "Deployment"
+    Severity: "warning"
+    Weight: 3
+    Description: "Validates that Pods created by a Deployment match its selector labels, and Services that target the Deployment use consistent selectors."
+    FailMessage: "Label mismatches found between Deployment selectors, Pod labels, or Service selectors."
+    URL: "https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/"
+    Recommendation:
+      text: "Ensure Deployment selectors, Pod labels, and related Service selectors are consistent and aligned."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Deployment <code>spec.selector.matchLabels</code> must match the Pod template <code>metadata.labels</code>.</li>
+            <li>Services should have <code>spec.selector</code> that targets the same labels used by the Deployment and Pods.</li>
+            <li>Use <code>kubectl get deployment,svc,pod -o yaml</code> to compare values and fix mismatches.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some labels are inconsistent across Deployments, Pods, and Services."
+      - ""
+      - "📌 This may break Service routing or monitoring integrations."
+      - ""
+      - "⚠️ Align label selectors to ensure traffic and tooling works as expected."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+  
+      $deployments = if ($KubeData?.Deployments) {
+        $KubeData.Deployments
+      } else {
+        (kubectl get deployments -A -o json | ConvertFrom-Json).items
+      }
+  
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+  
+      $services = if ($KubeData?.Services) {
+        $KubeData.Services
+      } else {
+        (kubectl get services -A -o json | ConvertFrom-Json).items
+      }
+  
+      if ($ExcludeNamespaces) {
+        $deployments = Exclude-Namespaces -items $deployments
+        $pods = Exclude-Namespaces -items $pods
+        $services = Exclude-Namespaces -items $services
+      }
+  
+      if ($Namespace) {
+        $deployments = $deployments | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+  
+      $results = @()
+  
+      foreach ($deployment in $deployments) {
+        $ns = $deployment.metadata.namespace
+        $dname = $deployment.metadata.name
+        $selector = $deployment.spec.selector.matchLabels
+        $templateLabels = $deployment.spec.template.metadata.labels
+  
+        if (-not $selector) { continue }
+  
+        # 1. Check Pod label mismatch
+        foreach ($key in $selector.PSObject.Properties.Name) {
+          $expected = $selector.$key
+          $actual = $templateLabels.$key
+          if ($actual -ne $expected) {
+            $results += [PSCustomObject]@{
+              Namespace  = $ns
+              Type       = "Deployment->Pod Mismatch"
+              Deployment = $dname
+              LabelKey   = $key
+              Expected   = $expected
+              Actual     = $actual ?? "<missing>"
+              Message    = "Deployment selector key '$key' does not match Pod template label"
+            }
+          }
+        }
+  
+        # 2. Check Service selector mismatch
+        $relatedSvcs = $services | Where-Object {
+          $_.metadata.namespace -eq $ns -and $_.spec.selector
+        }
+  
+        foreach ($svc in $relatedSvcs) {
+          foreach ($key in $selector.PSObject.Properties.Name) {
+            $svcValue = $svc.spec.selector.$key
+            if ($svcValue -and $svcValue -ne $selector.$key) {
+              $results += [PSCustomObject]@{
+                Namespace  = $ns
+                Type       = "Deployment->Service Mismatch"
+                Deployment = $dname
+                Service    = $svc.metadata.name
+                LabelKey   = $key
+                Expected   = $selector.$key
+                Actual     = $svcValue
+                Message    = "Service selector key '$key' does not match Deployment selector"
+              }
+            }
+          }
+        }
+      }
+  
+      return $results
+  

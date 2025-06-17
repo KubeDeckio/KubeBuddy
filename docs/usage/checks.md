@@ -175,16 +175,18 @@ Each table includes:
 
 ### Workloads
 
-| ID     | Name                                      | Description                                                 | Severity | Weight |
-| ------ | ----------------------------------------- | ----------------------------------------------------------- | -------- | ------ |
-| WRK001 | DaemonSets Not Fully Running              | Some pods unscheduled or not ready.                         | High     | 2      |
-| WRK002 | Deployment Missing Replicas               | Fewer replicas than specified.                              | High     | 2      |
-| WRK003 | Incomplete StatefulSet Rollout            | Rollout not finished; may cause issues.                     | Medium   | 2      |
-| WRK004 | HPA Misconfig or Inactivity               | HPA not working or pointing to nothing.                     | Medium   | 2      |
-| WRK005 | Missing Resource Requests/Limits          | No CPU/memory limits; risks noisy neighbor problems.        | High     | 3      |
-| WRK006 | PodDisruptionBudget Coverage              | Missing or misconfigured PDBs.                              | Medium   | 2      |
-| WRK007 | Missing Health Probes                     | No liveness or readiness probes; risks silent failures.     | Medium   | 2      |
-| WRK008 | Deployment Selector Without Matching Pods | Selectors that don’t match any pods, leading to 0 replicas. | Medium   | 2      |
+| ID     | Name                                           | Description                                                               | Severity | Weight |
+| ------ | ---------------------------------------------- | ------------------------------------------------------------------------- | -------- | ------ |
+| WRK001 | DaemonSets Not Fully Running                   | Some pods unscheduled or not ready.                                       | High     | 2      |
+| WRK002 | Deployment Missing Replicas                    | Fewer replicas than specified.                                            | High     | 2      |
+| WRK003 | Incomplete StatefulSet Rollout                 | Rollout not finished; may cause issues.                                   | Medium   | 2      |
+| WRK004 | HPA Misconfig or Inactivity                    | HPA not working or pointing to nothing.                                   | Medium   | 2      |
+| WRK005 | Missing Resource Requests/Limits               | No CPU/memory limits; risks noisy neighbor problems.                      | High     | 3      |
+| WRK006 | PodDisruptionBudget Coverage                   | Missing or misconfigured PDBs.                                            | Medium   | 2      |
+| WRK007 | Missing Health Probes                          | No liveness or readiness probes; risks silent failures.                   | Medium   | 2      |
+| WRK008 | Deployment Selector Without Matching Pods      | Selectors that don’t match any pods, leading to 0 replicas.               | Medium   | 2      |
+| WRK009 | Deployment, Pod, and Service Label Consistency | Mismatched labels between Deployments, Pods, or Services; breaks routing. | Medium   | 3      |
+
 
 ## Usage Notes
 

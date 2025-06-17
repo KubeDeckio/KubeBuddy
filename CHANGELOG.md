@@ -30,9 +30,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
     * **NET011: Network Policy Missing PolicyTypes:** Flags NetworkPolicies that do not explicitly define `policyTypes`, improving clarity and ensuring consistent behavior across different Kubernetes versions and CNI plugins.
     * **NET012: Pod HostNetwork Usage:** Identifies pods configured with `hostNetwork: true`, which allows direct access to the node's network interfaces, bypassing Kubernetes network isolation and potentially increasing security risk.
 
-* **Pod Density per Node check (NODE003)**
+* **Pod Density per Node check (NODE003):**
     * Calculates pod density as `(running pods ÷ max‑pods capacity) × 100`.
     * Alerts when percentage crosses warning (80% default) or critical (90% default) thresholds.
+
+* **Workload Label Consistency Check (WRK009):**
+
+    * Ensures that Deployment selectors match the labels on their Pod templates and that Services targeting those Deployments use consistent label selectors.
+    * Helps catch silent routing issues or monitoring mismatches caused by label typos or misalignment.
+    * Applies to Deployments and their associated Pods and Services.
 
 ## \[0.0.22] – 2025-06-04
 
