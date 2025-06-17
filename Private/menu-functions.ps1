@@ -109,8 +109,6 @@ function Show-WorkloadMenu {
     } while ($true)
 }
 
-
-
 function Show-NodeMenu {
     do {
         Write-Host "`n🔍 Node Details Menu" -ForegroundColor Cyan
