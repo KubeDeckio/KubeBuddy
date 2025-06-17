@@ -11,19 +11,38 @@ Run **KubeBuddy powered by KubeDeck** in a Docker container to scan your Kuberne
 
 This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compliant Kubernetes cluster.
 
+!!! info "WSL and SELinux Notes"
+    - On **WSL**, avoid symbolic links when mounting `~/.kube/config`. Docker may try to copy the directory rather than the file. Use the actual file path.
+    - On **SELinux-enabled Linux distros**, append `:Z` to the `:ro` volume mounts to avoid permission issues, e.g. `:ro,Z`.
+
 
 ## 🚀 TL;DR (Quick Start — Version Pinned)
 
-```bash
-export tagId="v0.0.19"  # Replace with the desired version
+=== "Bash"
 
-docker run -it --rm \
-  -e KUBECONFIG="/home/kubeuser/.kube/config" \
-  -e HTML_REPORT="true" \
-  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
-  -v $HOME/kubebuddy-report:/app/Reports \
-  ghcr.io/kubedeckio/kubebuddy:$tagId
-```
+    ```bash
+    export tagId="v0.0.23"  # Replace with the desired version
+
+    docker run -it --rm \
+      -e KUBECONFIG="/home/kubeuser/.kube/config" \
+      -e HTML_REPORT="true" \
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+      -v $HOME/kubebuddy-report:/app/Reports \
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
+
+=== "PowerShell"
+
+    ```powershell
+    $tagId = "v0.0.23"
+
+    docker run -it --rm `
+      -e KUBECONFIG="/home/kubeuser/.kube/config" `
+      -e HTML_REPORT="true" `
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
+      -v $HOME/kubebuddy-report:/app/Reports `
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
 
 > ❗ **Always use a pinned version tag. Avoid `latest` to ensure reliability and reproducibility.**
 
@@ -86,27 +105,27 @@ Use GitHub CLI to fetch the most recent image tag from the GitHub Container Regi
 
 === "Bash"
 
-```bash
-export tagId=$(gh api \
-  -H "Accept: application/vnd.github+json" \
-  /users/kubedeckio/packages/container/kubebuddy/versions \
-  --jq '.[0].metadata.container.tags[0]')
+    ```bash
+    export tagId=$(gh api \
+      -H "Accept: application/vnd.github+json" \
+      /users/kubedeckio/packages/container/kubebuddy/versions \
+      --jq '.[0].metadata.container.tags[0]')
 
-docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
-```
+    docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
 
 === "PowerShell"
 
-```powershell
-$response = gh api `
-  -H "Accept: application/vnd.github+json" `
-  /users/kubedeckio/packages/container/kubebuddy/versions
+    ```powershell
+    $response = gh api `
+      -H "Accept: application/vnd.github+json" `
+      /users/kubedeckio/packages/container/kubebuddy/versions
 
-$json = $response | ConvertFrom-Json
-$tagId = $json[0].metadata.container.tags[0]
+    $json = $response | ConvertFrom-Json
+    $tagId = $json[0].metadata.container.tags[0]
 
-docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
-```
+    docker pull ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
 
 > 🧠 This requires [GitHub CLI](https://cli.github.com/) to be installed and authenticated with the correct permissions.
 
@@ -204,75 +223,74 @@ docker run -it --rm \
 
 === "Bash"
 
-```bash
-export tagId="v0.0.19"
+    ```bash
+    export tagId="v0.0.23"
 
-docker run -it --rm \
-  -e KUBECONFIG="/home/kubeuser/.kube/config" \
-  -e HTML_REPORT="true" \
-  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
-  -v $HOME/kubebuddy-report:/app/Reports \
-  ghcr.io/kubedeckio/kubebuddy:$tagId
-```
+    docker run -it --rm \
+      -e KUBECONFIG="/home/kubeuser/.kube/config" \
+      -e HTML_REPORT="true" \
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+      -v $HOME/kubebuddy-report:/app/Reports \
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
 
 === "PowerShell"
 
-```powershell
-$tagId = "v0.0.19"
+    ```powershell
+    $tagId = "v0.0.23"
 
-docker run -it --rm `
-  -e KUBECONFIG="/home/kubeuser/.kube/config" `
-  -e HTML_REPORT="true" `
-  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
-  -v $HOME/kubebuddy-report:/app/Reports `
-  ghcr.io/kubedeckio/kubebuddy:$tagId
-```
+    docker run -it --rm `
+      -e KUBECONFIG="/home/kubeuser/.kube/config" `
+      -e HTML_REPORT="true" `
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
+      -v $HOME/kubebuddy-report:/app/Reports `
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
 
 
 ## ☁️ Run KubeBuddy with AKS Integration
 
 === "Bash"
 
-```bash
-export tagId="v0.0.19"
+    ```bash
+    export tagId="v0.0.23"
 
-docker run -it --rm \
-  -e KUBECONFIG="/home/kubeuser/.kube/config" \
-  -e HTML_REPORT="true" \
-  -e AKS_MODE="true" \
-  -e CLUSTER_NAME="<cluster>" \
-  -e RESOURCE_GROUP="<group>" \
-  -e SUBSCRIPTION_ID="<sub-id>" \
-  -e AZURE_CLIENT_ID="<client-id>" \
-  -e AZURE_CLIENT_SECRET="<client-secret>" \
-  -e AZURE_TENANT_ID="<tenant-id>" \
-  -e USE_AKS_REST_API="true" \
-  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
-  -v $HOME/kubebuddy-report:/app/Reports \
-  ghcr.io/kubedeckio/kubebuddy:$tagId
-```
+    docker run -it --rm \
+      -e KUBECONFIG="/home/kubeuser/.kube/config" \
+      -e HTML_REPORT="true" \
+      -e AKS_MODE="true" \
+      -e CLUSTER_NAME="<cluster>" \
+      -e RESOURCE_GROUP="<group>" \
+      -e SUBSCRIPTION_ID="<sub-id>" \
+      -e AZURE_CLIENT_ID="<client-id>" \
+      -e AZURE_CLIENT_SECRET="<client-secret>" \
+      -e AZURE_TENANT_ID="<tenant-id>" \
+      -e USE_AKS_REST_API="true" \
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+      -v $HOME/kubebuddy-report:/app/Reports \
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
 
 === "PowerShell"
 
-```powershell
-$tagId = "v0.0.19"
+    ```powershell
+    $tagId = "v0.0.23"
 
-docker run -it --rm `
-  -e KUBECONFIG="/home/kubeuser/.kube/config" `
-  -e HTML_REPORT="true" `
-  -e AKS_MODE="true" `
-  -e CLUSTER_NAME="<cluster>" `
-  -e RESOURCE_GROUP="<group>" `
-  -e SUBSCRIPTION_ID="<sub-id>" `
-  -e AZURE_CLIENT_ID="<client-id>" `
-  -e AZURE_CLIENT_SECRET="<client-secret>" `
-  -e AZURE_TENANT_ID="<tenant-id>" `
-  -e USE_AKS_REST_API="true" `
-  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
-  -v $HOME/kubebuddy-report:/app/Reports `
-  ghcr.io/kubedeckio/kubebuddy:$tagId
-```
-
+    docker run -it --rm `
+      -e KUBECONFIG="/home/kubeuser/.kube/config" `
+      -e HTML_REPORT="true" `
+      -e AKS_MODE="true" `
+      -e CLUSTER_NAME="<cluster>" `
+      -e RESOURCE_GROUP="<group>" `
+      -e SUBSCRIPTION_ID="<sub-id>" `
+      -e AZURE_CLIENT_ID="<client-id>" `
+      -e AZURE_CLIENT_SECRET="<client-secret>" `
+      -e AZURE_TENANT_ID="<tenant-id>" `
+      -e USE_AKS_REST_API="true" `
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
+      -v $HOME/kubebuddy-report:/app/Reports `
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
 
 ## ⚙️ Custom Configuration File
 
