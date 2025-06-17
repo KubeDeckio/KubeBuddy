@@ -151,4 +151,3 @@ docker run -it --rm \
 
 * [Azure Monitor Prometheus Overview](https://learn.microsoft.com/azure/azure-monitor/prometheus-metrics-overview)
 * [Prometheus HTTP API](https://prometheus.io/docs/prometheus/latest/querying/api/)
-* [KubeBuddy Thresholds & Defaults](./thresholds.md)
