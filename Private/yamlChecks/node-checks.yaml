@@ -331,3 +331,84 @@ checks:
           IssueCount = $issueCount
           UsedPrometheus  = $usePrometheus
       }
+  - ID: "NODE003"
+    Name: "Max Pods per Node"
+    Category: "Resources"
+    Section: "Nodes"
+    ResourceKind: "Node"
+    Severity: "Warning"
+    Weight: 2
+    Description: "Alerts when any node is running too many pods according to configured thresholds."
+    FailMessage: "Node pod count exceeds configured threshold."
+    URL: "https://kubernetes.io/docs/concepts/architecture/nodes/"
+    SpeechBubble:
+      - "🚨 High pod density detected on node!"
+      - "🔎 Consider rescheduling or scaling your cluster."
+    Recommendation:
+      text: "Check node pod counts and adjust scheduling or cluster size as needed."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Run <code>kubectl get pods -o wide --all-namespaces</code> and group by <code>.spec.nodeName</code> to see pod distribution.</li>
+            <li>Use <code>kubectl describe node &lt;node-name&gt;</code> to inspect allocatable pods and taints.</li>
+            <li>Consider tuning the kubelet’s <code>--max-pods</code> flag if you need higher density.</li>
+            <li>Scale out your node pool or add additional nodes to balance the load.</li>
+          </ul>
+        </div>
+    Script: |
+      param([object]$KubeData)
+
+      # 1. Load percentage thresholds (now always numeric)
+      $t    = Get-KubeBuddyThresholds
+      $warn = [int]$t.pods_per_node_warning
+      $crit = [int]$t.pods_per_node_critical
+
+      # 2. Fetch pods & nodes
+      $pods  = if ($KubeData?.Pods)  { $KubeData.Pods.items  } else { (kubectl get pods -A -o json | ConvertFrom-Json).items }
+      $nodes = if ($KubeData?.Nodes) { $KubeData.Nodes.items } else { (kubectl get nodes -o json | ConvertFrom-Json).items }
+
+      # 3. Count pods per node
+      $grouped = $pods |
+        Where-Object { $_.spec.nodeName } |
+        Group-Object -Property { $_.spec.nodeName } |
+        ForEach-Object {
+          [PSCustomObject]@{
+            Node     = $_.Name
+            PodCount = $_.Count
+          }
+        }
+
+      # 4. Turn that into a lookup for easy per‑node access
+      $counts = @{}
+      foreach ($g in $grouped) {
+        $counts[$g.Node] = $g.PodCount
+      }
+      
+      $results = @()
+      # 5. Now iterate your nodes and compute %
+      foreach ($node in $nodes) {
+        $name     = $node.metadata.name
+        $capacity = [int]$node.status.capacity.pods
+        # lookup (defaults to 0 if missing)
+        $count    = if ($counts.ContainsKey($name)) { $counts[$name] } else { 0 }
+        $pct      = if ($capacity -gt 0) { [math]::Round($count / $capacity * 100, 2) } else { 0 }
+
+        # determine status
+        $status = if    ($pct -ge $crit) { 'Critical' }
+                  elseif ($pct -ge $warn) { 'Warning'  }
+                  else                    { 'OK'       }
+      
+        # thresholds as before…
+        if ($pct -ge $warn) {
+          $results += [PSCustomObject]@{
+            Node       = $name
+            PodCount   = $count
+            Capacity   = $capacity
+            Percentage = "$pct`%"
+            Threshold  = "$warn`%"
+            Status     = $status
+          }
+        }
+      }
+
+      return $results

@@ -22,7 +22,7 @@ function Generate-K8sHTMLReport {
       $defaultText  # Pass actual HTML for summary
     }
     else {
-      "<summary style='font-size:16px; cursor:pointer; color:#0071FF; font-weight:bold;'>$defaultText</summary>"
+      "<summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>$defaultText</summary>"
     }
   
     @"
@@ -568,7 +568,7 @@ $heroRatingHtml
     $nodeId = "node_$($nodeName -replace '[^a-zA-Z0-9]', '_')"
 
     $nodeContent = @"
-<div class='collapsible-header' style='background: #0071FF; color: white; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 8px 8px 0 0;'>
+<div class='collapsible-header' style='background: var(--brand-blue); color: white; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 8px 8px 0 0;'>
   $nodeName
 </div>
 <div class='recommendation-card node-card'>

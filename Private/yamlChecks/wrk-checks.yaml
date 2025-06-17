@@ -133,31 +133,62 @@ checks:
       - ""
       - "⚠️ Review logs, events, and volume bindings."
     Script: |
-      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
-
+      param(
+          [object]$KubeData,
+          [string]$Namespace,
+          [switch]$ExcludeNamespaces
+      )
+      
+      # ------------------------------------------------------------------
+      # Pull StatefulSets
+      # ------------------------------------------------------------------
       $statefulsets = if ($KubeData?.StatefulSets) {
-        $KubeData.StatefulSets
+          $KubeData.StatefulSets
       } else {
-        (kubectl get statefulsets -A -o json | ConvertFrom-Json).items
+          (kubectl get statefulsets -A -o json | ConvertFrom-Json).items
       }
+      
       if ($ExcludeNamespaces) {
-        $statefulsets = Exclude-Namespaces -items $statefulsets
+          $statefulsets = Exclude-Namespaces -items $statefulsets
       }
       if ($Namespace) {
-        $statefulsets = $statefulsets | Where-Object { $_.metadata.namespace -eq $Namespace }
+          $statefulsets = $statefulsets |
+              Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      # Early-exit if nothing to check
+      if (-not $statefulsets -or $statefulsets.Count -eq 0) {
+          return
+      }
+      
+      # ------------------------------------------------------------------
+      # Emit findings only when readyReplicas < replicas
+      # ------------------------------------------------------------------
+      $statefulsets |
+      Where-Object {
+          # Treat missing status.readyReplicas as 0
+          $ready   = $_.status.readyReplicas
+          $desired = $_.spec.replicas
+      
+          # If replicas not set, Kubernetes defaults to 1
+          if (-not $desired) { $desired = 1 }
+      
+          ($ready -eq $null) -or ([int]$ready -lt [int]$desired)
+      } |
+      ForEach-Object {
+          $ready   = $_.status.readyReplicas
+          $desired = $_.spec.replicas
+          if (-not $desired) { $desired = 1 }
+          if (-not $ready)   { $ready   = 0 }
+      
+          [pscustomobject]@{
+              Namespace    = $_.metadata.namespace
+              StatefulSet  = $_.metadata.name
+              Availability = \"$ready/$desired\"
+              Message      = \"StatefulSet has fewer ready replicas than desired.\"
+          }
       }
 
-      $statefulsets | Where-Object {
-        $_.status.readyReplicas -eq $null -or $_.status.readyReplicas -lt $_.spec.replicas
-      } | ForEach-Object {
-        $ready = if ($_.status.readyReplicas -ne $null) { $_.status.readyReplicas } else { 0 }
-        [pscustomobject]@{
-          Namespace    = $_.metadata.namespace
-          StatefulSet  = $_.metadata.name
-          Availability = "$ready/$($_.spec.replicas)"
-          Message      = "StatefulSet has fewer ready replicas than desired."
-        }
-      }
   - ID: "WRK004"
     Name: "HPA Misconfiguration or Inactivity"
     Category: "Workloads"
@@ -324,111 +355,126 @@ checks:
     ResourceKind: "Pod"
     Severity: "warning"
     Weight: 3
-    Description: "Checks for containers that are missing CPU or memory resource requests or limits."
-    FailMessage: "One or more containers are missing resource requests or limits."
+    Description: "Checks that every container has CPU and memory requests and a memory limit."
+    FailMessage: "One or more containers are missing a resource request or a memory limit."
     URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
     Recommendation:
-      text: "Specify resource requests and limits on all containers."
+      text: "Define cpu/memory requests and a memory limit on all containers."
       html: |
         <div class="recommendation-content">
           <ul>
-            <li>Add <code>resources.requests.cpu</code> and <code>resources.requests.memory</code> to every container.</li>
-            <li>Also specify <code>resources.limits.cpu</code> and <code>resources.limits.memory</code>.</li>
-            <li>Review workloads using <code>kubectl get deploy,statefulset,daemonset -A -o yaml</code>.</li>
-            <li>Apply missing limits to avoid resource starvation and enforce scheduling constraints.</li>
+            <li>Add <code>resources.requests.cpu</code> and <code>resources.requests.memory</code> to <strong>every</strong> container.</li>
+            <li>Set a <code>resources.limits.memory</code> value to protect nodes from OOM events.</li>
+            <li><em>CPU limits are optional</em>; include <code>resources.limits.cpu</code> only when you need strict throttling.</li>
+            <li>Review both workload and <code>initContainers</code> with <code>kubectl get deploy,statefulset,daemonset -A -o yaml</code>.</li>
+            <li>Apply any missing fields, then rerun KubeBuddy to confirm.</li>
           </ul>
         </div>
     SpeechBubble:
-      - "🤖 Some containers are missing CPU or memory limits/requests."
+      - "🤖 Some containers are still missing resource requests or a memory limit."
       - ""
-      - "📌 This can lead to resource contention and scheduling issues."
-      - ""
-      - "⚠️ Define both requests and limits for predictable behavior."
+      - "⚠️ Without requests the scheduler can’t make good placement decisions."
+      - "💡 Memory limits help prevent node OOMs; CPU limits are optional by design."
     Script: |
-      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
-
-      $types = @("deployments", "statefulsets", "daemonsets")
-      $items = @()
-
-      foreach ($type in $types) {
-        $kind = $type -replace "s$"
-        $kind = $kind.Substring(0,1).ToUpper() + $kind.Substring(1)
-
-        $workloads = if ($KubeData -and $KubeData[$type]) {
-          $KubeData[$type]
-        } else {
-          (kubectl get $type -A -o json | ConvertFrom-Json).items
-        }
-        if ($ExcludeNamespaces) {
-          $workloads = Exclude-Namespaces -items $workloads
-        }
-        if ($Namespace) {
-          $workloads = $workloads | Where-Object { $_.metadata.namespace -eq $Namespace }
-        }
-
-        if (-not $workloads) { continue }
-
-        $items += $workloads | ForEach-Object {
-          if (-not $_.PSObject.Properties["kind"]) {
-            $_ | Add-Member -NotePropertyName kind -NotePropertyValue $kind -PassThru
+      param(
+          [object]$KubeData,
+          [string]$Namespace,
+          [switch]$ExcludeNamespaces
+      )
+      
+      # ------------------------------------------------------------------
+      # Helper: evaluate a single container for missing resource settings
+      # ------------------------------------------------------------------
+      function Test-ContainerResources {
+          param(
+              [object]$Container,
+              [string]$ContainerType,
+              [string]$Namespace,
+              [string]$Workload
+          )
+      
+          $limits   = $Container.resources
+          $requests = $Container.resources
+      
+          $missing = @()
+      
+          # Robust presence checks ---------------------------------------
+          $cpuReq    = if ($requests) { $requests.requests?.cpu } else { $null }
+          $memReq    = if ($requests) { $requests.requests?.memory } else { $null }
+          $memLimit  = if ($limits)   { $limits.limits?.memory    } else { $null }
+      
+          if ([string]::IsNullOrWhiteSpace($cpuReq))   { $missing += 'CPU request' }
+          if ([string]::IsNullOrWhiteSpace($memReq))   { $missing += 'Memory request' }
+          if ([string]::IsNullOrWhiteSpace($memLimit)) { $missing += 'Memory limit' }
+      
+          if ($missing) {
+              [pscustomobject]@{
+                  Namespace     = $Namespace
+                  Workload      = $Workload
+                  Container     = $Container.name
+                  ContainerType = $ContainerType
+                  Message       = ($missing -join ', ') + ' missing'
+              }
+          }
+      }
+      
+      # ------------------------------------------------------------------
+      # Gather workloads (deployments, statefulsets, daemonsets)
+      # ------------------------------------------------------------------
+      $kinds = @('deployments','statefulsets','daemonsets')
+      $workloads = foreach ($plural in $kinds) {
+      
+          # Create a singular Kind name with an initial capital letter
+          $kind = ($plural -replace 's$') -creplace '^.', { $_.Value.ToUpper() }
+      
+          $items = if ($KubeData -and $KubeData[$plural]) {
+              $KubeData[$plural]
           } else {
-            $_
+              (kubectl get $plural -A -o json | ConvertFrom-Json).items
           }
-        }
+      
+          if ($ExcludeNamespaces) { $items = Exclude-Namespaces -items $items }
+          if ($Namespace)        { $items = $items | Where-Object { $_.metadata.namespace -eq $Namespace } }
+      
+          foreach ($w in $items) {
+              if (-not $w.PSObject.Properties['kind']) {
+                  $w | Add-Member kind $kind
+              }
+              $w
+          }
       }
-
+      
+      # ------------------------------------------------------------------
+      # Evaluate each container / initContainer in the workloads
+      # ------------------------------------------------------------------
       $results = @()
-
-      foreach ($w in $items) {
-        $ns = $w.metadata.namespace
-        $name = $w.metadata.name
-        $kind = $w.kind
-
-        if (-not $w.spec -or -not $w.spec.template -or -not $w.spec.template.spec) {
-          continue
-        }
-
-        $spec = $w.spec.template.spec
-        $containers = @()
-        if ($spec.containers) { $containers += $spec.containers }
-        if ($spec.initContainers) { $containers += $spec.initContainers }
-
-        foreach ($c in $containers) {
-          $limits = $c.resources?.limits
-          $requests = $c.resources?.requests
-
-          $missingLimits = @()
-          $missingRequests = @()
-
-          if (-not $requests?.cpu)   { $missingRequests += "CPU" }
-          if (-not $requests?.memory){ $missingRequests += "Memory" }
-          if (-not $limits?.cpu)     { $missingLimits += "CPU" }
-          if (-not $limits?.memory)  { $missingLimits += "Memory" }
-
-          if ($missingLimits.Count -gt 0 -or $missingRequests.Count -gt 0) {
-            $parts = @()
-
-            if ($missingRequests.Count -gt 0) {
-              $parts += "$($missingRequests -join ' and ') Requests"
-            }
-
-            if ($missingLimits.Count -gt 0) {
-              $parts += "$($missingLimits -join ' and ') Limits"
-            }
-
-            $message = "$($parts -join ' and ') missing"
-
-            $results += [pscustomobject]@{
-              Namespace = $ns
-              Workload  = "$kind/$name"
-              Container = $c.name
-              Message   = $message
-            }
+      
+      foreach ($w in $workloads) {
+          $spec = $w.spec?.template?.spec
+          if (-not $spec) { continue }
+      
+          # Regular containers
+          foreach ($c in ($spec.containers | Where-Object { $_ })) {
+              $results += Test-ContainerResources `
+                  -Container $c `
+                  -ContainerType 'Container' `
+                  -Namespace $w.metadata.namespace `
+                  -Workload "$("$($w.kind)/$($w.metadata.name)")"
           }
-        }
+      
+          # Init containers
+          foreach ($c in ($spec.initContainers | Where-Object { $_ })) {
+              $results += Test-ContainerResources `
+                  -Container $c `
+                  -ContainerType 'InitContainer' `
+                  -Namespace $w.metadata.namespace `
+                  -Workload "$("$($w.kind)/$($w.metadata.name)")"
+          }
       }
-
+      
       $results
+
+
   - ID: "WRK006"
     Name: "PDB Coverage and Effectiveness"
     Section: "Workloads"
@@ -732,4 +778,144 @@ checks:
         }
       }
   
+      return $results
+  - ID: "WRK009"
+    Name: "Deployment, Pod, and Service Label Consistency"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "Deployment"
+    Severity: "warning"
+    Weight: 3
+    Description: "Validates that Pods created by a Deployment match its selector labels, and Services that target the Deployment use consistent selectors."
+    FailMessage: "Label mismatches found between Deployment selectors, Pod labels, or Service selectors."
+    URL: "https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/"
+    Recommendation:
+      text: "Ensure Deployment selectors, Pod labels, and related Service selectors are consistent and aligned."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Deployment <code>spec.selector.matchLabels</code> must match the Pod template <code>metadata.labels</code>.</li>
+            <li>Services should have <code>spec.selector</code> that targets the same labels used by the Deployment and Pods.</li>
+            <li>Use <code>kubectl get deployment,svc,pod -o yaml</code> to compare values and fix mismatches.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some labels are inconsistent across Deployments, Pods, and Services."
+      - ""
+      - "📌 This may break Service routing or monitoring integrations."
+      - ""
+      - "⚠️ Align label selectors to ensure traffic and tooling works as expected."
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      
+      $deployments = if ($KubeData?.Deployments) {
+          $KubeData.Deployments
+      } else {
+          (kubectl get deployments -A -o json | ConvertFrom-Json).items
+      }
+      
+      $pods = if ($KubeData?.Pods) {
+          $KubeData.Pods.items
+      } else {
+          (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      
+      $services = if ($KubeData?.Services) {
+          $KubeData.Services
+      } else {
+          (kubectl get services -A -o json | ConvertFrom-Json).items
+      }
+      
+      if ($ExcludeNamespaces) {
+          $deployments = Exclude-Namespaces -items $deployments
+          $pods = Exclude-Namespaces -items $pods
+          $services = Exclude-Namespaces -items $services
+      }
+      
+      if ($Namespace) {
+          $deployments = $deployments | Where-Object { $_.metadata.namespace -eq $Namespace }
+          $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+          $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+      
+      $results = @()
+      
+      foreach ($deployment in $deployments) {
+          $ns = $deployment.metadata.namespace
+          $dname = $deployment.metadata.name
+          $selector = $deployment.spec.selector.matchLabels
+          $templateLabels = $deployment.spec.template.metadata.labels
+      
+          if (-not $selector) {
+              $results += [PSCustomObject]@{
+                  Namespace  = $ns
+                  Type       = "Deployment Error"
+                  Deployment = $dname
+                  LabelKey   = $null
+                  Expected   = $null
+                  Actual     = $null
+                  Message    = "Deployment has no selector.matchLabels defined"
+              }
+              continue
+          }
+      
+          # 1. Check Pod label mismatch
+          foreach ($key in $selector.PSObject.Properties.Name) {
+              $expected = $selector.$key
+              $actual = $templateLabels.$key
+              if ($actual -ne $expected) {
+                  $results += [PSCustomObject]@{
+                      Namespace  = $ns
+                      Type       = "Deployment->Pod Mismatch"
+                      Deployment = $dname
+                      LabelKey   = $key
+                      Expected   = $expected
+                      Actual     = $actual ?? "<missing>"
+                      Message    = "Deployment selector key '$key' does not match Pod template label"
+                  }
+              }
+          }
+      
+          # 2. Check Service selector mismatch (only for relevant Services)
+          $relatedSvcs = $services | Where-Object {
+              $_.metadata.namespace -eq $ns -and $_.spec.selector -and
+              # Check if Service selector has at least one matching key-value pair with Deployment selector
+              ($_.spec.selector.PSObject.Properties.Name | Where-Object {
+                  $selector.$_ -and $selector.$_ -eq $_.spec.selector.$_
+              }).Count -gt 0
+          }
+      
+          foreach ($svc in $relatedSvcs) {
+              $svcName = $svc.metadata.name
+              foreach ($key in $selector.PSObject.Properties.Name) {
+                  $svcValue = $svc.spec.selector.$key
+                  $depValue = $selector.$key
+                  if ($svcValue -and $svcValue -ne $depValue) {
+                      $results += [PSCustomObject]@{
+                          Namespace  = $ns
+                          Type       = "Deployment->Service Mismatch"
+                          Deployment = $dname
+                          Service    = $svcName
+                          LabelKey   = $key
+                          Expected   = $depValue
+                          Actual     = $svcValue
+                          Message    = "Service '$svcName' selector key '$key' does not match Deployment selector"
+                      }
+                  }
+                  elseif (-not $svcValue -and $depValue) {
+                      $results += [PSCustomObject]@{
+                          Namespace  = $ns
+                          Type       = "Deployment->Service Mismatch"
+                          Deployment = $dname
+                          Service    = $svcName
+                          LabelKey   = $key
+                          Expected   = $depValue
+                          Actual     = "<missing>"
+                          Message    = "Service '$svcName' selector is missing key '$key' present in Deployment selector"
+                      }
+                  }
+              }
+          }
+      }
+      
       return $results

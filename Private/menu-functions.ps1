@@ -71,6 +71,7 @@ function Show-WorkloadMenu {
             "[7]  Check missing or weak PodDisruptionBudgets 🛡️",
             "[8]  Check containers missing health probes 🔎",
             "[9]  Check Deployment selectors with no matching pods ❌",
+            "[10] Check Deployment/Pod/Service label consistency 🧩",
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -99,6 +100,7 @@ function Show-WorkloadMenu {
             "7" { Show-YamlCheckInteractive -CheckIDs "WRK006" -ExcludeNamespaces:$ExcludeNamespaces }
             "8" { Show-YamlCheckInteractive -CheckIDs "WRK007" -ExcludeNamespaces:$ExcludeNamespaces }
             "9" { Show-YamlCheckInteractive -CheckIDs "WRK008" -ExcludeNamespaces:$ExcludeNamespaces }
+            "10" { Show-YamlCheckInteractive -CheckIDs "WRK009" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
@@ -106,8 +108,6 @@ function Show-WorkloadMenu {
 
     } while ($true)
 }
-
-
 
 function Show-NodeMenu {
     do {
@@ -117,6 +117,7 @@ function Show-NodeMenu {
         $nodeOptions = @(
             "[1]  List all nodes and node conditions"
             "[2]  Get node resource usage"
+            "[3]  Check pod density per node 📦", # NODE003
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -131,6 +132,7 @@ function Show-NodeMenu {
         switch ($nodeChoice) {
             "1" { Show-YamlCheckInteractive -CheckIDs "NODE001" -ExcludeNamespaces:$ExcludeNamespaces }
             "2" { Show-YamlCheckInteractive -CheckIDs "NODE002" -ExcludeNamespaces:$ExcludeNamespaces }
+            "3" { Show-YamlCheckInteractive -CheckIDs "NODE003" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }  # Back to main menu
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
@@ -275,6 +277,14 @@ function Show-ServiceMenu {
             "[2]  Show publicly accessible Services",
             "[3]  Show Ingress configuration issues",
             "[4]  Show namespaces missing NetworkPolicy 🛡️",
+            "[5]  Check for Ingress host/path conflicts 🚧",           # NET005
+            "[6]  Check Ingress wildcard host usage 🌐",              # NET006
+            "[7]  Check Service targetPort mismatch 🔁",              # NET007
+            "[8]  Check ExternalName services pointing to internal IPs 🌩️", # NET008
+            "[9]  Check overly permissive NetworkPolicies ⚠️",        # NET009
+            "[10] Check NetworkPolicies using 0.0.0.0/0 🔓",           # NET010
+            "[11] Check NetworkPolicies missing policyTypes ❔",       # NET011
+            "[12] Check pods using hostNetwork 🌐",                    # NET012
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -289,6 +299,14 @@ function Show-ServiceMenu {
             "2" { Show-YamlCheckInteractive -CheckIDs "NET002" -ExcludeNamespaces:$ExcludeNamespaces }
             "3" { Show-YamlCheckInteractive -CheckIDs "NET003" -ExcludeNamespaces:$ExcludeNamespaces }
             "4" { Show-YamlCheckInteractive -CheckIDs "NET004" -ExcludeNamespaces:$ExcludeNamespaces }
+            "5"  { Show-YamlCheckInteractive -CheckIDs "NET005" -ExcludeNamespaces:$ExcludeNamespaces }
+            "6"  { Show-YamlCheckInteractive -CheckIDs "NET006" -ExcludeNamespaces:$ExcludeNamespaces }
+            "7"  { Show-YamlCheckInteractive -CheckIDs "NET007" -ExcludeNamespaces:$ExcludeNamespaces }
+            "8"  { Show-YamlCheckInteractive -CheckIDs "NET008" -ExcludeNamespaces:$ExcludeNamespaces }
+            "9"  { Show-YamlCheckInteractive -CheckIDs "NET009" -ExcludeNamespaces:$ExcludeNamespaces }
+            "10" { Show-YamlCheckInteractive -CheckIDs "NET010" -ExcludeNamespaces:$ExcludeNamespaces }
+            "11" { Show-YamlCheckInteractive -CheckIDs "NET011" -ExcludeNamespaces:$ExcludeNamespaces }
+            "12" { Show-YamlCheckInteractive -CheckIDs "NET012" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
@@ -305,7 +323,13 @@ function Show-StorageMenu {
         Write-Host "------------------------------------"
 
         $storageOptions = @(
-            "[1]  Show unused PVCs"
+            "[1]  Show orphaned PersistentVolumes 🗃️",               # PV001
+            "[2]  Show PVCs using default StorageClass 🏷️",          # PVC002
+            "[3]  Show ReadWriteMany PVCs on incompatible storage 🔒", # PVC003
+            "[4]  Show unbound PersistentVolumeClaims ⛔",            # PVC004
+            "[5]  Show deprecated StorageClass provisioners 📉",      # SC001
+            "[6]  Show StorageClasses that prevent volume expansion 🚫", # SC002
+            "[7]  Check high cluster-wide storage usage 📊",          # SC003
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -315,9 +339,13 @@ function Show-StorageMenu {
         Clear-Host
 
         switch ($storageChoice) {
-            "1" {
-                Show-YamlCheckInteractive -CheckIDs "PVC001" -ExcludeNamespaces:$ExcludeNamespaces
-            }
+            "1" { Show-YamlCheckInteractive -CheckIDs "PV001" -ExcludeNamespaces:$ExcludeNamespaces }
+            "2" { Show-YamlCheckInteractive -CheckIDs "PVC002" -ExcludeNamespaces:$ExcludeNamespaces }
+            "3" { Show-YamlCheckInteractive -CheckIDs "PVC003" -ExcludeNamespaces:$ExcludeNamespaces }
+            "4" { Show-YamlCheckInteractive -CheckIDs "PVC004" -ExcludeNamespaces:$ExcludeNamespaces }
+            "5" { Show-YamlCheckInteractive -CheckIDs "SC001" -ExcludeNamespaces:$ExcludeNamespaces }
+            "6" { Show-YamlCheckInteractive -CheckIDs "SC002" -ExcludeNamespaces:$ExcludeNamespaces }
+            "7" { Show-YamlCheckInteractive -CheckIDs "SC003" -ExcludeNamespaces:$ExcludeNamespaces }
             "B" { return }
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
             default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
