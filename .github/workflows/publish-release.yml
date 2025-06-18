@@ -1,0 +1,90 @@
+name: Publish KubeBuddy Release
+
+on:
+  push:
+    # fire on any tag like v1.2.3
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    env:
+      # GitHub gives us GITHUB_REF like "refs/tags/v1.2.3"
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Debug Tag
+        shell: pwsh
+        run: |
+          Write-Host "GITHUB_REF:    $Env:GITHUB_REF"
+          Write-Host "GITHUB_REF_NAME: $Env:TAG"
+
+      - name: Set Module Version from Tag
+        id: set_version
+        shell: pwsh
+        run: |
+          # strip leading 'v'
+          $version = '${{ env.TAG }}'.TrimStart('v')
+          Write-Host "==> Updating to version $version"
+
+          # Update KubeBuddy.psd1 ModuleVersion
+          (Get-Content .\KubeBuddy.psd1) `
+            -replace "ModuleVersion = '.*'", "ModuleVersion = '$version'" |
+            Set-Content .\KubeBuddy.psd1
+
+          # Update Public/kubebuddy.ps1 $moduleVersion
+          (Get-Content .\Public\kubebuddy.ps1) |
+            ForEach-Object {$_ -replace "\$moduleVersion = '.*'", "`$moduleVersion = 'v$version'"} |
+            Set-Content .\Public\kubebuddy.ps1
+
+      - name: Create tar.gz package
+        shell: pwsh
+        run: |
+          $version = '${{ env.TAG }}'
+          $archive = "kubebuddy-$version.tar.gz"
+          # include module manifest, Public and Private folder
+          tar -czvf $archive KubeBuddy.psd1 KubeBuddy.psm1 Public/ Private/
+
+      - name: Compute SHA256
+        id: checksum
+        run: |
+          sha=$(Get-FileHash kubebuddy-${{ env.TAG }}.tar.gz -Algorithm SHA256 | Select-Object -ExpandProperty Hash)
+          echo "::set-output name=sha::$sha"
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          release_name: KubeBuddy ${{ env.TAG }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload module tarball
+        uses: softprops/action-gh-release@v1
+        with:
+          files: kubebuddy-${{ env.TAG }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update release notes from CHANGELOG
+        shell: pwsh
+        run: |
+          $version = '${{ env.TAG }}'.TrimStart('v')
+          $changelog = Get-Content CHANGELOG.md -Raw
+          if ($changelog -match "(?s)## \[$version\].*?(?=## \[|$)") {
+            $notes = $matches[0]
+            # write to a temp file
+            $notes | Out-File release_notes.md -Encoding utf8
+            gh release edit ${{ env.TAG }} -F release_notes.md --repo ${{ github.repository }}
+          } else {
+            Write-Host "No CHANGELOG entry found for v$version"
+          }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
