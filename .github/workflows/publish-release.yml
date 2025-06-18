@@ -105,7 +105,6 @@ jobs:
         with:
           repository: KubeDeckio/homebrew-kubebuddy
           token: ${{ secrets.BREW_BUMP_TOKEN }}
-          path: homebrew-kubebuddy
 
       - name: Bump Homebrew formula
         uses: Homebrew/actions/bump-packages@main
