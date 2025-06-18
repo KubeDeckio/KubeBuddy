@@ -114,6 +114,5 @@ jobs:
         uses: Homebrew/actions/bump-packages@main
         with:
           formulae: kubebuddy
-          casks: powershell
           token: ${{ secrets.BREW_BUMP_TOKEN }}
           fork: true
