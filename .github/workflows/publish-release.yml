@@ -97,7 +97,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: KubeDeckio/homebrew-kubebuddy
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.BREW_BUMP_TOKEN }}
           path: homebrew-kubebuddy
 
       - name: Bump Homebrew formula
@@ -105,4 +105,4 @@ jobs:
         with:
           # Formula name inside your tap
           formulae: kubebuddy
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.BREW_BUMP_TOKEN }}
