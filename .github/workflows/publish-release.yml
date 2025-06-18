@@ -44,10 +44,14 @@ jobs:
       - name: Create tar.gz package
         shell: pwsh
         run: |
-          $version = '${{ env.TAG }}'
-          $archive = "kubebuddy-$version.tar.gz"
-          # include module manifest, Public and Private folder
-          tar -czvf $archive KubeBuddy.psd1 KubeBuddy.psm1 Public/ Private/
+          $tag     = '${{ env.TAG }}'
+          $archive = "kubebuddy-$tag.tar.gz"
+
+          tar.exe -czvf $archive `
+            .\KubeBuddy.psd1 `
+            .\KubeBuddy.psm1 `
+            .\Public `
+            .\Private
 
       - name: Compute SHA256
         id: checksum
