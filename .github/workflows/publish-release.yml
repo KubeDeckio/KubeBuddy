@@ -55,9 +55,12 @@ jobs:
 
       - name: Compute SHA256
         id: checksum
+        shell: pwsh
         run: |
-          sha=$(Get-FileHash kubebuddy-${{ env.TAG }}.tar.gz -Algorithm SHA256 | Select-Object -ExpandProperty Hash)
-          echo "::set-output name=sha::$sha"
+          $file = "kubebuddy-${{ env.TAG }}.tar.gz"
+          $hash = (Get-FileHash $file -Algorithm SHA256).Hash
+          # Export into the workflow outputs
+          "sha=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Create GitHub Release
         id: create_release
