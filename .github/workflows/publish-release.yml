@@ -98,18 +98,21 @@ jobs:
 
   bump-homebrew-tap:
     needs: build-and-release
-    runs-on: macos-latest
+    runs-on: macos-latest        # macOS has brew pre-installed
     steps:
       - name: Checkout homebrew tap
         uses: actions/checkout@v3
         with:
           repository: KubeDeckio/homebrew-kubebuddy
           token: ${{ secrets.BREW_BUMP_TOKEN }}
-
+          path: homebrew-kubebuddy
+  
+      - name: Tap local Homebrew repo
+        run: brew tap KubeDeckio/kubebuddy ./homebrew-kubebuddy
+  
       - name: Bump Homebrew formula
         uses: Homebrew/actions/bump-packages@main
         with:
-          # Formula name inside your tap
           formulae: kubebuddy
           token: ${{ secrets.BREW_BUMP_TOKEN }}
           fork: true
