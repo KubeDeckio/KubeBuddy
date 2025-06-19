@@ -10,7 +10,8 @@
 
 [![Publish Module to PowerShell Gallery](https://github.com/KubeDeckio/KubeBuddy/actions/workflows/publish-psgal.yml/badge.svg)](https://github.com/KubeDeckio/KubeBuddy/actions/workflows/publish-psgal.yml)
 ![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/KubeBuddy.svg)
-![Downloads](https://img.shields.io/powershellgallery/dt/KubeBuddy.svg)
+![PowerShell Downloads](https://img.shields.io/powershellgallery/dt/KubeBuddy.svg)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/kubedeckio/kubebuddy/total?logo=homebrew&logoColor=%23FBB040&label=Brew%20Downloads)
 ![License](https://img.shields.io/github/license/KubeDeckIo/KubeBuddy.svg)
 
 **Container Details**
