@@ -27,14 +27,14 @@ jobs:
         run: |
           $version = '${{ env.TAG }}'.TrimStart('v')
           Write-Host "==> Updating to version $version"
-
-          (Get-Content .\KubeBuddy.psd1) `
+      
+          (Get-Content .\KubeBuddy.psd1 -Raw) `
             -replace "ModuleVersion = '.*'", "ModuleVersion = '$version'" |
-            Set-Content .\KubeBuddy.psd1
-
-          (Get-Content .\Public\kubebuddy.ps1) |
-            ForEach-Object {$_ -replace "\$moduleVersion = '.*'", "`$moduleVersion = 'v$version'"} |
-            Set-Content .\Public\kubebuddy.ps1
+            Set-Content -Encoding UTF8 .\KubeBuddy.psd1
+      
+          (Get-Content .\Public\kubebuddy.ps1 -Raw) `
+            -replace "\$moduleVersion = '.*'", "`$moduleVersion = 'v$version'" |
+            Set-Content -Encoding UTF8 .\Public\kubebuddy.ps1
 
       - name: Create tar.gz package
         shell: pwsh
