@@ -85,7 +85,7 @@ jobs:
     needs: build-and-release
     runs-on: ubuntu-22.04
     outputs:
-      IS_LATEST: ${{ steps.check.outputs.is_latest }}
+      IS_LATEST:  ${{ steps.check-latest.outputs.release == github.ref_name }}
     steps:
       - id: check
         uses: pozetroninc/github-action-get-latest-release@v0.7.0
@@ -94,26 +94,25 @@ jobs:
           repository: ${{ github.repository }}
           excludes: prerelease, draft
 
-  mac-hash:
+  hash:
     needs: check-latest
     runs-on: ubuntu-latest
-    if: needs.check-latest.outputs.IS_LATEST == 'true'
+    if: needs.check-latest.outputs.IS_LATEST
     outputs:
-      MAC_BUILD_HASH: ${{ steps.calc.outputs.hash }}
+      BUILD_HASH: ${{ steps.calc.outputs.BUILD_HASH }}
     steps:
       - name: Download tarball
         run: |
           curl -L -o kubebuddy.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/kubebuddy-${{ github.ref_name }}.tar.gz
-
       - name: Calculate SHA256
         id: calc
         run: |
           echo "hash=$(sha256sum kubebuddy.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
 
   update-formula:
-    needs: [check-latest, mac-hash]
+    needs: [check-latest, hash]
     runs-on: ubuntu-latest
-    if: needs.check-latest.outputs.IS_LATEST == 'true'
+    if: needs.check-latest.outputs.IS_LATEST
     steps:
       - name: Checkout homebrew tap
         uses: actions/checkout@v3
@@ -126,7 +125,7 @@ jobs:
         working-directory: homebrew-kubebuddy
         run: |
           TAG=${{ github.ref_name }}
-          SHA=${{ needs.mac-hash.outputs.MAC_BUILD_HASH }}
+          SHA=${{ needs.mac-hash.outputs.BUILD_HASH }}
           FORMULA=Formula/kubebuddy.rb
 
           sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/kubebuddy-${TAG}.tar.gz\"|" $FORMULA
