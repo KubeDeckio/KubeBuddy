@@ -107,7 +107,7 @@ jobs:
       - name: Calculate SHA256
         id: calc
         run: |
-          echo "hash=$(sha256sum kubebuddy.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
+          echo "::set-output name=BUILD_HASH::$(sha256sum kubebuddy.tar.gz | awk '{print $1}')"
 
   update-formula:
     needs: [check-latest, hash]
@@ -125,7 +125,7 @@ jobs:
         working-directory: homebrew-kubebuddy
         run: |
           TAG=${{ github.ref_name }}
-          SHA=${{ needs.mac-hash.outputs.BUILD_HASH }}
+          SHA=${{ needs.hash.outputs.BUILD_HASH }}
           FORMULA=Formula/kubebuddy.rb
 
           sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/kubebuddy-${TAG}.tar.gz\"|" $FORMULA
