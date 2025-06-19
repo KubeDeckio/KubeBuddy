@@ -16,25 +16,42 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Debug Tag
-        shell: pwsh
         run: |
-          Write-Host "GITHUB_REF:    $Env:GITHUB_REF"
-          Write-Host "GITHUB_REF_NAME: $Env:TAG"
+          Write-Host "GITHUB_REF_NAME: $Env:GITHUB_REF_NAME"
+          Write-Host "GITHUB_REF: $Env:GITHUB_REF"
+        shell: pwsh
 
-      - name: Set Module Version from Tag
+      - name: Set Module Version from Git Tag
         id: set_version
-        shell: pwsh
         run: |
-          $version = '${{ env.TAG }}'.TrimStart('v')
-          Write-Host "==> Updating to version $version"
-      
-          (Get-Content .\KubeBuddy.psd1 -Raw) `
-            -replace "ModuleVersion = '.*'", "ModuleVersion = '$version'" |
-            Set-Content -Encoding UTF8 .\KubeBuddy.psd1
-      
-          (Get-Content .\Public\kubebuddy.ps1 -Raw) `
-            -replace "\$moduleVersion = '.*'", "`$moduleVersion = 'v$version'" |
-            Set-Content -Encoding UTF8 .\Public\kubebuddy.ps1
+          # If no GITHUB_REF_NAME, parse GITHUB_REF
+          if (-not $Env:GITHUB_REF_NAME) {
+            $tagVersion = $Env:GITHUB_REF -replace '^refs/tags/v',''
+          }
+          else {
+            $tagVersion = $Env:GITHUB_REF_NAME -replace '^v',''
+          }
+
+          Write-Host "Setting module version to $tagVersion"
+
+          # Update the PSD1 line: ModuleVersion = '0.0.4'
+          (Get-Content ./KubeBuddy.psd1) `
+            -replace '^\s*ModuleVersion\s*=\s*''.*''', "ModuleVersion = '$tagVersion'" |
+            Set-Content ./KubeBuddy.psd1
+
+          # Corrected update for kubebuddy.ps1 line: $moduleVersion = "v0.0.4"
+          (Get-Content ./Public/kubebuddy.ps1) |
+          ForEach-Object { 
+              $_ -replace '^\s*\$moduleVersion\s*=\s*".*"', "`$moduleVersion = 'v$tagVersion'" 
+          } |
+          Set-Content ./Public/kubebuddy.ps1
+
+          Write-Host "Updated KubeBuddy.psd1 contents:"
+          Get-Content ./KubeBuddy.psd1
+
+          Write-Host "Updated kubebuddy.ps1 contents:"
+          Get-Content ./Public/kubebuddy.ps1
+        shell: pwsh
 
       - name: Create tar.gz package
         shell: pwsh
@@ -66,18 +83,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update release notes from CHANGELOG
-        shell: pwsh
+      - name: Update Release Notes
+        shell: pwsh  # Use PowerShell
         run: |
-          $version = '${{ env.TAG }}'.TrimStart('v')
-          $changelog = Get-Content .\CHANGELOG.md -Raw
-          if ($changelog -match "(?s)## \[$version\].*?(?=## \[|$)") {
-            $notes = $matches[0]
-            $notes | Out-File release_notes.md -Encoding utf8
-            gh release edit ${{ env.TAG }} -F release_notes.md --repo ${{ github.repository }}
+          $gitVersion = "${{ github.ref_name }}"
+          $version = $gitVersion -replace 'v',''
+          $changelogPath = "CHANGELOG.md"
+        
+          # Read the entire CHANGELOG.md content
+          $changelogContent = Get-Content -Path $changelogPath -Raw
+        
+          # Extract the section for the specific version
+          if ($changelogContent -match "(?s)## \[$version\].*?(?=## \[|$)") {
+              $changelog = $matches[0]
           } else {
-            Write-Host "No CHANGELOG entry found for v$version"
+              Write-Host "No changelog found for version $version."
+              exit 1
           }
+        
+          # Save the changelog to a file
+          $changelog | Out-File -FilePath "release_notes.md" -Encoding utf8
+          Write-Host "Release notes saved to release_notes.md."
+        
+          # Check if the file was created successfully
+          if (-Not (Test-Path "release_notes.md")) {
+              Write-Host "Failed to create release_notes.md."
+              exit 1
+          }
+        
+          # Use the GitHub CLI to update the release with the notes
+          gh release edit $gitVersion -F release_notes.md  # Use -F to read release notes from the file
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
