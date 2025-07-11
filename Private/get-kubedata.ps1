@@ -6,6 +6,8 @@ function Get-KubeData {
         [switch]$ExcludeNamespaces,
         [switch]$AKS,
         [switch]$UseAksRestApi,
+        [switch]$EKS,
+        [String]$Region,
         [switch]$IncludePrometheus,
         [string]$PrometheusUrl, # Prometheus endpoint
         [string]$PrometheusMode, # Authentication mode
@@ -374,7 +376,104 @@ function Get-KubeData {
             return $false
         }
     }
-    
+
+    # EKS Metadata
+    if ($EKS) {
+        if ($region -and $ClusterName) {
+            Write-Host -NoNewline "`n🤖 Fetching EKS Metadata..." -ForegroundColor Yellow
+
+            try {
+                if (-not $ClusterName -or $ClusterName -match "^\s*$" -or $ClusterName -match "[^\w-]" -or $ClusterName.Length -gt 100) {
+                    Write-Host "`r❌ ClusterName is missing, empty, or invalid (alphanumeric, hyphens only, max 100 chars)." -ForegroundColor Red
+                    return $false
+                }
+
+                # Required AWS modules
+                $requiredModules = @(
+                    "AWS.Tools.EKS",
+                    "AWS.Tools.EC2",
+                    "AWS.Tools.IdentityManagement",
+                    "AWS.Tools.STS"
+                )
+
+                foreach ($module in $requiredModules) {
+                    if (-not (Get-Module -ListAvailable -Name $module)) {
+                        Write-Host "📦 Installing $module..." -ForegroundColor Cyan
+                        Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
+                    }
+                    Import-Module $module -ErrorAction Stop
+                }
+
+                try {
+                    $eksCluster = Get-EKSCluster -Name $ClusterName -Region $region -ErrorAction Stop
+                    $data.EksCluster = $eksCluster.Cluster
+
+                    # Fetch Nodegroups
+                    $nodeGroupsList = Get-EKSNodegroupList -ClusterName $ClusterName -Region $region
+                    $data.EksCluster.NodeGroups = @()
+                    foreach ($ng in $nodeGroupsList.Nodegroups) {
+                        $ngDetails = Get-EKSNodegroup -ClusterName $ClusterName -NodegroupName $ng -Region $region
+                        $data.EksCluster.NodeGroups += $ngDetails.Nodegroup
+                    }
+
+                    # Fetch Addons
+                    $addonsList = Get-EKSAddonList -ClusterName $ClusterName -Region $region
+                    $data.EksCluster.Addons = @()
+                    foreach ($addon in $addonsList.Addons) {
+                        $addonDetails = Get-EKSAddon -ClusterName $ClusterName -AddonName $addon -Region $region
+                        $data.EksCluster.Addons += $addonDetails.Addon
+                    }
+
+                    # Fetch Fargate Profiles
+                    $fargateProfiles = Get-EKSFargateProfileList -ClusterName $ClusterName -Region $region
+                    $data.EksCluster.FargateProfiles = $fargateProfiles.FargateProfile
+
+                    # Fetch VPC info
+                    $vpcId = $data.EksCluster.ResourcesVpcConfig.VpcId
+                    $subnetIds = $data.EksCluster.ResourcesVpcConfig.SubnetIds
+                    $sgIds = $data.EksCluster.ResourcesVpcConfig.SecurityGroupIds
+
+                    $data.EksCluster.Vpc = Get-EC2Vpc -VpcId $vpcId -Region $region
+                    $data.EksCluster.Subnets = @(Get-EC2Subnet -SubnetId $subnetIds -Region $region)
+                    $data.EksCluster.SecurityGroups = @(Get-EC2SecurityGroup -GroupId $sgIds -Region $region)
+
+                    # Extended VPC data
+                    $data.EksCluster.RouteTables = @(Get-EC2RouteTable -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
+                    $data.EksCluster.NetworkAcls = @(Get-EC2NetworkAcl -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
+                    $data.EksCluster.InternetGateways = @(Get-EC2InternetGateway -Filter @{ Name = "attachment.vpc-id"; Values = $vpcId } -Region $region)
+                    $data.EksCluster.NatGateways = @(Get-EC2NatGateway -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
+                    $data.EksCluster.VpcEndpoints = @(Get-EC2VpcEndpoint -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
+
+                    Write-Host "`r✅ EKS Metadata fetched via AWS PowerShell." -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "`r❌ Failed to fetch EKS Metadata: $($_.Exception.Message)" -ForegroundColor Red
+                    return $false
+                }
+
+                Write-Host -NoNewline "`n🤖 Fetching OPA Gatekeeper Constraints (if present)..." -ForegroundColor Yellow
+                try {
+                    $data.ConstraintTemplates = @( (kubectl get constrainttemplates -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items ?? @() )
+                    $data.Constraints = @( (kubectl get constraints -A -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items ?? @() )
+                    Write-Host "`r✅ Constraints fetched.   " -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "`r⚠️ Constraints not found, continuing with empty data: $($_.Exception.Message)" -ForegroundColor Yellow
+                    $data.ConstraintTemplates = @()
+                    $data.Constraints = @()
+                }
+            }
+            catch {
+                Write-Host "`r❌ Unexpected error during EKS metadata fetch: $($_.Exception.Message)" -ForegroundColor Red
+                return $false
+            }
+        }
+        else {
+            Write-Host "`r❌ Required parameters missing. Set EKS, ClusterName, and Region." -ForegroundColor Red
+            return $false
+        }
+    }
+
 
     # Namespace filtering
     if ($ExcludeNamespaces) {
