@@ -49,8 +49,13 @@ function Invoke-EKSBestPractices {
                 Write-Host "`r🤖 Using cached EKS cluster data. " -ForegroundColor Green
             }
             else {
+                # If no cached data, we need to fetch it - but this should be rare since
+                # KubeData should be collected first via Get-KubeData
+                Write-Host "`r🤖 No cached data found. Consider using Get-KubeData first for better performance." -ForegroundColor Yellow
+                
+                # Basic cluster info only - full data collection should happen in Get-KubeData
                 $clusterInfo = Get-EKSCluster -Region $Region -Name $ClusterName | ConvertTo-Json | ConvertFrom-Json
-                Write-Host "`r🤖 Live cluster data fetched.     " -ForegroundColor Green
+                Write-Host "`r🤖 Basic cluster data fetched.     " -ForegroundColor Green
                 Write-Host -NoNewline "`n🤖 Fetching Kubernetes constraints..." -ForegroundColor Cyan
                 $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
                 Write-Host "`r🤖 Constraints fetched." -ForegroundColor Green

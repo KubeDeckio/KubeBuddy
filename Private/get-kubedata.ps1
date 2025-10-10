@@ -391,9 +391,12 @@ function Get-KubeData {
                 # Required AWS modules
                 $requiredModules = @(
                     "AWS.Tools.EKS",
-                    "AWS.Tools.EC2",
+                    "AWS.Tools.EC2", 
                     "AWS.Tools.IdentityManagement",
-                    "AWS.Tools.STS"
+                    "AWS.Tools.STS",
+                    "AWS.Tools.ECR",
+                    "AWS.Tools.CloudTrail",
+                    "AWS.Tools.CloudWatchLogs"
                 )
 
                 foreach ($module in $requiredModules) {
@@ -404,49 +407,208 @@ function Get-KubeData {
                     Import-Module $module -ErrorAction Stop
                 }
 
+                # Initialize progress tracking
+                $totalSteps = 10
+                $currentStep = 0
+                
+                function Update-Progress {
+                    param($Activity, $StepName)
+                    $script:currentStep++
+                    $percentComplete = [math]::Round(($script:currentStep / $script:totalSteps) * 100)
+                    Write-Progress -Activity $Activity -Status $StepName -PercentComplete $percentComplete
+                }
+
                 try {
+                    # Step 1: Core cluster info
+                    Update-Progress "Fetching EKS Data" "Getting cluster details"
                     $eksCluster = Get-EKSCluster -Name $ClusterName -Region $region -ErrorAction Stop
                     $data.EksCluster = $eksCluster.Cluster
 
-                    # Fetch Nodegroups
+                    # Step 2: Node groups (parallel fetch for multiple node groups)
+                    Update-Progress "Fetching EKS Data" "Getting node groups"
                     $nodeGroupsList = Get-EKSNodegroupList -ClusterName $ClusterName -Region $region
                     $data.EksCluster.NodeGroups = @()
-                    foreach ($ng in $nodeGroupsList.Nodegroups) {
-                        $ngDetails = Get-EKSNodegroup -ClusterName $ClusterName -NodegroupName $ng -Region $region
-                        $data.EksCluster.NodeGroups += $ngDetails.Nodegroup
+                    
+                    if ($nodeGroupsList.Nodegroups.Count -gt 0) {
+                        $nodeGroupDetails = $nodeGroupsList.Nodegroups | ForEach-Object -Parallel {
+                            Import-Module AWS.Tools.EKS -Force
+                            Get-EKSNodegroup -ClusterName $using:ClusterName -NodegroupName $_ -Region $using:region
+                        } -ThrottleLimit 5
+                        $data.EksCluster.NodeGroups = $nodeGroupDetails.Nodegroup
                     }
 
-                    # Fetch Addons
+                    # Step 3: Addons (parallel fetch)
+                    Update-Progress "Fetching EKS Data" "Getting addons"
                     $addonsList = Get-EKSAddonList -ClusterName $ClusterName -Region $region
                     $data.EksCluster.Addons = @()
-                    foreach ($addon in $addonsList.Addons) {
-                        $addonDetails = Get-EKSAddon -ClusterName $ClusterName -AddonName $addon -Region $region
-                        $data.EksCluster.Addons += $addonDetails.Addon
+                    
+                    if ($addonsList.Addons.Count -gt 0) {
+                        $addonDetails = $addonsList.Addons | ForEach-Object -Parallel {
+                            Import-Module AWS.Tools.EKS -Force
+                            Get-EKSAddon -ClusterName $using:ClusterName -AddonName $_ -Region $using:region
+                        } -ThrottleLimit 5
+                        $data.EksCluster.Addons = $addonDetails.Addon
                     }
 
-                    # Fetch Fargate Profiles
-                    $fargateProfiles = Get-EKSFargateProfileList -ClusterName $ClusterName -Region $region
-                    $data.EksCluster.FargateProfiles = $fargateProfiles.FargateProfile
+                    # Step 4: Fargate Profiles
+                    Update-Progress "Fetching EKS Data" "Getting Fargate profiles"
+                    $fargateProfilesList = Get-EKSFargateProfileList -ClusterName $ClusterName -Region $region
+                    $data.EksCluster.FargateProfiles = @()
+                    
+                    if ($fargateProfilesList.FargateProfile.Count -gt 0) {
+                        $fargateDetails = $fargateProfilesList.FargateProfile | ForEach-Object -Parallel {
+                            Import-Module AWS.Tools.EKS -Force
+                            Get-EKSFargateProfile -ClusterName $using:ClusterName -FargateProfileName $_ -Region $using:region
+                        } -ThrottleLimit 3
+                        $data.EksCluster.FargateProfiles = $fargateDetails.FargateProfile
+                    }
 
-                    # Fetch VPC info
+                    # Step 5: VPC core info (these calls are fast, batch them)
+                    Update-Progress "Fetching EKS Data" "Getting VPC information"
                     $vpcId = $data.EksCluster.ResourcesVpcConfig.VpcId
                     $subnetIds = $data.EksCluster.ResourcesVpcConfig.SubnetIds
-                    $sgIds = $data.EksCluster.ResourcesVpcConfig.SecurityGroupIds
+                    $sgIds = $data.EksCluster.ResourcesVpcConfig.SecurityGroupIds + $data.EksCluster.ResourcesVpcConfig.ClusterSecurityGroupId | Where-Object { $_ }
 
-                    $data.EksCluster.Vpc = Get-EC2Vpc -VpcId $vpcId -Region $region
-                    $data.EksCluster.Subnets = @(Get-EC2Subnet -SubnetId $subnetIds -Region $region)
-                    $data.EksCluster.SecurityGroups = @(Get-EC2SecurityGroup -GroupId $sgIds -Region $region)
+                    # Parallel VPC data collection
+                    $vpcDataTasks = @(
+                        @{ Name = "Vpc"; Cmd = { Get-EC2Vpc -VpcId $vpcId -Region $region } },
+                        @{ Name = "Subnets"; Cmd = { Get-EC2Subnet -SubnetId $subnetIds -Region $region } },
+                        @{ Name = "SecurityGroups"; Cmd = { Get-EC2SecurityGroup -GroupId $sgIds -Region $region } }
+                    )
 
-                    # Extended VPC data
-                    $data.EksCluster.RouteTables = @(Get-EC2RouteTable -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
-                    $data.EksCluster.NetworkAcls = @(Get-EC2NetworkAcl -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
-                    $data.EksCluster.InternetGateways = @(Get-EC2InternetGateway -Filter @{ Name = "attachment.vpc-id"; Values = $vpcId } -Region $region)
-                    $data.EksCluster.NatGateways = @(Get-EC2NatGateway -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
-                    $data.EksCluster.VpcEndpoints = @(Get-EC2VpcEndpoint -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region)
+                    $vpcResults = $vpcDataTasks | ForEach-Object -Parallel {
+                        Import-Module AWS.Tools.EC2 -Force
+                        $task = $_
+                        try {
+                            @{
+                                Name = $task.Name
+                                Data = & $task.Cmd
+                                Success = $true
+                            }
+                        } catch {
+                            @{
+                                Name = $task.Name
+                                Data = @()
+                                Success = $false
+                                Error = $_.Exception.Message
+                            }
+                        }
+                    } -ThrottleLimit 3
 
+                    foreach ($result in $vpcResults) {
+                        $data.EksCluster."$($result.Name)" = $result.Data
+                        if (-not $result.Success) {
+                            Write-Warning "Failed to fetch $($result.Name): $($result.Error)"
+                        }
+                    }
+
+                    # Step 6: Extended VPC data (less critical, can fail gracefully)
+                    Update-Progress "Fetching EKS Data" "Getting extended VPC data"
+                    $extendedVpcTasks = @(
+                        @{ Name = "RouteTables"; Cmd = { Get-EC2RouteTable -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region } },
+                        @{ Name = "NetworkAcls"; Cmd = { Get-EC2NetworkAcl -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region } },
+                        @{ Name = "InternetGateways"; Cmd = { Get-EC2InternetGateway -Filter @{ Name = "attachment.vpc-id"; Values = $vpcId } -Region $region } },
+                        @{ Name = "NatGateways"; Cmd = { Get-EC2NatGateway -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region } },
+                        @{ Name = "VpcEndpoints"; Cmd = { Get-EC2VpcEndpoint -Filter @{ Name = "vpc-id"; Values = $vpcId } -Region $region } }
+                    )
+
+                    $extendedResults = $extendedVpcTasks | ForEach-Object -Parallel {
+                        Import-Module AWS.Tools.EC2 -Force
+                        $task = $_
+                        try {
+                            @{
+                                Name = $task.Name
+                                Data = & $task.Cmd
+                                Success = $true
+                            }
+                        } catch {
+                            @{
+                                Name = $task.Name
+                                Data = @()
+                                Success = $false
+                                Error = $_.Exception.Message
+                            }
+                        }
+                    } -ThrottleLimit 5
+
+                    foreach ($result in $extendedResults) {
+                        $data.EksCluster."$($result.Name)" = $result.Data
+                        if (-not $result.Success) {
+                            Write-Warning "Failed to fetch $($result.Name): $($result.Error)"
+                        }
+                    }
+
+                    # Step 7: IAM roles information
+                    Update-Progress "Fetching EKS Data" "Getting IAM role details"
+                    try {
+                        # Get cluster service role details
+                        $clusterRoleArn = $data.EksCluster.RoleArn
+                        $clusterRoleName = $clusterRoleArn.Split('/')[-1]
+                        $data.EksCluster.ClusterRole = Get-IAMRole -RoleName $clusterRoleName
+
+                        # Get node group instance profile roles
+                        $data.EksCluster.NodeGroupRoles = @()
+                        foreach ($ng in $data.EksCluster.NodeGroups) {
+                            if ($ng.NodeRole) {
+                                $nodeRoleName = $ng.NodeRole.Split('/')[-1]
+                                try {
+                                    $nodeRole = Get-IAMRole -RoleName $nodeRoleName
+                                    $data.EksCluster.NodeGroupRoles += @{
+                                        NodeGroup = $ng.NodegroupName
+                                        Role = $nodeRole
+                                    }
+                                } catch {
+                                    Write-Warning "Could not fetch node group role $nodeRoleName"
+                                }
+                            }
+                        }
+                    } catch {
+                        Write-Warning "Could not fetch IAM role details: $($_.Exception.Message)"
+                        $data.EksCluster.ClusterRole = $null
+                        $data.EksCluster.NodeGroupRoles = @()
+                    }
+
+                    # Step 8: OIDC Provider information
+                    Update-Progress "Fetching EKS Data" "Getting OIDC provider"
+                    try {
+                        if ($data.EksCluster.Identity.Oidc.Issuer) {
+                            $oidcUrl = $data.EksCluster.Identity.Oidc.Issuer
+                            # Extract just the ID part for the OIDC provider
+                            $oidcId = $oidcUrl.Split('/')[-1]
+                            $data.EksCluster.OidcProvider = Get-IAMOpenIDConnectProvider -OpenIDConnectProviderArn "arn:aws:iam::$((Get-STSCallerIdentity).Account):oidc-provider/$($oidcUrl.Replace('https://',''))"
+                        }
+                    } catch {
+                        Write-Warning "Could not fetch OIDC provider details: $($_.Exception.Message)"
+                        $data.EksCluster.OidcProvider = $null
+                    }
+
+                    # Step 9: ECR repositories (for image scanning checks)
+                    Update-Progress "Fetching EKS Data" "Getting ECR repositories"
+                    try {
+                        $data.EksCluster.EcrRepositories = @(Get-ECRRepository -Region $region -MaxItem 100)
+                    } catch {
+                        Write-Warning "Could not fetch ECR repositories: $($_.Exception.Message)"
+                        $data.EksCluster.EcrRepositories = @()
+                    }
+
+                    # Step 10: CloudTrail information (for audit logging)
+                    Update-Progress "Fetching EKS Data" "Getting CloudTrail status"
+                    try {
+                        $trails = Get-CTTrail
+                        $data.EksCluster.CloudTrails = $trails | Where-Object { 
+                            $_.IncludeGlobalServiceEvents -and 
+                            ($_.IsMultiRegionTrail -or $_.HomeRegion -eq $region) 
+                        }
+                    } catch {
+                        Write-Warning "Could not fetch CloudTrail information: $($_.Exception.Message)"
+                        $data.EksCluster.CloudTrails = @()
+                    }
+
+                    Write-Progress -Activity "Fetching EKS Data" -Completed
                     Write-Host "`r✅ EKS Metadata fetched via AWS PowerShell." -ForegroundColor Green
                 }
                 catch {
+                    Write-Progress -Activity "Fetching EKS Data" -Completed
                     Write-Host "`r❌ Failed to fetch EKS Metadata: $($_.Exception.Message)" -ForegroundColor Red
                     return $false
                 }
