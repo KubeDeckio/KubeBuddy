@@ -43,10 +43,10 @@ function Invoke-EKSBestPractices {
         $clusterInfo = $null
         $constraints = @()
         try {
-            if ($KubeData -and $KubeData.EksCluster -and $KubeData.Constraints) {
+            if ($KubeData -and $KubeData.EksCluster) {
                 $clusterInfo = $KubeData.EksCluster
-                $constraints = $KubeData.Constraints
-                Write-Host "`r🤖 Using cached EKS cluster data. " -ForegroundColor Green
+                $constraints = if ($KubeData.Constraints) { $KubeData.Constraints } else { @() }
+                Write-Host "`r🤖 Using cached/mock EKS cluster data. " -ForegroundColor Green
             }
             else {
                 # If no cached data, we need to fetch it - but this should be rare since

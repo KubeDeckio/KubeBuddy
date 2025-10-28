@@ -25,8 +25,9 @@ catch {
     throw "Module import failed. Ensure $requiredModule is installed and accessible."
 }
 
-# Load all private functions (not exported)
-$privateScripts = Get-ChildItem -Path "$PSScriptRoot/Private" -Recurse -File -Filter "*.ps1"
+# Load all private functions (not exported) - exclude test files
+$privateScripts = Get-ChildItem -Path "$PSScriptRoot/Private" -Recurse -File -Filter "*.ps1" | 
+    Where-Object { $_.Name -notlike "*Test*" -and $_.Name -notlike "*test*" }
 foreach ($script in $privateScripts) {
     . $script.FullName
 }
