@@ -4,6 +4,8 @@ function Create-JsonReport {
         [object]$KubeData,
         [switch]$ExcludeNamespaces,
         [switch]$aks,
+        [switch]$eks,
+        [string]$Region,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName
@@ -75,6 +77,50 @@ function Create-JsonReport {
                 ID      = 'AKSBestPractices'
                 Name    = 'AKS Best Practices'
                 Message = "Error running AKS checks: $_"
+                Total   = 0
+                Items   = @()
+            }
+        }
+    }
+
+    # Handle EKS checks if -eks switch is provided
+    if ($eks -and $KubeData.EksCluster) {
+        # Add filtered EKS metadata
+        $results.metadata.eks = @{
+            region      = $Region
+            clusterName = $ClusterName
+            # Add other relevant EKS metadata as needed
+        }
+
+        # Run EKS best practices checks
+        try {
+            $eksCheckResults = Invoke-EKSBestPractices -Json -KubeData $KubeData -Region $Region -ClusterName $ClusterName
+
+            # Integrate EKS checks into checksMap
+            if ($eksCheckResults -and $eksCheckResults.Items) {
+                foreach ($eksCheck in $eksCheckResults.Items) {
+                    if ($eksCheck.ID) {
+                        $checksMap[$eksCheck.ID] = $eksCheck
+                    }
+                }
+            }
+            else {
+                Write-Warning "Invoke-EKSBestPractices returned no valid check results."
+                $checksMap['EKSBestPractices'] = @{
+                    ID      = 'EKSBestPractices'
+                    Name    = 'EKS Best Practices'
+                    Message = 'No EKS best practices checks returned.'
+                    Total   = 0
+                    Items   = @()
+                }
+            }
+        }
+        catch {
+            Write-Warning "Failed to run EKS best practices: $_"
+            $checksMap['EKSBestPractices'] = @{
+                ID      = 'EKSBestPractices'
+                Name    = 'EKS Best Practices'
+                Message = "Error running EKS checks: $_"
                 Total   = 0
                 Items   = @()
             }

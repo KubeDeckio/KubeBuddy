@@ -517,6 +517,7 @@ function Show-InfraBestPracticesMenu {
 
         $infraOptions = @(
             "[1]  Run AKS Best Practices Check"
+            "[2]  Run EKS Best Practices Check"
             "🔙  Back [B] | ❌ Exit [Q]"
         )
 
@@ -538,6 +539,216 @@ function Show-InfraBestPracticesMenu {
                 
                 Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
                 
+            }
+            "2" { $result = Show-EKSBestPracticesMenu; if ($result -eq "exit") { return "exit" } }
+            "B" { return }  # Back to main menu
+            "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }
+            default { Write-Host "⚠️ Invalid choice. Please try again!" -ForegroundColor Red }
+        }
+
+        Clear-Host
+
+    } while ($true)
+}
+
+function Show-EKSBestPracticesMenu {
+    do {
+        Write-Host "`n🚀 EKS Best Practices Menu" -ForegroundColor Cyan
+        Write-Host "----------------------------------"
+
+        $eksOptions = @(
+            "[1]  Run All EKS Best Practices Checks (55 checks)"
+            "[2]  Security Checks (8 checks)"
+            "[3]  Identity & Access Checks (7 checks)"
+            "[4]  Networking Checks (8 checks)"
+            "[5]  Best Practices Checks (9 checks)"
+            "[6]  Monitoring & Logging Checks (8 checks)"
+            "[7]  Resource Management Checks (8 checks)"
+            "[8]  Disaster Recovery Checks (8 checks)"
+            "[9]  Run Mock EKS Tests (No AWS costs)"
+            "🔙  Back [B] | ❌ Exit [Q]"
+        )
+
+        foreach ($option in $eksOptions) {
+            Write-Host $option
+        }
+
+        # Get user choice
+        $eksChoice = Read-Host "`n🤖 Enter a number"
+        Clear-Host
+
+        switch ($eksChoice) {
+            "1" { 
+                # Get cluster details from user
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n🚀 Running all EKS best practices checks..." -ForegroundColor Yellow
+                    try {
+                        Invoke-EKSBestPractices -Region $region -ClusterName $clusterName -Text
+                        Read-Host "`n✅ EKS checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running EKS checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "2" { 
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n🔒 Running EKS Security checks..." -ForegroundColor Yellow
+                    try {
+                        & "$PSScriptRoot/eks/Test-IndividualChecks.ps1" -CheckCategory "Security" -Region $region -ClusterName $clusterName
+                        Read-Host "`n✅ Security checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running Security checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "3" { 
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n🔑 Running EKS Identity & Access checks..." -ForegroundColor Yellow
+                    try {
+                        & "$PSScriptRoot/eks/Test-IndividualChecks.ps1" -CheckCategory "IdentityAndAccess" -Region $region -ClusterName $clusterName
+                        Read-Host "`n✅ Identity & Access checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running Identity & Access checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "4" { 
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n🌐 Running EKS Networking checks..." -ForegroundColor Yellow
+                    try {
+                        & "$PSScriptRoot/eks/Test-IndividualChecks.ps1" -CheckCategory "Networking" -Region $region -ClusterName $clusterName
+                        Read-Host "`n✅ Networking checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running Networking checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "5" { 
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n✅ Running EKS Best Practices checks..." -ForegroundColor Yellow
+                    try {
+                        & "$PSScriptRoot/eks/Test-IndividualChecks.ps1" -CheckCategory "BestPractices" -Region $region -ClusterName $clusterName
+                        Read-Host "`n✅ Best Practices checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running Best Practices checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "6" { 
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n📊 Running EKS Monitoring & Logging checks..." -ForegroundColor Yellow
+                    try {
+                        & "$PSScriptRoot/eks/Test-IndividualChecks.ps1" -CheckCategory "MonitoringLogging" -Region $region -ClusterName $clusterName
+                        Read-Host "`n✅ Monitoring & Logging checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running Monitoring & Logging checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "7" { 
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n📦 Running EKS Resource Management checks..." -ForegroundColor Yellow
+                    try {
+                        & "$PSScriptRoot/eks/Test-IndividualChecks.ps1" -CheckCategory "ResourceManagement" -Region $region -ClusterName $clusterName
+                        Read-Host "`n✅ Resource Management checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running Resource Management checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "8" { 
+                $region = Read-Host "🌍 Enter AWS Region (e.g., us-east-1)"
+                $clusterName = Read-Host "🏗️ Enter EKS Cluster Name"
+                
+                if ($region -and $clusterName) {
+                    Write-Host "`n🔄 Running EKS Disaster Recovery checks..." -ForegroundColor Yellow
+                    try {
+                        & "$PSScriptRoot/eks/Test-IndividualChecks.ps1" -CheckCategory "DisasterRecovery" -Region $region -ClusterName $clusterName
+                        Read-Host "`n✅ Disaster Recovery checks completed! Press Enter to continue"
+                    }
+                    catch {
+                        Write-Host "❌ Error running Disaster Recovery checks: $_" -ForegroundColor Red
+                        Read-Host "Press Enter to continue"
+                    }
+                }
+                else {
+                    Write-Host "❌ Region and Cluster Name are required!" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
+            }
+            "9" { 
+                Write-Host "`n🧪 Running Mock EKS Tests (No AWS costs)..." -ForegroundColor Yellow
+                try {
+                    & "$PSScriptRoot/eks/Run-EKSTests.ps1"
+                    Read-Host "`n✅ Mock tests completed! Press Enter to continue"
+                }
+                catch {
+                    Write-Host "❌ Error running mock tests: $_" -ForegroundColor Red
+                    Read-Host "Press Enter to continue"
+                }
             }
             "B" { return }  # Back to main menu
             "Q" { Write-Host "👋 Exiting KubeBuddy. Have a great day! 🚀"; return "exit" }

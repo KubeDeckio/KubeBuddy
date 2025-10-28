@@ -6,6 +6,8 @@ function Generate-K8sHTMLReport {
     [string]$ResourceGroup,
     [string]$ClusterName,
     [switch]$aks,
+    [switch]$EKS,
+    [string]$Region,
     [switch]$ExcludeNamespaces,
     [object]$KubeData
   )
@@ -168,6 +170,77 @@ $heroRatingHtml
 
     $aksMenuItem = @"
 <li class="nav-item"><a href="#aks"><span class="material-icons">verified</span> AKS Best Practices</a></li>
+"@
+  }
+
+  if ($EKS) {
+    Write-Host -NoNewline "`n🤖 Running EKS Best Practices Checklist..." -ForegroundColor Cyan
+    $eksBestPractices = Invoke-EKSBestPractices -Region $Region -ClusterName $ClusterName -Html -KubeData:$KubeData
+    Write-Host "`r🤖 EKS Check Results fetched.          " -ForegroundColor Green
+
+    $eksPass = $eksBestPractices.Passed
+    $eksFail = $eksBestPractices.Failed
+    $eksTotal = $eksBestPractices.Total
+    $eksScore = $eksBestPractices.Score
+    $eksRating = $eksBestPractices.Rating
+    $eksReportData = $eksBestPractices.Data
+
+    $collapsibleEKSHtml = ConvertToCollapsible -Id "eksSummary" -defaultText "Show Findings" -content $eksReportData
+
+    $ratingColorClass = switch ($eksRating) {
+      "A" { "normal" }
+      "B" { "warning" }
+      "C" { "warning" }
+      "D" { "critical" }
+      "F" { "critical" }
+      default { "unknown" }
+    }
+
+    # Use ScoreColor directly for the score box (hex color for inline style)
+    $heroRatingHtml = @"
+<h2>EKS Best Practices Summary</h2>
+<div class="hero-metrics">
+  <div class="metric-card normal">
+    <div class="card-content">
+      <p>✅ Passed: <strong>$eksPass</strong></p>
+    </div>
+  </div>
+  <div class="metric-card critical">
+    <div class="card-content">
+      <p>❌ Failed: <strong>$eksFail</strong></p>
+    </div>
+  </div>
+  <div class="metric-card default">
+    <div class="card-content">
+      <p>📊 Total Checks: <strong>$eksTotal</strong></p>
+    </div>
+  </div>
+  <div class="metric-card default">
+    <div class="card-content">
+      <p>🎯 Score: <strong>$eksScore%</strong></p>
+    </div>
+  </div>
+  <div class="metric-card $ratingColorClass">
+    <div class="card-content">
+      <p>⭐ Rating: <strong>$eksRating</strong></p>
+    </div>
+  </div>
+</div>
+"@
+
+    $eksHealthCheck = @"
+<div class="container">
+<h1 id="eks">EKS Best Practices</h1>
+$heroRatingHtml
+<h2 id="eksFindings">EKS Best Practices Results</h2>
+<div class="table-container">
+  $collapsibleEKSHtml
+</div>
+</div>
+"@
+
+    $eksMenuItem = @"
+<li class="nav-item"><a href="#eks"><span class="material-icons">verified</span> EKS Best Practices</a></li>
 "@
   }
 
@@ -768,6 +841,7 @@ $heroRatingHtml
       <li class="tab" data-tab="events" data-tooltip="Kubernetes Events">Kubernetes Events</li>
       $(if ($hasCustomChecks) { '<li class="tab" data-tab="customChecks" data-tooltip="Custom Checks">Custom Checks</li>' })
       $(if ($aks) { '<li class="tab" data-tab="aks" data-tooltip="AKS Best Practices">AKS Best Practices</li>' })
+      $(if ($EKS) { '<li class="tab" data-tab="eks" data-tooltip="EKS Best Practices">EKS Best Practices</li>' })
     </ul>
   </div>
 </div>
@@ -923,6 +997,13 @@ $(if ($aks) {
   @"
 <div class="tab-content" id="aks">
   $aksHealthCheck
+</div>
+"@
+})
+$(if ($EKS) {
+  @"
+<div class="tab-content" id="eks">
+  $eksHealthCheck
 </div>
 "@
 })

@@ -8,6 +8,8 @@ function Invoke-KubeBuddy {
         [switch]$txtReport,
         [switch]$jsonReport,
         [switch]$Aks,
+        [switch]$EKS,
+        [string]$Region,
         [switch]$ExcludeNamespaces,
         [switch]$yes,
         [string]$SubscriptionId,
@@ -149,11 +151,69 @@ function Invoke-KubeBuddy {
         }
     }
 
+    # Validate cluster access for EKS
+    if ($EKS) {
+        Write-Host -NoNewline "`n🤖 Validating EKS cluster access..." -ForegroundColor Yellow
+        
+        # Check if AWS CLI is available
+        if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
+            Write-Host "`r🤖 ❌ AWS CLI not found. Please install AWS CLI." -ForegroundColor Red
+            return
+        }
+        
+        # Validate required parameters
+        if (-not $Region) {
+            Write-Host "`r🤖 ❌ -Region parameter is required for EKS mode." -ForegroundColor Red
+            return
+        }
+        
+        if (-not $ClusterName) {
+            Write-Host "`r🤖 ❌ -ClusterName parameter is required for EKS mode." -ForegroundColor Red
+            return
+        }
+        
+        try {
+            # Validate EKS cluster access
+            $eksOutput = aws eks describe-cluster --region $Region --name $ClusterName 2>&1
+            if ($LASTEXITCODE -ne 0 -or -not $eksOutput) {
+                Write-Host "`r🤖 ❌ Failed to access EKS cluster '$ClusterName' in region '$Region'" -ForegroundColor Red
+                Write-Host "🤖 Ensure AWS credentials are configured and you have EKS permissions." -ForegroundColor Red
+                Write-Host "🧾 Error: $eksOutput" -ForegroundColor DarkGray
+                return
+            }
+            
+            # Validate kubectl access
+            $kubectlOutput = kubectl get nodes --no-headers 2>&1
+            if (
+                $LASTEXITCODE -ne 0 -or
+                $kubectlOutput -match "Unable to connect to the server" -or
+                $kubectlOutput -match "no such host" -or
+                $kubectlOutput -match "couldn't get current server API group list" -or
+                $kubectlOutput -match "get token" -or
+                $kubectlOutput -match "credentials"
+            ) {
+                Write-Host "`r🤖 ❌ Failed to access EKS cluster via kubectl. Check kubeconfig." -ForegroundColor Red
+                Write-Host "🧾 Error: $kubectlOutput" -ForegroundColor DarkGray
+                return
+            }
+            
+            Write-Host "`r🤖 ✅ Connected to EKS cluster.    `n" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "`r🤖 ❌ Exception occurred while validating EKS cluster access: $_" -ForegroundColor Red
+            return
+        }
+    }
+
     # Report modes
     if ($HtmlReport) {
         Write-Host "📄 Generating HTML report: $htmlReportFile" -ForegroundColor Cyan
         if ($Aks -and (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName)) {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
+            return
+        }
+        if ($EKS -and (-not $Region -or -not $ClusterName)) {
+            Write-Host "⚠️ ERROR: -EKS requires -Region and -ClusterName" -ForegroundColor Red
             return
         }
         $kubeDataParams = @{
@@ -163,7 +223,8 @@ function Invoke-KubeBuddy {
             ExcludeNamespaces = $ExcludeNamespaces
             Aks               = $Aks
             UseAksRestApi     = $UseAksRestApi
-            
+            EKS               = $EKS
+            Region            = $Region
         }
         
         # Add Prometheus params only if IncludePrometheus is true
@@ -191,6 +252,8 @@ function Invoke-KubeBuddy {
             -SubscriptionId $SubscriptionId `
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName `
+            -EKS:$EKS `
+            -Region $Region `
             -ExcludeNamespaces:$ExcludeNamespaces `
             -KubeData $KubeData
             
@@ -217,7 +280,8 @@ function Invoke-KubeBuddy {
             ExcludeNamespaces = $ExcludeNamespaces
             Aks               = $Aks
             UseAksRestApi     = $UseAksRestApi
-            
+            EKS               = $EKS
+            Region            = $Region
         }
         
         # Add Prometheus params only if IncludePrometheus is true
@@ -245,6 +309,8 @@ function Invoke-KubeBuddy {
             -SubscriptionId $SubscriptionId `
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName `
+            -EKS:$EKS `
+            -Region $Region `
             -KubeData $KubeData
             
         Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
@@ -257,6 +323,10 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
             return
         }
+        if ($EKS -and (-not $Region -or -not $ClusterName)) {
+            Write-Host "⚠️ ERROR: -EKS requires -Region and -ClusterName" -ForegroundColor Red
+            return
+        }
 
         $kubeDataParams = @{
             SubscriptionId    = $SubscriptionId
@@ -264,6 +334,8 @@ function Invoke-KubeBuddy {
             ClusterName       = $ClusterName
             ExcludeNamespaces = $ExcludeNamespaces
             Aks               = $Aks
+            EKS               = $EKS
+            Region            = $Region
             UseAksRestApi     = $UseAksRestApi
             
         }
@@ -291,6 +363,8 @@ function Invoke-KubeBuddy {
             -KubeData $KubeData `
             -ExcludeNamespaces:$ExcludeNamespaces `
             -aks:$Aks `
+            -eks:$EKS `
+            -Region $Region `
             -SubscriptionId $SubscriptionId `
             -ResourceGroup $ResourceGroup `
             -ClusterName $ClusterName

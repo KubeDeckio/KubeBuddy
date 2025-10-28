@@ -13,7 +13,9 @@ function Generate-K8sTextReport {
         [switch]$Aks,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
-        [string]$ClusterName
+        [string]$ClusterName,
+        [switch]$EKS,
+        [string]$Region
     )
 
     if (Test-Path $ReportFile) {
@@ -100,6 +102,42 @@ function Generate-K8sTextReport {
 
         # Write the AKS summary
         Write-ToReport -Message ($aksResults.TextOutput -join "`n")
+    }
+
+    if ($EKS) {
+        Write-ToReport -Message "`n[✅ EKS Best Practices Check]`n"
+        $eksResults = Invoke-EKSBestPractices -Text -Region $Region -ClusterName $ClusterName -KubeData:$KubeData
+        Write-Host "`n🤖 EKS Information fetched." -ForegroundColor Green
+
+        # Write individual EKS check results
+        foreach ($check in $eksResults.Items) {
+            Write-ToReport -Message "`n[$($check.ID) - $($check.Name)]"
+            Write-ToReport -Message "Category: $($check.Category)"
+            Write-ToReport -Message "Severity: $($check.Severity)"
+            Write-ToReport -Message "Recommendation: $($check.Recommendation)"
+            if ($check.URL) {
+                Write-ToReport -Message "URL: $($check.URL)"
+            }
+
+            if ($check.Total -eq 0) {
+                Write-ToReport -Message "✅ No issues detected for $($check.Name)."
+            }
+            else {
+                Write-ToReport -Message "⚠️ Total Issues: $($check.Total)"
+                if ($check.Items) {
+                    foreach ($item in $check.Items) {
+                        $lineParts = @()
+                        foreach ($prop in $item.PSObject.Properties.Name) {
+                            $lineParts += "${prop}: $($item.$prop)"
+                        }
+                        Write-ToReport -Message ("- " + ($lineParts -join " | "))
+                    }
+                }
+            }
+        }
+
+        # Write the EKS summary
+        Write-ToReport -Message ($eksResults.TextOutput -join "`n")
     }
 
     # ----- Prometheus Metrics (Last 24h) -----
