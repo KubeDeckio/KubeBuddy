@@ -758,26 +758,21 @@ z-index: 1;
 }
 
 .section.ai-section {
-    background: var(--md-card-bg-color);
-    border: 1px solid var(--md-card-border-color);
-    box-shadow: var(--md-shadow);
-    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.2s ease, border-color 0.2s ease;
-  }
-
-  .ai-highlight:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--md-card-shadow-hover);
-    border-color: var(--md-primary-fg-color);
-
-.ai-highlight {
-  border: 1px solid var(--md-card-border-color);
-  box-shadow: var(--md-shadow);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 6rem 2rem 5rem;
+  overflow: hidden;
+  color: var(--md-default-fg-color);
+  background: var(--md-section-bg);
 }
 
-.ai-highlight:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--md-card-shadow-hover);
+.ai-highlight {
+  background: var(--md-card-bg-color);
+  border: 1px solid var(--md-card-border-color);
+  box-shadow: var(--md-shadow);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .ai-icon {
