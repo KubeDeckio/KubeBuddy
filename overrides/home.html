@@ -24,6 +24,8 @@
     --md-card-bg-hover: #f8fafc;
     --md-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
     --md-card-shadow-hover: 0 18px 40px rgba(2, 186, 255, 0.2);
+    --md-card-title-color: #0071ff;
+    --md-card-text-color: #475569;
     --md-callout-bg: #f1f5f9;
     --md-workflow-bg-start: #f8fafc;
     --md-workflow-bg-end: #ffffff;
@@ -55,6 +57,8 @@
     --md-card-bg-hover: #f8fafc;
     --md-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
     --md-card-shadow-hover: 0 18px 40px rgba(2, 186, 255, 0.2);
+    --md-card-title-color: #0071ff;
+    --md-card-text-color: #475569;
     --md-callout-bg: #f1f5f9;
     --md-workflow-bg-start: #f8fafc;
     --md-workflow-bg-end: #ffffff;
@@ -77,24 +81,26 @@
     --md-primary-fg-color--dark: #0284c7;
     --md-default-fg-color--light: #5ad6ff;
     --md-accent-fg-color: #02baff;
-    --md-primary-bg-color: #0b1220;
-    --md-default-bg-color: #0b1220;
+    --md-primary-bg-color: #111827;
+    --md-default-bg-color: #111827;
     --md-default-fg-color: #e2e8f0;
     --md-text-secondary: #94a3b8;
-    --md-card-bg-color: rgba(15, 23, 42, 0.85);
-    --md-card-border-color: rgba(2, 186, 255, 0.25);
-    --md-card-bg-hover: rgba(15, 23, 42, 0.95);
-    --md-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-    --md-card-shadow-hover: 0 22px 46px rgba(2, 186, 255, 0.25);
+    --md-card-bg-color: rgba(255, 255, 255, 0.05);
+    --md-card-border-color: rgba(255, 255, 255, 0.1);
+    --md-card-bg-hover: rgba(255, 255, 255, 0.08);
+    --md-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+    --md-card-shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.3);
+    --md-card-title-color: #ffffff;
+    --md-card-text-color: #c9d1d9;
     --md-callout-bg: rgba(15, 23, 42, 0.7);
     --md-workflow-bg-start: rgba(15, 23, 42, 0.9);
-    --md-workflow-bg-end: #0b1220;
+    --md-workflow-bg-end: #0f172a;
     --md-code-bg: rgba(15, 23, 42, 0.85);
     --md-code-fg: #e2e8f0;
     --md-header-bg: rgba(15, 23, 42, 0.9);
     --md-header-border: rgba(2, 186, 255, 0.2);
-    --md-page-bg: #0b1220;
-    --md-page-bg-alt: #0f172a;
+    --md-page-bg: #111827;
+    --md-page-bg-alt: #1f2937;
     --md-hero-overlay: rgba(2, 8, 18, 0.75);
     --md-hero-text: #f8fafc;
     --md-metrics-bg: rgba(2, 186, 255, 0.1);
@@ -285,8 +291,8 @@
 
   .feature-card {
     background: var(--md-card-bg-color);
-    padding: 1.5rem;
-    border-radius: 12px;
+    padding: 2rem;
+    border-radius: 16px;
     border: 1px solid var(--md-card-border-color);
     box-shadow: var(--md-shadow);
     transition: transform 0.3s, box-shadow 0.3s;
@@ -307,12 +313,12 @@
     font-size: 1.25rem;
     font-weight: 600;
     margin: 0.5rem 0;
-    color: var(--md-primary-fg-color);
+    color: var(--md-card-title-color);
   }
 
   .feature-card p {
     font-size: 1rem;
-    color: var(--md-text-secondary);
+    color: var(--md-card-text-color);
     line-height: 1.5;
   }
 
@@ -335,7 +341,7 @@
 
   .info-card p {
     font-size: 1.1rem;
-    color: var(--md-text-secondary);
+    color: var(--md-card-text-color);
     line-height: 1.6;
   }
 
@@ -358,7 +364,7 @@
     flex: 1 1 280px;
     background: var(--md-card-bg-color);
     padding: 2rem;
-    border-radius: 12px;
+    border-radius: 16px;
     border: 1px solid var(--md-card-border-color);
     box-shadow: var(--md-shadow);
     text-align: center;
@@ -393,13 +399,13 @@
   .workflow-step h3 {
     font-size: 1.5rem;
     font-weight: 600;
-    color: var(--md-primary-fg-color);
+    color: var(--md-card-title-color);
     margin: 1rem 0 0.5rem;
   }
 
   .workflow-step p {
     font-size: 1rem;
-    color: var(--md-text-secondary);
+    color: var(--md-card-text-color);
     line-height: 1.6;
   }
 
@@ -670,6 +676,7 @@
   .feature-card:hover {
     transform: perspective(600px) rotateX(4deg) rotateY(-4deg);
     box-shadow: var(--md-card-shadow-hover);
+    border-color: rgba(2, 186, 255, 0.4);
   }
   .cta-button {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -713,7 +720,7 @@ color: #fff;
 content: "";
 position: absolute;
 inset: 0;
-background: rgba(0,0,0,0.5);
+background: var(--md-hero-overlay);
 clip-path: inherit;
 z-index: 0;
 }
@@ -741,7 +748,7 @@ z-index: 1;
   margin-right: calc(50% - 50vw); /* pull it right */
   padding: 6rem 2rem 5rem;
   overflow: hidden;
-  color: #fff;
+  color: var(--md-default-fg-color);
   background-color: none !important;
 }
 
