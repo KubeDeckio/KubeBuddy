@@ -4,6 +4,8 @@
     --md-primary-fg-color--dark:  #005AD1;
     --md-default-fg-color--light: #5ad6ff;
     --md-accent-fg-color: #0071FF;
+    --md-default-bg-color: #0f172a;
+    --md-default-fg-color: #e6edf3;
   }
 
   [data-md-color-scheme="slate"], [data-md-color-scheme="dark"] {
@@ -12,6 +14,31 @@
     --md-primary-fg-color--dark:  #005AD1;
     --md-default-fg-color--light: #5ad6ff;
     --md-accent-fg-color: #58a6ff;
+    --md-default-bg-color: #0f172a;
+    --md-default-fg-color: #e6edf3;
+  }
+
+  /* Force background color on body and main content areas */
+  body,
+  .md-main,
+  .md-content {
+    background-color: #0f172a !important;
+    color: #e6edf3;
+  }
+
+  /* Force header to be blue with white text */
+  .md-header {
+    background-color: #0071FF !important;
+  }
+
+  .md-header,
+  .md-header__button,
+  .md-header__topic,
+  .md-header .md-header__title,
+  .md-tabs__link,
+  .md-tabs__item,
+  .md-header a {
+    color: #ffffff !important;
   }
 
   .md-header__button.md-logo img, .md-header__button.md-logo svg {
