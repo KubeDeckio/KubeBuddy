@@ -23,13 +23,21 @@
     --md-card-border-color: #e2e8f0;
     --md-card-bg-hover: #f8fafc;
     --md-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+    --md-card-shadow-hover: 0 18px 40px rgba(2, 186, 255, 0.2);
     --md-callout-bg: #f1f5f9;
     --md-workflow-bg-start: #f8fafc;
     --md-workflow-bg-end: #ffffff;
     --md-code-bg: #f1f5f9;
     --md-code-fg: #0f172a;
-    --md-header-bg: #ffffff;
-    --md-header-border: #e2e8f0;
+    --md-header-bg: #0071FF;
+    --md-header-border: #0071FF;
+    --md-page-bg: #f8fafc;
+    --md-page-bg-alt: #ffffff;
+    --md-hero-overlay: rgba(2, 12, 25, 0.6);
+    --md-hero-text: #ffffff;
+    --md-metrics-bg: rgba(2, 186, 255, 0.08);
+    --md-metrics-border: rgba(2, 186, 255, 0.25);
+    --md-divider: rgba(15, 23, 42, 0.08);
   }
 
   [data-md-color-scheme="light"] {
@@ -46,6 +54,7 @@
     --md-card-border-color: #e2e8f0;
     --md-card-bg-hover: #f8fafc;
     --md-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+    --md-card-shadow-hover: 0 18px 40px rgba(2, 186, 255, 0.2);
     --md-callout-bg: #f1f5f9;
     --md-workflow-bg-start: #f8fafc;
     --md-workflow-bg-end: #ffffff;
@@ -53,6 +62,13 @@
     --md-code-fg: #0f172a;
     --md-header-bg: #ffffff;
     --md-header-border: #e2e8f0;
+    --md-page-bg: #f8fafc;
+    --md-page-bg-alt: #ffffff;
+    --md-hero-overlay: rgba(2, 12, 25, 0.6);
+    --md-hero-text: #ffffff;
+    --md-metrics-bg: rgba(2, 186, 255, 0.08);
+    --md-metrics-border: rgba(2, 186, 255, 0.25);
+    --md-divider: rgba(15, 23, 42, 0.08);
   }
 
   [data-md-color-scheme="dark"] {
@@ -69,6 +85,7 @@
     --md-card-border-color: rgba(2, 186, 255, 0.25);
     --md-card-bg-hover: rgba(15, 23, 42, 0.95);
     --md-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    --md-card-shadow-hover: 0 22px 46px rgba(2, 186, 255, 0.25);
     --md-callout-bg: rgba(15, 23, 42, 0.7);
     --md-workflow-bg-start: rgba(15, 23, 42, 0.9);
     --md-workflow-bg-end: #0b1220;
@@ -76,6 +93,13 @@
     --md-code-fg: #e2e8f0;
     --md-header-bg: rgba(15, 23, 42, 0.9);
     --md-header-border: rgba(2, 186, 255, 0.2);
+    --md-page-bg: #0b1220;
+    --md-page-bg-alt: #0f172a;
+    --md-hero-overlay: rgba(2, 8, 18, 0.75);
+    --md-hero-text: #f8fafc;
+    --md-metrics-bg: rgba(2, 186, 255, 0.1);
+    --md-metrics-border: rgba(2, 186, 255, 0.35);
+    --md-divider: rgba(148, 163, 184, 0.18);
   }
 
   html {
@@ -84,6 +108,9 @@
   
   body {
     scroll-snap-type: y mandatory;
+    background: radial-gradient(circle at top, rgba(2, 186, 255, 0.08), transparent 55%), var(--md-page-bg);
+    color: var(--md-default-fg-color);
+    font-family: "Segoe UI", "Inter", -apple-system, sans-serif;
   }
   
   .hero-wrap,
@@ -133,6 +160,7 @@
     flex-direction: column;
     align-items: center;
     padding: 0 2rem;
+    color: var(--md-default-fg-color);
   }
   .section,
   .workflow-section {
@@ -156,7 +184,7 @@
     width: 100%;
     margin: 0 auto; /* Ensure section is centered */
     padding: 2rem;
-    background: var(--md-default-bg-color);
+    background: linear-gradient(135deg, var(--md-page-bg) 0%, var(--md-page-bg-alt) 100%);
     color: var(--md-default-fg-color);
     text-align: center;
     display: flex; /* Use flex to center children */
@@ -175,7 +203,7 @@
     flex-direction: column;
     align-items: center; /* Center children horizontally */
     background: url("images/header.png") center/cover no-repeat;
-    color: var(--md-default-fg-color);
+    color: var(--md-hero-text);
     z-index: 1;
   }
 
@@ -195,7 +223,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7); /* darker overlay */
+    background: var(--md-hero-overlay);
     z-index: 0;
   }
 
@@ -270,7 +298,7 @@
 
   .feature-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 18px 40px rgba(2, 186, 255, 0.2);
+    box-shadow: var(--md-card-shadow-hover);
     border-color: rgba(2, 186, 255, 0.45);
     background: var(--md-card-bg-hover);
   }
@@ -341,7 +369,7 @@
 
   .workflow-step:hover {
     transform: translateY(-5px);
-    box-shadow: 0 18px 40px rgba(2, 186, 255, 0.2);
+    box-shadow: var(--md-card-shadow-hover);
     border-color: rgba(2, 186, 255, 0.45);
     background: var(--md-card-bg-hover);
   }
@@ -353,7 +381,7 @@
     left: 50%;
     transform: translateX(-50%);
     background: var(--md-primary-fg-color);
-    color: #fff;
+    color: var(--md-hero-text);
     width: 3rem;
     height: 3rem;
     line-height: 3rem;
@@ -459,7 +487,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--md-hero-overlay);
     z-index: 0;
     clip-path: inherit; /* so overlay matches the same slope */
   }
@@ -482,7 +510,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--md-hero-overlay);
   }
   .hero-content {
     position: relative;
@@ -520,9 +548,9 @@
     margin: 2rem auto 0;
     max-width: 900px;
     width: 100%;
-    background: rgba(2, 186, 255, 0.08) !important;
+    background: var(--md-metrics-bg) !important;
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(2, 186, 255, 0.25);
+    border: 1px solid var(--md-metrics-border);
     border-radius: 14px;
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.14);
@@ -538,7 +566,7 @@
 
   /* vertical divider on every item except the last */
   .metric:not(:last-child) {
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    border-right: 1px solid var(--md-divider);
   }
 
   .metric-value {
@@ -587,7 +615,7 @@
     .metric:not(:last-child) {
       /* swap vertical dividers for horizontal */
       border-right: none;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      border-bottom: 1px solid var(--md-divider);
     }
   }
 
@@ -598,7 +626,7 @@
     }
     .metric:not(:nth-child(2n)) {
       /* only draw a divider on the right of odd items */
-      border-right: 1px solid rgba(0, 0, 0, 0.08);
+      border-right: 1px solid var(--md-divider);
     }
     /* remove bottom border on the last row */
     .metric:nth-last-child(-n + 2) {
@@ -641,7 +669,7 @@
   }
   .feature-card:hover {
     transform: perspective(600px) rotateX(4deg) rotateY(-4deg);
-    box-shadow: 0 20px 40px rgba(2, 186, 255, 0.2);
+    box-shadow: var(--md-card-shadow-hover);
   }
   .cta-button {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -698,12 +726,12 @@ z-index: 1;
 
 .feature-grid .feature-card:hover {
   transform: translateY(-8px) !important;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+  box-shadow: var(--md-card-shadow-hover) !important;
 }
 
 .workflow-steps .workflow-step:hover {
   transform: translateY(-8px) !important;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+  box-shadow: var(--md-card-shadow-hover) !important;
 }
 
 .section.ai-section {
@@ -725,7 +753,7 @@ z-index: 1;
 
 .ai-highlight:hover {
   transform: translateY(-4px);
-  box-shadow: 0 18px 40px rgba(2, 186, 255, 0.2);
+  box-shadow: var(--md-card-shadow-hover);
 }
 
 .ai-icon {
