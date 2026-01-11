@@ -4,8 +4,8 @@
     --md-primary-fg-color--dark:  #005AD1;
     --md-default-fg-color--light: #5ad6ff;
     --md-accent-fg-color: #0071FF;
-    --md-default-bg-color: #0f172a;
-    --md-default-fg-color: #e6edf3;
+    --md-default-bg-color: #f8fafc;
+    --md-default-fg-color: #1e293b;
   }
 
   [data-md-color-scheme="slate"], [data-md-color-scheme="dark"] {
@@ -18,10 +18,23 @@
     --md-default-fg-color: #e6edf3;
   }
 
-  /* Force background color on body and main content areas */
-  body,
-  .md-main,
-  .md-content {
+  /* Apply background color based on theme */
+  [data-md-color-scheme="default"] body,
+  [data-md-color-scheme="light"] body,
+  [data-md-color-scheme="default"] .md-main,
+  [data-md-color-scheme="light"] .md-main,
+  [data-md-color-scheme="default"] .md-content,
+  [data-md-color-scheme="light"] .md-content {
+    background-color: #f8fafc !important;
+    color: #1e293b;
+  }
+
+  [data-md-color-scheme="slate"] body,
+  [data-md-color-scheme="dark"] body,
+  [data-md-color-scheme="slate"] .md-main,
+  [data-md-color-scheme="dark"] .md-main,
+  [data-md-color-scheme="slate"] .md-content,
+  [data-md-color-scheme="dark"] .md-content {
     background-color: #0f172a !important;
     color: #e6edf3;
   }
