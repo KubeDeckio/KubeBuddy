@@ -78,6 +78,11 @@ jobs:
         run: |
           docker pull $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
 
+      - name: Show embedded kubectl/kubelogin versions
+        run: |
+          docker run --rm --entrypoint /usr/local/bin/kubectl $IMAGE_NAME:${{ steps.meta.outputs.TAG }} version --client=true --output=yaml
+          docker run --rm --entrypoint /usr/local/bin/kubelogin $IMAGE_NAME:${{ steps.meta.outputs.TAG }} --version
+
       - name: Scan image for vulnerabilities (block on CRITICAL)
         uses: aquasecurity/trivy-action@master
         with:
