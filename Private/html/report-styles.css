@@ -498,6 +498,8 @@ a:focus {
 .table-container {
   width: 100%;
   max-width: 100%;
+  border-radius: var(--border-radius);
+  background: var(--bg-container);
   overflow-x: auto;
 }
 
@@ -512,6 +514,7 @@ table {
   border-spacing: 0;
   background: var(--bg-container);
   border-radius: var(--border-radius);
+  overflow: hidden;
   box-shadow: var(--shadow-sm);
   border-left: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);
@@ -794,6 +797,70 @@ table a:hover {
 .metric-card.info {
   background: var(--brand-blue);
   color: #111;
+}
+
+.rightsizing-glance {
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.rightsizing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.rightsizing-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--brand-blue);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+}
+
+.rightsizing-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--brand-blue);
+}
+
+.rightsizing-list {
+  display: grid;
+  gap: 8px;
+}
+
+.rightsizing-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
+}
+
+.rightsizing-item .label {
+  color: var(--text-on-dark);
+  font-weight: 500;
+}
+
+.rightsizing-item .value {
+  color: var(--brand-blue-dk2);
+  font-weight: 700;
+}
+
+.rightsizing-links {
+  margin: 12px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-on-dark);
+}
+
+.rightsizing-links a {
+  color: var(--brand-blue-dk2);
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 /* Compatibility Banner */
@@ -1124,6 +1191,53 @@ code {
 .table-pagination button:focus-visible {
   outline: 2px solid var(--brand-blue);
   outline-offset: 2px;
+}
+
+.profile-filter .filter-button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--brand-blue) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--bg-panel) 65%, var(--brand-blue) 35%);
+  color: var(--text-dark);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.profile-filter .filter-button:hover {
+  border-color: var(--brand-blue);
+  background: color-mix(in srgb, var(--bg-panel) 50%, var(--brand-blue) 50%);
+}
+
+.profile-filter .filter-button:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
+}
+
+.profile-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.profile-conservative {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.profile-balanced {
+  background: rgba(0, 113, 255, 0.2);
+  border-color: rgba(0, 113, 255, 0.5);
+}
+
+.profile-aggressive {
+  background: rgba(255, 160, 0, 0.2);
+  border-color: rgba(255, 160, 0, 0.5);
 }
 
 /* Footer */

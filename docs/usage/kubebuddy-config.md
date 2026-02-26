@@ -9,8 +9,14 @@ layout: default
 
 KubeBuddy powered by KubeDeck uses a YAML configuration file to customize its behavior, allowing you to tailor monitoring, health checks, and security scans to your Kubernetes environment. This file enables fine-grained control over thresholds, namespaces, trusted registries, and specific checks, ensuring that KubeBuddy aligns with your operational needs and policies.
 
-The configuration file is located at:
+The default configuration file is located at:
 `~/.kube/kubebuddy-config.yaml`
+
+You can also provide a cluster-specific config file at runtime:
+`Invoke-KubeBuddy -ConfigPath <path-to-config.yaml>`
+
+KubeBuddy also supports environment variable override:
+`KUBEBUDDY_CONFIG=<path-to-config.yaml>`
 
 If the file is missing or a specific section is not defined, KubeBuddy falls back to sensible defaults, ensuring consistent behavior out of the box.
 
@@ -43,7 +49,7 @@ The following metrics can be customized:
 - **Node Sizing Insights**: p95 CPU/memory bands used by `PROM006` to classify nodes as underutilized or saturated.
 - **Pod Sizing Insights**: p95 CPU/memory driven tuning for container requests and memory limits (`PROM007`), including CPU-limit policy defaults.
 - **Pod Sizing Profile**: choose `conservative`, `balanced`, or `aggressive` to shift pod sizing recommendation targets/floors in one setting.
-- **Pod Sizing Profile Comparison**: enable `pod_sizing_compare_profiles` to emit all three profile recommendations in HTML/JSON.
+- **Pod Sizing Profile Comparison**: `pod_sizing_compare_profiles` is enabled by default to emit all three profile recommendations in HTML/JSON.
 
 ### Default Behavior
 If the `thresholds` section is missing or incomplete, KubeBuddy uses built-in defaults, which are designed for general-purpose Kubernetes clusters. These defaults are conservative to avoid false positives but may need adjustment for specific workloads (e.g., batch processing, machine learning, etc.).
@@ -70,10 +76,10 @@ thresholds:
   node_sizing_upsize_cpu_p95: 80
   node_sizing_upsize_mem_p95: 85
   pod_sizing_profile: balanced
-  pod_sizing_compare_profiles: false
+  pod_sizing_compare_profiles: true
   pod_sizing_target_cpu_utilization: 65
   pod_sizing_target_mem_utilization: 75
-  pod_sizing_cpu_request_floor_mcores: 50
+  pod_sizing_cpu_request_floor_mcores: 25
   pod_sizing_mem_request_floor_mib: 128
   pod_sizing_mem_limit_buffer_percent: 20
 ```
@@ -253,10 +259,10 @@ thresholds:
   node_sizing_upsize_cpu_p95: 80
   node_sizing_upsize_mem_p95: 85
   pod_sizing_profile: balanced
-  pod_sizing_compare_profiles: false
+  pod_sizing_compare_profiles: true
   pod_sizing_target_cpu_utilization: 65
   pod_sizing_target_mem_utilization: 75
-  pod_sizing_cpu_request_floor_mcores: 50
+  pod_sizing_cpu_request_floor_mcores: 25
   pod_sizing_mem_request_floor_mib: 128
   pod_sizing_mem_limit_buffer_percent: 20
 

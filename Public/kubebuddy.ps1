@@ -16,6 +16,7 @@ function Invoke-KubeBuddy {
         [string]$ClusterName,
         [string]$outputpath,
         [switch]$UseAksRestApi, # Flag for AKS REST API mode
+        [string]$ConfigPath,
         [switch]$IncludePrometheus, # Flag to include Prometheus data
         [string]$PrometheusUrl, # Prometheus endpoint
         [string]$PrometheusMode, # Authentication mode: local, basic, bearer, azure
@@ -69,8 +70,21 @@ function Invoke-KubeBuddy {
     Write-Host "Your Kubernetes Assistant" -ForegroundColor Cyan
     Write-Host "-------------------------------------------------------------" -ForegroundColor DarkGray
 
-    # Reset any prior session override, then optionally extend excluded namespaces for this invocation.
+    # Reset prior per-invocation overrides.
+    Clear-KubeBuddyConfigPathOverride
     Clear-ExcludedNamespacesOverride
+
+    if ($ConfigPath) {
+        Set-KubeBuddyConfigPathOverride -ConfigPath $ConfigPath
+        if (Test-Path $ConfigPath) {
+            Write-Host "🤖 Using config file: $ConfigPath" -ForegroundColor Cyan
+        }
+        else {
+            Write-Host "⚠️ Config file not found at '$ConfigPath'. Falling back to defaults." -ForegroundColor Yellow
+        }
+    }
+
+    # Optionally extend excluded namespaces for this invocation.
     if ($AdditionalExcludedNamespaces -and $AdditionalExcludedNamespaces.Count -gt 0) {
         $baseExcludedNamespaces = @(Get-ExcludedNamespaces)
         $mergedExcludedNamespaces = @($baseExcludedNamespaces + $AdditionalExcludedNamespaces | Where-Object { $_ } | Sort-Object -Unique)

@@ -1303,3 +1303,235 @@ checks:
       - ""
       - "📌 This may indicate incomplete migration or stale configuration."
     URL: "https://gateway-api.sigs.k8s.io/api-types/gateway/"
+
+  - ID: "NET016"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Gateway API Readiness Conditions"
+    Description: "Detects GatewayClass or Gateway resources that are not accepted/programmed and may not be routing traffic."
+    ResourceKind: "Gateway"
+    Severity: "critical"
+    Weight: 3
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $gatewayClasses = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("GatewayClass")) {
+        @($KubeData.CustomResourcesByKind["GatewayClass"])
+      } else {
+        @((kubectl get gatewayclasses.gateway.networking.k8s.io -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+      $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
+        @($KubeData.CustomResourcesByKind["Gateway"])
+      } else {
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+
+      if ($ExcludeNamespaces) {
+        $gateways = Exclude-Namespaces -items $gateways
+      }
+      if ($Namespace) {
+        $gateways = $gateways | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      function Get-Condition {
+        param($obj, [string]$typeName)
+        foreach ($c in @($obj.status.conditions)) {
+          if ("$($c.type)" -eq $typeName) { return $c }
+        }
+        return $null
+      }
+
+      $results = @()
+
+      foreach ($gc in $gatewayClasses) {
+        $accepted = Get-Condition -obj $gc -typeName "Accepted"
+        if ($accepted -and "$($accepted.status)".ToLower() -ne "true") {
+          $results += [PSCustomObject]@{
+            Kind = "GatewayClass"
+            Namespace = "-"
+            Resource = $gc.metadata.name
+            Condition = "Accepted"
+            Status = "$($accepted.status)"
+            Message = if ($accepted.reason) { "$($accepted.reason): $($accepted.message)" } else { "GatewayClass not accepted" }
+          }
+        }
+      }
+
+      foreach ($gw in $gateways) {
+        $ns = $gw.metadata.namespace
+        $name = $gw.metadata.name
+        $accepted = Get-Condition -obj $gw -typeName "Accepted"
+        $programmed = Get-Condition -obj $gw -typeName "Programmed"
+
+        if ($accepted -and "$($accepted.status)".ToLower() -ne "true") {
+          $results += [PSCustomObject]@{
+            Kind = "Gateway"
+            Namespace = $ns
+            Resource = $name
+            Condition = "Accepted"
+            Status = "$($accepted.status)"
+            Message = if ($accepted.reason) { "$($accepted.reason): $($accepted.message)" } else { "Gateway not accepted" }
+          }
+        }
+        if ($programmed -and "$($programmed.status)".ToLower() -ne "true") {
+          $results += [PSCustomObject]@{
+            Kind = "Gateway"
+            Namespace = $ns
+            Resource = $name
+            Condition = "Programmed"
+            Status = "$($programmed.status)"
+            Message = if ($programmed.reason) { "$($programmed.reason): $($programmed.message)" } else { "Gateway not programmed" }
+          }
+        }
+      }
+
+      return $results
+    FailMessage: "Gateway API resources are not accepted/programmed"
+    Recommendation:
+      text: "Review GatewayClass and Gateway status conditions and controller health before migrating traffic."
+      html: |
+        <div class="recommendation-content">
+          <h4>🚦 Validate Gateway Readiness</h4>
+          <ul>
+            <li>Check GatewayClass and Gateway <code>status.conditions</code> for <code>Accepted</code> and <code>Programmed</code>.</li>
+            <li>Verify the Gateway controller deployment is healthy and watching the relevant classes.</li>
+            <li>Fix listener, address, or controller configuration issues before cutover.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some Gateway API resources are not accepted/programmed."
+      - ""
+      - "⚠️ Traffic may not be routed until these conditions are healthy."
+    URL: "https://gateway-api.sigs.k8s.io/guides/"
+
+  - ID: "NET017"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Gateway TLS Secret and Cross-Namespace ReferenceGrant Validation"
+    Description: "Validates Gateway listener certificateRefs point to existing Secrets and have required ReferenceGrants for cross-namespace access."
+    ResourceKind: "Gateway"
+    Severity: "critical"
+    Weight: 3
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
+        @($KubeData.CustomResourcesByKind["Gateway"])
+      } else {
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+      $referenceGrants = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("ReferenceGrant")) {
+        @($KubeData.CustomResourcesByKind["ReferenceGrant"])
+      } else {
+        @((kubectl get referencegrants.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+      $secrets = if ($KubeData?.Secrets) {
+        if ($KubeData.Secrets.items) { @($KubeData.Secrets.items) } else { @($KubeData.Secrets) }
+      } else {
+        @((kubectl get secrets --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+
+      if ($ExcludeNamespaces) {
+        $gateways = Exclude-Namespaces -items $gateways
+        $secrets = Exclude-Namespaces -items $secrets
+      }
+      if ($Namespace) {
+        $gateways = $gateways | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      function Has-ReferenceGrant {
+        param(
+          [array]$Grants,
+          [string]$FromNamespace,
+          [string]$ToNamespace,
+          [string]$SecretName
+        )
+
+        $candidates = @($Grants | Where-Object { $_.metadata.namespace -eq $ToNamespace })
+        foreach ($g in $candidates) {
+          $fromAllowed = $false
+          foreach ($f in @($g.spec.from)) {
+            $groupOk = -not $f.group -or "$($f.group)" -eq "gateway.networking.k8s.io"
+            $kindOk = -not $f.kind -or "$($f.kind)" -eq "Gateway"
+            $nsOk = -not $f.namespace -or "$($f.namespace)" -eq $FromNamespace
+            if ($groupOk -and $kindOk -and $nsOk) {
+              $fromAllowed = $true
+              break
+            }
+          }
+          if (-not $fromAllowed) { continue }
+
+          foreach ($t in @($g.spec.to)) {
+            $groupOk = -not $t.group -or "$($t.group)" -eq ""
+            $kindOk = -not $t.kind -or "$($t.kind)" -eq "Secret"
+            $nameOk = -not $t.name -or "$($t.name)" -eq $SecretName
+            if ($groupOk -and $kindOk -and $nameOk) {
+              return $true
+            }
+          }
+        }
+        return $false
+      }
+
+      $results = @()
+      foreach ($gw in $gateways) {
+        $gwNs = $gw.metadata.namespace
+        $gwName = $gw.metadata.name
+
+        foreach ($listener in @($gw.spec.listeners)) {
+          $listenerName = if ($listener.name) { "$($listener.name)" } else { "<unnamed>" }
+          foreach ($certRef in @($listener.tls.certificateRefs)) {
+            $kind = if ($certRef.kind) { "$($certRef.kind)" } else { "Secret" }
+            $group = if ($certRef.group) { "$($certRef.group)" } else { "" }
+            if ($kind -ne "Secret" -or $group -ne "") { continue }
+
+            $secretName = "$($certRef.name)"
+            if (-not $secretName) { continue }
+            $secretNs = if ($certRef.namespace) { "$($certRef.namespace)" } else { $gwNs }
+
+            $secret = $secrets | Where-Object { $_.metadata.namespace -eq $secretNs -and $_.metadata.name -eq $secretName } | Select-Object -First 1
+            if (-not $secret) {
+              $results += [PSCustomObject]@{
+                Namespace = $gwNs
+                Gateway = $gwName
+                Listener = $listenerName
+                SecretRef = "$secretNs/$secretName"
+                Message = "TLS Secret not found"
+              }
+              continue
+            }
+
+            if ($secretNs -ne $gwNs) {
+              $allowed = Has-ReferenceGrant -Grants $referenceGrants -FromNamespace $gwNs -ToNamespace $secretNs -SecretName $secretName
+              if (-not $allowed) {
+                $results += [PSCustomObject]@{
+                  Namespace = $gwNs
+                  Gateway = $gwName
+                  Listener = $listenerName
+                  SecretRef = "$secretNs/$secretName"
+                  Message = "Cross-namespace Secret reference missing required ReferenceGrant"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return $results
+    FailMessage: "Gateway TLS references are invalid or missing required grants"
+    Recommendation:
+      text: "Ensure listener certificateRefs point to existing Secrets and add ReferenceGrants for cross-namespace Secret usage."
+      html: |
+        <div class="recommendation-content">
+          <h4>🔐 Fix Gateway TLS References</h4>
+          <ul>
+            <li>Verify each <code>certificateRef</code> points to an existing Secret.</li>
+            <li>For cross-namespace refs, create a <code>ReferenceGrant</code> in the Secret namespace.</li>
+            <li>Re-check Gateway listener status after grant/secret updates.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Gateway TLS references need attention."
+      - ""
+      - "⚠️ Missing secrets or grants can break HTTPS listeners."
+    URL: "https://gateway-api.sigs.k8s.io/api-types/referencegrant/"

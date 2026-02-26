@@ -159,10 +159,38 @@ function Generate-K8sTextReport {
     Write-ToReport "`n🩺 Cluster Health Score: $score / 100"
 }
 
+function Get-KubeBuddyConfigPath {
+    if ($script:KubeBuddyConfigPathOverride -and $script:KubeBuddyConfigPathOverride.Trim() -ne "") {
+        return $script:KubeBuddyConfigPathOverride
+    }
+
+    if ($env:KUBEBUDDY_CONFIG -and "$env:KUBEBUDDY_CONFIG".Trim() -ne "") {
+        return "$env:KUBEBUDDY_CONFIG"
+    }
+
+    return "$HOME/.kube/kubebuddy-config.yaml"
+}
+
+function Set-KubeBuddyConfigPathOverride {
+    param([string]$ConfigPath)
+
+    if (-not $ConfigPath -or $ConfigPath.Trim() -eq "") {
+        return
+    }
+
+    $script:KubeBuddyConfigPathOverride = $ConfigPath.Trim()
+}
+
+function Clear-KubeBuddyConfigPathOverride {
+    if (Get-Variable -Name KubeBuddyConfigPathOverride -Scope Script -ErrorAction SilentlyContinue) {
+        Remove-Variable -Name KubeBuddyConfigPathOverride -Scope Script -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Get-KubeBuddyThresholds {
     param([switch]$Silent)
 
-    $configPath = "$HOME/.kube/kubebuddy-config.yaml"
+    $configPath = Get-KubeBuddyConfigPath
 
     if (Test-Path $configPath) {
         try {
@@ -180,7 +208,7 @@ function Get-KubeBuddyThresholds {
                 "aggressive" {
                     $profileCpuTarget = 75
                     $profileMemTarget = 85
-                    $profileCpuFloor = 25
+                    $profileCpuFloor = 10
                     $profileMemFloor = 64
                     $profileMemBuffer = 15
                 }
@@ -188,7 +216,7 @@ function Get-KubeBuddyThresholds {
                     $profile = "balanced"
                     $profileCpuTarget = 65
                     $profileMemTarget = 75
-                    $profileCpuFloor = 50
+                    $profileCpuFloor = 25
                     $profileMemFloor = 128
                     $profileMemBuffer = 20
                 }
@@ -216,7 +244,7 @@ function Get-KubeBuddyThresholds {
                 node_sizing_upsize_cpu_p95   = $config.thresholds.node_sizing_upsize_cpu_p95 ?? 80
                 node_sizing_upsize_mem_p95   = $config.thresholds.node_sizing_upsize_mem_p95 ?? 85
                 pod_sizing_profile      = $profile
-                pod_sizing_compare_profiles = $config.thresholds.pod_sizing_compare_profiles ?? $false
+                pod_sizing_compare_profiles = $config.thresholds.pod_sizing_compare_profiles ?? $true
                 pod_sizing_target_cpu_utilization = $config.thresholds.pod_sizing_target_cpu_utilization ?? $profileCpuTarget
                 pod_sizing_target_mem_utilization = $config.thresholds.pod_sizing_target_mem_utilization ?? $profileMemTarget
                 pod_sizing_cpu_request_floor_mcores = $config.thresholds.pod_sizing_cpu_request_floor_mcores ?? $profileCpuFloor
@@ -266,10 +294,10 @@ function Get-KubeBuddyThresholds {
         node_sizing_upsize_cpu_p95   = 80
         node_sizing_upsize_mem_p95   = 85
         pod_sizing_profile      = "balanced"
-        pod_sizing_compare_profiles = $false
+        pod_sizing_compare_profiles = $true
         pod_sizing_target_cpu_utilization = 65
         pod_sizing_target_mem_utilization = 75
-        pod_sizing_cpu_request_floor_mcores = 50
+        pod_sizing_cpu_request_floor_mcores = 25
         pod_sizing_mem_request_floor_mib    = 128
         pod_sizing_mem_limit_buffer_percent = 20
         prometheus_timeout_seconds = 60

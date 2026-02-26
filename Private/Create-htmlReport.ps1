@@ -173,6 +173,7 @@ $heroRatingHtml
 
   $customNavItems = @{}
   $checkStatusList = @()
+  $allCheckResults = @()
   $hasCustomChecks = $false
   $topFixHtml = ""
 
@@ -184,6 +185,9 @@ $heroRatingHtml
       $allChecksBySection = $html.HtmlBySection
       $checkStatusList += $html.StatusList
       $checkScoreList += $html.ScoreList
+      if ($html.ContainsKey("AllResults")) {
+        $allCheckResults = @($html.AllResults)
+      }
       $issueHeroHtml = $html.IssueHero
       $knownSections = $sectionToNavMap.Keys
 
@@ -374,6 +378,113 @@ $heroRatingHtml
   </p>
 </div>
 "@
+
+  $rightsizingAtGlanceHtml = ""
+  if ($allCheckResults -and $allCheckResults.Count -gt 0) {
+    $prom006 = $allCheckResults | Where-Object { $_.ID -eq "PROM006" } | Select-Object -First 1
+    $prom007 = $allCheckResults | Where-Object { $_.ID -eq "PROM007" } | Select-Object -First 1
+
+    $underutilizedNodes = 0
+    $saturatedNodes = 0
+    $rightsizedNodes = 0
+    if ($prom006 -and $prom006.Items) {
+      $nodeItems = @($prom006.Items | Where-Object { $_.PSObject.Properties.Name -contains "Sizing Insight" })
+      $underutilizedNodes = @($nodeItems | Where-Object { "$($_.'Sizing Insight')" -eq "Underutilized" }).Count
+      $saturatedNodes = @($nodeItems | Where-Object { "$($_.'Sizing Insight')" -eq "Saturated" }).Count
+      $rightsizedNodes = @($nodeItems | Where-Object { "$($_.'Sizing Insight')" -eq "Right-sized" }).Count
+    }
+
+    $cpuReqChanges = 0
+    $memReqChanges = 0
+    $memLimitChanges = 0
+    $cpuLimitRemovals = 0
+    $impactHigh = 0
+    $impactMedium = 0
+    $impactLow = 0
+
+    if ($prom007 -and $prom007.Items) {
+      $podRows = @($prom007.Items)
+      $hasProfileColumn = ($podRows.Count -gt 0 -and $podRows[0].PSObject.Properties.Name -contains "Sizing Profile")
+      if ($hasProfileColumn) {
+        $balancedRows = @($podRows | Where-Object { "$($_.'Sizing Profile')".ToLower() -eq "balanced" })
+        if ($balancedRows.Count -gt 0) { $podRows = $balancedRows }
+      }
+
+      foreach ($row in $podRows) {
+        $cpuReq = $row.'CPU Request (m)'
+        $cpuReqRec = $row.'CPU Request Rec (m)'
+        $memReq = $row.'Memory Request (Mi)'
+        $memReqRec = $row.'Memory Request Rec (Mi)'
+        $memLim = $row.'Memory Limit (Mi)'
+        $memLimRec = $row.'Memory Limit Rec (Mi)'
+        $cpuLim = "$($row.'CPU Limit (m)')".ToLower()
+        $cpuLimRec = "$($row.'CPU Limit Rec (m)')".ToLower()
+
+        [double]$cpuReqN = 0; $cpuReqOk = [double]::TryParse("$cpuReq", [ref]$cpuReqN)
+        [double]$cpuReqRecN = 0; $cpuReqRecOk = [double]::TryParse("$cpuReqRec", [ref]$cpuReqRecN)
+        [double]$memReqN = 0; $memReqOk = [double]::TryParse("$memReq", [ref]$memReqN)
+        [double]$memReqRecN = 0; $memReqRecOk = [double]::TryParse("$memReqRec", [ref]$memReqRecN)
+        [double]$memLimN = 0; $memLimOk = [double]::TryParse("$memLim", [ref]$memLimN)
+        [double]$memLimRecN = 0; $memLimRecOk = [double]::TryParse("$memLimRec", [ref]$memLimRecN)
+
+        if (($cpuReqOk -and $cpuReqRecOk -and [math]::Abs($cpuReqN - $cpuReqRecN) -gt 0.01) -or ((-not $cpuReqOk) -and $cpuReqRecOk)) { $cpuReqChanges++ }
+        if (($memReqOk -and $memReqRecOk -and [math]::Abs($memReqN - $memReqRecN) -gt 0.01) -or ((-not $memReqOk) -and $memReqRecOk)) { $memReqChanges++ }
+        if (($memLimOk -and $memLimRecOk -and [math]::Abs($memLimN - $memLimRecN) -gt 0.01) -or ((-not $memLimOk) -and $memLimRecOk)) { $memLimitChanges++ }
+        if ($cpuLim -ne "none" -and $cpuLim -ne "n/a" -and $cpuLimRec -eq "none") { $cpuLimitRemovals++ }
+
+        $impactScore = 0.0
+        if ($cpuReqOk -and $cpuReqN -gt 0 -and $cpuReqRecOk) { $impactScore += [math]::Abs(($cpuReqRecN - $cpuReqN) / $cpuReqN) * 100 }
+        elseif ((-not $cpuReqOk) -and $cpuReqRecOk) { $impactScore += 100 }
+        if ($memReqOk -and $memReqN -gt 0 -and $memReqRecOk) { $impactScore += [math]::Abs(($memReqRecN - $memReqN) / $memReqN) * 100 }
+        elseif ((-not $memReqOk) -and $memReqRecOk) { $impactScore += 100 }
+        if ($memLimOk -and $memLimN -gt 0 -and $memLimRecOk) { $impactScore += [math]::Abs(($memLimRecN - $memLimN) / $memLimN) * 100 }
+        elseif ((-not $memLimOk) -and $memLimRecOk) { $impactScore += 100 }
+        if ($cpuLim -ne "none" -and $cpuLim -ne "n/a" -and $cpuLimRec -eq "none") { $impactScore += 50 }
+
+        if ($impactScore -ge 150) { $impactHigh++ }
+        elseif ($impactScore -ge 60) { $impactMedium++ }
+        else { $impactLow++ }
+      }
+    }
+
+    $rightsizingAtGlanceHtml = @"
+<div class="rightsizing-glance">
+  <h2>Rightsizing at a Glance</h2>
+  <div class="rightsizing-grid">
+    <div class="rightsizing-card">
+      <h3>Node Insights</h3>
+      <div class="rightsizing-list">
+        <div class="rightsizing-item"><span class="label">🖥️ Underutilized Nodes</span><span class="value">$underutilizedNodes</span></div>
+        <div class="rightsizing-item"><span class="label">🔥 Saturated Nodes</span><span class="value">$saturatedNodes</span></div>
+        <div class="rightsizing-item"><span class="label">✅ Right-sized Nodes</span><span class="value">$rightsizedNodes</span></div>
+      </div>
+    </div>
+    <div class="rightsizing-card">
+      <h3>Pod Actions</h3>
+      <div class="rightsizing-list">
+        <div class="rightsizing-item"><span class="label">⚙️ CPU Request Changes</span><span class="value">$cpuReqChanges</span></div>
+        <div class="rightsizing-item"><span class="label">🧠 Memory Request Changes</span><span class="value">$memReqChanges</span></div>
+        <div class="rightsizing-item"><span class="label">🛡️ Memory Limit Changes</span><span class="value">$memLimitChanges</span></div>
+        <div class="rightsizing-item"><span class="label">🚫 CPU Limit Removals</span><span class="value">$cpuLimitRemovals</span></div>
+      </div>
+    </div>
+    <div class="rightsizing-card">
+      <h3>Impact Summary</h3>
+      <div class="rightsizing-list">
+        <div class="rightsizing-item"><span class="label">🚀 High Impact</span><span class="value">$impactHigh</span></div>
+        <div class="rightsizing-item"><span class="label">📈 Medium Impact</span><span class="value">$impactMedium</span></div>
+        <div class="rightsizing-item"><span class="label">🧩 Low Impact</span><span class="value">$impactLow</span></div>
+      </div>
+      <p class="rightsizing-links">🔗 Quick Links:
+        <a href="#PROM006">PROM006</a>
+        <span>•</span>
+        <a href="#PROM007">PROM007</a>
+      </p>
+    </div>
+  </div>
+</div>
+"@
+  }
 
   $totalChecks = $checkStatusList.Count
   $passedChecks = ($checkStatusList | Where-Object { $_.Status -eq 'Passed' }).Count
@@ -796,7 +907,7 @@ $heroRatingHtml
   </div>
       $topFixHtml    
       $issueHeroHtml
-    </div>
+      $rightsizingAtGlanceHtml
     $excludedNamespacesHtml
   </div>
 </div>

@@ -614,6 +614,79 @@ document.addEventListener('DOMContentLoaded', () => {
         controls.className = 'profile-filter';
         controls.style.margin = '0 0 10px 0';
 
+        const escapeCsv = (value) => {
+            const str = (value ?? '').toString().replace(/\r?\n|\r/g, ' ').trim();
+            return `"${str.replace(/"/g, '""')}"`;
+        };
+
+        const exportProm007Csv = () => {
+            const headerCellsAll = Array.from(table.querySelectorAll('tr:first-child th'));
+            if (!headerCellsAll.length) return;
+
+            const visibleColIndexes = [];
+            const headerTitles = [];
+            const profileHeaderIndex = headerCellsAll.findIndex(th =>
+                (th.textContent || '').trim().toLowerCase() === 'sizing profile'
+            );
+            headerCellsAll.forEach((th, idx) => {
+                if (window.getComputedStyle(th).display === 'none') return;
+                visibleColIndexes.push(idx);
+                headerTitles.push(th.textContent.trim());
+            });
+            if (profileHeaderIndex >= 0 && !visibleColIndexes.includes(profileHeaderIndex)) {
+                visibleColIndexes.push(profileHeaderIndex);
+                headerTitles.push('Sizing Profile');
+            }
+
+            const exportRows = rows.filter(r =>
+                r.dataset.profileHidden !== 'true' &&
+                r.dataset.namespaceHidden !== 'true'
+            );
+
+            const lines = [];
+            lines.push(headerTitles.map(escapeCsv).join(','));
+            exportRows.forEach(r => {
+                const vals = visibleColIndexes.map(i => {
+                    if (profileHeaderIndex >= 0 && i === profileHeaderIndex) {
+                        const explicitProfile = (r.dataset.sizingProfile || '').trim();
+                        if (explicitProfile) {
+                            return escapeCsv(explicitProfile.charAt(0).toUpperCase() + explicitProfile.slice(1));
+                        }
+                    }
+                    const cell = r.cells[i];
+                    return escapeCsv(cell ? cell.textContent.trim() : '');
+                });
+                lines.push(vals.join(','));
+            });
+
+            const csvContent = lines.join('\r\n');
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const ts = new Date();
+            const pad = (n) => `${n}`.padStart(2, '0');
+            const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`;
+            const reportTitle = Array.from(document.querySelectorAll('.header .header-top span'))
+                .map(s => (s.textContent || '').trim())
+                .find(t => t.toLowerCase().startsWith('kubernetes cluster report:')) || '';
+            const rawClusterName = reportTitle.split(':').slice(1).join(':').trim() || 'cluster';
+            const clusterSlug = rawClusterName
+                .toLowerCase()
+                .replace(/[^a-z0-9._-]+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '') || 'cluster';
+            const filename = `${clusterSlug}-pod-sizing-${stamp}.csv`;
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
         const profileLabel = document.createElement('span');
         profileLabel.className = 'filter-label';
         profileLabel.textContent = 'Profile: ';
@@ -664,15 +737,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 r.dataset.profileHidden = (selectedProfile !== 'all' && selectedProfile && rowProfile !== selectedProfile) ? 'true' : 'false';
                 r.dataset.namespaceHidden = (selectedNamespace !== 'all' && rowNamespace !== selectedNamespace) ? 'true' : 'false';
             });
-            paginateTable(details.parentElement);
+            if (details.open) {
+                paginateTable(details);
+            } else {
+                const pager = details.querySelector('.table-pagination');
+                if (pager) pager.remove();
+            }
         };
 
         profileSelect.addEventListener('change', applyFilter);
         namespaceSelect.addEventListener('change', applyFilter);
+
+        const exportBtn = document.createElement('button');
+        exportBtn.type = 'button';
+        exportBtn.className = 'filter-button';
+        exportBtn.textContent = 'Export CSV';
+        exportBtn.addEventListener('click', exportProm007Csv);
+
         controls.appendChild(profileLabel);
         controls.appendChild(profileSelect);
         controls.appendChild(namespaceLabel);
         controls.appendChild(namespaceSelect);
+        controls.appendChild(exportBtn);
         table.insertAdjacentElement('beforebegin', controls);
         applyFilter();
     }
@@ -793,7 +879,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Updated paginateTable signature & body:
-    function paginateTable(details) {
+    function paginateTable(target) {
+        const details = target && target.tagName && target.tagName.toLowerCase() === 'details'
+            ? target
+            : target?.querySelector?.('details');
+        if (!details) return;
+
         const table = details.querySelector('table');
         if (!table) return;
 

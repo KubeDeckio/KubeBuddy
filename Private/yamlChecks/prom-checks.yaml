@@ -263,22 +263,28 @@ checks:
       function Get-NodeP95Value {
           param(
               [array]$Series,
-              [string]$NodeName
+              [string]$NodeName,
+              [array]$NodeAliases
           )
 
           $nodeShort = ($NodeName -split '\.')[0]
+          $aliases = @($NodeAliases | Where-Object { $_ }) + @($NodeName, $nodeShort)
+          $aliases = $aliases | ForEach-Object { "$_".ToLower() } | Sort-Object -Unique
           foreach ($entry in $Series) {
               $labels = @(
                   $entry.metric.instance,
                   $entry.metric.node,
                   $entry.metric.nodename,
-                  $entry.metric.kubernetes_node
+                  $entry.metric.kubernetes_node,
+                  $entry.metric.hostname
               ) | Where-Object { $_ }
 
               foreach ($label in $labels) {
                   $labelHost = ($label -split ':')[0]
                   $labelShort = ($labelHost -split '\.')[0]
-                  if ($labelHost -eq $NodeName -or $labelShort -eq $nodeShort -or $labelHost -like "*$NodeName*") {
+                  $lh = "$labelHost".ToLower()
+                  $ls = "$labelShort".ToLower()
+                  if ($aliases -contains $lh -or $aliases -contains $ls -or ($aliases | Where-Object { $_ -and $lh -like "*$_*" })) {
                       if ($entry.value -and $entry.value.Count -ge 2) {
                           return [double]$entry.value[1]
                       }
@@ -288,13 +294,53 @@ checks:
           return $null
       }
 
+      function Convert-CpuToCores {
+          param([string]$CpuValue)
+          if (-not $CpuValue) { return $null }
+          $v = "$CpuValue".Trim()
+          if ($v -match '^[0-9]+(\.[0-9]+)?m$') { return [double]$v.TrimEnd('m') / 1000 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?$') { return [double]$v }
+          return $null
+      }
+
+      function Convert-MemoryToGi {
+          param([string]$MemValue)
+          if (-not $MemValue) { return $null }
+          $v = "$MemValue".Trim()
+          if ($v -match '^[0-9]+(\.[0-9]+)?Ki$') { return [double]$v.TrimEnd('K','i') / 1024 / 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Mi$') { return [double]$v.TrimEnd('M','i') / 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Gi$') { return [double]$v.TrimEnd('G','i') }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Ti$') { return [double]$v.TrimEnd('T','i') * 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?$') { return [double]$v / 1024 / 1024 / 1024 }
+          return $null
+      }
+
       $items = @()
       $issueCount = 0
 
       foreach ($node in $KubeData.Nodes.items) {
-          $nodeName = $node.metadata.name
-          $cpuP95 = Get-NodeP95Value -Series $cpuResponse.Results -NodeName $nodeName
-          $memP95 = Get-NodeP95Value -Series $memResponse.Results -NodeName $nodeName
+          try {
+              $nodeName = $node.metadata.name
+              $nodeAliases = @()
+              foreach ($addr in @($node.status.addresses)) {
+                  if ($addr.address) {
+                      $nodeAliases += "$($addr.address)"
+                  }
+              }
+              $cpuP95 = Get-NodeP95Value -Series $cpuResponse.Results -NodeName $nodeName -NodeAliases $nodeAliases
+              $memP95 = Get-NodeP95Value -Series $memResponse.Results -NodeName $nodeName -NodeAliases $nodeAliases
+
+              # Optional capacity context only; never fail base sizing insight if parsing is unavailable.
+              $allocCpu = $null
+              $allocMem = $null
+              if ($node.status -and $node.status.allocatable) {
+                  $allocCpu = Convert-CpuToCores -CpuValue $node.status.allocatable.cpu
+                  $allocMem = Convert-MemoryToGi -MemValue $node.status.allocatable.memory
+              }
+          }
+          catch {
+              continue
+          }
 
           if ($null -eq $cpuP95 -and $null -eq $memP95) {
               continue
@@ -302,27 +348,71 @@ checks:
 
           $insight = "Right-sized"
           $suggestedAction = "Keep current sizing and keep monitoring p95 usage trends."
+          $targetCapacity = "No change"
           $isIssue = $false
 
           if (($null -ne $cpuP95 -and $cpuP95 -ge $upsizeCpu) -or ($null -ne $memP95 -and $memP95 -ge $upsizeMem)) {
               $insight = "Saturated"
               $suggestedAction = "Consider larger node SKU, more nodes, or better workload spread."
+              if ($null -ne $allocCpu -or $null -ne $allocMem) {
+                  $cpuUsedCores = if ($null -ne $allocCpu -and $null -ne $cpuP95) { $allocCpu * ($cpuP95 / 100.0) } else { $null }
+                  $memUsedGi = if ($null -ne $allocMem -and $null -ne $memP95) { $allocMem * ($memP95 / 100.0) } else { $null }
+                  $cpuTarget = if ($null -ne $cpuUsedCores) { [math]::Ceiling(($cpuUsedCores * 1.3) * 2) / 2 } else { $null }
+                  $memTarget = if ($null -ne $memUsedGi) { [math]::Ceiling(($memUsedGi * 1.3) * 2) / 2 } else { $null }
+                  if ($null -ne $cpuTarget -or $null -ne $memTarget) {
+                      $cpuText = if ($null -ne $cpuTarget) { "$([math]::Round($cpuTarget, 2)) vCPU" } else { "N/A" }
+                      $memText = if ($null -ne $memTarget) { "$([math]::Round($memTarget, 2)) Gi" } else { "N/A" }
+                      $targetCapacity = "$cpuText / $memText"
+                  }
+              }
               $isIssue = $true
           }
           elseif (($null -ne $cpuP95 -and $cpuP95 -le $downsizeCpu) -and ($null -ne $memP95 -and $memP95 -le $downsizeMem)) {
               $insight = "Underutilized"
               $suggestedAction = "Consider smaller node SKU or scale-in after validating workload headroom."
+              if ($null -ne $allocCpu -or $null -ne $allocMem) {
+                  $cpuUsedCores = if ($null -ne $allocCpu -and $null -ne $cpuP95) { $allocCpu * ($cpuP95 / 100.0) } else { $null }
+                  $memUsedGi = if ($null -ne $allocMem -and $null -ne $memP95) { $allocMem * ($memP95 / 100.0) } else { $null }
+                  $cpuTarget = if ($null -ne $cpuUsedCores) { [math]::Ceiling(($cpuUsedCores * 1.3) * 2) / 2 } else { $null }
+                  $memTarget = if ($null -ne $memUsedGi) { [math]::Ceiling(($memUsedGi * 1.3) * 2) / 2 } else { $null }
+                  if ($null -ne $cpuTarget -or $null -ne $memTarget) {
+                      $cpuText = if ($null -ne $cpuTarget) { "$([math]::Round($cpuTarget, 2)) vCPU" } else { "N/A" }
+                      $memText = if ($null -ne $memTarget) { "$([math]::Round($memTarget, 2)) Gi" } else { "N/A" }
+                      $targetCapacity = "$cpuText / $memText"
+                  }
+              }
               $isIssue = $true
           }
 
           if ($isIssue) { $issueCount++ }
 
+          $currentCapacityText = if ($null -ne $allocCpu -or $null -ne $allocMem) {
+              $cpuAllocText = if ($null -ne $allocCpu) { [math]::Round($allocCpu, 2) } else { "N/A" }
+              $memAllocText = if ($null -ne $allocMem) { [math]::Round($allocMem, 2) } else { "N/A" }
+              "$cpuAllocText vCPU / $memAllocText Gi"
+          } else { "N/A" }
+
           $items += [PSCustomObject]@{
               Node = $nodeName
+              "Current Allocatable (vCPU/Gi)" = $currentCapacityText
               "CPU p95 (%)" = if ($null -ne $cpuP95) { [math]::Round($cpuP95, 2) } else { "N/A" }
               "Memory p95 (%)" = if ($null -ne $memP95) { [math]::Round($memP95, 2) } else { "N/A" }
               "Sizing Insight" = $insight
+              "Suggested Target Capacity (vCPU/Gi)" = $targetCapacity
               "Suggested Action" = $suggestedAction
+          }
+      }
+
+      if (-not $items -or $items.Count -eq 0) {
+          return @{
+              Items = @(
+                  [PSCustomObject]@{
+                      Status = "No matched node series"
+                      Message = "PROM006 could not map Prometheus node labels to Kubernetes nodes. Check Prometheus node label mapping (instance/node labels) and scrape targets."
+                  }
+              )
+              IssueCount = 0
+              SummaryMessage = "Node sizing ran, but no Prometheus node series could be matched to Kubernetes nodes over the 7-day window."
           }
       }
 
@@ -401,7 +491,7 @@ checks:
                   return @{
                       CpuTarget = 75.0
                       MemTarget = 85.0
-                      CpuFloor = 25.0
+                      CpuFloor = 10.0
                       MemFloor = 64.0
                       MemLimitBuffer = 15.0
                   }
@@ -410,7 +500,7 @@ checks:
                   return @{
                       CpuTarget = 65.0
                       MemTarget = 75.0
-                      CpuFloor = 50.0
+                      CpuFloor = 25.0
                       MemFloor = 128.0
                       MemLimitBuffer = 20.0
                   }
@@ -529,9 +619,14 @@ checks:
           if ($v -match '^[0-9]+(\.[0-9]+)?Mi$') { return [double]$v.TrimEnd('M','i') }
           if ($v -match '^[0-9]+(\.[0-9]+)?Gi$') { return [double]$v.TrimEnd('G','i') * 1024 }
           if ($v -match '^[0-9]+(\.[0-9]+)?Ti$') { return [double]$v.TrimEnd('T','i') * 1024 * 1024 }
-          if ($v -match '^[0-9]+(\.[0-9]+)?K$')  { return [double]$v.TrimEnd('K') / 1000 / 1000 }
-          if ($v -match '^[0-9]+(\.[0-9]+)?M$')  { return [double]$v.TrimEnd('M') / 1000 }
-          if ($v -match '^[0-9]+(\.[0-9]+)?G$')  { return [double]$v.TrimEnd('G') * 1000 }
+          # Decimal SI quantities (K, M, G, T, P, E) are base-10 bytes in Kubernetes.
+          # Convert to Mi by first converting to bytes, then dividing by 2^20.
+          if ($v -match '^[0-9]+(\.[0-9]+)?K$')  { return ([double]$v.TrimEnd('K') * 1e3) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?M$')  { return ([double]$v.TrimEnd('M') * 1e6) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?G$')  { return ([double]$v.TrimEnd('G') * 1e9) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?T$')  { return ([double]$v.TrimEnd('T') * 1e12) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?P$')  { return ([double]$v.TrimEnd('P') * 1e15) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?E$')  { return ([double]$v.TrimEnd('E') * 1e18) / 1MB }
           if ($v -match '^[0-9]+(\.[0-9]+)?$')   { return [double]$v / 1024 / 1024 }
           return $null
       }

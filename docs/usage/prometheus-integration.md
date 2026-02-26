@@ -131,17 +131,26 @@ Invoke-KubeBuddy `
 
 ## 📐 Node Sizing Insights
 
-When Prometheus integration is enabled, KubeBuddy runs `PROM006` and classifies each node using 24h p95 CPU/memory usage:
+When Prometheus integration is enabled, KubeBuddy runs `PROM006` and classifies each node using fixed **7-day p95** CPU/memory usage:
 
 - `Underutilized`: candidate for smaller SKU or scale-in
 - `Right-sized`: keep current sizing
 - `Saturated`: candidate for larger SKU or scale-out
+
+`PROM006` now also includes:
+- **Current Allocatable (vCPU/Gi)** from node allocatable capacity
+- **Suggested Target Capacity (vCPU/Gi)** estimated from p95 utilization with safety headroom
 
 Minimum data rule:
 - KubeBuddy requires at least **7 days of Prometheus history** before emitting node sizing recommendations.
 - If history is below 7 days, reports include an explicit **Insufficient Prometheus history** row instead of recommendations.
 
 The check surfaces in the **Nodes** tab and in JSON/text output like any other check.
+
+In HTML reports, Overview now includes a **Rightsizing at a Glance** section that summarizes:
+- Node sizing distribution (`Underutilized` / `Saturated` / `Right-sized`)
+- Pod sizing action counts from `PROM007`
+- Impact buckets and quick links to `PROM006` and `PROM007`
 
 ### Optional Threshold Overrides
 
@@ -157,7 +166,7 @@ thresholds:
 
 ## 📦 Pod Sizing Insights
 
-When Prometheus integration is enabled, KubeBuddy also runs `PROM007` for per-container recommendations using 24h p95 usage:
+When Prometheus integration is enabled, KubeBuddy also runs `PROM007` for per-container recommendations using fixed **7-day p95** usage:
 
 - CPU request recommendation (millicores)
 - Memory request recommendation (MiB)
@@ -183,21 +192,22 @@ Set CPU limits only when strict tenant caps are required.
 ```yaml
 thresholds:
   pod_sizing_profile: balanced   # conservative|balanced|aggressive
-  pod_sizing_compare_profiles: false  # if true, HTML/JSON include all 3 profiles
+  pod_sizing_compare_profiles: true  # HTML/JSON include all 3 profiles by default
   pod_sizing_target_cpu_utilization: 65
   pod_sizing_target_mem_utilization: 75
-  pod_sizing_cpu_request_floor_mcores: 50
+  pod_sizing_cpu_request_floor_mcores: 25
   pod_sizing_mem_request_floor_mib: 128
   pod_sizing_mem_limit_buffer_percent: 20
 ```
 
 Profile behavior:
 - `conservative`: higher requests/floors (more headroom)
-- `balanced`: default behavior
-- `aggressive`: lower requests/floors (higher packing efficiency)
+- `balanced`: default behavior (`CPU floor: 25m`)
+- `aggressive`: lower requests/floors (higher packing efficiency, `CPU floor: 10m`)
 
 Comparison mode:
-- Set `pod_sizing_compare_profiles: true` to emit all three profile results in JSON and HTML.
+- `pod_sizing_compare_profiles` is enabled by default to emit all three profile results in JSON and HTML.
+- Set `pod_sizing_compare_profiles: false` if you want only the active profile.
 - HTML report includes a profile selector on `PROM007` findings so you can switch between profiles.
 - Text/CLI remain focused on the single active profile.
 

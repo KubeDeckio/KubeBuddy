@@ -90,6 +90,8 @@ Each table includes:
 | NET013 | Ingress Present Without Gateway API Adoption | Detects Ingress usage where Gateway API resources are not yet adopted, helping teams plan migration. | warning | 2 |
 | NET014 | HTTPRoute Missing or Unaccepted Parent | Detects HTTPRoutes with no parentRefs or routes not Accepted by any parent Gateway. | critical | 3 |
 | NET015 | Gateways Without Attached HTTPRoutes | Detects Gateway resources that currently have no HTTPRoutes attached via parentRefs. | warning | 2 |
+| NET016 | Gateway API Readiness Conditions | Detects GatewayClass/Gateway resources that are not Accepted or Programmed and may not route traffic. | critical | 3 |
+| NET017 | Gateway TLS Secret and Cross-Namespace ReferenceGrant Validation | Validates Gateway listener certificateRefs and required ReferenceGrants for cross-namespace Secret usage. | critical | 3 |
 | PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours. | Medium | 2 |
 
 ### Nodes
@@ -112,7 +114,7 @@ Each table includes:
 | ------- | ------------------------------ | ----------------------------------------------------------------------------------- | -------- | ------ |
 | PROM005 | Overcommitted CPU (Prometheus) | Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours. | Info     | 2      |
 | PROM006 | Node Sizing Insights (Prometheus) | Uses Prometheus p95 CPU and memory usage to identify underutilized or saturated nodes and suggest sizing actions. | Info     | 3      |
-| PROM007 | Pod Sizing Insights (Prometheus) | Uses 24h p95 per-container CPU/memory usage to recommend right-sized requests and memory limits. CPU limit recommendation defaults to `none`. | Info     | 4      |
+| PROM007 | Pod Sizing Insights (Prometheus) | Uses 7-day p95 per-container CPU/memory usage to recommend right-sized requests and memory limits. CPU limit recommendation defaults to `none`. | Info     | 4      |
 
 ### Namespaces
 
@@ -191,6 +193,10 @@ Each table includes:
 | WRK007 | Missing Health Probes                          | No liveness or readiness probes; risks silent failures.                   | Medium   | 2      |
 | WRK008 | Deployment Selector Without Matching Pods      | Selectors that don’t match any pods, leading to 0 replicas.               | Medium   | 2      |
 | WRK009 | Deployment, Pod, and Service Label Consistency | Mismatched labels between Deployments, Pods, or Services; breaks routing. | Medium   | 3      |
+| WRK010 | HPA Metrics Without Matching Resource Requests | HPAs scale on CPU/memory while target containers miss matching requests.   | Warning  | 3      |
+| WRK011 | VPA Update Mode and Declarative Resource Conflict Risk | Flags VPA Auto/Recreate targets likely to conflict with declarative ownership or HPA. | Warning | 2 |
+| WRK012 | PodDisruptionBudget Adequacy for Replicated Workloads | Detects missing/overly strict/overly permissive PDB settings on 2+ replica workloads. | Warning | 2 |
+| WRK013 | CrashLoopBackOff and OOMKilled Guardrail | Highlights unstable pods to guard against unsafe right-sizing decisions.    | Critical | 3      |
 
 
 ## Usage Notes

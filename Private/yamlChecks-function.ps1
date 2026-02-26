@@ -793,6 +793,8 @@ function Invoke-yamlChecks {
   </div>
 "@
         }
+
+        $heroHtml += "</div>"
         
         foreach ($section in $sectionGroups.Keys) {
             $sectionHtml = ""
@@ -997,16 +999,45 @@ function Invoke-yamlChecks {
                 $tableContent = if ($check.Items) {
                     $validProps = Get-ValidProperties -Items $check.Items -CheckID $check.ID
                     if ($validProps) {
+                        if ($check.ID -eq "PROM007" -and $validProps -contains "Sizing Profile") {
+                            $orderedProps = [System.Collections.Generic.List[string]]::new()
+                            foreach ($p in ($validProps | Where-Object { $_ -ne "Sizing Profile" })) {
+                                [void]$orderedProps.Add([string]$p)
+                            }
+                            $insertIndex = [Math]::Min(3, $orderedProps.Count)
+                            $orderedProps.Insert($insertIndex, "Sizing Profile")
+                            $validProps = @($orderedProps)
+                        }
+
+                        $formatProm007MemoryValue = {
+                            param($rawValue)
+                            $text = "$rawValue".Trim()
+                            if (-not $text -or $text -in @("N/A", "none")) {
+                                return $text
+                            }
+                            [double]$num = 0
+                            if ([double]::TryParse($text, [ref]$num)) {
+                                if ($num -ge 1024) {
+                                    $gi = [math]::Round(($num / 1024), 2)
+                                    return "$gi Gi"
+                                }
+                                $mi = [math]::Round($num, 2)
+                                return "$mi Mi"
+                            }
+                            return $text
+                        }
+
                         # Manually build the table HTML
                         $tableHtml = "<table>`n<tr>"
                         # Add headers
                         foreach ($prop in $validProps) {
-                            if ($check.ID -eq "PROM007" -and $prop -eq "Sizing Profile") {
-                                $tableHtml += "<th class='kb-hidden-col'>$prop</th>"
+                            $displayProp = if ($check.ID -eq "PROM007") {
+                                "$prop" -replace '\s*\((m|Mi)\)\s*$', ''
                             }
                             else {
-                                $tableHtml += "<th>$prop</th>"
+                                $prop
                             }
+                            $tableHtml += "<th>$displayProp</th>"
                         }
                         $tableHtml += "</tr>`n"
                         # Add rows
@@ -1024,19 +1055,40 @@ function Invoke-yamlChecks {
                                 # For status columns, assume the value is already HTML and don't escape it
                                 if ($prop -in @("CPU Status", "Mem Status", "Disk Status")) {
                                     if ($check.ID -eq "PROM007" -and $prop -eq "Sizing Profile") {
-                                        $tableHtml += "<td class='kb-hidden-col'>$value</td>"
+                                        $profileText = "$value".ToLower()
+                                        $profileClass = ($profileText -replace '[^a-z0-9-]', '')
+                                        $profileDisplay = (Get-Culture).TextInfo.ToTitleCase($profileText)
+                                        $tableHtml += "<td><span class='profile-pill profile-$profileClass'>$profileDisplay</span></td>"
                                     }
                                     else {
                                         $tableHtml += "<td>$value</td>"
                                     }
                                 }
                                 else {
+                                    if ($check.ID -eq "PROM007") {
+                                        if ($prop -match '^CPU .*\(m\)$') {
+                                            $textValue = "$value".Trim()
+                                            if ($textValue -and $textValue -notin @("N/A", "none")) {
+                                                [double]$cpuNum = 0
+                                                if ([double]::TryParse($textValue, [ref]$cpuNum)) {
+                                                    $value = "$([math]::Round($cpuNum, 2)) m"
+                                                }
+                                            }
+                                        }
+                                        elseif ($prop -match '^Memory .*\(Mi\)$') {
+                                            $value = & $formatProm007MemoryValue $value
+                                        }
+                                    }
+
                                     # Escape other columns to prevent XSS
                                     $escapedValue = $value -replace '<', '<' `
                                         -replace '>', '>' `
                                         -replace '"', '"'
                                     if ($check.ID -eq "PROM007" -and $prop -eq "Sizing Profile") {
-                                        $tableHtml += "<td class='kb-hidden-col'>$escapedValue</td>"
+                                        $profileText = "$escapedValue".ToLower()
+                                        $profileClass = ($profileText -replace '[^a-z0-9-]', '')
+                                        $profileDisplay = (Get-Culture).TextInfo.ToTitleCase($profileText)
+                                        $tableHtml += "<td><span class='profile-pill profile-$profileClass'>$profileDisplay</span></td>"
                                     }
                                     else {
                                         $tableHtml += "<td>$escapedValue</td>"
@@ -1124,7 +1176,8 @@ $summary
             IssueHero     = $heroHtml
             HtmlBySection = $collapsibleSectionMap
             StatusList    = $checkStatusList
-            ScoreList     = $checkScoreList 
+            ScoreList     = $checkScoreList
+            AllResults    = $allResults
         }
     }
     

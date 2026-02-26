@@ -5,40 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased] - 2025-09-26
+## [0.0.24] - 2026-02-26
 
 ### Enhanced
 
-* **Comprehensive AKS Check Improvements**: Significantly enhanced all Azure Kubernetes Service (AKS) best practice checks with more actionable recommendations and detailed failure messages:
-
-  * **Enhanced Recommendations**: All 37 AKS checks now include specific Azure CLI commands, portal navigation guidance, and implementation best practices:
-    * Security checks: Added detailed CLI commands for private clusters, Azure Policy deployment, Defender for Containers configuration, and workload identity setup
-    * Identity & Access checks: Enhanced with specific managed identity creation commands, RBAC configuration steps, and Azure AD integration guidance
-    * Networking checks: Improved with authorized IP range configuration, network policy implementation, and CNI migration guidance
-    * Resource Management checks: Added cost analysis setup, cluster autoscaler configuration, and VPA implementation steps
-    * Best Practices checks: Enhanced with policy enforcement commands, node pool configuration, and upgrade channel setup
-    * Disaster Recovery checks: Improved with availability zone deployment and SLA configuration guidance
-    * Monitoring & Logging checks: Added comprehensive observability setup with specific workspace configuration steps
-
-  * **Enhanced Failure Messages**: All AKS check failure messages now provide detailed context about risks and business impact:
-    * Security risks: Detailed explanations of attack vectors, compliance violations, and vulnerability exposure
-    * Performance implications: Clear descriptions of resource inefficiencies, cost impacts, and operational overhead
-    * Availability concerns: Specific details about single points of failure, maintenance impacts, and SLA violations
-    * Best practice violations: Context about why configurations matter and consequences of non-compliance
+* **Comprehensive AKS check improvements and message quality**
+  * Improved all AKS best-practice checks with more actionable recommendations (Azure CLI snippets, implementation guidance, and remediation context).
+  * Expanded AKS failure messages with clearer risk/impact context (security, availability, performance, and compliance implications).
 
 ### Technical Details
 
-* **Files Modified**: 
-  * `Private/aks/checks/SecurityChecks.ps1` - 8 security checks enhanced
-  * `Private/aks/checks/IdentityAndAccessChecks.ps1` - 7 identity checks enhanced  
-  * `Private/aks/checks/NetworkingChecks.ps1` - 4 networking checks enhanced
-  * `Private/aks/checks/ResourceManagementChecks.ps1` - 3 resource management checks enhanced
-  * `Private/aks/checks/BestPracticesChecks.ps1` - 14 best practice checks enhanced
-  * `Private/aks/checks/DisasterRecoveryChecks.ps1` - 2 disaster recovery checks enhanced
-  * `Private/aks/checks/MonitoringLoggingChecks.ps1` - 2 monitoring checks enhanced
-
-
-## [0.0.24] - 2026-02-26
+* **AKS check files updated**:
+  * Private/aks/checks/SecurityChecks.ps1
+  * Private/aks/checks/IdentityAndAccessChecks.ps1
+  * Private/aks/checks/NetworkingChecks.ps1
+  * Private/aks/checks/ResourceManagementChecks.ps1
+  * Private/aks/checks/BestPracticesChecks.ps1
+  * Private/aks/checks/DisasterRecoveryChecks.ps1
+  * Private/aks/checks/MonitoringLoggingChecks.ps1
 
 ### Added
 
@@ -125,6 +109,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * Removed `Format-Table` from `WRK001` script output so HTML/JSON render proper columns instead of PowerShell formatting metadata fields.
 * **Recommendation URL rendering stability**
   * Fixed a null-array indexing error in recommendation docs-link display-name parsing when a URL has an empty/short path.
+* **PROM007 memory unit conversion**
+  * Fixed decimal memory quantity conversion (`K/M/G/T/P/E`) to MiB for current request/limit display, correcting values like `1500M` from `1.5 Mi` to ~`1430.5 Mi`.
 * **AKS cached object reuse error**
   * Fixed duplicate-member error by making AKS `KubeData` note-property assignment idempotent (`Add-Member -Force`) during multi-output runs.
 * **Secret reference false positives (`SEC016`)**
