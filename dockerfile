@@ -1,8 +1,14 @@
 # Use a known-valid PowerShell base tag.
 ARG POWERSHELL_IMAGE=mcr.microsoft.com/powershell:7.5-debian-12
+ARG KUBECTL_VERSION=v1.35.1
+ARG KUBELOGIN_VERSION=v0.2.15
 
 # Build stage
-FROM --platform=$BUILDPLATFORM ${POWERSHELL_IMAGE} AS builder
+FROM --platform=$TARGETPLATFORM ${POWERSHELL_IMAGE} AS builder
+
+ARG TARGETARCH
+ARG KUBECTL_VERSION
+ARG KUBELOGIN_VERSION
 
 # Install required utilities for file operations and dependency installation
 RUN apt-get update && \
@@ -14,15 +20,15 @@ RUN apt-get update && \
 # Create app directory
 WORKDIR /app
 
-# Install kubectl and kubelogin
-RUN curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+# Install kubectl and kubelogin (arch-aware for multi-arch builds)
+RUN curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
     # Install kubelogin
-    curl -LO "https://github.com/Azure/kubelogin/releases/download/v0.2.7/kubelogin-linux-amd64.zip" && \
-    unzip kubelogin-linux-amd64.zip && \
-    install -o root -g root -m 0755 bin/linux_amd64/kubelogin /usr/local/bin/kubelogin && \
+    curl -LO "https://github.com/Azure/kubelogin/releases/download/${KUBELOGIN_VERSION}/kubelogin-linux-${TARGETARCH}.zip" && \
+    unzip "kubelogin-linux-${TARGETARCH}.zip" && \
+    install -o root -g root -m 0755 "bin/linux_${TARGETARCH}/kubelogin" /usr/local/bin/kubelogin && \
     # Clean up
-    rm -f kubectl kubelogin-linux-amd64.zip && \
+    rm -f "kubectl" "kubelogin-linux-${TARGETARCH}.zip" && \
     rm -rf bin && \
     apt-get remove -y curl unzip && \
     apt-get autoremove -y && \
@@ -49,7 +55,7 @@ COPY --chown=10001:10001 Public /usr/local/share/powershell/Modules/KubeBuddy/Pu
 COPY --chown=10001:10001 run.ps1 /app/run.ps1
 
 # Final image
-FROM --platform=$BUILDPLATFORM ${POWERSHELL_IMAGE}
+FROM --platform=$TARGETPLATFORM ${POWERSHELL_IMAGE}
 
 RUN apt-get update && \
     apt-get upgrade -y && \

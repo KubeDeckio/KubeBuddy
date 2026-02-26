@@ -9,6 +9,8 @@ on:
 env:
   IMAGE_NAME: ghcr.io/kubedeckio/kubebuddy
   POWERSHELL_IMAGE: mcr.microsoft.com/powershell:7.5-debian-12
+  KUBECTL_VERSION: v1.35.1
+  KUBELOGIN_VERSION: v0.2.15
 
 jobs:
   docker-build:
@@ -56,6 +58,8 @@ jobs:
             -f dockerfile \
             --platform linux/amd64,linux/arm64 \
             --build-arg POWERSHELL_IMAGE=${{ env.POWERSHELL_IMAGE }} \
+            --build-arg KUBECTL_VERSION=${{ env.KUBECTL_VERSION }} \
+            --build-arg KUBELOGIN_VERSION=${{ env.KUBELOGIN_VERSION }} \
             --tag $IMAGE_NAME:${{ steps.meta.outputs.TAG }} \
             --push \
             .
