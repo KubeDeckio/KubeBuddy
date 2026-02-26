@@ -87,6 +87,9 @@ Each table includes:
 | NET010 | Network Policy Overly Permissive IPBlock | Flags NetworkPolicies that include '0.0.0.0/0' in their 'ipBlock' rules, effectively allowing traffic to/from all IPs for that rule, which can be a security risk. | high | 5 |
 | NET011 | Network Policy Missing PolicyTypes | Detects NetworkPolicies that do not explicitly define 'policyTypes'. While defaulting to Ingress in some older versions, explicit definition improves clarity and future compatibility across different CNI plugins and Kubernetes versions. | low | 1 |
 | NET012 | Pod HostNetwork Usage | Identifies pods configured to use 'hostNetwork: true', which allows direct access to the node's network interfaces, bypassing Kubernetes networking. | high | 4 |
+| NET013 | Ingress Present Without Gateway API Adoption | Detects Ingress usage where Gateway API resources are not yet adopted, helping teams plan migration. | warning | 2 |
+| NET014 | HTTPRoute Missing or Unaccepted Parent | Detects HTTPRoutes with no parentRefs or routes not Accepted by any parent Gateway. | critical | 3 |
+| NET015 | Gateways Without Attached HTTPRoutes | Detects Gateway resources that currently have no HTTPRoutes attached via parentRefs. | warning | 2 |
 | PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours. | Medium | 2 |
 
 ### Nodes
@@ -108,6 +111,8 @@ Each table includes:
 | ID      | Name                           | Description                                                                         | Severity | Weight |
 | ------- | ------------------------------ | ----------------------------------------------------------------------------------- | -------- | ------ |
 | PROM005 | Overcommitted CPU (Prometheus) | Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours. | Info     | 2      |
+| PROM006 | Node Sizing Insights (Prometheus) | Uses Prometheus p95 CPU and memory usage to identify underutilized or saturated nodes and suggest sizing actions. | Info     | 3      |
+| PROM007 | Pod Sizing Insights (Prometheus) | Uses 24h p95 per-container CPU/memory usage to recommend right-sized requests and memory limits. CPU limit recommendation defaults to `none`. | Info     | 4      |
 
 ### Namespaces
 

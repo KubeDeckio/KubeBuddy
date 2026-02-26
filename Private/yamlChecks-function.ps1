@@ -129,33 +129,53 @@ function Invoke-yamlChecks {
         Get-KubeBuddyThresholds
     }
 
-    # Scan for YAML files
-    try {
-        if (-not (Test-Path $checksFolder)) {
-            Write-Host "⚠️ Checks folder $checksFolder does not exist." -ForegroundColor Yellow
-            if ($Html) { return "<p><strong>⚠️ Checks folder does not exist.</strong></p>" }
+    # Reuse computed YAML checks when generating multiple report formats in one run.
+    $skipExecution = $false
+    $cachedResults = $null
+    $canCache = ($KubeData -and (-not $Namespace) -and (-not $CheckIDs -or $CheckIDs.Count -eq 0))
+    if ($canCache) {
+        if ($KubeData -is [hashtable] -and $KubeData.ContainsKey("__YamlChecksCache")) {
+            $cachedResults = $KubeData["__YamlChecksCache"]
+        }
+        elseif ($KubeData.PSObject.Properties.Name -contains "__YamlChecksCache") {
+            $cachedResults = $KubeData.__YamlChecksCache
+        }
+
+        if ($cachedResults) {
+            $allResults = @($cachedResults)
+            $skipExecution = $true
+            Write-Host "`n🤖 Reusing cached YAML check results for this run." -ForegroundColor Cyan
+        }
+    }
+
+    if (-not $skipExecution) {
+        # Scan for YAML files
+        try {
+            if (-not (Test-Path $checksFolder)) {
+                Write-Host "⚠️ Checks folder $checksFolder does not exist." -ForegroundColor Yellow
+                if ($Html) { return "<p><strong>⚠️ Checks folder does not exist.</strong></p>" }
+                if ($Json) { return @{ Total = 0; Items = @() } }
+                return
+            }
+            $checkFiles = Get-ChildItem -Path $checksFolder -Filter "*.yaml" -ErrorAction Stop
+        }
+        catch {
+            Write-Host "❌ Error scanning ${checksFolder}: $_" -ForegroundColor Red
+            if ($Html) { return "<p><strong>❌ Error scanning checks folder.</strong></p>" }
+            if ($Json) { return @{ Error = "Error scanning checks folder: $_" } }
+            Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
+            return
+        }
+
+        if (-not $checkFiles) {
+            Write-Host "✅ No custom check YAML files found." -ForegroundColor Green
+            if ($Html) { return "<p><strong>✅ No custom checks found.</strong></p>" }
             if ($Json) { return @{ Total = 0; Items = @() } }
             return
         }
-        $checkFiles = Get-ChildItem -Path $checksFolder -Filter "*.yaml" -ErrorAction Stop
-    }
-    catch {
-        Write-Host "❌ Error scanning ${checksFolder}: $_" -ForegroundColor Red
-        if ($Html) { return "<p><strong>❌ Error scanning checks folder.</strong></p>" }
-        if ($Json) { return @{ Error = "Error scanning checks folder: $_" } }
-        Read-Host "🤖 Error. Check logs or output above. Press Enter to continue"
-        return
-    }
 
-    if (-not $checkFiles) {
-        Write-Host "✅ No custom check YAML files found." -ForegroundColor Green
-        if ($Html) { return "<p><strong>✅ No custom checks found.</strong></p>" }
-        if ($Json) { return @{ Total = 0; Items = @() } }
-        return
-    }
-
-    # Initialize thread-safe collection for results
-    $allResults = [System.Collections.Concurrent.ConcurrentBag[PSObject]]::new()
+        # Initialize thread-safe collection for results
+        $allResults = [System.Collections.Concurrent.ConcurrentBag[PSObject]]::new()
 
     # Process checks in parallel and collect results
     $parallelResults = $checkFiles | ForEach-Object -Parallel {
@@ -178,6 +198,19 @@ function Invoke-yamlChecks {
                 Name  = $_.Name
                 Error = $errorMessage
             }
+        }
+
+        $env:KUBEBUDDY_OUTPUT_MODE = if ($using:Html) {
+            "html"
+        }
+        elseif ($using:Json) {
+            "json"
+        }
+        elseif ($using:Text) {
+            "text"
+        }
+        else {
+            "cli"
         }
 
         function Evaluate-PrometheusCheckResult {
@@ -348,6 +381,10 @@ function Invoke-yamlChecks {
                         }
                         elseif ($scriptResult -is [array] -and $scriptResult[0]?.UsedPrometheus -ne $null) {
                             $checkResult.UsedPrometheus = $scriptResult[0].UsedPrometheus
+                        }
+
+                        if ($scriptResult -is [hashtable] -and $scriptResult.ContainsKey("SummaryMessage")) {
+                            $checkResult.SummaryMessage = $scriptResult.SummaryMessage
                         }                                            
 
                         if ($checkResult.Total -eq 0) {
@@ -381,6 +418,9 @@ function Invoke-yamlChecks {
                         $url = if ($check.Prometheus.Url) { $check.Prometheus.Url } else { $using:PrometheusUrl }
                         $headers = $using:PrometheusHeaders
                         $thresholds = Get-KubeBuddyThresholds -Silent
+                        $promTimeoutSec = [int]($using:thresholds.prometheus_timeout_seconds ?? 60)
+                        $promRetryCount = [int]($using:thresholds.prometheus_query_retries ?? 2)
+                        $promRetryDelaySec = [int]($using:thresholds.prometheus_retry_delay_seconds ?? 2)
 
                         # lookup expected threshold:
                         # if the YAML Expected is a string key in $thresholds, use that value,
@@ -423,7 +463,10 @@ function Invoke-yamlChecks {
                             -UseRange `
                             -StartTime $startTime `
                             -EndTime   $endTime `
-                            -Step      $check.Prometheus.Range.Step
+                            -Step      $check.Prometheus.Range.Step `
+                            -TimeoutSec $promTimeoutSec `
+                            -RetryCount $promRetryCount `
+                            -RetryDelaySec $promRetryDelaySec
                 
                         $items = @()
                         foreach ($r in $result.Results) {
@@ -658,8 +701,25 @@ function Invoke-yamlChecks {
         }
     }
 
-    # Convert ConcurrentBag to array and sort by Check ID
-    $allResults = $allResults.ToArray() | Sort-Object -Property ID
+        # Convert ConcurrentBag to array and sort by Check ID
+        $allResults = $allResults.ToArray() | Sort-Object -Property ID
+
+        # Cache computed results for subsequent output modes in the same run.
+        if ($canCache) {
+            if ($KubeData -is [hashtable]) {
+                $KubeData["__YamlChecksCache"] = $allResults
+            }
+            elseif ($KubeData.PSObject.Properties.Name -contains "__YamlChecksCache") {
+                $KubeData.__YamlChecksCache = $allResults
+            }
+            else {
+                try {
+                    $KubeData | Add-Member -NotePropertyName "__YamlChecksCache" -NotePropertyValue $allResults -Force
+                }
+                catch {}
+            }
+        }
+    }
 
     # Hero metric counters (one point per failing check)
     $panels = @{
@@ -674,7 +734,7 @@ function Invoke-yamlChecks {
         $sectionGroups = @{}
         $collapsibleSectionMap = @{}
         $alwaysCollapsibleCheckIDs = @("NODE001", "NODE002")
-        $alwaysShowRecommendationsCheckIDs = @()  # Define checks that should always show recommendations, even with no issues
+        $alwaysShowRecommendationsCheckIDs = @("PROM006", "PROM007")  # Define checks that should always show recommendations, even with no issues
 
         foreach ($result in $allResults) {
             $section = if ($result.Section) { $result.Section } elseif ($result.Category) { $result.Category } else { "Other" }
@@ -775,6 +835,9 @@ function Invoke-yamlChecks {
                 else {
                     "<p>✅ All $resourceKindPlural are healthy.</p>"
                 }
+                if ($check.SummaryMessage) {
+                    $summary += "<p>📅 $($check.SummaryMessage)</p>"
+                }
 
                 # Recommendation HTML: Handle both hashtable and plain string recommendations
                 $recommendationHtml = if ($check.Recommendation) {
@@ -786,8 +849,16 @@ function Invoke-yamlChecks {
                             $u = [uri]$check.URL
                             # break path into segments, ignore empty ones
                             $seg = $u.AbsolutePath.Trim('/').Split('/') | Where-Object { $_ }
-                            # pick last meaningful segment (fallback to whole path if somehow empty)
-                            $last = if ($seg[-1]) { $seg[-1] } else { ($u.AbsolutePath.Trim('/')) }
+                            # pick last meaningful segment (safe fallback when path is empty)
+                            if ($seg -and $seg.Count -gt 0) {
+                                $last = $seg[$seg.Count - 1]
+                            }
+                            else {
+                                $last = $u.AbsolutePath.Trim('/')
+                            }
+                            if (-not $last) {
+                                $last = $u.Host
+                            }
                             # drop extension (.html, .md, etc)
                             $base = $last -replace '\.[^.]+$', ''
                             # replace hyphens and percent-encoding
@@ -930,24 +1001,46 @@ function Invoke-yamlChecks {
                         $tableHtml = "<table>`n<tr>"
                         # Add headers
                         foreach ($prop in $validProps) {
-                            $tableHtml += "<th>$prop</th>"
+                            if ($check.ID -eq "PROM007" -and $prop -eq "Sizing Profile") {
+                                $tableHtml += "<th class='kb-hidden-col'>$prop</th>"
+                            }
+                            else {
+                                $tableHtml += "<th>$prop</th>"
+                            }
                         }
                         $tableHtml += "</tr>`n"
                         # Add rows
                         foreach ($item in $check.Items) {
-                            $tableHtml += "<tr>"
+                            $rowProfileAttr = ""
+                            if ($check.ID -eq "PROM007") {
+                                $rowProfile = "$($item.'Sizing Profile')".ToLower()
+                                if ($rowProfile) {
+                                    $rowProfileAttr = " data-sizing-profile='$rowProfile'"
+                                }
+                            }
+                            $tableHtml += "<tr$rowProfileAttr>"
                             foreach ($prop in $validProps) {
                                 $value = $item.$prop
                                 # For status columns, assume the value is already HTML and don't escape it
                                 if ($prop -in @("CPU Status", "Mem Status", "Disk Status")) {
-                                    $tableHtml += "<td>$value</td>"
+                                    if ($check.ID -eq "PROM007" -and $prop -eq "Sizing Profile") {
+                                        $tableHtml += "<td class='kb-hidden-col'>$value</td>"
+                                    }
+                                    else {
+                                        $tableHtml += "<td>$value</td>"
+                                    }
                                 }
                                 else {
                                     # Escape other columns to prevent XSS
                                     $escapedValue = $value -replace '<', '<' `
                                         -replace '>', '>' `
                                         -replace '"', '"'
-                                    $tableHtml += "<td>$escapedValue</td>"
+                                    if ($check.ID -eq "PROM007" -and $prop -eq "Sizing Profile") {
+                                        $tableHtml += "<td class='kb-hidden-col'>$escapedValue</td>"
+                                    }
+                                    else {
+                                        $tableHtml += "<td>$escapedValue</td>"
+                                    }
                                 }
                             }
                             $tableHtml += "</tr>`n"

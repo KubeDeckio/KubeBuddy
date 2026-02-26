@@ -111,9 +111,6 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
     $aksRating = $aksBestPractices.Rating
     $aksReportData = $aksBestPractices.Data
 
-    $collapsibleAKSHtml = ConvertToCollapsible -Id "aksSummary" -defaultText "Show Findings" -content $aksReportData
-
-
     $ratingColorClass = switch ($aksRating) {
       "A" { "normal" }
       "B" { "warning" }
@@ -157,11 +154,10 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 
     $aksHealthCheck = @"
 <div class="container">
-<h1 id="aks">AKS Best Practices</h1>
 $heroRatingHtml
 <h2 id="aksFindings">AKS Best Practices Results</h2>
 <div class="table-container">
-  $collapsibleAKSHtml
+  $aksReportData
 </div>
 </div>
 "@

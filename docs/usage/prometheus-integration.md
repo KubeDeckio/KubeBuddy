@@ -17,6 +17,8 @@ By pulling time-series data you can detect:
 - Node/pod CPU & memory usage  
 - Pod restart patterns  
 - Disk, network and capacity pressure  
+- Node sizing opportunities (underutilized vs saturated nodes using p95 trends)
+- Pod/container sizing opportunities (p95-based request and memory limit recommendations)
 
 ## ✅ Supported Prometheus Modes
 
@@ -126,6 +128,78 @@ Invoke-KubeBuddy `
   -PrometheusMode azure `
   -OutputPath "/reports/cluster.json"
 ```
+
+## 📐 Node Sizing Insights
+
+When Prometheus integration is enabled, KubeBuddy runs `PROM006` and classifies each node using 24h p95 CPU/memory usage:
+
+- `Underutilized`: candidate for smaller SKU or scale-in
+- `Right-sized`: keep current sizing
+- `Saturated`: candidate for larger SKU or scale-out
+
+Minimum data rule:
+- KubeBuddy requires at least **7 days of Prometheus history** before emitting node sizing recommendations.
+- If history is below 7 days, reports include an explicit **Insufficient Prometheus history** row instead of recommendations.
+
+The check surfaces in the **Nodes** tab and in JSON/text output like any other check.
+
+### Optional Threshold Overrides
+
+You can tune the classification in `~/.kube/kubebuddy-config.yaml`:
+
+```yaml
+thresholds:
+  node_sizing_downsize_cpu_p95: 35
+  node_sizing_downsize_mem_p95: 40
+  node_sizing_upsize_cpu_p95: 80
+  node_sizing_upsize_mem_p95: 85
+```
+
+## 📦 Pod Sizing Insights
+
+When Prometheus integration is enabled, KubeBuddy also runs `PROM007` for per-container recommendations using 24h p95 usage:
+
+- CPU request recommendation (millicores)
+- Memory request recommendation (MiB)
+- Memory limit recommendation (MiB)
+- CPU limit recommendation defaults to `none`
+
+Minimum data rule:
+- KubeBuddy requires at least **7 days of Prometheus history** before emitting pod sizing recommendations.
+- If history is below 7 days, reports include an explicit **Insufficient Prometheus history** row instead of recommendations.
+
+### Why CPU limit defaults to `none`
+
+By default, KubeBuddy recommends no CPU limit because:
+
+- CPU is compressible; requests already control fair scheduling.
+- Hard CPU limits can trigger CFS throttling and add latency jitter.
+- In many production workloads, setting requests (without limits) gives better tail latency.
+
+Set CPU limits only when strict tenant caps are required.
+
+### Optional Pod Sizing Threshold Overrides
+
+```yaml
+thresholds:
+  pod_sizing_profile: balanced   # conservative|balanced|aggressive
+  pod_sizing_compare_profiles: false  # if true, HTML/JSON include all 3 profiles
+  pod_sizing_target_cpu_utilization: 65
+  pod_sizing_target_mem_utilization: 75
+  pod_sizing_cpu_request_floor_mcores: 50
+  pod_sizing_mem_request_floor_mib: 128
+  pod_sizing_mem_limit_buffer_percent: 20
+```
+
+Profile behavior:
+- `conservative`: higher requests/floors (more headroom)
+- `balanced`: default behavior
+- `aggressive`: lower requests/floors (higher packing efficiency)
+
+Comparison mode:
+- Set `pod_sizing_compare_profiles: true` to emit all three profile results in JSON and HTML.
+- HTML report includes a profile selector on `PROM007` findings so you can switch between profiles.
+- Text/CLI remain focused on the single active profile.
 
 ## 🐳 Docker Usage with Prometheus
 

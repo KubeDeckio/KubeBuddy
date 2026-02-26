@@ -40,6 +40,10 @@ The following metrics can be customized:
 - **Pod Age**: Age (in days) of pods that may indicate stale or problematic deployments.
 - **Job Status**: Duration (in hours) for stuck or failed jobs.
 - **Event Counts**: Number of error or warning events that trigger alerts.
+- **Node Sizing Insights**: p95 CPU/memory bands used by `PROM006` to classify nodes as underutilized or saturated.
+- **Pod Sizing Insights**: p95 CPU/memory driven tuning for container requests and memory limits (`PROM007`), including CPU-limit policy defaults.
+- **Pod Sizing Profile**: choose `conservative`, `balanced`, or `aggressive` to shift pod sizing recommendation targets/floors in one setting.
+- **Pod Sizing Profile Comparison**: enable `pod_sizing_compare_profiles` to emit all three profile recommendations in HTML/JSON.
 
 ### Default Behavior
 If the `thresholds` section is missing or incomplete, KubeBuddy uses built-in defaults, which are designed for general-purpose Kubernetes clusters. These defaults are conservative to avoid false positives but may need adjustment for specific workloads (e.g., batch processing, machine learning, etc.).
@@ -61,6 +65,17 @@ thresholds:
   event_errors_critical: 20
   event_warnings_warning: 50
   event_warnings_critical: 100
+  node_sizing_downsize_cpu_p95: 35
+  node_sizing_downsize_mem_p95: 40
+  node_sizing_upsize_cpu_p95: 80
+  node_sizing_upsize_mem_p95: 85
+  pod_sizing_profile: balanced
+  pod_sizing_compare_profiles: false
+  pod_sizing_target_cpu_utilization: 65
+  pod_sizing_target_mem_utilization: 75
+  pod_sizing_cpu_request_floor_mcores: 50
+  pod_sizing_mem_request_floor_mib: 128
+  pod_sizing_mem_limit_buffer_percent: 20
 ```
 
 ### Use Case
@@ -98,6 +113,14 @@ Excluding namespaces reduces noise in reports and focuses KubeBuddy on namespace
 
 ### Integration with -ExcludeNamespaces
 The `-ExcludeNamespaces` switch in KubeBuddy’s PowerShell commands (`Invoke-KubeBuddy -ExcludeNamespaces`) automatically applies the excluded_namespaces list. If the list is not defined, KubeBuddy uses a default set of namespaces.
+
+You can also extend this list at runtime with:
+
+```powershell
+Invoke-KubeBuddy -ExcludeNamespaces -AdditionalExcludedNamespaces "azure-monitor","istio-system"
+```
+
+Runtime namespaces are merged with your configured `excluded_namespaces` list for that invocation.
 
 ### Configuration Example
 
@@ -225,6 +248,17 @@ thresholds:
   event_errors_critical: 15
   event_warnings_warning: 20
   event_warnings_critical: 50
+  node_sizing_downsize_cpu_p95: 30
+  node_sizing_downsize_mem_p95: 35
+  node_sizing_upsize_cpu_p95: 80
+  node_sizing_upsize_mem_p95: 85
+  pod_sizing_profile: balanced
+  pod_sizing_compare_profiles: false
+  pod_sizing_target_cpu_utilization: 65
+  pod_sizing_target_mem_utilization: 75
+  pod_sizing_cpu_request_floor_mcores: 50
+  pod_sizing_mem_request_floor_mib: 128
+  pod_sizing_mem_limit_buffer_percent: 20
 
 excluded_namespaces:
   - kube-system

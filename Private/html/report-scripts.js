@@ -561,6 +561,141 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function initPodSizingProfileSelector() {
+        let details = document.querySelector('details#PROM007');
+        if (!details) {
+            const fallback = document.getElementById('PROM007');
+            if (fallback && fallback.tagName && fallback.tagName.toLowerCase() === 'details') {
+                details = fallback;
+            }
+        }
+        if (!details) return;
+        const table = details.querySelector('table');
+        if (!table) return;
+
+        const rows = Array.from(table.querySelectorAll('tr')).slice(1);
+        if (!rows.length) return;
+        const headerCells = Array.from(table.querySelectorAll('tr:first-child th'));
+        const profileColIndex = headerCells.findIndex(th => th.textContent.trim().toLowerCase() === 'sizing profile');
+
+        rows.forEach(r => {
+            const explicitProfile = (r.getAttribute('data-sizing-profile') || '').trim().toLowerCase();
+            if (explicitProfile) {
+                r.dataset.sizingProfile = explicitProfile;
+            } else if (profileColIndex >= 0) {
+                r.dataset.sizingProfile = (r.cells[profileColIndex]?.textContent || '').trim().toLowerCase();
+            }
+        });
+
+        const profiles = Array.from(new Set(
+            rows.map(r => (r.dataset.sizingProfile || '').trim().toLowerCase()).filter(Boolean)
+        ));
+
+        const namespaceColIndex = headerCells.findIndex(th => th.textContent.trim().toLowerCase() === 'namespace');
+        rows.forEach(r => {
+            if (namespaceColIndex >= 0) {
+                r.dataset.namespaceValue = (r.cells[namespaceColIndex]?.textContent || '').trim().toLowerCase();
+            } else {
+                r.dataset.namespaceValue = '';
+            }
+        });
+        const namespaces = Array.from(new Set(
+            rows.map(r => (r.dataset.namespaceValue || '').trim().toLowerCase()).filter(Boolean)
+        ));
+
+        rows.forEach(r => {
+            const p = (r.dataset.sizingProfile || '').trim().toLowerCase();
+            r.dataset.sizingProfile = p;
+            r.dataset.profileHidden = 'false';
+            r.dataset.namespaceHidden = 'false';
+        });
+
+        const controls = document.createElement('div');
+        controls.className = 'profile-filter';
+        controls.style.margin = '0 0 10px 0';
+
+        const profileLabel = document.createElement('span');
+        profileLabel.className = 'filter-label';
+        profileLabel.textContent = 'Profile: ';
+        profileLabel.style.marginRight = '8px';
+
+        const profileSelect = document.createElement('select');
+        profileSelect.className = 'filter-select';
+        const profileOptions = (profiles.length > 1) ? ['all', ...profiles] : profiles;
+        profileOptions.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p === 'all' ? 'All Profiles' : (p.charAt(0).toUpperCase() + p.slice(1));
+            profileSelect.appendChild(opt);
+        });
+
+        if (profiles.length > 1) {
+            if (profiles.includes('balanced')) {
+                profileSelect.value = 'balanced';
+            } else {
+                profileSelect.value = 'all';
+            }
+        } else {
+            profileSelect.value = profiles[0] || '';
+            profileSelect.disabled = true;
+        }
+
+        const namespaceLabel = document.createElement('span');
+        namespaceLabel.className = 'filter-label';
+        namespaceLabel.textContent = 'Namespace: ';
+        namespaceLabel.style.marginRight = '8px';
+
+        const namespaceSelect = document.createElement('select');
+        namespaceSelect.className = 'filter-select';
+        ['all', ...namespaces].forEach(ns => {
+            const opt = document.createElement('option');
+            opt.value = ns;
+            opt.textContent = ns === 'all' ? 'All Namespaces' : ns;
+            namespaceSelect.appendChild(opt);
+        });
+        namespaceSelect.value = 'all';
+
+        const applyFilter = () => {
+            const selectedProfile = profileSelect.value;
+            const selectedNamespace = namespaceSelect.value;
+            rows.forEach(r => {
+                const rowProfile = r.dataset.sizingProfile || '';
+                const rowNamespace = r.dataset.namespaceValue || '';
+                r.dataset.profileHidden = (selectedProfile !== 'all' && selectedProfile && rowProfile !== selectedProfile) ? 'true' : 'false';
+                r.dataset.namespaceHidden = (selectedNamespace !== 'all' && rowNamespace !== selectedNamespace) ? 'true' : 'false';
+            });
+            paginateTable(details.parentElement);
+        };
+
+        profileSelect.addEventListener('change', applyFilter);
+        namespaceSelect.addEventListener('change', applyFilter);
+        controls.appendChild(profileLabel);
+        controls.appendChild(profileSelect);
+        controls.appendChild(namespaceLabel);
+        controls.appendChild(namespaceSelect);
+        table.insertAdjacentElement('beforebegin', controls);
+        applyFilter();
+    }
+
+    initPodSizingProfileSelector();
+
+    function buildCompactPageList(total, current, edgeCount = 1, aroundCount = 1) {
+        const pages = new Set();
+        for (let i = 1; i <= Math.min(edgeCount, total); i++) pages.add(i);
+        for (let i = Math.max(1, total - edgeCount + 1); i <= total; i++) pages.add(i);
+        for (let i = Math.max(1, current - aroundCount); i <= Math.min(total, current + aroundCount); i++) pages.add(i);
+
+        const sorted = Array.from(pages).sort((a, b) => a - b);
+        const sequence = [];
+        let prev = null;
+        for (const p of sorted) {
+            if (prev !== null && p - prev > 1) sequence.push('...');
+            sequence.push(p);
+            prev = p;
+        }
+        return sequence;
+    }
+
 
     function paginateNodeCards(container, pagination, initialPageSize) {
         if (!container || !pagination) return;
@@ -597,18 +732,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             pagination.appendChild(prev);
 
-            // Page buttons
             const pages = totalPages(cards);
-            for (let i = 1; i <= pages; i++) {
+            const pageSequence = buildCompactPageList(pages, currentPage, 1, 1);
+            pageSequence.forEach(token => {
+                if (token === '...') {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'pager-ellipsis';
+                    ellipsis.textContent = '...';
+                    pagination.appendChild(ellipsis);
+                    return;
+                }
                 const btn = document.createElement('button');
-                btn.textContent = i;
-                if (i === currentPage) btn.classList.add('active');
+                btn.textContent = token;
+                if (token === currentPage) btn.classList.add('active');
                 btn.addEventListener('click', () => {
-                    currentPage = i;
+                    currentPage = token;
                     update();
                 });
                 pagination.appendChild(btn);
-            }
+            });
 
             // Next button
             const next = document.createElement('button');
@@ -673,13 +815,18 @@ document.addEventListener('DOMContentLoaded', () => {
         pager.className = 'table-pagination';
         details.appendChild(pager);
 
-        const totalPages = () => Math.ceil(dataRows.length / pageSize);
+        const visibleRows = () => dataRows.filter(r =>
+            r.dataset.profileHidden !== 'true' &&
+            r.dataset.namespaceHidden !== 'true'
+        );
+        const totalPages = () => Math.max(1, Math.ceil(visibleRows().length / pageSize));
 
         function showPage() {
             // hide *all* data-rows, then show just the slice
             dataRows.forEach(r => r.style.display = 'none');
+            const candidateRows = visibleRows();
             const start = (currentPage - 1) * pageSize;
-            dataRows.slice(start, start + pageSize)
+            candidateRows.slice(start, start + pageSize)
                 .forEach(r => r.style.display = '');
         }
 
@@ -693,14 +840,22 @@ document.addEventListener('DOMContentLoaded', () => {
             prev.addEventListener('click', () => { currentPage--; update(); });
             pager.appendChild(prev);
 
-            // pages
-            for (let i = 1; i <= totalPages(); i++) {
+            const pages = totalPages();
+            const pageSequence = buildCompactPageList(pages, currentPage, 1, 1);
+            pageSequence.forEach(token => {
+                if (token === '...') {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'pager-ellipsis';
+                    ellipsis.textContent = '...';
+                    pager.appendChild(ellipsis);
+                    return;
+                }
                 const btn = document.createElement('button');
-                btn.textContent = i;
-                if (i === currentPage) btn.classList.add('active');
-                btn.addEventListener('click', () => { currentPage = i; update(); });
+                btn.textContent = token;
+                if (token === currentPage) btn.classList.add('active');
+                btn.addEventListener('click', () => { currentPage = token; update(); });
                 pager.appendChild(btn);
-            }
+            });
 
             // →
             const next = document.createElement('button');

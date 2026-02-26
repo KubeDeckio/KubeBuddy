@@ -949,7 +949,8 @@ checks:
         foreach ($c in $containers) {
           foreach ($env in ($c.env ?? @())) {
             $name = $env.valueFrom?.secretKeyRef?.name
-            if ($name) {
+            $isOptional = [bool]($env.valueFrom?.secretKeyRef?.optional)
+            if ($name -and -not $isOptional) {
               $key = "$($pod.metadata.namespace)/$name"
               if (-not $secretMap.ContainsKey($key)) {
                 $results += [pscustomobject]@{
@@ -964,7 +965,8 @@ checks:
           }
           foreach ($envFrom in ($c.envFrom ?? @())) {
             $name = $envFrom.secretRef?.name
-            if ($name) {
+            $isOptional = [bool]($envFrom.secretRef?.optional)
+            if ($name -and -not $isOptional) {
               $key = "$($pod.metadata.namespace)/$name"
               if (-not $secretMap.ContainsKey($key)) {
                 $results += [pscustomobject]@{
@@ -981,7 +983,8 @@ checks:
 
         foreach ($vol in ($pod.spec.volumes ?? @())) {
           $name = $vol.secret?.secretName
-          if ($name) {
+          $isOptional = [bool]($vol.secret?.optional)
+          if ($name -and -not $isOptional) {
             $key = "$($pod.metadata.namespace)/$name"
             if (-not $secretMap.ContainsKey($key)) {
               $results += [pscustomobject]@{

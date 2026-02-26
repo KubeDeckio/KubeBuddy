@@ -53,7 +53,7 @@ checks:
           Availability  = "$ready/$desired"
           Message       = "DaemonSet is not running on all desired nodes."
         }
-      } | Sort-Object Namespace, DaemonSet | Format-Table -AutoSize
+      } | Sort-Object Namespace, DaemonSet
   - ID: "WRK002"
     Name: "Deployment Missing Replicas"
     Category: "Workloads"

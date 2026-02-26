@@ -54,3 +54,5 @@ $networkingChecks = @(
         Severity    = "Medium";
         Recommendation = "For new clusters, use '--network-plugin azure --network-dataplane cilium --network-plugin-mode overlay' for optimal performance. Azure CNI powered by Cilium provides eBPF-based packet processing, better scalability, and advanced L3-L7 network policies. Existing clusters should migrate by creating a new cluster with Cilium enabled.";
         URL         = "https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium";
+    }
+)

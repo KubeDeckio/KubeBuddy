@@ -20,15 +20,6 @@ checks:
         $services = Exclude-Namespaces -items $services
       }
       
-      $endpoints = if ($KubeData?.Endpoints) {
-        $KubeData.Endpoints.items
-      } else {
-        (kubectl get endpoints --all-namespaces -o json | ConvertFrom-Json).items
-      }
-      if ($ExcludeNamespaces) {
-        $endpoints = Exclude-Namespaces -items $endpoints
-      }
-
       $epSlices = if ($KubeData?.EndpointSlices) {
         $KubeData.EndpointSlices.items
       } else {
@@ -40,17 +31,38 @@ checks:
 
       if ($Namespace) {
         $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
-        $endpoints = $endpoints | Where-Object { $_.metadata.namespace -eq $Namespace }
         $epSlices = $epSlices | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      # Legacy fallback for clusters where EndpointSlice may be unavailable
+      $endpoints = @()
+      if (-not $epSlices -or $epSlices.Count -eq 0) {
+        try {
+          $endpoints = if ($KubeData?.Endpoints) {
+            $KubeData.Endpoints.items
+          } else {
+            (kubectl get endpoints --all-namespaces -o json 2>$null | ConvertFrom-Json).items
+          }
+          if ($ExcludeNamespaces) {
+            $endpoints = Exclude-Namespaces -items $endpoints
+          }
+          if ($Namespace) {
+            $endpoints = $endpoints | Where-Object { $_.metadata.namespace -eq $Namespace }
+          }
+        } catch {
+          $endpoints = @()
+        }
       }
 
       $results = @()
 
       foreach ($svc in $services) {
         $key = "$($svc.metadata.namespace)/$($svc.metadata.name)"
+        $ns = $svc.metadata.namespace
+        $name = $svc.metadata.name
         $ep = $endpoints | Where-Object {
-          $_.metadata.namespace -eq $svc.metadata.namespace -and
-          $_.metadata.name -eq $svc.metadata.name
+          $_.metadata.namespace -eq $ns -and
+          $_.metadata.name -eq $name
         }
 
        $slice = $epSlices | Where-Object {
@@ -81,7 +93,7 @@ checks:
           <ul>
             <li>Verify that your service has a valid selector.</li>
             <li>Check if pods exist and are ready in the same namespace.</li>
-            <li>Use <code>kubectl describe svc <name></code> and <code>kubectl get endpoints <name></code>.</li>
+            <li>Use <code>kubectl describe svc &lt;name&gt;</code> and <code>kubectl get endpointslices -n &lt;namespace&gt; -l kubernetes.io/service-name=&lt;name&gt;</code>.</li>
             <li>Restart affected pods or fix labels as needed.</li>
           </ul>
         </div>
@@ -1055,3 +1067,239 @@ checks:
       - ""
       - "⚠️ High security risk. Avoid unless critical."
     URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/#host-networking"
+
+  - ID: "NET013"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Ingress Present Without Gateway API Adoption"
+    Description: "Detects clusters/namespaces still using Ingress while Gateway API resources (GatewayClass/Gateway/HTTPRoute) are not yet adopted."
+    ResourceKind: "Ingress"
+    Severity: "warning"
+    Weight: 2
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $ingresses = if ($KubeData?.Ingresses) {
+        $KubeData.Ingresses.items
+      } else {
+        (kubectl get ingress --all-namespaces -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) { $ingresses = Exclude-Namespaces -items $ingresses }
+      if ($Namespace) { $ingresses = $ingresses | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $gatewayClasses = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("GatewayClass")) {
+        @($KubeData.CustomResourcesByKind["GatewayClass"])
+      } else {
+        @((kubectl get gatewayclasses.gateway.networking.k8s.io -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+      $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
+        @($KubeData.CustomResourcesByKind["Gateway"])
+      } else {
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+      $httpRoutes = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("HTTPRoute")) {
+        @($KubeData.CustomResourcesByKind["HTTPRoute"])
+      } else {
+        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+
+      if ($ExcludeNamespaces) {
+        $gateways = Exclude-Namespaces -items $gateways
+        $httpRoutes = Exclude-Namespaces -items $httpRoutes
+      }
+      if ($Namespace) {
+        $gateways = $gateways | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $httpRoutes = $httpRoutes | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      if (($ingresses.Count -gt 0) -and ($gatewayClasses.Count -eq 0) -and ($gateways.Count -eq 0) -and ($httpRoutes.Count -eq 0)) {
+        return @(
+          [PSCustomObject]@{
+            Scope = if ($Namespace) { "Namespace" } else { "Cluster" }
+            Ingresses = $ingresses.Count
+            GatewayClasses = $gatewayClasses.Count
+            Gateways = $gateways.Count
+            HTTPRoutes = $httpRoutes.Count
+            Message = "Ingress is in use but Gateway API resources are not yet adopted."
+          }
+        )
+      }
+
+      return @()
+    FailMessage: "Ingress is in use without Gateway API adoption"
+    Recommendation:
+      text: "Plan migration from Ingress to Gateway API. Start by defining GatewayClass/Gateway and incrementally moving routes to HTTPRoute."
+      html: |
+        <div class="recommendation-content">
+          <h4>🚦 Begin Gateway API Migration</h4>
+          <ul>
+            <li>Create or select a <code>GatewayClass</code> supported by your controller.</li>
+            <li>Define one or more <code>Gateway</code> resources for north-south traffic entry.</li>
+            <li>Migrate Ingress rules incrementally to <code>HTTPRoute</code> and validate behavior.</li>
+            <li>Run both models in parallel during transition where supported.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Ingress resources are present, but Gateway API is not yet in use."
+      - ""
+      - "📌 Consider phased adoption to stay aligned with modern networking APIs."
+    URL: "https://gateway-api.sigs.k8s.io/"
+
+  - ID: "NET014"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "HTTPRoute Missing or Unaccepted Parent"
+    Description: "Detects HTTPRoutes that either have no parentRefs or are not Accepted by any parent Gateway."
+    ResourceKind: "HTTPRoute"
+    Severity: "critical"
+    Weight: 3
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $httpRoutes = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("HTTPRoute")) {
+        @($KubeData.CustomResourcesByKind["HTTPRoute"])
+      } else {
+        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+
+      if ($ExcludeNamespaces) { $httpRoutes = Exclude-Namespaces -items $httpRoutes }
+      if ($Namespace) { $httpRoutes = $httpRoutes | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($route in $httpRoutes) {
+        $ns = $route.metadata.namespace
+        $name = $route.metadata.name
+        $parents = @($route.spec.parentRefs)
+
+        if (-not $parents -or $parents.Count -eq 0) {
+          $results += [PSCustomObject]@{
+            Namespace = $ns
+            HTTPRoute = $name
+            ParentRefs = "-"
+            Message = "No parentRefs defined"
+          }
+          continue
+        }
+
+        $accepted = $false
+        foreach ($p in @($route.status.parents)) {
+          foreach ($c in @($p.conditions)) {
+            if ($c.type -eq "Accepted" -and "$($c.status)".ToLower() -eq "true") {
+              $accepted = $true
+              break
+            }
+          }
+          if ($accepted) { break }
+        }
+
+        if (-not $accepted) {
+          $parentList = $parents | ForEach-Object {
+            $pns = if ($_.namespace) { $_.namespace } else { $ns }
+            "$pns/$($_.name)"
+          }
+          $results += [PSCustomObject]@{
+            Namespace = $ns
+            HTTPRoute = $name
+            ParentRefs = ($parentList -join ", ")
+            Message = "Route is not Accepted by any parent Gateway"
+          }
+        }
+      }
+
+      return $results
+    FailMessage: "HTTPRoute has no valid accepted parent"
+    Recommendation:
+      text: "Ensure each HTTPRoute has valid parentRefs and that the referenced Gateway accepts the route."
+      html: |
+        <div class="recommendation-content">
+          <h4>🧭 Fix HTTPRoute Parent Binding</h4>
+          <ul>
+            <li>Set <code>spec.parentRefs</code> to an existing Gateway.</li>
+            <li>Check route status conditions and Gateway listener compatibility.</li>
+            <li>Verify namespace permissions and allowedRoutes policy.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some HTTPRoutes are not attached to an accepted parent Gateway."
+      - ""
+      - "⚠️ These routes may never receive traffic."
+    URL: "https://gateway-api.sigs.k8s.io/api-types/httproute/"
+
+  - ID: "NET015"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Gateways Without Attached HTTPRoutes"
+    Description: "Detects Gateway resources that currently have no HTTPRoutes attached via parentRefs."
+    ResourceKind: "Gateway"
+    Severity: "warning"
+    Weight: 2
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
+        @($KubeData.CustomResourcesByKind["Gateway"])
+      } else {
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+      $httpRoutes = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("HTTPRoute")) {
+        @($KubeData.CustomResourcesByKind["HTTPRoute"])
+      } else {
+        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+
+      if ($ExcludeNamespaces) {
+        $gateways = Exclude-Namespaces -items $gateways
+        $httpRoutes = Exclude-Namespaces -items $httpRoutes
+      }
+      if ($Namespace) {
+        $gateways = $gateways | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $httpRoutes = $httpRoutes | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+      foreach ($gw in $gateways) {
+        $gwNs = $gw.metadata.namespace
+        $gwName = $gw.metadata.name
+
+        $attachedCount = 0
+        foreach ($route in $httpRoutes) {
+          $rns = $route.metadata.namespace
+          foreach ($p in @($route.spec.parentRefs)) {
+            $kind = if ($p.kind) { "$($p.kind)" } else { "Gateway" }
+            if ($kind -ne "Gateway") { continue }
+            $targetNs = if ($p.namespace) { "$($p.namespace)" } else { $rns }
+            if ($targetNs -eq $gwNs -and "$($p.name)" -eq $gwName) {
+              $attachedCount++
+              break
+            }
+          }
+        }
+
+        if ($attachedCount -eq 0) {
+          $results += [PSCustomObject]@{
+            Namespace = $gwNs
+            Gateway = $gwName
+            AttachedHTTPRoutes = 0
+            Message = "Gateway has no attached HTTPRoutes"
+          }
+        }
+      }
+
+      return $results
+    FailMessage: "Gateway resources without attached HTTPRoutes found"
+    Recommendation:
+      text: "Attach HTTPRoutes to active Gateways or remove unused Gateways to reduce configuration drift."
+      html: |
+        <div class="recommendation-content">
+          <h4>🧹 Clean Up or Attach Routes</h4>
+          <ul>
+            <li>Attach one or more <code>HTTPRoute</code> resources to each active Gateway.</li>
+            <li>Delete unused Gateways to avoid confusion and stale entry points.</li>
+            <li>Confirm listener and route host/path alignment.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some Gateways do not have any attached HTTPRoutes."
+      - ""
+      - "📌 This may indicate incomplete migration or stale configuration."
+    URL: "https://gateway-api.sigs.k8s.io/api-types/gateway/"

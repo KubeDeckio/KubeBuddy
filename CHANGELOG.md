@@ -38,6 +38,111 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * `Private/aks/checks/MonitoringLoggingChecks.ps1` - 2 monitoring checks enhanced
 
 
+## [0.0.24] - 2026-02-26
+
+### Added
+
+* **Prometheus node sizing insights (`PROM006`)**
+  * Added a new capacity check that classifies nodes as `Underutilized`, `Right-sized`, or `Saturated` using p95 CPU/memory trends from Prometheus.
+  * Added configurable sizing thresholds in `kubebuddy-config.yaml`:
+    * `node_sizing_downsize_cpu_p95`
+    * `node_sizing_downsize_mem_p95`
+    * `node_sizing_upsize_cpu_p95`
+    * `node_sizing_upsize_mem_p95`
+
+* **Prometheus pod sizing insights (`PROM007`)**
+  * Added per-container recommendations for CPU/memory requests and memory limits using p95 usage.
+  * CPU limit recommendation defaults to `none`, with explicit rationale included in findings output.
+  * Added configurable pod sizing knobs:
+    * `pod_sizing_profile` (`conservative|balanced|aggressive`)
+    * `pod_sizing_compare_profiles`
+    * `pod_sizing_target_cpu_utilization`
+    * `pod_sizing_target_mem_utilization`
+    * `pod_sizing_cpu_request_floor_mcores`
+    * `pod_sizing_mem_request_floor_mib`
+    * `pod_sizing_mem_limit_buffer_percent`
+
+* **Profile comparison mode for pod sizing**
+  * Added optional comparison mode to emit all three profiles in **HTML** and **JSON** outputs.
+  * Added an HTML selector on `PROM007` findings to filter by profile.
+  * Kept CLI/text output focused on the single active profile for readability.
+
+* **Gateway API networking checks**
+  * Added `NET013` to flag Ingress usage where Gateway API resources are not yet adopted.
+  * Added `NET014` to detect HTTPRoutes with missing parentRefs or not Accepted by any parent Gateway.
+  * Added `NET015` to detect Gateways that have no attached HTTPRoutes.
+
+### Changed
+
+* **Minimum Prometheus history gate for sizing recommendations**
+  * `PROM006` and `PROM007` now require at least **7 days** of Prometheus history before recommendations are emitted.
+  * When history is insufficient, reports show explicit informational rows indicating required vs available days.
+  * Improved history-span detection to use cluster-level coverage queries, reducing false low `Available Days` values in high pod-churn environments.
+
+* **PROM007 output simplification and UX**
+  * Reduced pod sizing findings columns to core current-vs-recommended CPU/memory request/limit values.
+  * Removed action/rationale columns from findings table; CPU-limit rationale remains in the recommendation section.
+  * Kept multi-profile comparison support and improved profile selector behavior in HTML reports.
+  * Updated sizing analysis to a fixed 7-day window for Prometheus reliability, and surfaced the active window in check summaries.
+  * Added PROM007 findings filters for `Namespace` and `Profile` in HTML; pagination now respects these filters.
+  * Updated PROM007 current request/limit values to read directly from live pod specs, improving reliability when kube-state-metrics resource series are unavailable.
+  * Updated all HTML paginations to compact mode with ellipses for large page counts, reducing oversized pager rows.
+  * Updated PROM007 to suppress rows where recommendations do not materially differ from current values, and sort remaining rows by highest potential sizing impact first.
+  * Optimized Prometheus sizing queries to reduce query-memory pressure (429 responses): added label aggregation for pod sizing and fixed lower-cost 7-day query windows.
+
+* **AKS best-practice output improvements**
+  * Added `ObservedValue` to AKS check results and surfaced it in CLI, text, HTML, and JSON outputs.
+  * Updated AKS HTML view to group findings by category in collapsible sections for easier remediation workflows.
+  * Removed the extra outer "Show Findings" wrapper so category sections are visible immediately.
+
+* **Multi-output report generation**
+  * Updated `Invoke-KubeBuddy` to support generating multiple outputs (`-HtmlReport`, `-txtReport`, `-jsonReport`) in a single run using one shared data collection pass.
+  * Added YAML check-result caching across output modes to avoid re-running checks when generating HTML + JSON in the same invocation.
+
+* **Networking deprecation handling**
+  * Switched data collection/check flow to prefer `EndpointSlice` and avoid always querying deprecated `v1 Endpoints` on modern Kubernetes versions.
+  * Retained legacy `Endpoints` fallback only when needed.
+
+* **HTML dark-mode readability fixes**
+  * Improved contrast for overview cards and summary surfaces:
+    * black text on orange backgrounds
+    * black text on blue info/default cards
+    * fixed warning progress-bar label contrast
+    * fixed low-contrast hover text in passed/failed status box
+    * improved Top-5 `+ pts` text visibility
+  * fixed compatibility warning banner text contrast on orange backgrounds
+  * updated PROM007 filter labels/dropdowns and pagination controls to use on-brand styling with light/dark theme support
+
+* **Namespace exclusion controls**
+  * `-ExcludeNamespaces` now correctly honors configured `excluded_namespaces`.
+  * Added `-AdditionalExcludedNamespaces` to merge extra runtime namespaces with configured exclusions for a single invocation.
+
+### Fixed
+
+* **Module import parser issue**
+  * Fixed truncated syntax in `Private/aks/checks/NetworkingChecks.ps1` that prevented `Import-Module .\KubeBuddy.psm1 -Force`.
+* **WRK001 findings table rendering**
+  * Removed `Format-Table` from `WRK001` script output so HTML/JSON render proper columns instead of PowerShell formatting metadata fields.
+* **Recommendation URL rendering stability**
+  * Fixed a null-array indexing error in recommendation docs-link display-name parsing when a URL has an empty/short path.
+* **AKS cached object reuse error**
+  * Fixed duplicate-member error by making AKS `KubeData` note-property assignment idempotent (`Add-Member -Force`) during multi-output runs.
+* **Secret reference false positives (`SEC016`)**
+  * Updated check logic to ignore optional secret references (`optional: true`) for `secretKeyRef`, `envFrom.secretRef`, and `volume.secret`.
+* **Prometheus timeout resiliency**
+  * Standardized Prometheus query behavior to use configurable timeout and retry settings across summary metrics, YAML Prometheus checks, and sizing insights (`PROM006`/`PROM007`).
+  * Added consistent retry logging so timeout failures are clearer in CLI output.
+* **Prometheus sizing history gate accuracy**
+  * Updated `PROM006`/`PROM007` history coverage queries to use cluster-level series for day-span detection, avoiding false low `Available Days` values in high pod-churn environments.
+
+### Docs
+
+* Updated docs for:
+  * Prometheus integration and sizing guidance (`PROM006` / `PROM007`)
+  * new sizing thresholds and profile options in `kubebuddy-config.yaml`
+  * checks reference entries for new Prometheus sizing checks
+
+
 ## [0.0.23] – 2025-06-18
 
 ### Added
