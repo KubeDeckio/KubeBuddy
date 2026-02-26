@@ -1,9 +1,13 @@
+# Use a rolling supported PowerShell image so monthly OS security patches are picked up.
+ARG POWERSHELL_IMAGE=mcr.microsoft.com/powershell:7.5
+
 # Build stage
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-12 AS builder
+FROM --platform=$BUILDPLATFORM ${POWERSHELL_IMAGE} AS builder
 
 # Install required utilities for file operations and dependency installation
 RUN apt-get update && \
-    apt-get install -y curl ca-certificates unzip && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends curl ca-certificates unzip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -45,10 +49,11 @@ COPY --chown=10001:10001 Public /usr/local/share/powershell/Modules/KubeBuddy/Pu
 COPY --chown=10001:10001 run.ps1 /app/run.ps1
 
 # Final image
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/powershell:7.5-debian-12
+FROM --platform=$BUILDPLATFORM ${POWERSHELL_IMAGE}
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

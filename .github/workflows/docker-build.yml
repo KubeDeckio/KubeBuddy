@@ -8,6 +8,7 @@ on:
 
 env:
   IMAGE_NAME: ghcr.io/kubedeckio/kubebuddy
+  POWERSHELL_IMAGE: mcr.microsoft.com/powershell:7.5
 
 jobs:
   docker-build:
@@ -52,7 +53,9 @@ jobs:
       - name: Build and push multi-architecture Docker image
         run: |
           docker buildx build \
+            -f dockerfile \
             --platform linux/amd64,linux/arm64 \
+            --build-arg POWERSHELL_IMAGE=${{ env.POWERSHELL_IMAGE }} \
             --tag $IMAGE_NAME:${{ steps.meta.outputs.TAG }} \
             --push \
             .
