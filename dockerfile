@@ -1,5 +1,5 @@
-# Use a rolling supported PowerShell image so monthly OS security patches are picked up.
-ARG POWERSHELL_IMAGE=mcr.microsoft.com/powershell:7.5
+# Use a known-valid PowerShell base tag.
+ARG POWERSHELL_IMAGE=mcr.microsoft.com/powershell:7.5-debian-12
 
 # Build stage
 FROM --platform=$BUILDPLATFORM ${POWERSHELL_IMAGE} AS builder
