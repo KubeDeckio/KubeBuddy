@@ -154,3 +154,603 @@ checks:
         Duration: "24h"
     Operator: "greater_than"
     Expected: 1.0
+
+  - ID: "PROM006"
+    Name: "Node Sizing Insights (Prometheus)"
+    Category: "Capacity"
+    Section: "Nodes"
+    ResourceKind: "Node"
+    Severity: "info"
+    Weight: 3
+    Description: "Uses Prometheus p95 CPU and memory usage over a fixed 7-day window to highlight underutilized or saturated nodes and suggest sizing actions."
+    FailMessage: "Node sizing opportunities detected."
+    URL: "https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/"
+    Recommendation:
+      text: "Use p95 CPU and memory trends to right-size node pools. Downsize sustained low-use nodes and scale up when saturation is sustained. Recommendations use a fixed 7-day window to reduce query cost and improve reliability."
+      html: |
+        <div class="recommendation-content">
+          <h4>Node Sizing Guidance</h4>
+          <ul>
+            <li>Focus on sustained p95 trends, not short spikes.</li>
+            <li>Sizing window is fixed to 7 days for stable, lower-cost query execution.</li>
+            <li>Nodes flagged as underutilized are candidates for smaller SKUs or scale-in.</li>
+            <li>Nodes flagged as saturated likely need larger SKUs, scale-out, or workload rebalancing.</li>
+            <li>Validate with workload requests/limits and HPA/VPA behavior before applying changes.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "Node sizing insights are ready from Prometheus data."
+      - "Review underutilized and saturated nodes before changing pools."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces, [switch]$Html, [hashtable]$Thresholds)
+
+      if (-not $KubeData.PrometheusUrl -or -not $KubeData.PrometheusHeaders) {
+          return @{ Items = @(); IssueCount = 0 }
+      }
+
+      $minDaysRequired = 7
+      $downsizeCpu = [double]($Thresholds.node_sizing_downsize_cpu_p95 ?? 35)
+      $downsizeMem = [double]($Thresholds.node_sizing_downsize_mem_p95 ?? 40)
+      $upsizeCpu = [double]($Thresholds.node_sizing_upsize_cpu_p95 ?? 80)
+      $upsizeMem = [double]($Thresholds.node_sizing_upsize_mem_p95 ?? 85)
+      $promTimeoutSec = [int]($Thresholds.prometheus_timeout_seconds ?? 60)
+      $promRetryCount = [int]($Thresholds.prometheus_query_retries ?? 2)
+      $promRetryDelaySec = [int]($Thresholds.prometheus_retry_delay_seconds ?? 2)
+
+      $cpuQuery = $null
+      $memQuery = $null
+      $coverageQuery = '(1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100'
+
+      function Invoke-PromQuery {
+          param(
+              [string]$Query,
+              [switch]$UseRange,
+              [string]$StartTime,
+              [string]$EndTime,
+              [string]$Step = "5m"
+          )
+
+          return Get-PrometheusData -Query $Query -Url $KubeData.PrometheusUrl -Headers $KubeData.PrometheusHeaders `
+              -UseRange:$UseRange -StartTime $StartTime -EndTime $EndTime -Step $Step `
+              -TimeoutSec $promTimeoutSec -RetryCount $promRetryCount -RetryDelaySec $promRetryDelaySec
+      }
+
+      function Get-MaxCoverageDays {
+          param([array]$Series)
+          $maxDays = 0.0
+          foreach ($entry in $Series) {
+              if (-not $entry.values -or $entry.values.Count -lt 2) { continue }
+              $firstTs = [double]$entry.values[0][0]
+              $lastTs = [double]$entry.values[$entry.values.Count - 1][0]
+              $days = ($lastTs - $firstTs) / 86400
+              if ($days -gt $maxDays) { $maxDays = $days }
+          }
+          return $maxDays
+      }
+
+      $windowStart = (Get-Date).ToUniversalTime().AddDays(-$minDaysRequired).ToString("o")
+      $windowEnd = (Get-Date).ToUniversalTime().ToString("o")
+      $coverageResponse = Invoke-PromQuery -Query $coverageQuery -UseRange -StartTime $windowStart -EndTime $windowEnd -Step "6h"
+      $coverageDays = [math]::Round((Get-MaxCoverageDays -Series $coverageResponse.Results), 2)
+      if ($coverageDays -lt ($minDaysRequired - 0.1)) {
+          return @{
+              Items = @(
+                  [PSCustomObject]@{
+                      Status = "Insufficient Prometheus history"
+                      "Required Days" = $minDaysRequired
+                      "Available Days" = $coverageDays
+                      Message = "Node sizing recommendations are withheld until at least 7 days of Prometheus history is available."
+                  }
+              )
+              IssueCount = 0
+              SummaryMessage = "Insufficient Prometheus history for sizing. Required: 7 days, available: $coverageDays days."
+          }
+      }
+
+      $analysisWindowDays = $minDaysRequired
+      $windowLabel = "${analysisWindowDays}d"
+      $windowStep = "15m"
+      $cpuQuery = "quantile_over_time(0.95, ((1 - avg by(instance)(rate(node_cpu_seconds_total{mode=`"idle`"}[5m]))) * 100)[$windowLabel`:$windowStep])"
+      $memQuery = "quantile_over_time(0.95, ((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100)[$windowLabel`:$windowStep])"
+
+      $cpuResponse = Invoke-PromQuery -Query $cpuQuery
+      $memResponse = Invoke-PromQuery -Query $memQuery
+
+      if (-not $cpuResponse.Results -or -not $memResponse.Results) {
+          return @{ Items = @(); IssueCount = 0 }
+      }
+
+      function Get-NodeP95Value {
+          param(
+              [array]$Series,
+              [string]$NodeName,
+              [array]$NodeAliases
+          )
+
+          $nodeShort = ($NodeName -split '\.')[0]
+          $aliases = @($NodeAliases | Where-Object { $_ }) + @($NodeName, $nodeShort)
+          $aliases = $aliases | ForEach-Object { "$_".ToLower() } | Sort-Object -Unique
+          foreach ($entry in $Series) {
+              $labels = @(
+                  $entry.metric.instance,
+                  $entry.metric.node,
+                  $entry.metric.nodename,
+                  $entry.metric.kubernetes_node,
+                  $entry.metric.hostname
+              ) | Where-Object { $_ }
+
+              foreach ($label in $labels) {
+                  $labelHost = ($label -split ':')[0]
+                  $labelShort = ($labelHost -split '\.')[0]
+                  $lh = "$labelHost".ToLower()
+                  $ls = "$labelShort".ToLower()
+                  if ($aliases -contains $lh -or $aliases -contains $ls -or ($aliases | Where-Object { $_ -and $lh -like "*$_*" })) {
+                      if ($entry.value -and $entry.value.Count -ge 2) {
+                          return [double]$entry.value[1]
+                      }
+                  }
+              }
+          }
+          return $null
+      }
+
+      function Convert-CpuToCores {
+          param([string]$CpuValue)
+          if (-not $CpuValue) { return $null }
+          $v = "$CpuValue".Trim()
+          if ($v -match '^[0-9]+(\.[0-9]+)?m$') { return [double]$v.TrimEnd('m') / 1000 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?$') { return [double]$v }
+          return $null
+      }
+
+      function Convert-MemoryToGi {
+          param([string]$MemValue)
+          if (-not $MemValue) { return $null }
+          $v = "$MemValue".Trim()
+          if ($v -match '^[0-9]+(\.[0-9]+)?Ki$') { return [double]$v.TrimEnd('K','i') / 1024 / 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Mi$') { return [double]$v.TrimEnd('M','i') / 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Gi$') { return [double]$v.TrimEnd('G','i') }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Ti$') { return [double]$v.TrimEnd('T','i') * 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?$') { return [double]$v / 1024 / 1024 / 1024 }
+          return $null
+      }
+
+      $items = @()
+      $issueCount = 0
+
+      foreach ($node in $KubeData.Nodes.items) {
+          try {
+              $nodeName = $node.metadata.name
+              $nodeAliases = @()
+              foreach ($addr in @($node.status.addresses)) {
+                  if ($addr.address) {
+                      $nodeAliases += "$($addr.address)"
+                  }
+              }
+              $cpuP95 = Get-NodeP95Value -Series $cpuResponse.Results -NodeName $nodeName -NodeAliases $nodeAliases
+              $memP95 = Get-NodeP95Value -Series $memResponse.Results -NodeName $nodeName -NodeAliases $nodeAliases
+
+              # Optional capacity context only; never fail base sizing insight if parsing is unavailable.
+              $allocCpu = $null
+              $allocMem = $null
+              if ($node.status -and $node.status.allocatable) {
+                  $allocCpu = Convert-CpuToCores -CpuValue $node.status.allocatable.cpu
+                  $allocMem = Convert-MemoryToGi -MemValue $node.status.allocatable.memory
+              }
+          }
+          catch {
+              continue
+          }
+
+          if ($null -eq $cpuP95 -and $null -eq $memP95) {
+              continue
+          }
+
+          $insight = "Right-sized"
+          $suggestedAction = "Keep current sizing and keep monitoring p95 usage trends."
+          $targetCapacity = "No change"
+          $isIssue = $false
+
+          if (($null -ne $cpuP95 -and $cpuP95 -ge $upsizeCpu) -or ($null -ne $memP95 -and $memP95 -ge $upsizeMem)) {
+              $insight = "Saturated"
+              $suggestedAction = "Consider larger node SKU, more nodes, or better workload spread."
+              if ($null -ne $allocCpu -or $null -ne $allocMem) {
+                  $cpuUsedCores = if ($null -ne $allocCpu -and $null -ne $cpuP95) { $allocCpu * ($cpuP95 / 100.0) } else { $null }
+                  $memUsedGi = if ($null -ne $allocMem -and $null -ne $memP95) { $allocMem * ($memP95 / 100.0) } else { $null }
+                  $cpuTarget = if ($null -ne $cpuUsedCores) { [math]::Ceiling(($cpuUsedCores * 1.3) * 2) / 2 } else { $null }
+                  $memTarget = if ($null -ne $memUsedGi) { [math]::Ceiling(($memUsedGi * 1.3) * 2) / 2 } else { $null }
+                  if ($null -ne $cpuTarget -or $null -ne $memTarget) {
+                      $cpuText = if ($null -ne $cpuTarget) { "$([math]::Round($cpuTarget, 2)) vCPU" } else { "N/A" }
+                      $memText = if ($null -ne $memTarget) { "$([math]::Round($memTarget, 2)) Gi" } else { "N/A" }
+                      $targetCapacity = "$cpuText / $memText"
+                  }
+              }
+              $isIssue = $true
+          }
+          elseif (($null -ne $cpuP95 -and $cpuP95 -le $downsizeCpu) -and ($null -ne $memP95 -and $memP95 -le $downsizeMem)) {
+              $insight = "Underutilized"
+              $suggestedAction = "Consider smaller node SKU or scale-in after validating workload headroom."
+              if ($null -ne $allocCpu -or $null -ne $allocMem) {
+                  $cpuUsedCores = if ($null -ne $allocCpu -and $null -ne $cpuP95) { $allocCpu * ($cpuP95 / 100.0) } else { $null }
+                  $memUsedGi = if ($null -ne $allocMem -and $null -ne $memP95) { $allocMem * ($memP95 / 100.0) } else { $null }
+                  $cpuTarget = if ($null -ne $cpuUsedCores) { [math]::Ceiling(($cpuUsedCores * 1.3) * 2) / 2 } else { $null }
+                  $memTarget = if ($null -ne $memUsedGi) { [math]::Ceiling(($memUsedGi * 1.3) * 2) / 2 } else { $null }
+                  if ($null -ne $cpuTarget -or $null -ne $memTarget) {
+                      $cpuText = if ($null -ne $cpuTarget) { "$([math]::Round($cpuTarget, 2)) vCPU" } else { "N/A" }
+                      $memText = if ($null -ne $memTarget) { "$([math]::Round($memTarget, 2)) Gi" } else { "N/A" }
+                      $targetCapacity = "$cpuText / $memText"
+                  }
+              }
+              $isIssue = $true
+          }
+
+          if ($isIssue) { $issueCount++ }
+
+          $currentCapacityText = if ($null -ne $allocCpu -or $null -ne $allocMem) {
+              $cpuAllocText = if ($null -ne $allocCpu) { [math]::Round($allocCpu, 2) } else { "N/A" }
+              $memAllocText = if ($null -ne $allocMem) { [math]::Round($allocMem, 2) } else { "N/A" }
+              "$cpuAllocText vCPU / $memAllocText Gi"
+          } else { "N/A" }
+
+          $items += [PSCustomObject]@{
+              Node = $nodeName
+              "Current Allocatable (vCPU/Gi)" = $currentCapacityText
+              "CPU p95 (%)" = if ($null -ne $cpuP95) { [math]::Round($cpuP95, 2) } else { "N/A" }
+              "Memory p95 (%)" = if ($null -ne $memP95) { [math]::Round($memP95, 2) } else { "N/A" }
+              "Sizing Insight" = $insight
+              "Suggested Target Capacity (vCPU/Gi)" = $targetCapacity
+              "Suggested Action" = $suggestedAction
+          }
+      }
+
+      if (-not $items -or $items.Count -eq 0) {
+          return @{
+              Items = @(
+                  [PSCustomObject]@{
+                      Status = "No matched node series"
+                      Message = "PROM006 could not map Prometheus node labels to Kubernetes nodes. Check Prometheus node label mapping (instance/node labels) and scrape targets."
+                  }
+              )
+              IssueCount = 0
+              SummaryMessage = "Node sizing ran, but no Prometheus node series could be matched to Kubernetes nodes over the 7-day window."
+          }
+      }
+
+      return @{
+          Items = $items | Sort-Object "Sizing Insight", Node
+          IssueCount = $issueCount
+          SummaryMessage = "Sizing recommendations use p95 Prometheus data over the last $analysisWindowDays days (available history: $coverageDays days)."
+      }
+
+  - ID: "PROM007"
+    Name: "Pod Sizing Insights (Prometheus)"
+    Category: "Capacity"
+    Section: "Pods"
+    ResourceKind: "Pod"
+    Severity: "info"
+    Weight: 4
+    Description: "Generates per-container CPU and memory sizing recommendations from fixed 7-day p95 Prometheus usage. CPU limit recommendation defaults to none."
+    FailMessage: "Pod/container sizing opportunities detected."
+    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+    Recommendation:
+      text: "Tune requests to p95 usage with headroom. By default, keep CPU limits unset to reduce CFS throttling risk; keep memory limits to cap OOM blast radius. Recommendations use a fixed 7-day window to reduce query cost and improve reliability."
+      html: |
+        <div class="recommendation-content">
+          <h4>Pod Sizing Guidance</h4>
+          <ul>
+            <li>Set CPU and memory <code>requests</code> from p95 usage with safety headroom.</li>
+            <li>Default CPU <code>limits</code> recommendation is <code>none</code> to avoid unnecessary CPU throttling and latency spikes.</li>
+            <li>Keep memory <code>limits</code> set (typically above memory request) to control OOM blast radius.</li>
+            <li>Validate against SLOs and rollout gradually.</li>
+            <li>Sizing window is fixed to 7 days for stable, lower-cost query execution.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "Pod sizing insights are ready from Prometheus usage trends."
+      - "CPU limits default to none unless you need strict tenant caps."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces, [switch]$Html, [hashtable]$Thresholds)
+
+      if (-not $KubeData.PrometheusUrl -or -not $KubeData.PrometheusHeaders) {
+          return @{ Items = @(); IssueCount = 0 }
+      }
+
+      $minDaysRequired = 7
+      $promTimeoutSec = [int]($Thresholds.prometheus_timeout_seconds ?? 60)
+      $promRetryCount = [int]($Thresholds.prometheus_query_retries ?? 2)
+      $promRetryDelaySec = [int]($Thresholds.prometheus_retry_delay_seconds ?? 2)
+      $activeProfile = [string]($Thresholds.pod_sizing_profile ?? "balanced")
+      $activeProfile = $activeProfile.ToLower()
+      if ($activeProfile -notin @("conservative", "balanced", "aggressive")) {
+          $activeProfile = "balanced"
+      }
+      $compareProfilesRaw = $Thresholds.pod_sizing_compare_profiles
+      $compareProfilesEnabled = $false
+      if ($compareProfilesRaw -is [bool]) {
+          $compareProfilesEnabled = $compareProfilesRaw
+      }
+      elseif ($null -ne $compareProfilesRaw) {
+          $compareProfilesEnabled = ("$compareProfilesRaw".ToLower() -in @("1", "true", "yes", "on"))
+      }
+      $outputMode = "$env:KUBEBUDDY_OUTPUT_MODE".ToLower()
+      $emitAllProfiles = $compareProfilesEnabled -and ($outputMode -in @("html", "json"))
+
+      function Get-ProfileTuning {
+          param([string]$Profile)
+          switch ($Profile.ToLower()) {
+              "conservative" {
+                  return @{
+                      CpuTarget = 55.0
+                      MemTarget = 65.0
+                      CpuFloor = 100.0
+                      MemFloor = 256.0
+                      MemLimitBuffer = 25.0
+                  }
+              }
+              "aggressive" {
+                  return @{
+                      CpuTarget = 75.0
+                      MemTarget = 85.0
+                      CpuFloor = 10.0
+                      MemFloor = 64.0
+                      MemLimitBuffer = 15.0
+                  }
+              }
+              default {
+                  return @{
+                      CpuTarget = 65.0
+                      MemTarget = 75.0
+                      CpuFloor = 25.0
+                      MemFloor = 128.0
+                      MemLimitBuffer = 20.0
+                  }
+              }
+          }
+      }
+
+      $selectedProfiles = if ($emitAllProfiles) {
+          @("conservative", "balanced", "aggressive")
+      } else {
+          @($activeProfile)
+      }
+
+      $cpuP95Query = $null
+      $memP95Query = $null
+      $coverageQuery = 'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) * 1000'
+
+      function Invoke-PromQuery {
+          param(
+              [string]$Query,
+              [switch]$UseRange,
+              [string]$StartTime,
+              [string]$EndTime,
+              [string]$Step = "5m"
+          )
+
+          return Get-PrometheusData -Query $Query -Url $KubeData.PrometheusUrl -Headers $KubeData.PrometheusHeaders `
+              -UseRange:$UseRange -StartTime $StartTime -EndTime $EndTime -Step $Step `
+              -TimeoutSec $promTimeoutSec -RetryCount $promRetryCount -RetryDelaySec $promRetryDelaySec
+      }
+
+      function Invoke-PromInstant {
+          param([string]$Query)
+          $resp = Invoke-PromQuery -Query $Query
+          return @($resp.Results)
+      }
+
+      function Get-MaxCoverageDays {
+          param([array]$Series)
+          $maxDays = 0.0
+          foreach ($entry in $Series) {
+              if (-not $entry.values -or $entry.values.Count -lt 2) { continue }
+              $firstTs = [double]$entry.values[0][0]
+              $lastTs = [double]$entry.values[$entry.values.Count - 1][0]
+              $days = ($lastTs - $firstTs) / 86400
+              if ($days -gt $maxDays) { $maxDays = $days }
+          }
+          return $maxDays
+      }
+
+      $windowStart = (Get-Date).ToUniversalTime().AddDays(-$minDaysRequired).ToString("o")
+      $windowEnd = (Get-Date).ToUniversalTime().ToString("o")
+      $coverageResponse = Invoke-PromQuery -Query $coverageQuery -UseRange -StartTime $windowStart -EndTime $windowEnd -Step "6h"
+      $coverageDays = [math]::Round((Get-MaxCoverageDays -Series $coverageResponse.Results), 2)
+      if ($coverageDays -lt ($minDaysRequired - 0.1)) {
+          return @{
+              Items = @(
+                  [PSCustomObject]@{
+                      Status = "Insufficient Prometheus history"
+                      "Required Days" = $minDaysRequired
+                      "Available Days" = $coverageDays
+                      Message = "Pod sizing recommendations are withheld until at least 7 days of Prometheus history is available."
+                  }
+              )
+              IssueCount = 0
+              SummaryMessage = "Insufficient Prometheus history for sizing. Required: 7 days, available: $coverageDays days."
+          }
+      }
+
+      $analysisWindowDays = $minDaysRequired
+      $windowLabel = "${analysisWindowDays}d"
+      $windowStep = "15m"
+      $cpuP95Query = "quantile_over_time(0.95, (sum by(namespace,pod,container) (rate(container_cpu_usage_seconds_total{container!=`"`",container!=`"POD`",pod!=`"`"}[5m])) * 1000)[$windowLabel`:$windowStep])"
+      $memP95Query = "quantile_over_time(0.95, (max by(namespace,pod,container) (container_memory_working_set_bytes{container!=`"`",container!=`"POD`",pod!=`"`"}) / 1024 / 1024)[$windowLabel`:$windowStep])"
+
+      $cpuP95Series = Invoke-PromInstant -Query $cpuP95Query
+      $memP95Series = Invoke-PromInstant -Query $memP95Query
+
+      function To-MetricMap {
+          param([array]$Series)
+          $map = @{}
+          foreach ($entry in $Series) {
+              $ns = $entry.metric.namespace
+              $pod = $entry.metric.pod
+              $container = $entry.metric.container
+              if (-not $ns -or -not $pod -or -not $container -or $container -eq "POD") { continue }
+              if ($entry.value -and $entry.value.Count -ge 2) {
+                  $key = "$ns|$pod|$container"
+                  $map[$key] = [double]$entry.value[1]
+              }
+          }
+          return $map
+      }
+
+      $cpuP95Map = To-MetricMap -Series $cpuP95Series
+      $memP95Map = To-MetricMap -Series $memP95Series
+
+      function Convert-CpuToMillicores {
+          param([string]$CpuValue)
+          if (-not $CpuValue) { return $null }
+          $v = "$CpuValue".Trim()
+          if ($v -match '^[0-9]+(\.[0-9]+)?m$') {
+              return [double]($v.TrimEnd('m'))
+          }
+          elseif ($v -match '^[0-9]+(\.[0-9]+)?$') {
+              return [double]$v * 1000
+          }
+          return $null
+      }
+
+      function Convert-MemoryToMi {
+          param([string]$MemValue)
+          if (-not $MemValue) { return $null }
+          $v = "$MemValue".Trim()
+          if ($v -match '^[0-9]+(\.[0-9]+)?Ki$') { return [double]$v.TrimEnd('K','i') / 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Mi$') { return [double]$v.TrimEnd('M','i') }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Gi$') { return [double]$v.TrimEnd('G','i') * 1024 }
+          if ($v -match '^[0-9]+(\.[0-9]+)?Ti$') { return [double]$v.TrimEnd('T','i') * 1024 * 1024 }
+          # Decimal SI quantities (K, M, G, T, P, E) are base-10 bytes in Kubernetes.
+          # Convert to Mi by first converting to bytes, then dividing by 2^20.
+          if ($v -match '^[0-9]+(\.[0-9]+)?K$')  { return ([double]$v.TrimEnd('K') * 1e3) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?M$')  { return ([double]$v.TrimEnd('M') * 1e6) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?G$')  { return ([double]$v.TrimEnd('G') * 1e9) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?T$')  { return ([double]$v.TrimEnd('T') * 1e12) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?P$')  { return ([double]$v.TrimEnd('P') * 1e15) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?E$')  { return ([double]$v.TrimEnd('E') * 1e18) / 1MB }
+          if ($v -match '^[0-9]+(\.[0-9]+)?$')   { return [double]$v / 1024 / 1024 }
+          return $null
+      }
+
+      $pods = $KubeData.Pods.items
+      if ($ExcludeNamespaces) {
+          $pods = Exclude-Namespaces -items $pods
+      }
+
+      $items = @()
+      $issueCount = 0
+
+      foreach ($podObj in $pods) {
+          $ns = $podObj.metadata.namespace
+          $podName = $podObj.metadata.name
+          if ($Namespace -and $ns -ne $Namespace) { continue }
+
+          foreach ($container in $podObj.spec.containers) {
+              $containerName = $container.name
+              if (-not $containerName) { continue }
+              $key = "$ns|$podName|$containerName"
+
+              $cpuP95 = if ($cpuP95Map.ContainsKey($key)) { [double]$cpuP95Map[$key] } else { $null }
+              $memP95 = if ($memP95Map.ContainsKey($key)) { [double]$memP95Map[$key] } else { $null }
+              $cpuReq = Convert-CpuToMillicores -CpuValue $container.resources.requests.cpu
+              $cpuLim = Convert-CpuToMillicores -CpuValue $container.resources.limits.cpu
+              $memReq = Convert-MemoryToMi -MemValue $container.resources.requests.memory
+              $memLim = Convert-MemoryToMi -MemValue $container.resources.limits.memory
+
+              if ($null -eq $cpuP95 -and $null -eq $memP95) { continue }
+
+              foreach ($profileName in $selectedProfiles) {
+                  $tuning = Get-ProfileTuning -Profile $profileName
+                  $targetCpuUtil = [double]$tuning.CpuTarget
+                  $targetMemUtil = [double]$tuning.MemTarget
+                  $cpuFloor = [double]$tuning.CpuFloor
+                  $memFloor = [double]$tuning.MemFloor
+                  $memLimitBufferPct = [double]$tuning.MemLimitBuffer
+
+                  if (-not $emitAllProfiles -and $profileName -eq $activeProfile) {
+                      $targetCpuUtil = [double]($Thresholds.pod_sizing_target_cpu_utilization ?? $targetCpuUtil)
+                      $targetMemUtil = [double]($Thresholds.pod_sizing_target_mem_utilization ?? $targetMemUtil)
+                      $cpuFloor = [double]($Thresholds.pod_sizing_cpu_request_floor_mcores ?? $cpuFloor)
+                      $memFloor = [double]($Thresholds.pod_sizing_mem_request_floor_mib ?? $memFloor)
+                      $memLimitBufferPct = [double]($Thresholds.pod_sizing_mem_limit_buffer_percent ?? $memLimitBufferPct)
+                  }
+
+                  $recommendedCpuRequest = if ($null -ne $cpuP95) {
+                      [math]::Max($cpuFloor, [math]::Ceiling(($cpuP95 / $targetCpuUtil) * 100 / 10) * 10)
+                  } else { $null }
+                  $recommendedMemRequest = if ($null -ne $memP95) {
+                      [math]::Max($memFloor, [math]::Ceiling(($memP95 / $targetMemUtil) * 100 / 16) * 16)
+                  } else { $null }
+                  $recommendedMemLimit = if ($null -ne $recommendedMemRequest) {
+                      [math]::Ceiling($recommendedMemRequest * (1 + ($memLimitBufferPct / 100)))
+                  } else { $null }
+
+                  $cpuNeedsChange = ($null -eq $cpuReq -and $null -ne $recommendedCpuRequest) -or
+                      ($null -ne $cpuReq -and $null -ne $recommendedCpuRequest -and ($cpuReq -gt ($recommendedCpuRequest * 1.25) -or $cpuReq -lt ($recommendedCpuRequest * 0.8)))
+                  $memNeedsChange = ($null -eq $memReq -and $null -ne $recommendedMemRequest) -or
+                      ($null -ne $memReq -and $null -ne $recommendedMemRequest -and ($memReq -gt ($recommendedMemRequest * 1.25) -or $memReq -lt ($recommendedMemRequest * 0.8)))
+                  $memLimitNeedsChange = ($null -eq $memLim -and $null -ne $recommendedMemLimit) -or
+                      ($null -ne $memLim -and $null -ne $recommendedMemLimit -and $memLim -lt ($recommendedMemLimit * 0.9))
+                  $cpuLimitNeedsChange = $null -ne $cpuLim
+
+                  $actionable = ($cpuNeedsChange -or $memNeedsChange -or $memLimitNeedsChange -or $cpuLimitNeedsChange)
+                  if (-not $actionable) { continue }
+
+                  $issueCount++
+                  $cpuReqDeltaPct = if ($null -eq $recommendedCpuRequest) {
+                      0
+                  }
+                  elseif ($null -eq $cpuReq -or $cpuReq -le 0) {
+                      100
+                  }
+                  else {
+                      [math]::Abs(($recommendedCpuRequest - $cpuReq) / $cpuReq) * 100
+                  }
+                  $memReqDeltaPct = if ($null -eq $recommendedMemRequest) {
+                      0
+                  }
+                  elseif ($null -eq $memReq -or $memReq -le 0) {
+                      100
+                  }
+                  else {
+                      [math]::Abs(($recommendedMemRequest - $memReq) / $memReq) * 100
+                  }
+                  $memLimitDeltaPct = if ($null -eq $recommendedMemLimit) {
+                      0
+                  }
+                  elseif ($null -eq $memLim -or $memLim -le 0) {
+                      100
+                  }
+                  else {
+                      [math]::Abs(($recommendedMemLimit - $memLim) / $memLim) * 100
+                  }
+                  $cpuLimitScore = if ($cpuLimitNeedsChange) { 50 } else { 0 }
+                  $winScore = [math]::Round($cpuReqDeltaPct + $memReqDeltaPct + $memLimitDeltaPct + $cpuLimitScore, 2)
+
+                  $items += [PSCustomObject]@{
+                      "__WinScore" = $winScore
+                      Namespace = $ns
+                      Pod = $podName
+                      Container = $containerName
+                      "CPU Request (m)" = if ($null -ne $cpuReq) { [math]::Round($cpuReq, 1) } else { "N/A" }
+                      "CPU Request Rec (m)" = if ($null -ne $recommendedCpuRequest) { [math]::Round($recommendedCpuRequest, 0) } else { "N/A" }
+                      "CPU Limit (m)" = if ($null -ne $cpuLim) { [math]::Round($cpuLim, 1) } else { "none" }
+                      "CPU Limit Rec (m)" = "none"
+                      "Memory Request (Mi)" = if ($null -ne $memReq) { [math]::Round($memReq, 1) } else { "N/A" }
+                      "Memory Request Rec (Mi)" = if ($null -ne $recommendedMemRequest) { [math]::Round($recommendedMemRequest, 0) } else { "N/A" }
+                      "Memory Limit (Mi)" = if ($null -ne $memLim) { [math]::Round($memLim, 1) } else { "N/A" }
+                      "Memory Limit Rec (Mi)" = if ($null -ne $recommendedMemLimit) { [math]::Round($recommendedMemLimit, 0) } else { "N/A" }
+                      "Sizing Profile" = $profileName
+                  }
+              }
+          }
+      }
+
+      $sortedItems = $items |
+          Sort-Object @{ Expression = "__WinScore"; Descending = $true }, Namespace, Pod, Container |
+          Select-Object * -ExcludeProperty "__WinScore"
+
+      return @{
+          Items = $sortedItems
+          IssueCount = $issueCount
+          SummaryMessage = "Sizing recommendations use p95 Prometheus data over the last $analysisWindowDays days (available history: $coverageDays days). Rows are sorted by largest potential sizing impact first."
+      }

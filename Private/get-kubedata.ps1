@@ -91,7 +91,6 @@ function Get-KubeData {
         @{ Name = "HorizontalPodAutoscalers"; Cmd = { kubectl get hpa --all-namespaces -o json }; Key = "HorizontalPodAutoscalers"; Items = $true },
         @{ Name = "Services"; Cmd = { kubectl get svc --all-namespaces -o json }; Key = "Services"; Items = $false },
         @{ Name = "Ingresses"; Cmd = { kubectl get ingress --all-namespaces -o json }; Key = "Ingresses"; Items = $true },
-        @{ Name = "Endpoints"; Cmd = { kubectl get endpoints --all-namespaces -o json }; Key = "Endpoints"; Items = $false },
         @{ Name = "EndpointSlices"; Cmd = { kubectl get endpointslices --all-namespaces -o json }; Key = "EndpointSlices"; Items = $false },
         @{ Name = "ConfigMaps"; Cmd = { kubectl get configmaps --all-namespaces -o json }; Key = "ConfigMaps"; Items = $true },
         @{ Name = "Secrets"; Cmd = { kubectl get secrets --all-namespaces -o json }; Key = "Secrets"; Items = $true },
@@ -192,6 +191,7 @@ function Get-KubeData {
     # Fetch Prometheus Metrics
     if ($IncludePrometheus -and $PrometheusUrl) {
         Write-Host "`n[📊 Fetching Prometheus Metrics]" -ForegroundColor Cyan
+        $thresholds = Get-KubeBuddyThresholds -Silent
 
         try {
             $headers = Get-PrometheusHeaders -Mode $PrometheusMode `
@@ -239,7 +239,10 @@ function Get-KubeData {
         foreach ($query in $prometheusQueries) {
             Write-Host -NoNewline "▶️  Querying: $($query.Name)" -ForegroundColor Yellow
             $result = Get-PrometheusData -Query $query.Query -Url $PrometheusUrl `
-                -Headers $headers -UseRange -StartTime $start -EndTime $end -Step "15m"
+                -Headers $headers -UseRange -StartTime $start -EndTime $end -Step "15m" `
+                -TimeoutSec ([int]$thresholds.prometheus_timeout_seconds) `
+                -RetryCount ([int]$thresholds.prometheus_query_retries) `
+                -RetryDelaySec ([int]$thresholds.prometheus_retry_delay_seconds)
 
             if ($result) {
                 $data.PrometheusMetrics[$query.Name] = $result.Results
@@ -386,7 +389,20 @@ function Get-KubeData {
                 'Constraints'
             )) {
             if ($data.ContainsKey($key)) {
-                $data[$key] = Exclude-Namespaces -items $data[$key]
+                $value = $data[$key]
+                if ($null -eq $value) { continue }
+
+                # Most kubectl list responses are objects with an .items array.
+                if ($value.PSObject.Properties.Name -contains "items" -and $value.items) {
+                    $value.items = @(Exclude-Namespaces -items $value.items)
+                    $data[$key] = $value
+                }
+                elseif ($value -is [array]) {
+                    $data[$key] = @(Exclude-Namespaces -items $value)
+                }
+                else {
+                    $data[$key] = Exclude-Namespaces -items @($value)
+                }
             }
         }
     }

@@ -43,6 +43,8 @@ The following table provides a quick reference for KubeBuddy powered by KubeDeck
 | Generate an JSON report | `Invoke-KubeBuddy -jsonReport` |
 | Generate a text report | `Invoke-KubeBuddy -txtReport` |
 | Generate reports with custom path | `Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report` |
+| Use cluster-specific config file | `Invoke-KubeBuddy -HtmlReport -ConfigPath ~/.kube/kubebuddy-config-prod.yaml` |
+| Exclude configured + extra namespaces | `Invoke-KubeBuddy -HtmlReport -ExcludeNamespaces -AdditionalExcludedNamespaces "azure-monitor","istio-system"` |
 | Run a KubeBuddy powered by KubeDeck with an AKS Best Practices Check | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
 | Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 | Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
@@ -76,6 +78,8 @@ Invoke-KubeBuddy -HtmlReport
 ![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../images/html-report-sample.png)
 
 <a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
+
+The Overview tab includes a **Rightsizing at a Glance** section when Prometheus sizing checks are available, summarizing node and pod sizing opportunities with quick links to `PROM006` and `PROM007`.
 
 ---
 ### **Generate a JSON Report**
@@ -198,10 +202,24 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 | Parameter                 | Type      | Default                              | Description                                                                                  |
 |---------------------------|----------|--------------------------------------|----------------------------------------------------------------------------------------------|
 | `-OutputPath`            | String   | `$HOME/kubebuddy-report`             | Folder or file name where report files are saved. Supports custom filenames.                 |
+| `-ConfigPath`            | String   | `~/.kube/kubebuddy-config.yaml`      | Path to a specific KubeBuddy config file for this run (supports per-cluster configs).       |
 | `-Aks`                   | Switch   | (N/A)                                | Runs AKS best practices checks. Requires `-SubscriptionId`, `-ResourceGroup`, `-ClusterName`. |
 | `-SubscriptionId`        | String   | (None)                               | Azure subscription ID (used with `-Aks`).                                                    |
 | `-ResourceGroup`         | String   | (None)                               | Azure resource group (used with `-Aks`).                                                     |
 | `-ClusterName`           | String   | (None)                               | AKS cluster name (used with `-Aks`).                                                         |
+| `-ExcludeNamespaces`     | Switch   | (N/A)                                | Applies namespace exclusions from `kubebuddy-config.yaml` (`excluded_namespaces`).          |
+| `-AdditionalExcludedNamespaces` | String[] | (None)                         | Adds extra namespaces to exclude at runtime; implies `-ExcludeNamespaces`.                   |
 | `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `-OutputPath`.                                                   |
 | `-JsonReport`            | Switch   | (N/A)                                | Generates a JSON report in `-OutputPath`.                                                    |
 | `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `-OutputPath`.                                                   |
+
+### Cluster-Specific Config Files
+
+You can keep multiple config files (for example one per cluster) and point KubeBuddy to the right one at runtime:
+
+```powershell
+Invoke-KubeBuddy -HtmlReport -ConfigPath ~/.kube/kubebuddy-config-prod.yaml
+Invoke-KubeBuddy -HtmlReport -ConfigPath ~/.kube/kubebuddy-config-dev.yaml
+```
+
+This is useful for per-cluster `excluded_checks`, `excluded_namespaces`, thresholds, and trusted registries.

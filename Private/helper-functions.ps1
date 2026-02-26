@@ -159,14 +159,68 @@ function Generate-K8sTextReport {
     Write-ToReport "`n🩺 Cluster Health Score: $score / 100"
 }
 
+function Get-KubeBuddyConfigPath {
+    if ($script:KubeBuddyConfigPathOverride -and $script:KubeBuddyConfigPathOverride.Trim() -ne "") {
+        return $script:KubeBuddyConfigPathOverride
+    }
+
+    if ($env:KUBEBUDDY_CONFIG -and "$env:KUBEBUDDY_CONFIG".Trim() -ne "") {
+        return "$env:KUBEBUDDY_CONFIG"
+    }
+
+    return "$HOME/.kube/kubebuddy-config.yaml"
+}
+
+function Set-KubeBuddyConfigPathOverride {
+    param([string]$ConfigPath)
+
+    if (-not $ConfigPath -or $ConfigPath.Trim() -eq "") {
+        return
+    }
+
+    $script:KubeBuddyConfigPathOverride = $ConfigPath.Trim()
+}
+
+function Clear-KubeBuddyConfigPathOverride {
+    if (Get-Variable -Name KubeBuddyConfigPathOverride -Scope Script -ErrorAction SilentlyContinue) {
+        Remove-Variable -Name KubeBuddyConfigPathOverride -Scope Script -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Get-KubeBuddyThresholds {
     param([switch]$Silent)
 
-    $configPath = "$HOME/.kube/kubebuddy-config.yaml"
+    $configPath = Get-KubeBuddyConfigPath
 
     if (Test-Path $configPath) {
         try {
             $config = Get-Content -Raw $configPath | ConvertFrom-Yaml
+            $profile = [string]($config.thresholds.pod_sizing_profile ?? "balanced")
+            $profile = $profile.ToLower()
+            switch ($profile) {
+                "conservative" {
+                    $profileCpuTarget = 55
+                    $profileMemTarget = 65
+                    $profileCpuFloor = 100
+                    $profileMemFloor = 256
+                    $profileMemBuffer = 25
+                }
+                "aggressive" {
+                    $profileCpuTarget = 75
+                    $profileMemTarget = 85
+                    $profileCpuFloor = 10
+                    $profileMemFloor = 64
+                    $profileMemBuffer = 15
+                }
+                default {
+                    $profile = "balanced"
+                    $profileCpuTarget = 65
+                    $profileMemTarget = 75
+                    $profileCpuFloor = 25
+                    $profileMemFloor = 128
+                    $profileMemBuffer = 20
+                }
+            }
             return @{
                 cpu_warning             = $config.thresholds.cpu_warning ?? 50
                 cpu_critical            = $config.thresholds.cpu_critical ?? 75
@@ -185,6 +239,25 @@ function Get-KubeBuddyThresholds {
                 pods_per_node_warning   = $config.thresholds.pods_per_node_warning ?? 80
                 pods_per_node_critical  = $config.thresholds.pods_per_node_critical ?? 90
                 storage_usage_threshold = $config.thresholds.storage_usage_threshold ?? 80
+                node_sizing_downsize_cpu_p95 = $config.thresholds.node_sizing_downsize_cpu_p95 ?? 35
+                node_sizing_downsize_mem_p95 = $config.thresholds.node_sizing_downsize_mem_p95 ?? 40
+                node_sizing_upsize_cpu_p95   = $config.thresholds.node_sizing_upsize_cpu_p95 ?? 80
+                node_sizing_upsize_mem_p95   = $config.thresholds.node_sizing_upsize_mem_p95 ?? 85
+                pod_sizing_profile      = $profile
+                pod_sizing_compare_profiles = $config.thresholds.pod_sizing_compare_profiles ?? $true
+                pod_sizing_target_cpu_utilization = $config.thresholds.pod_sizing_target_cpu_utilization ?? $profileCpuTarget
+                pod_sizing_target_mem_utilization = $config.thresholds.pod_sizing_target_mem_utilization ?? $profileMemTarget
+                pod_sizing_cpu_request_floor_mcores = $config.thresholds.pod_sizing_cpu_request_floor_mcores ?? $profileCpuFloor
+                pod_sizing_mem_request_floor_mib    = $config.thresholds.pod_sizing_mem_request_floor_mib ?? $profileMemFloor
+                pod_sizing_mem_limit_buffer_percent = $config.thresholds.pod_sizing_mem_limit_buffer_percent ?? $profileMemBuffer
+                prometheus_timeout_seconds = $config.thresholds.prometheus_timeout_seconds ?? 60
+                prometheus_query_retries   = $config.thresholds.prometheus_query_retries ?? 2
+                prometheus_retry_delay_seconds = $config.thresholds.prometheus_retry_delay_seconds ?? 2
+                excluded_namespaces    = $config.excluded_namespaces ?? @(
+                    "kube-system", "kube-public", "kube-node-lease",
+                    "local-path-storage", "kube-flannel",
+                    "tigera-operator", "calico-system", "coredns", "aks-istio-system", "gatekeeper-system"
+                )
                 excluded_checks         = $config.excluded_checks ?? @()
                 trusted_registries      = $config.trusted_registries ?? @("mcr.microsoft.com/")
             }
@@ -216,12 +289,35 @@ function Get-KubeBuddyThresholds {
         pods_per_node_warning   = 80
         pods_per_node_critical  = 90
         storage_usage_threshold = 80
+        node_sizing_downsize_cpu_p95 = 35
+        node_sizing_downsize_mem_p95 = 40
+        node_sizing_upsize_cpu_p95   = 80
+        node_sizing_upsize_mem_p95   = 85
+        pod_sizing_profile      = "balanced"
+        pod_sizing_compare_profiles = $true
+        pod_sizing_target_cpu_utilization = 65
+        pod_sizing_target_mem_utilization = 75
+        pod_sizing_cpu_request_floor_mcores = 25
+        pod_sizing_mem_request_floor_mib    = 128
+        pod_sizing_mem_limit_buffer_percent = 20
+        prometheus_timeout_seconds = 60
+        prometheus_query_retries   = 2
+        prometheus_retry_delay_seconds = 2
+        excluded_namespaces    = @(
+            "kube-system", "kube-public", "kube-node-lease",
+            "local-path-storage", "kube-flannel",
+            "tigera-operator", "calico-system", "coredns", "aks-istio-system", "gatekeeper-system"
+        )
         excluded_checks         = @()
         trusted_registries      = @("mcr.microsoft.com/")
     }
 }
 
 function Get-ExcludedNamespaces {
+    if ($script:KubeBuddyExcludedNamespacesOverride -and $script:KubeBuddyExcludedNamespacesOverride.Count -gt 0) {
+        return $script:KubeBuddyExcludedNamespacesOverride
+    }
+
     $config = Get-KubeBuddyThresholds -Silent
     if ($config -and $config.ContainsKey("excluded_namespaces")) {
         return $config["excluded_namespaces"]
@@ -232,6 +328,29 @@ function Get-ExcludedNamespaces {
         "local-path-storage", "kube-flannel",
         "tigera-operator", "calico-system", "coredns", "aks-istio-system", "gatekeeper-system"
     )
+}
+
+function Set-ExcludedNamespacesOverride {
+    param([string[]]$Namespaces)
+
+    if (-not $Namespaces -or $Namespaces.Count -eq 0) {
+        return
+    }
+
+    $normalized = $Namespaces |
+    Where-Object { $_ -and $_.Trim() -ne "" } |
+    ForEach-Object { $_.Trim() } |
+    Sort-Object -Unique
+
+    if ($normalized.Count -gt 0) {
+        $script:KubeBuddyExcludedNamespacesOverride = @($normalized)
+    }
+}
+
+function Clear-ExcludedNamespacesOverride {
+    if (Get-Variable -Name KubeBuddyExcludedNamespacesOverride -Scope Script -ErrorAction SilentlyContinue) {
+        Remove-Variable -Name KubeBuddyExcludedNamespacesOverride -Scope Script -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Exclude-Namespaces {

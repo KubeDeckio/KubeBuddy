@@ -70,34 +70,49 @@ function Get-PrometheusData {
         [string]  $Step       = "5m",
 
         [int]
-        $TimeoutSec = 30
+        $TimeoutSec = 60,
+
+        [int]
+        $RetryCount = 2,
+
+        [int]
+        $RetryDelaySec = 2
     )
 
-    try {
-        $encodedQuery = [uri]::EscapeDataString($Query)
-        $uri = if ($UseRange -and $StartTime -and $EndTime) {
-            "$Url/api/v1/query_range?query=$encodedQuery&start=$StartTime&end=$EndTime&step=$Step"
-        } else {
-            "$Url/api/v1/query?query=$encodedQuery"
-        }
-
-        $response = Invoke-RestMethod -Uri $uri -Headers $Headers -TimeoutSec $TimeoutSec
-        if ($response.status -ne "success") {
-            throw "Query failed: $($response.error ?? 'Unknown error')"
-        }
-
-        return [PSCustomObject]@{
-            Query   = $Query
-            Url     = $Url
-            Results = $response.data.result
-        }
+    $encodedQuery = [uri]::EscapeDataString($Query)
+    $uri = if ($UseRange -and $StartTime -and $EndTime) {
+        "$Url/api/v1/query_range?query=$encodedQuery&start=$StartTime&end=$EndTime&step=$Step"
+    } else {
+        "$Url/api/v1/query?query=$encodedQuery"
     }
-    catch {
-        Write-Host "❌ Prometheus query failed: $_" -ForegroundColor Red
-        return [PSCustomObject]@{
-            Query   = $Query
-            Url     = $Url
-            Results = @()
+
+    $maxAttempts = [Math]::Max(1, $RetryCount + 1)
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        try {
+            $response = Invoke-RestMethod -Uri $uri -Headers $Headers -TimeoutSec $TimeoutSec
+            if ($response.status -ne "success") {
+                throw "Query failed: $($response.error ?? 'Unknown error')"
+            }
+
+            return [PSCustomObject]@{
+                Query   = $Query
+                Url     = $Url
+                Results = $response.data.result
+            }
+        }
+        catch {
+            if ($attempt -lt $maxAttempts) {
+                Write-Host "⚠️ Prometheus query attempt $attempt/$maxAttempts failed (timeout ${TimeoutSec}s), retrying in ${RetryDelaySec}s..." -ForegroundColor Yellow
+                Start-Sleep -Seconds $RetryDelaySec
+                continue
+            }
+
+            Write-Host "❌ Prometheus query failed after $maxAttempts attempts (timeout ${TimeoutSec}s): $_" -ForegroundColor Red
+            return [PSCustomObject]@{
+                Query   = $Query
+                Url     = $Url
+                Results = @()
+            }
         }
     }
 }

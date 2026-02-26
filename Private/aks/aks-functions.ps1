@@ -117,7 +117,7 @@ function Invoke-AKSBestPractices {
                 Write-Host "`r🤖 Constraints fetched." -ForegroundColor Green
             }
     
-            $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints }
+            $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints } -Force
     
             return $clusterInfo
         }
@@ -191,6 +191,32 @@ function Invoke-AKSBestPractices {
         $thresholds = Get-KubeBuddyThresholds -Silent
         $excludedCheckIDs = $thresholds.excluded_checks
 
+        function Convert-ObservedValue {
+            param([object]$Value)
+
+            if ($null -eq $Value) { return "null" }
+            if ($Value -is [bool]) { return $Value.ToString().ToLower() }
+            if ($Value -is [string] -or $Value -is [int] -or $Value -is [long] -or $Value -is [double] -or $Value -is [decimal]) {
+                return "$Value"
+            }
+            if ($Value -is [array]) {
+                if ($Value.Count -eq 0) { return "[]" }
+                if ($Value.Count -le 3) {
+                    return ($Value | ForEach-Object { "$_" }) -join ", "
+                }
+                return "$($Value.Count) items"
+            }
+
+            try {
+                $json = $Value | ConvertTo-Json -Depth 6 -Compress
+                if ($json.Length -gt 200) { return $json.Substring(0, 200) + "..." }
+                return $json
+            }
+            catch {
+                return "$Value"
+            }
+        }
+
         foreach ($check in $checks) {
             try {
                 if ($excludedCheckIDs -contains $check.ID) {
@@ -219,6 +245,7 @@ function Invoke-AKSBestPractices {
                 }
 
                 $result = if ($value -eq $expected) { "✅ PASS" } else { "❌ FAIL" }
+                $observedValue = Convert-ObservedValue -Value $value
         
                 $failMsg = ""
                 if ($result -eq "❌ FAIL") {
@@ -236,6 +263,7 @@ function Invoke-AKSBestPractices {
                     Severity       = $check.Severity
                     Category       = $check.Category
                     Status         = $result
+                    ObservedValue  = $observedValue
                     FailMessage    = $failMsg
                     Recommendation = if ($result -eq "✅ PASS") { "$($check.Name) is enabled." } else { $check.Recommendation }
                     URL            = $check.URL
@@ -255,6 +283,7 @@ function Invoke-AKSBestPractices {
                     Severity       = $check.Severity ? $check.Severity : "Medium"
                     Category       = $check.Category ? $check.Category : "Unknown"
                     Status         = "❌ ERROR"
+                    ObservedValue  = "N/A"
                     Recommendation = "Error processing check: $_"
                     URL            = $check.URL
                     Items          = @(@{ Resource = $check.Name ? $check.Name : $check.ID; Issue = "Error: $_" })
@@ -294,7 +323,7 @@ function Invoke-AKSBestPractices {
     
             if ($checks.Count -gt 0 -and -not $Html -and -not $Json -and -not $Text) {
                 Write-Host "`n=== $category ===             " -ForegroundColor Cyan              
-                $checks | Format-Table ID, Check, Severity, Category, Status, Recommendation, @{Label = "URL"; Expression = { $_."URL" } } -AutoSize | Out-String | Write-Host
+                $checks | Format-Table ID, Name, Severity, Category, Status, ObservedValue, Recommendation, @{Label = "URL"; Expression = { $_."URL" } } -AutoSize | Out-String | Write-Host
     
                 Write-Host "`nPress any key to continue..." -ForegroundColor Magenta -NoNewline
                 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -309,7 +338,7 @@ function Invoke-AKSBestPractices {
                 }
             }
     
-            $reportData += $checks | Select-Object ID, @{Name = "Check"; Expression = { $_.Name } }, Severity, Category, Status, FailMessage, Recommendation, @{
+            $reportData += $checks | Select-Object ID, @{Name = "Check"; Expression = { $_.Name } }, Severity, Category, Status, ObservedValue, FailMessage, Recommendation, @{
                 Name       = 'URL'
                 Expression = { if ($_.URL) { "<a href='$($_.URL)' target='_blank'>Learn More</a>" } else { "" } }
             }
@@ -374,6 +403,7 @@ function Invoke-AKSBestPractices {
                         Severity       = $_.Severity
                         Category       = $_.Category
                         Status         = $_.Status
+                        ObservedValue  = $_.ObservedValue
                         FailMessage    = $_.FailMessage
                         Recommendation = $_.Recommendation
                         URL            = $_.URL -replace '<a href=''([^'']+)'' target=''_blank''>Learn More</a>', '$1'
@@ -396,18 +426,51 @@ function Invoke-AKSBestPractices {
         if ($Html) {
             $htmlTable = if ($reportData.Count -gt 0) {
                 $sortedReportData = $reportData | Sort-Object @{Expression = { $_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR" }; Descending = $true }, Category
-                $htmlRows = $sortedReportData | ForEach-Object {
-                    $id = $_.ID
-                    $check = $_.Check
-                    $severity = $_.Severity
-                    $category = $_.Category
-                    $status = $_.Status
-                    $failMessage = $_.FailMessage
-                    $recommendation = $_.Recommendation
-                    $url = $_.URL
-                    "<tr><td>$id</td><td>$check</td><td>$severity</td><td>$category</td><td>$status</td><td>$failMessage</td><td>$recommendation</td><td>$url</td></tr>"
+                $categorySections = $sortedReportData |
+                Group-Object -Property Category |
+                Sort-Object Name |
+                ForEach-Object {
+                    $categoryName = $_.Name
+                    $categoryChecks = $_.Group | Sort-Object @{Expression = { $_.Status -eq "✅ PASS" }; Descending = $false }, Check
+                    $failedInCategory = ($categoryChecks | Where-Object { $_.Status -eq "❌ FAIL" -or $_.Status -eq "❌ ERROR" }).Count
+                    $totalInCategory = $categoryChecks.Count
+                    $categoryId = ($categoryName -replace '[^a-zA-Z0-9]', '_')
+
+                    $rows = $categoryChecks | ForEach-Object {
+                        $id = $_.ID
+                        $check = $_.Check
+                        $severity = $_.Severity
+                        $category = $_.Category
+                        $status = $_.Status
+                        $observedValue = $_.ObservedValue
+                        $failMessage = $_.FailMessage
+                        $recommendation = $_.Recommendation
+                        $url = $_.URL
+                        "<tr><td>$id</td><td>$check</td><td>$severity</td><td>$category</td><td>$status</td><td>$observedValue</td><td>$failMessage</td><td>$recommendation</td><td>$url</td></tr>"
+                    }
+
+                    @"
+<div class='collapsible-container'>
+  <details id='aksCategory_$categoryId'>
+    <summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show $categoryName ($failedInCategory/$totalInCategory failed)</summary>
+    <div style='padding-top: 15px;'>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Observed Value</th><th>Fail Message</th><th>Recommendation</th><th>URL</th></tr>
+        </thead>
+        <tbody>
+          $($rows -join "`n")
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+"@
                 }
-                "<table>`n<thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Fail Message</th><th>Recommendation</th><th>URL</th></tr></thead>`n<tbody>`n" + ($htmlRows -join "`n") + "`n</tbody>`n</table>"
+
+                @"
+$($categorySections -join "`n")
+"@
             }
             else {
                 "<p><strong>No best practice violations detected.</strong></p>"
@@ -433,6 +496,7 @@ function Invoke-AKSBestPractices {
                         Severity       = $_.Severity
                         Category       = $_.Category
                         Status         = $_.Status
+                        ObservedValue  = $_.ObservedValue
                         FailMessage    = $_.FailMessage
                         Recommendation = $_.Recommendation
                         URL            = $_.URL -replace '<a href=''([^'']+)'' target=''_blank''>Learn More</a>', '$1'

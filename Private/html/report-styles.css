@@ -488,10 +488,23 @@ a:focus {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
+/* Keep warning (orange) progress label readable */
+.progress.warning .progress-text {
+  color: #111;
+  text-shadow: none;
+}
+
 /* Tables */
 .table-container {
   width: 100%;
   max-width: 100%;
+  border-radius: var(--border-radius);
+  background: var(--bg-container);
+  overflow-x: auto;
+}
+
+.kb-hidden-col {
+  display: none !important;
 }
 
 table {
@@ -501,6 +514,7 @@ table {
   border-spacing: 0;
   background: var(--bg-container);
   border-radius: var(--border-radius);
+  overflow: hidden;
   box-shadow: var(--shadow-sm);
   border-left: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);
@@ -768,6 +782,7 @@ table a:hover {
 
 .metric-card.warning {
   background: var(--warning-color);
+  color: #111;
 }
 
 .metric-card.critical {
@@ -776,10 +791,76 @@ table a:hover {
 
 .metric-card.default {
   background: var(--brand-blue);
+  color: #111;
 }
 
 .metric-card.info {
   background: var(--brand-blue);
+  color: #111;
+}
+
+.rightsizing-glance {
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.rightsizing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.rightsizing-card {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--brand-blue);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+}
+
+.rightsizing-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--brand-blue);
+}
+
+.rightsizing-list {
+  display: grid;
+  gap: 8px;
+}
+
+.rightsizing-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
+}
+
+.rightsizing-item .label {
+  color: var(--text-on-dark);
+  font-weight: 500;
+}
+
+.rightsizing-item .value {
+  color: var(--brand-blue-dk2);
+  font-weight: 700;
+}
+
+.rightsizing-links {
+  margin: 12px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-on-dark);
+}
+
+.rightsizing-links a {
+  color: var(--brand-blue-dk2);
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 /* Compatibility Banner */
@@ -804,7 +885,7 @@ table a:hover {
 
 .compatibility.warning {
   background: var(--warning-color);
-  color: var(--text-dark);
+  color: #111;
 }
 
 .compatibility.unknown {
@@ -1030,16 +1111,21 @@ code {
 .table-pagination button {
   padding: 6px var(--spacing-md);
   border-radius: 6px;
-  border: 1px solid #ccc;
-  background: #f7f7f7;
+  border: 1px solid var(--border-color);
+  border: 1px solid color-mix(in srgb, var(--brand-blue) 35%, var(--border-color));
+  background: var(--bg-panel);
+  background: color-mix(in srgb, var(--bg-panel) 85%, var(--brand-blue) 15%);
+  color: var(--text-dark);
   cursor: pointer;
   font-size: var(--font-size-sm);
-  transition: background var(--transition), transform var(--transition);
+  transition: background var(--transition), transform var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
 
 .table-pagination select:hover,
 .table-pagination button:hover {
-  background: var(--border-color);
+  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg-panel) 70%, var(--brand-blue) 30%);
+  border-color: var(--brand-blue);
   transform: translateY(-1px);
 }
 
@@ -1053,6 +1139,105 @@ code {
   font-weight: 700;
   background: var(--brand-blue);
   color: var(--text-light);
+}
+
+.table-pagination .pager-ellipsis {
+  padding: 0 4px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.profile-filter {
+  margin: 0 0 var(--spacing-sm) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.profile-filter .filter-label {
+  color: var(--brand-blue);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+}
+
+.profile-filter .filter-select {
+  min-width: 180px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  border: 1px solid color-mix(in srgb, var(--brand-blue) 45%, var(--border-color));
+  background: var(--bg-panel);
+  background: color-mix(in srgb, var(--bg-panel) 80%, var(--brand-blue) 20%);
+  color: var(--text-dark);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-filter .filter-select:hover {
+  border-color: var(--brand-blue);
+  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg-panel) 65%, var(--brand-blue) 35%);
+}
+
+.profile-filter .filter-select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.profile-filter .filter-select:focus-visible,
+.table-pagination select:focus-visible,
+.table-pagination button:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
+}
+
+.profile-filter .filter-button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--brand-blue) 45%, var(--border-color));
+  background: color-mix(in srgb, var(--bg-panel) 65%, var(--brand-blue) 35%);
+  color: var(--text-dark);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.profile-filter .filter-button:hover {
+  border-color: var(--brand-blue);
+  background: color-mix(in srgb, var(--bg-panel) 50%, var(--brand-blue) 50%);
+}
+
+.profile-filter .filter-button:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
+}
+
+.profile-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.profile-conservative {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.profile-balanced {
+  background: rgba(0, 113, 255, 0.2);
+  border-color: rgba(0, 113, 255, 0.5);
+}
+
+.profile-aggressive {
+  background: rgba(255, 160, 0, 0.2);
+  border-color: rgba(255, 160, 0, 0.5);
 }
 
 /* Footer */
@@ -1130,7 +1315,7 @@ code {
 }
 
 .health-status:hover .status-text {
-  color: #263238;
+  color: var(--text-dark);
 }
 
 .count-up {
@@ -2118,7 +2303,7 @@ details>summary.node-summary .summary-metrics .metric-badge {
 /* 5) points */
 .fix-metrics {
   flex: 0 0 auto;
-  color: #666;
+  color: var(--text-dark);
   font-size: 0.875rem;
 }
 

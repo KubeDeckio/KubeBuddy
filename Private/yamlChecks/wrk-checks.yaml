@@ -53,7 +53,7 @@ checks:
           Availability  = "$ready/$desired"
           Message       = "DaemonSet is not running on all desired nodes."
         }
-      } | Sort-Object Namespace, DaemonSet | Format-Table -AutoSize
+      } | Sort-Object Namespace, DaemonSet
   - ID: "WRK002"
     Name: "Deployment Missing Replicas"
     Category: "Workloads"
@@ -918,4 +918,422 @@ checks:
           }
       }
       
+      return $results
+
+  - ID: "WRK010"
+    Name: "HPA Metrics Without Matching Resource Requests"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "HorizontalPodAutoscaler"
+    Severity: "warning"
+    Weight: 3
+    Description: "Detects HPAs that scale on CPU/memory metrics while target containers are missing corresponding resource requests."
+    FailMessage: "HPA targets are missing CPU/memory requests required for reliable autoscaling."
+    URL: "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/"
+    Recommendation:
+      text: "Set resource requests for HPA-managed workloads so autoscaling decisions are based on valid utilization signals."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Add <code>resources.requests.cpu</code> and/or <code>resources.requests.memory</code> for HPA target containers.</li>
+            <li>Use consistent requests across replicas to avoid unstable scaling behavior.</li>
+            <li>After updates, validate HPA behavior with <code>kubectl describe hpa</code>.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some HPAs rely on CPU/memory metrics but target containers miss matching requests."
+      - ""
+      - "⚠️ This can make autoscaling noisy or inaccurate."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $hpas = if ($KubeData?.HorizontalPodAutoscalers) { @($KubeData.HorizontalPodAutoscalers) } else { @((kubectl get hpa -A -o json | ConvertFrom-Json).items) }
+      $deployments = if ($KubeData?.Deployments) { @($KubeData.Deployments) } else { @((kubectl get deployments -A -o json | ConvertFrom-Json).items) }
+      $statefulsets = if ($KubeData?.StatefulSets) { @($KubeData.StatefulSets) } else { @((kubectl get statefulsets -A -o json | ConvertFrom-Json).items) }
+
+      if ($ExcludeNamespaces) {
+        $hpas = Exclude-Namespaces -items $hpas
+        $deployments = Exclude-Namespaces -items $deployments
+        $statefulsets = Exclude-Namespaces -items $statefulsets
+      }
+      if ($Namespace) {
+        $hpas = $hpas | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $deployments = $deployments | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $statefulsets = $statefulsets | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+
+      foreach ($hpa in $hpas) {
+        $ns = $hpa.metadata.namespace
+        $hpaName = $hpa.metadata.name
+        $targetKind = "$($hpa.spec.scaleTargetRef.kind)"
+        $targetName = "$($hpa.spec.scaleTargetRef.name)"
+
+        $resourceMetrics = @($hpa.spec.metrics | Where-Object { $_.type -eq "Resource" -and $_.resource.name -in @("cpu","memory") })
+        if (-not $resourceMetrics -or $resourceMetrics.Count -eq 0) { continue }
+
+        $workload = $null
+        if ($targetKind -eq "Deployment") {
+          $workload = $deployments | Where-Object { $_.metadata.namespace -eq $ns -and $_.metadata.name -eq $targetName } | Select-Object -First 1
+        } elseif ($targetKind -eq "StatefulSet") {
+          $workload = $statefulsets | Where-Object { $_.metadata.namespace -eq $ns -and $_.metadata.name -eq $targetName } | Select-Object -First 1
+        }
+        if (-not $workload) { continue }
+
+        $containers = @($workload.spec.template.spec.containers)
+        foreach ($m in $resourceMetrics) {
+          $metricName = "$($m.resource.name)"
+          $missing = @()
+          foreach ($c in $containers) {
+            $reqVal = if ($metricName -eq "cpu") { $c.resources.requests.cpu } else { $c.resources.requests.memory }
+            if (-not $reqVal) {
+              $missing += $c.name
+            }
+          }
+
+          if ($missing.Count -gt 0) {
+            $results += [PSCustomObject]@{
+              Namespace = $ns
+              HPA = $hpaName
+              Target = "$targetKind/$targetName"
+              Metric = $metricName
+              MissingContainers = ($missing -join ", ")
+              Message = "Containers missing $metricName requests"
+            }
+          }
+        }
+      }
+
+      return $results
+
+  - ID: "WRK011"
+    Name: "VPA Update Mode and Declarative Resource Conflict Risk"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "VerticalPodAutoscaler"
+    Severity: "warning"
+    Weight: 2
+    Description: "Flags VPAs in Auto/Recreate mode where targets are declaratively managed with fixed requests or overlap with HPA resource scaling."
+    FailMessage: "VPA mode may conflict with declarative resource settings or HPA scaling."
+    URL: "https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler"
+    Recommendation:
+      text: "Use VPA Off/Initial for recommendation-only flows, or tune ownership boundaries when combining VPA with HPA/GitOps."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>If GitOps/Helm controls requests, consider VPA <code>updateMode: Off</code> or <code>Initial</code>.</li>
+            <li>Avoid overlapping HPA (CPU/memory) and VPA ownership without clear boundaries.</li>
+            <li>Document which controller owns requests per workload.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some VPA configurations may fight with declarative config or HPA."
+      - ""
+      - "⚠️ Clarify autoscaling ownership boundaries."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $vpas = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("VerticalPodAutoscaler")) {
+        @($KubeData.CustomResourcesByKind["VerticalPodAutoscaler"])
+      } else {
+        @((kubectl get verticalpodautoscalers.autoscaling.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+      }
+      $hpas = if ($KubeData?.HorizontalPodAutoscalers) { @($KubeData.HorizontalPodAutoscalers) } else { @((kubectl get hpa -A -o json | ConvertFrom-Json).items) }
+      $deployments = if ($KubeData?.Deployments) { @($KubeData.Deployments) } else { @((kubectl get deployments -A -o json | ConvertFrom-Json).items) }
+      $statefulsets = if ($KubeData?.StatefulSets) { @($KubeData.StatefulSets) } else { @((kubectl get statefulsets -A -o json | ConvertFrom-Json).items) }
+
+      if ($ExcludeNamespaces) {
+        $vpas = Exclude-Namespaces -items $vpas
+        $hpas = Exclude-Namespaces -items $hpas
+        $deployments = Exclude-Namespaces -items $deployments
+        $statefulsets = Exclude-Namespaces -items $statefulsets
+      }
+      if ($Namespace) {
+        $vpas = $vpas | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $hpas = $hpas | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $deployments = $deployments | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $statefulsets = $statefulsets | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+
+      foreach ($vpa in $vpas) {
+        $ns = $vpa.metadata.namespace
+        $vpaName = $vpa.metadata.name
+        $targetKind = "$($vpa.spec.targetRef.kind)"
+        $targetName = "$($vpa.spec.targetRef.name)"
+        if (-not $targetKind -or -not $targetName) { continue }
+
+        $updateMode = if ($vpa.spec.updatePolicy.updateMode) { "$($vpa.spec.updatePolicy.updateMode)" } else { "Auto" }
+        if ($updateMode -notin @("Auto", "Recreate")) { continue }
+
+        $workload = $null
+        if ($targetKind -eq "Deployment") {
+          $workload = $deployments | Where-Object { $_.metadata.namespace -eq $ns -and $_.metadata.name -eq $targetName } | Select-Object -First 1
+        } elseif ($targetKind -eq "StatefulSet") {
+          $workload = $statefulsets | Where-Object { $_.metadata.namespace -eq $ns -and $_.metadata.name -eq $targetName } | Select-Object -First 1
+        }
+        if (-not $workload) { continue }
+
+        $containers = @($workload.spec.template.spec.containers)
+        $withRequests = @($containers | Where-Object { $_.resources.requests.cpu -or $_.resources.requests.memory })
+        if ($withRequests.Count -eq 0) { continue }
+
+        $managedBy = if ($workload.metadata.labels.'app.kubernetes.io/managed-by') {
+          "$($workload.metadata.labels.'app.kubernetes.io/managed-by')"
+        } else {
+          "unknown"
+        }
+        $isDeclarative = $managedBy.ToLower() -in @("helm", "argocd", "flux", "kustomize", "terraform")
+
+        $hasHpaConflict = $false
+        foreach ($hpa in $hpas | Where-Object {
+          $_.metadata.namespace -eq $ns -and
+          "$($_.spec.scaleTargetRef.kind)" -eq $targetKind -and
+          "$($_.spec.scaleTargetRef.name)" -eq $targetName
+        }) {
+          if (@($hpa.spec.metrics | Where-Object { $_.type -eq "Resource" -and $_.resource.name -in @("cpu","memory") }).Count -gt 0) {
+            $hasHpaConflict = $true
+            break
+          }
+        }
+
+        if ($isDeclarative -or $hasHpaConflict) {
+          $reasons = @()
+          if ($isDeclarative) { $reasons += "Declarative manager detected ($managedBy)" }
+          if ($hasHpaConflict) { $reasons += "HPA also scales this target via CPU/memory metrics" }
+          $results += [PSCustomObject]@{
+            Namespace = $ns
+            VPA = $vpaName
+            Target = "$targetKind/$targetName"
+            UpdateMode = $updateMode
+            ManagedBy = $managedBy
+            Message = ($reasons -join "; ")
+          }
+        }
+      }
+
+      return $results
+
+  - ID: "WRK012"
+    Name: "PodDisruptionBudget Adequacy for Replicated Workloads"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "PodDisruptionBudget"
+    Severity: "warning"
+    Weight: 2
+    Description: "Evaluates PDB coverage and disruption settings for Deployments/StatefulSets with 2+ replicas."
+    FailMessage: "Replicated workloads are missing PDBs or have risky disruption settings."
+    URL: "https://kubernetes.io/docs/tasks/run-application/configure-pdb/"
+    Recommendation:
+      text: "Add or tune PDBs so maintenance can proceed safely without over-restricting disruption."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Ensure replicated workloads (2+ replicas) have a matching PDB.</li>
+            <li>Avoid <code>minAvailable</code> equal to replica count for normal maintenance windows.</li>
+            <li>Use pragmatic budgets (for example <code>maxUnavailable: 1</code> for many workloads).</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Checking if PDB coverage and settings are practical."
+      - ""
+      - "⚠️ Missing or overly strict PDBs can block maintenance and upgrades."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $pdbs = if ($KubeData?.PodDisruptionBudgets) { @($KubeData.PodDisruptionBudgets) } else { @((kubectl get pdb -A -o json | ConvertFrom-Json).items) }
+      $deployments = if ($KubeData?.Deployments) { @($KubeData.Deployments) } else { @((kubectl get deployments -A -o json | ConvertFrom-Json).items) }
+      $statefulsets = if ($KubeData?.StatefulSets) { @($KubeData.StatefulSets) } else { @((kubectl get statefulsets -A -o json | ConvertFrom-Json).items) }
+
+      if ($ExcludeNamespaces) {
+        $pdbs = Exclude-Namespaces -items $pdbs
+        $deployments = Exclude-Namespaces -items $deployments
+        $statefulsets = Exclude-Namespaces -items $statefulsets
+      }
+      if ($Namespace) {
+        $pdbs = $pdbs | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $deployments = $deployments | Where-Object { $_.metadata.namespace -eq $Namespace }
+        $statefulsets = $statefulsets | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      function Selector-Matches {
+        param($labels, $selector)
+        if (-not $selector) { return $false }
+        if (-not $labels) { return $false }
+        foreach ($k in $selector.PSObject.Properties.Name) {
+          $hasKey = $false
+          $actual = $null
+          if ($labels -is [System.Collections.IDictionary]) {
+            $hasKey = $labels.Contains($k)
+            if ($hasKey) { $actual = $labels[$k] }
+          } else {
+            $prop = $labels.PSObject.Properties[$k]
+            if ($prop) {
+              $hasKey = $true
+              $actual = $prop.Value
+            }
+          }
+          if (-not $hasKey -or "$actual" -ne "$($selector.$k)") { return $false }
+        }
+        return $true
+      }
+
+      function Resolve-IntOrPercent {
+        param($raw, [int]$replicas)
+        if ($null -eq $raw) { return $null }
+        $txt = "$raw"
+        if ($txt -match '^\d+%$') {
+          $pct = [int]$txt.TrimEnd('%')
+          return [int][Math]::Ceiling(($replicas * $pct) / 100.0)
+        }
+        if ($txt -match '^\d+$') { return [int]$txt }
+        return $null
+      }
+
+      $workloads = @()
+      foreach ($d in $deployments) {
+        $replicas = if ($d.spec.replicas -ne $null) { [int]$d.spec.replicas } else { 1 }
+        if ($replicas -ge 2) {
+          $workloads += [PSCustomObject]@{
+            Namespace = $d.metadata.namespace
+            Kind = "Deployment"
+            Name = $d.metadata.name
+            Replicas = $replicas
+            Labels = $d.spec.template.metadata.labels
+          }
+        }
+      }
+      foreach ($s in $statefulsets) {
+        $replicas = if ($s.spec.replicas -ne $null) { [int]$s.spec.replicas } else { 1 }
+        if ($replicas -ge 2) {
+          $workloads += [PSCustomObject]@{
+            Namespace = $s.metadata.namespace
+            Kind = "StatefulSet"
+            Name = $s.metadata.name
+            Replicas = $replicas
+            Labels = $s.spec.template.metadata.labels
+          }
+        }
+      }
+
+      $results = @()
+      foreach ($w in $workloads) {
+        $matching = @($pdbs | Where-Object {
+          $_.metadata.namespace -eq $w.Namespace -and
+          $_.spec.selector -and $_.spec.selector.matchLabels -and
+          (Selector-Matches -labels $w.Labels -selector $_.spec.selector.matchLabels)
+        })
+
+        if ($matching.Count -eq 0) {
+          $results += [PSCustomObject]@{
+            Namespace = $w.Namespace
+            Workload = "$($w.Kind)/$($w.Name)"
+            Replicas = $w.Replicas
+            PDB = "<none>"
+            Setting = "-"
+            Message = "No matching PDB for replicated workload"
+          }
+          continue
+        }
+
+        foreach ($p in $matching) {
+          $minRaw = $p.spec.minAvailable
+          $maxRaw = $p.spec.maxUnavailable
+          $minVal = Resolve-IntOrPercent -raw $minRaw -replicas $w.Replicas
+          $maxVal = Resolve-IntOrPercent -raw $maxRaw -replicas $w.Replicas
+
+          $issues = @()
+          if ($minVal -ne $null -and $minVal -ge $w.Replicas) { $issues += "minAvailable may be too strict for disruptions" }
+          if ($maxVal -ne $null -and $maxVal -le 0) { $issues += "maxUnavailable blocks voluntary disruption" }
+          if ($maxVal -ne $null -and $maxVal -ge $w.Replicas) { $issues += "maxUnavailable may be too permissive" }
+
+          if ($issues.Count -gt 0) {
+            $setting = if ($minRaw -ne $null) { "minAvailable=$minRaw" } elseif ($maxRaw -ne $null) { "maxUnavailable=$maxRaw" } else { "unset" }
+            $results += [PSCustomObject]@{
+              Namespace = $w.Namespace
+              Workload = "$($w.Kind)/$($w.Name)"
+              Replicas = $w.Replicas
+              PDB = $p.metadata.name
+              Setting = $setting
+              Message = ($issues -join "; ")
+            }
+          }
+        }
+      }
+
+      return $results
+
+  - ID: "WRK013"
+    Name: "CrashLoopBackOff and OOMKilled Guardrail"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "Pod"
+    Severity: "critical"
+    Weight: 3
+    Description: "Highlights pods with CrashLoopBackOff or OOMKilled signals to guard against unsafe downsizing decisions."
+    FailMessage: "CrashLoopBackOff/OOMKilled pods detected."
+    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+    Recommendation:
+      text: "Stabilize CrashLoop/OOM pods before applying aggressive right-sizing changes."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Investigate container logs and termination reasons for recurring restarts.</li>
+            <li>Increase memory requests/limits when OOMKilled events are observed.</li>
+            <li>Apply sizing changes gradually and validate SLO/error rates.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Found CrashLoopBackOff or OOMKilled signals."
+      - ""
+      - "⚠️ Treat right-sizing for these pods with extra caution."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $pods = if ($KubeData?.Pods) {
+        if ($KubeData.Pods.items) { @($KubeData.Pods.items) } else { @($KubeData.Pods) }
+      } else {
+        @((kubectl get pods -A -o json | ConvertFrom-Json).items)
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+      if ($Namespace) {
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        $ns = $pod.metadata.namespace
+        $podName = $pod.metadata.name
+        $specContainers = @($pod.spec.containers)
+
+        foreach ($cs in @($pod.status.containerStatuses)) {
+          $name = $cs.name
+          $restartCount = if ($cs.restartCount -ne $null) { [int]$cs.restartCount } else { 0 }
+          $reasons = @()
+
+          if ($cs.state.waiting.reason -eq "CrashLoopBackOff") { $reasons += "CrashLoopBackOff" }
+          if ($cs.lastState.terminated.reason -eq "OOMKilled" -or $cs.state.terminated.reason -eq "OOMKilled") { $reasons += "OOMKilled" }
+          if ($restartCount -ge 5) { $reasons += "HighRestarts($restartCount)" }
+
+          if ($reasons.Count -eq 0) { continue }
+
+          $spec = $specContainers | Where-Object { $_.name -eq $name } | Select-Object -First 1
+          $results += [PSCustomObject]@{
+            Namespace = $ns
+            Pod = $podName
+            Container = $name
+            Restarts = $restartCount
+            CPURequest = $spec.resources.requests.cpu
+            CPULimit = $spec.resources.limits.cpu
+            MemoryRequest = $spec.resources.requests.memory
+            MemoryLimit = $spec.resources.limits.memory
+            Message = ($reasons -join ", ")
+          }
+        }
+      }
+
       return $results
