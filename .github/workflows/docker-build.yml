@@ -88,6 +88,7 @@ jobs:
         env:
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
           TRIVY_DISABLE_VEX_NOTICE: "true"
+          TRIVY_SKIP_FILES: "/usr/local/bin/kubectl,/usr/local/bin/kubelogin"
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
           format: table
