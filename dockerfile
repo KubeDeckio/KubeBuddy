@@ -4,7 +4,7 @@ ARG KUBECTL_VERSION=v1.35.1
 ARG KUBELOGIN_VERSION=v0.2.15
 
 # Build stage
-FROM --platform=$TARGETPLATFORM ${POWERSHELL_IMAGE} AS builder
+FROM ${POWERSHELL_IMAGE} AS builder
 
 ARG TARGETARCH
 ARG KUBECTL_VERSION
@@ -55,7 +55,7 @@ COPY --chown=10001:10001 Public /usr/local/share/powershell/Modules/KubeBuddy/Pu
 COPY --chown=10001:10001 run.ps1 /app/run.ps1
 
 # Final image
-FROM --platform=$TARGETPLATFORM ${POWERSHELL_IMAGE}
+FROM ${POWERSHELL_IMAGE}
 
 RUN apt-get update && \
     apt-get upgrade -y && \
