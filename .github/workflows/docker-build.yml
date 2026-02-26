@@ -91,9 +91,12 @@ jobs:
           exit-code: 1
           ignore-unfixed: true
           severity: CRITICAL
+          db-repository: ghcr.io/aquasecurity/trivy-db:2
 
       - name: Generate SBOM (SPDX)
         if: success()
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
         run: |
           trivy image --format spdx-json --output sbom-${{ steps.meta.outputs.TAG }}.json $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
 

@@ -20,6 +20,17 @@ $ClientId = $env:AZURE_CLIENT_ID
 $ClientSecret = $env:AZURE_CLIENT_SECRET
 $TenantId = $env:AZURE_TENANT_ID
 $UseAksRestApi = $env:USE_AKS_REST_API -eq "true"
+$ConfigPath = $env:KUBEBUDDY_CONFIG_PATH
+
+# Optional list values (comma-separated)
+$AdditionalExcludedNamespaces = @()
+if ($env:ADDITIONAL_EXCLUDED_NAMESPACES) {
+    $AdditionalExcludedNamespaces = @(
+        $env:ADDITIONAL_EXCLUDED_NAMESPACES.Split(',') |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ }
+    )
+}
 
 # AI values
 $OpenAIKey = $env:OPENAI_API_KEY  # New: capture OpenAI key
@@ -119,6 +130,8 @@ $parameters = @{
     outputpath               = $OutputPath
     yes                      = $Yes
     UseAksRestApi            = $UseAksRestApi
+    ConfigPath               = $ConfigPath
+    AdditionalExcludedNamespaces = $AdditionalExcludedNamespaces
     IncludePrometheus        = $IncludePrometheus
     PrometheusUrl            = $PrometheusUrl
     PrometheusMode           = $PrometheusMode
