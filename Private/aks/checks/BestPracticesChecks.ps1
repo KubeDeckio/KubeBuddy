@@ -38,9 +38,9 @@ $bestPracticesChecks = @(
         Name           = "Azure Linux as Host OS";
         Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.osType -eq "Linux" -and $_.osSKU -ne "AzureLinux" }).Count };
         Expected       = 0;
-        FailMessage    = "Node pools are using Ubuntu instead of Azure Linux, missing out on Microsoft's optimized container host OS with reduced attack surface, faster boot times, improved security updates, and better integration with Azure services and support.";
+        FailMessage    = "Node pools use Ubuntu instead of Azure Linux. Azure Linux is Microsoft's optimized container host OS with reduced attack surface (smaller package footprint), faster boot times, improved security patching, and better integration with Azure platform services.";
         Severity       = "High";
-        Recommendation = "Migrate to Azure Linux using 'az aks nodepool update --resource-group <rg> --cluster-name <cluster> --name <nodepool> --os-sku AzureLinux' or create new node pools with '--os-sku AzureLinux'. Azure Linux provides better performance, security, and reduced attack surface for container workloads.";
+        Recommendation = "Migrate to Azure Linux by creating new node pools with 'az aks nodepool add --os-sku AzureLinux', then migrate workloads and delete old pools. Note: In-place OS SKU changes are not supported, requiring node pool replacement.";
         URL            = "https://learn.microsoft.com/azure/aks/use-azure-linux";
     },    
     @{
@@ -112,12 +112,12 @@ $bestPracticesChecks = @(
     @{
         ID             = "AKSBP011";
         Category       = "Best Practices";
-        Name           = "System Node Pool Minimum Size";
+        Name           = "System Node Pool Has Minimum Two Nodes";
         Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.mode -eq "System" }).count -ge 2 };
         Expected       = $true;
-        FailMessage    = "System node pool has only 1 node, creating a single point of failure for critical cluster components (kube-proxy, CoreDNS, CNI). Node failure or maintenance will cause system pod disruption, potential cluster instability, and possible workload connectivity issues.";
+        FailMessage    = "System node pool has fewer than 2 nodes, creating a single point of failure for critical cluster components (kube-proxy, CoreDNS, CNI). Node failure or maintenance will cause system pod disruption, cluster instability, and workload connectivity issues.";
         Severity       = "High";
-        Recommendation = "Scale system node pool to minimum 2 nodes using 'az aks nodepool scale --resource-group <rg> --cluster-name <cluster> --name <system-pool> --node-count 2'. Configure cluster autoscaler with min-count 2 to ensure high availability of system components.";
+        Recommendation = "Scale system node pool to at least 2 nodes using 'az aks nodepool scale --resource-group <rg> --cluster-name <cluster> --name <system-pool> --node-count 2'. Configure cluster autoscaler with --min-count 2 to ensure resiliency against node failures and maintenance events.";
         URL            = "https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#recommendations";
     },
     @{
@@ -153,10 +153,10 @@ $bestPracticesChecks = @(
         Name           = "No B-Series VMs in Node Pools";
         Value          = { ($clusterInfo.properties.agentPoolProfiles | Where-Object { $_.vmSize -like "Standard_B*" }).Count };
         Expected       = 0;
-        FailMessage    = "B-series VMs provide burstable CPU performance that can be exhausted under sustained workloads, leading to unpredictable performance degradation, throttling, and potential application failures. They are unsuitable for production workloads requiring consistent compute performance.";
+        FailMessage    = "B-series VMs use burstable CPU performance that can be exhausted under sustained workloads, leading to unpredictable performance degradation, CPU throttling, and application failures. Microsoft explicitly recommends against using B-series VMs for AKS production workloads.";
         Severity       = "High";
-        Recommendation = "Replace B-series VMs with consistent performance VMs like Standard_D2s_v5 or Standard_E2s_v5 using 'az aks nodepool add' with new VM size, then drain and delete old node pools. B-series VMs have burstable CPU that can cause performance issues in production.";
-        URL            = "https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability#do-not-use-b-series-vms";
+        Recommendation = "Replace B-series VMs with consistent performance SKUs like Standard_D2s_v5 or Standard_E2s_v5. Create new node pool with 'az aks nodepool add --vm-size Standard_D2s_v5', migrate workloads using 'kubectl drain', then delete old pool with 'az aks nodepool delete'.";
+        URL            = "https://learn.microsoft.com/azure/aks/best-practices-app-cluster-reliability#do-not-use-b-series-vms";
     },
     @{
         ID             = "AKSBP014";
@@ -168,5 +168,19 @@ $bestPracticesChecks = @(
         Severity       = "Medium";
         Recommendation = "Upgrade to v5 or newer VM SKUs using 'az aks nodepool add --vm-size Standard_D2s_v5' for new node pools. v5 SKUs provide better performance, support ephemeral OS disks by default, and have improved reliability during maintenance events and upgrades.";
         URL            = "https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability#v5-sku-vms";
+    },
+    @{
+        ID             = "AKSBP015";
+        Category       = "Best Practices";
+        Name           = "Deployment Safeguards Enabled";
+        Value          = { 
+            ($clusterInfo.properties.guardrailsProfile.level -eq "Enforcement") -or 
+            ($clusterInfo.properties.guardrailsProfile.level -eq "Warning")
+        };
+        Expected       = $true;
+        FailMessage    = "Deployment Safeguards are disabled, allowing non-compliant workloads to be deployed without validation of Kubernetes best practices. This leads to deployments without resource requests/limits, missing health probes, no anti-affinity rules, and other configuration issues that impact reliability and cost.";
+        Severity       = "Medium";
+        Recommendation = "Enable Deployment Safeguards using 'az aks update --resource-group <rg> --name <cluster> --safeguards-level Warning' for alerting or 'Enforcement' to block non-compliant deployments. This enforces best practices including resource requests, readiness/liveness probes, pod anti-affinity, and Pod Security Standards.";
+        URL            = "https://learn.microsoft.com/azure/aks/deployment-safeguards";
     }
 )

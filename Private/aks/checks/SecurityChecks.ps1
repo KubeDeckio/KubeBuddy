@@ -83,7 +83,7 @@ $securityChecks = @(
         URL            = "https://learn.microsoft.com/azure/aks/kubernetes-dashboard";
     },
     @{
-        ID             = "AKSSEC08";
+        ID             = "AKSSEC008";
         Category       = "Security";
         Name           = "Pod Security Admission Enabled";
         Value          = { $clusterInfo.properties.podSecurityAdmissionConfiguration -ne $null };
