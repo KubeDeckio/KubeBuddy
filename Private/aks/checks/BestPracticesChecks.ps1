@@ -137,9 +137,9 @@ $bestPracticesChecks = @(
         };
         Expected       = $true;
         FailMessage    = {
-            $details = $script:AKSBP012_MismatchDetails | ForEach-Object {
+            $details = ($script:AKSBP012_MismatchDetails | ForEach-Object {
                 "$($_.name): $($_.currentOrchestratorVersion)"
-            } -join ", "
+            }) -join ", "
             $controlPlaneVersion = $clusterInfo.properties.currentKubernetesVersion
             "Node pools out of sync with control plane version ($controlPlaneVersion): $details"
         };
