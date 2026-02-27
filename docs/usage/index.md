@@ -56,16 +56,29 @@ These recommendations are embedded directly in the **HTML**, **text**, and **JSO
 
 ### Requirements
 
-To enable AI enrichment, you must provide an OpenAI API key:
+To enable AI enrichment, provide either OpenAI or Azure OpenAI environment variables.
+
+OpenAI (either variable works):
 
 ```powershell
 $env:OpenAIKey = "<your-openai-api-key>"
+# or
+$env:OPENAI_API_KEY = "<your-openai-api-key>"
+```
+
+Azure OpenAI:
+
+```powershell
+$env:AZURE_OPENAI_APIURI = "https://<your-resource>.openai.azure.com/"
+$env:AZURE_OPENAI_KEY = "<your-azure-openai-api-key>"
+$env:AZURE_OPENAI_API_VERSION = "2024-10-21"
+$env:AZURE_OPENAI_DEPLOYMENT = "<your-chat-deployment-name>"
 ```
 
 You can generate a key from:  
 🔗 https://platform.openai.com/account/api-keys
 
-> If no key is provided (`$env:OpenAIKey` is empty), KubeBuddy will skip AI enrichment and fallback to static/manual recommendations.
+> If no supported AI environment variables are set, KubeBuddy skips AI enrichment and falls back to static/manual recommendations.
 
 ### Where AI Output Appears
 

@@ -487,7 +487,8 @@ function Get-AIRecommendation {
         [array]$Findings
     )
 
-    if (-not $env:OpenAIKey) { return $null }
+    if (-not (Test-AIConfigured)) { return $null }
+    Initialize-AIEnvironment
 
     try {
         # Prompt for dual-format response
@@ -540,7 +541,7 @@ Only return the following structure in your response:
 function Add-AIRecommendationIfNeeded {
     param ([object]$checkResult)
 
-    if ($checkResult.Total -gt 0 -and $env:OpenAIKey) {
+    if ($checkResult.Total -gt 0 -and (Test-AIConfigured)) {
         try {
             Write-Host "🤖 Fetching AI recommendation for $($checkResult.ID)..." -ForegroundColor Cyan
 
@@ -567,6 +568,68 @@ function Add-AIRecommendationIfNeeded {
     }
 
     return $checkResult
+}
+
+function Test-AIConfigured {
+    $hasOpenAIKey = -not [string]::IsNullOrWhiteSpace($env:OpenAIKey)
+    $hasOpenAICompatKey = -not [string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)
+    $hasAzureEndpoint = (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_ENDPOINT)) -or (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_APIURI))
+    $hasAzureKey = (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_API_KEY)) -or (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_KEY))
+    $hasAzureApiVersion = -not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_API_VERSION)
+    $hasAzureDeployment = (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_DEPLOYMENT)) -or (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_CHAT_DEPLOYMENT))
+
+    return $hasOpenAIKey -or $hasOpenAICompatKey -or ($hasAzureEndpoint -and $hasAzureKey -and $hasAzureApiVersion -and $hasAzureDeployment)
+}
+
+function Initialize-AIEnvironment {
+    # Backward compatible alias: if a standard OpenAI env var is present, map it to current KubeBuddy behavior.
+    if ([string]::IsNullOrWhiteSpace($env:OpenAIKey) -and -not [string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) {
+        $env:OpenAIKey = $env:OPENAI_API_KEY
+    }
+
+    # Azure OpenAI aliases
+    if ([string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_ENDPOINT) -and -not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_APIURI)) {
+        $env:AZURE_OPENAI_ENDPOINT = $env:AZURE_OPENAI_APIURI
+    }
+    elseif ([string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_APIURI) -and -not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_ENDPOINT)) {
+        $env:AZURE_OPENAI_APIURI = $env:AZURE_OPENAI_ENDPOINT
+    }
+
+    if ([string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_API_KEY) -and -not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_KEY)) {
+        $env:AZURE_OPENAI_API_KEY = $env:AZURE_OPENAI_KEY
+    }
+    elseif ([string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_KEY) -and -not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_API_KEY)) {
+        $env:AZURE_OPENAI_KEY = $env:AZURE_OPENAI_API_KEY
+    }
+
+    $azureReady = (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_APIURI)) `
+        -and (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_KEY)) `
+        -and (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_API_VERSION)) `
+        -and (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_DEPLOYMENT))
+
+    if ($azureReady) {
+        try {
+            Set-OAIProvider -Provider 'AzureOpenAI'
+            Set-AzOAISecrets `
+                -apiURI $env:AZURE_OPENAI_APIURI `
+                -apiKEY $env:AZURE_OPENAI_KEY `
+                -apiVersion $env:AZURE_OPENAI_API_VERSION `
+                -deploymentName $env:AZURE_OPENAI_DEPLOYMENT
+        }
+        catch {
+            Write-Host "⚠️ Failed to initialize Azure OpenAI provider: $_" -ForegroundColor Yellow
+        }
+        return
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:OpenAIKey)) {
+        try {
+            Set-OAIProvider -Provider 'OpenAI'
+        }
+        catch {
+            Write-Host "⚠️ Failed to initialize OpenAI provider: $_" -ForegroundColor Yellow
+        }
+    }
 }
 
 function Get-RecommendationText {

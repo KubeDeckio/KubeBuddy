@@ -19,10 +19,21 @@ Before running KubeBuddy powered by KubeDeck, ensure you:
 
 ### (Optional) Enable AI Recommendations
 
-If you’d like to use OpenAI to automatically generate enhanced recommendations, set your OpenAI API key as an environment variable:
+If you’d like to automatically generate enhanced recommendations, set one of these provider configurations:
 
 ```powershell
+# OpenAI
 $env:OpenAIKey = "<your-openai-api-key>"
+# or
+$env:OPENAI_API_KEY = "<your-openai-api-key>"
+```
+
+```powershell
+# Azure OpenAI
+$env:AZURE_OPENAI_APIURI = "https://<your-resource>.openai.azure.com/"
+$env:AZURE_OPENAI_KEY = "<your-azure-openai-api-key>"
+$env:AZURE_OPENAI_API_VERSION = "2024-10-21"
+$env:AZURE_OPENAI_DEPLOYMENT = "<your-chat-deployment-name>"
 ```
 
 KubeBuddy will detect this and enrich reports with AI-generated summaries and HTML guidance where applicable.

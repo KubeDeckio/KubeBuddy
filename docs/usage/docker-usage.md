@@ -155,20 +155,25 @@ Set these to control behavior inside the container:
 
 ### 🤖 AI Recommendations (Optional)
 
-| Variable    | Description                                                                   |
-| ----------- | ----------------------------------------------------------------------------- |
-| `OpenAIKey` | Your OpenAI API key. Sets `$env:OpenAIKey` inside the container for PSAI use. |
+| Variable                  | Description                                                                 |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `OpenAIKey`               | OpenAI API key (legacy/current KubeBuddy variable).                         |
+| `OPENAI_API_KEY`          | OpenAI API key (standard environment variable name).                        |
+| `AZURE_OPENAI_APIURI`     | Azure OpenAI endpoint, e.g. `https://<resource>.openai.azure.com/`.         |
+| `AZURE_OPENAI_KEY`        | Azure OpenAI API key.                                                       |
+| `AZURE_OPENAI_API_VERSION`| Azure OpenAI API version.                                                   |
+| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI chat deployment name.                                          |
 
-> ✅ If `OpenAIKey` is provided, KubeBuddy uses GPT (via [PSAI](https://www.powershellgallery.com/packages/PSAI)) to generate AI-powered recommendations for failing checks:
+> ✅ If supported AI environment variables are provided, KubeBuddy uses GPT (via [PSAI](https://www.powershellgallery.com/packages/PSAI)) to generate AI-powered recommendations for failing checks:
 >     • **Short text summary** (shown in the plain-text report)
 >     • **Rich HTML block** (included in the HTML report)
 >
-> 🔒 If the key is missing or invalid, AI generation is skipped silently (no errors).
+> 🔒 If provider settings are missing or invalid, AI generation is skipped silently (no errors).
 
 #### How to Use
 
-1. **Get an OpenAI key** from [platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
-2. **Pass it into your Docker container** like this:
+1. **Choose your provider** (OpenAI or Azure OpenAI)
+2. **Pass its environment variables into your Docker container**, for example OpenAI:
 
 ```bash
 docker run -it --rm \
@@ -176,6 +181,34 @@ docker run -it --rm \
   -e HTML_REPORT="true" \
   -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
   -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+Azure OpenAI example:
+
+```bash
+docker run -it --rm \
+  -e AZURE_OPENAI_APIURI="https://<resource>.openai.azure.com/" \
+  -e AZURE_OPENAI_KEY="<azure-openai-key>" \
+  -e AZURE_OPENAI_API_VERSION="2024-10-21" \
+  -e AZURE_OPENAI_DEPLOYMENT="<deployment-name>" \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+PowerShell Azure OpenAI example:
+
+```powershell
+docker run -it --rm `
+  -e AZURE_OPENAI_APIURI="https://<resource>.openai.azure.com/" `
+  -e AZURE_OPENAI_KEY="<azure-openai-key>" `
+  -e AZURE_OPENAI_API_VERSION="2024-10-21" `
+  -e AZURE_OPENAI_DEPLOYMENT="<deployment-name>" `
+  -e HTML_REPORT="true" `
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
+  -v $HOME/kubebuddy-report:/app/Reports `
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
 

@@ -1,12 +1,22 @@
 # KubeBuddy CLI + Radar Integration (Design Draft)
 
 ## Purpose
-Define how `KubeBuddy` CLI can integrate with `KubeBuddy Radar` to:
+Define how `KubeBuddy` CLI integrates with `KubeBuddy Radar` as a **paid feature** to:
 
-- detect outdated runtime assets (container images, Helm charts, optional app versions)
-- upload run results for history/trends/comparisons
-- retrieve historical context back into CLI
-- support a paid tier model for storage and API access
+- detect outdated runtime assets (container images, Helm charts)
+- enrich local findings with Radar release intelligence
+- optionally upload run results for history/trends/comparisons
+- support privacy-first and upload-enabled operating modes
+
+## Product Positioning
+- Radar integration is **paid-only** (requires Radar API credentials).
+- No Radar credentials = no Radar-backed checks/features.
+
+## Platform and Entitlement Context
+- Radar runs on WordPress.
+- Membership and plan entitlements are managed with **Paid Memberships Pro (free plugin)**.
+- CLI/API authentication uses **WordPress Application Passwords** (the Radar "API key" experience).
+- Authorization checks use WordPress user identity + membership level on every request.
 
 ## Scope (V1)
 
@@ -14,33 +24,48 @@ Define how `KubeBuddy` CLI can integrate with `KubeBuddy Radar` to:
 - New checks:
   - `RAD001`: Outdated container images
   - `RAD002`: Outdated Helm charts
-- Optional upload mode:
-  - `Invoke-KubeBuddy -RadarUpload`
-- Optional history pull:
-  - `Invoke-KubeBuddy -RadarCompare` (current vs previous run)
+- New integration modes:
+  - `-RadarEnrich` (default Radar mode): pull intelligence from Radar, compare locally, no report upload
+  - `-RadarUpload` (optional): upload run JSON for history/trends/compare
+  - `-RadarCompare` (optional): compare against previous uploaded run
 
 ### In Radar API
-- Accept KubeBuddy JSON run uploads
-- Persist runs securely per tenant
-- Return trends and run comparisons
+- Expose release intelligence data for CLI pull (existing Radar catalog/release data)
+- Optionally accept KubeBuddy run uploads
+- Optionally return trends and run comparisons
+
+## Operating Modes
+
+### Mode A (Recommended default): Pull-first, privacy-first
+1. CLI runs checks locally.
+2. CLI queries Radar for release intelligence.
+3. CLI performs outdated checks locally.
+4. No cluster findings payload is uploaded.
+
+### Mode B (Optional): Upload-enabled
+1. CLI runs checks locally.
+2. CLI optionally uploads report JSON to Radar.
+3. Radar stores run snapshots and computes trends/deltas.
+4. CLI/dashboard can query compare/trend endpoints.
 
 ## High-Level Architecture
-1. CLI runs checks locally.
-2. CLI generates standard report JSON.
-3. If `-RadarUpload` is enabled, CLI sends JSON to Radar API.
-4. Radar stores raw report + normalized finding indexes.
-5. Dashboard uses stored runs for trend/comparison views.
-6. CLI can call compare endpoint for delta output.
+1. CLI discovers running workloads/images/charts.
+2. CLI pulls Radar intelligence (latest known versions, release metadata, impact labels).
+3. CLI computes `RAD001`/`RAD002` locally.
+4. If `-RadarUpload` is enabled, CLI sends report JSON to Radar.
+5. Radar stores raw report + normalized finding indexes.
+6. CLI or dashboard can call compare/trend endpoints when upload mode is used.
 
 ## CLI Additions
 
 ### New flags
+- `-RadarEnrich`
 - `-RadarUpload`
 - `-RadarApiBaseUrl "https://radar.kubebuddy.io/api/kb-radar/v1"`
 - `-RadarProjectKey "<project-slug-or-id>"`
 - `-RadarEnvironment "prod|staging|dev"`
 - `-RadarApiKeyEnv "KUBEBUDDY_RADAR_API_KEY"`
-- `-RadarCompare` (compare against latest prior run)
+- `-RadarCompare` (compare against latest prior uploaded run)
 
 ### Config file extension (`~/.kube/kubebuddy-config.yaml`)
 ```yaml
@@ -52,175 +77,209 @@ radar:
   api_key_env: "KUBEBUDDY_RADAR_API_KEY"
   upload_timeout_seconds: 30
   upload_retries: 2
+  mode: "enrich" # enrich | upload
 ```
 
-### Upload behavior
-- Non-blocking by default:
-  - check/report generation must succeed even if upload fails.
-- If upload fails:
-  - print warning in CLI
-  - include upload error note in report metadata
-
-## Radar API Contract (Proposed V1)
+## API Contract (V1 direction)
 Base URL:
 `/api/kb-radar/v1`
 
-### 1) Upload run
-`POST /cluster-runs`
+### Authentication and Authorization
+- Authentication: HTTP Basic Auth using WordPress username + Application Password.
+- Authorization: membership-level and tenant access checks are enforced server-side.
+- API requests must be denied if:
+  - credentials are invalid,
+  - membership level is not entitled to Radar API features,
+  - requester does not belong to the target tenant/workspace.
 
-Headers:
-- `Authorization: Basic base64(username:app_password)` (aligns with current Radar auth)
-- `Content-Type: application/json`
+### A) Intelligence pull endpoints (required for V1)
+- Endpoint(s) to retrieve latest known version/release metadata for:
+  - container image mapping
+  - Helm chart mapping
+- Return release date, stability/status, and impact labels where available.
 
-Request body:
-```json
-{
-  "source": "kubebuddy-cli",
-  "source_version": "0.0.24",
-  "project_key": "my-aks-prod",
-  "environment": "prod",
-  "cluster": {
-    "name": "aks-prod-uks",
-    "provider": "aks",
-    "region": "uksouth"
-  },
-  "run": {
-    "started_at": "2026-02-26T11:14:10Z",
-    "finished_at": "2026-02-26T11:18:34Z",
-    "duration_seconds": 264
-  },
-  "report": {
-    "format_version": "1.0",
-    "health_score": 69.77,
-    "checks": []
-  }
-}
-```
+### B) Upload/trend endpoints (optional in V1, required for full suite)
+- `POST /cluster-runs`
+- `GET /cluster-runs`
+- `GET /cluster-runs/{run_id}`
+- `GET /cluster-runs/compare`
+- `GET /cluster-runs/trends`
 
-Response:
-```json
-{
-  "success": true,
-  "run_id": "crun_01JABC...",
-  "ingested_at": "2026-02-26T11:18:35Z"
-}
-```
+## Dashboard UX (Cluster Health)
+Add a new paid dashboard area under Radar for uploaded KubeBuddy run intelligence.
 
-### 2) List runs
-`GET /cluster-runs?project_key=my-aks-prod&environment=prod&page=1&per_page=20`
+### Navigation
+- Dashboard > Cluster Health
+- Scope selector: `project_key` + `environment` + `cluster_name`
 
-### 3) Get single run
-`GET /cluster-runs/{run_id}`
+### V1 UI components
+1. Cluster Summary Header
+- last run timestamp
+- run status (uploaded/failed)
+- current health score
 
-### 4) Compare runs
-`GET /cluster-runs/compare?project_key=my-aks-prod&environment=prod&from=crun_...&to=crun_...`
+2. Health KPI Cards
+- failing checks by severity (critical/warning/info)
+- total findings
+- score delta vs previous run
 
-Returns:
-- score delta
+3. Run Timeline
+- health score trend chart
+- findings trend by severity
+- run duration trend
+
+4. Drift Panel (What Changed)
 - new findings
 - resolved findings
 - regressed findings
+- top 5 changed checks
 
-### 5) Trend summary
-`GET /cluster-runs/trends?project_key=my-aks-prod&environment=prod&window_days=30`
+5. Top Recurring Checks
+- most frequent failing check IDs
+- category and severity breakdown
 
-Returns:
-- health score trend
-- fail count trend by severity
-- top recurring checks
+6. Run Details View
+- per-check findings for selected run
+- filters: severity/category/check ID/namespace
+- export link to stored run payload (authorized users only)
 
-## Secure Data Storage Model
-
-### Data classification
-- Raw report JSON may contain sensitive operational data (namespaces, image refs, pod names).
-- Treat all uploaded run payloads as confidential tenant data.
-
-### Storage pattern
-- `cluster_runs` (metadata + pointers)
-- `cluster_run_payloads` (encrypted JSON blob)
-- `cluster_run_findings` (normalized index for query speed)
-
-### Security controls
-- TLS in transit
-- encryption at rest for payload blobs
-- per-tenant row isolation
-- API audit logging (who uploaded/read what and when)
-- retention policy (e.g., 30/90/365 days by plan)
-- deletion endpoint for compliance
+### UX behavior rules
+- Empty state: show onboarding for first upload.
+- Partial state: if compare data missing, still show latest run.
+- Failure state: show upload error details without blocking rest of dashboard.
+- Privacy state: if tenant disables payload retention, show summary-only mode.
 
 ## Outdated Artifact Checks (Radar-backed)
 
 ### `RAD001` Outdated container images
 Detection strategy:
 - parse image references from workloads
-- resolve digest/tag metadata from registry sources
-- compare running version age vs latest stable
+- map image to Radar project/release stream
+- compare running tag/digest age vs latest known stable
 
-Output:
-- namespace/workload/container/image/current/latest/release_age_days
-- recommendation severity by staleness window
+Output fields:
+- namespace/workload/container/image/current/latest/release_age_days/confidence
 
 ### `RAD002` Outdated Helm charts
 Detection strategy:
 - collect installed chart name/version
-- compare with known latest chart version from Radar catalog
+- map chart to Radar project/release stream
+- compare current vs latest known stable
 
-Output:
-- namespace/release/chart/current/latest/delta
+Output fields:
+- namespace/release/chart/current/latest/delta/confidence
 
-## Paid Tier Boundary (Recommended)
+## Important Limitation: GitHub-release-only Source
+Radar currently derives freshness from GitHub release data.
 
-### Free
-- local checks only
-- no historical storage
-- no API trend/compare
+This is useful, but not universally accurate for all container/chart ecosystems.
 
-### Pro / Pro Plus
-- API upload enabled
-- run history retention
-- trend dashboards
-- compare endpoints
-- team API access / automation limits
+Known gaps:
+- image tags may not align with GitHub releases
+- registry publishing cadence may differ from GitHub releases
+- private/custom images may have no reliable external latest signal
+- some chart sources may not map cleanly to Radar project identity
 
-Rationale:
-- storage + query + API costs are ongoing
-- premium value is historical intelligence, not just one-time scanning
+### Confidence model (recommended)
+Include confidence in `RAD001`/`RAD002`:
+- `high`: strong mapping + matching version stream
+- `medium`: probable mapping, partial evidence
+- `low`: weak mapping, heuristic only
 
-## Dashboard Enhancements (Radar)
-- Cluster run timeline per project/environment
-- Score trend chart and check-fail trend chart
-- "What changed since last run" panel
-- Top regression cards
-- Drill-down into raw findings for each run
+## Upload Behavior
+- Non-blocking by default:
+  - local scan/report must succeed even if Radar calls fail.
+- If Radar call fails:
+  - print warning in CLI
+  - include integration error note in report metadata
 
-## CLI Enhancements (optional after V1)
-- `-RadarCompare` prints:
-  - score delta
-  - new/resolved/regressed checks
-  - top 5 regressions
-- `-RadarRunId` for explicit compare target
+## Security and Compliance
+- TLS in transit
+- MySQL persistence for uploaded run data
+- encryption at rest for stored payloads and sensitive fields
+- per-tenant row isolation (strict account boundary)
+- API audit logging
+- retention policy by plan
+- deletion endpoint for compliance (if upload mode used)
+
+## Uploaded Data Storage Model (MySQL)
+
+Uploaded KubeBuddy run data is stored in MySQL with tenant-aware design.
+
+Recommended tables:
+- `cluster_runs` (run metadata, tenant/user ownership, pointers)
+- `cluster_run_payloads` (encrypted JSON payload blob)
+- `cluster_run_findings` (normalized query index for dashboard/trends)
+- `cluster_run_access_audit` (read/write access log)
+
+Recommended key fields:
+- `tenant_id`
+- `owner_user_id`
+- `project_key`
+- `environment`
+- `cluster_name`
+- `created_at`, `updated_at`
+
+## Access Control and Isolation
+
+### Current model (single-account ownership)
+- Every uploaded run is bound to a `tenant_id`.
+- API queries must always filter by authenticated `tenant_id`.
+- Cross-tenant access is denied by default.
+- Dashboard queries must use the same `tenant_id` guardrail as API access.
+- UI must never expose cross-tenant identifiers in selectors or links.
+
+### Future model (team support)
+- Add team/workspace membership and role-based access:
+  - `owner`, `admin`, `editor`, `viewer`
+- Access checks become:
+  - authenticated principal has membership in tenant/workspace
+  - role permits requested action (`read`, `upload`, `delete`, `manage`)
+- Keep row-level filtering by `tenant_id` as non-negotiable baseline.
+- UI behavior by role (planned):
+  - `viewer`: read-only dashboard and run details
+  - `editor`: upload/integration config + read
+  - `admin`: retention, access policy, delete
+  - `owner`: full billing + security controls
+
+## Encryption Requirements
+
+- Encrypt payload blobs before storage (application-level encryption).
+- Store encryption metadata (key version, algorithm) with records.
+- Rotate encryption keys safely with re-encryption workflow.
+- Do not store plaintext secrets in uploaded payloads.
+- Redact known sensitive fields before upload where feasible.
+
+## Paid Feature Boundary
+Radar integration is paid.
+
+Includes:
+- Radar API access for enrichment
+- outdated checks (`RAD001`, `RAD002`)
+- optional upload/trend/compare capabilities
+
+Entitlement source:
+- WordPress membership level from **Paid Memberships Pro (free plugin)**.
+- Plan enforcement is performed at API request time, not only in the UI.
 
 ## Rollout Plan
-1. Define JSON schema + API endpoints (`cluster-runs` + compare + trends).
-2. Implement upload path in CLI (feature-flagged).
-3. Add storage tables and secure retention controls in Radar.
-4. Build dashboard trend + compare pages.
-5. Add CLI compare command.
-6. Add billing/plan enforcement for upload/history endpoints.
+1. Finalize image/chart mapping contract for pull endpoints.
+2. Implement CLI `-RadarEnrich` using pull-first local comparison.
+3. Add confidence scoring and clear caveats in reports.
+4. Add optional `-RadarUpload` path + storage endpoints.
+5. Add compare/trend APIs and dashboard views.
+6. Add plan enforcement for all Radar integration endpoints.
 
 ## Open Decisions
-- Auth model long-term:
-  - stay with WP App Passwords, or add scoped service tokens for CI?
-- Max payload size and compression:
-  - recommend gzip support for report upload.
-- PII/secret scrubbing:
-  - define exact fields to redact before upload.
-- Multi-cluster naming:
-  - enforce stable `project_key + environment + cluster.name` identity.
+- Mapping strategy:
+  - deterministic project/image/chart mapping rules.
+- Payload model in upload mode:
+  - full report vs reduced normalized findings.
+- Idempotency:
+  - how retries avoid duplicate run ingestion.
 
 ## Suggested Next Deliverables
-1. Finalize API request/response schema as `openapi.yaml`.
-2. Add a minimal CLI prototype:
-   - upload current JSON report to `/cluster-runs`
-   - print returned `run_id`
-3. Add Radar DB migration for `cluster_runs` + payload storage.
+1. Define `RAD001`/`RAD002` mapping + confidence schema.
+2. Add CLI prototype for pull-first enrichment (`-RadarEnrich`).
+3. Add API spec for intelligence pull endpoint(s).
+4. Add optional upload endpoint prototype (`POST /cluster-runs`).

@@ -13,11 +13,20 @@ function Invoke-yamlChecks {
     $checksFolder = "$PSScriptRoot/yamlChecks"
     $kubectl = "kubectl"
     $PrometheusHeaders = ""
+    $aiConfigured = (-not [string]::IsNullOrWhiteSpace($env:OpenAIKey)) `
+        -or (-not [string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) `
+        -or (((-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_ENDPOINT)) `
+                -or (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_APIURI))) `
+            -and ((-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_API_KEY)) `
+                -or (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_KEY))) `
+            -and (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_API_VERSION)) `
+            -and ((-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_DEPLOYMENT)) `
+                -or (-not [string]::IsNullOrWhiteSpace($env:AZURE_OPENAI_CHAT_DEPLOYMENT))))
 
     # Ensure required modules
     try {
         Import-Module powershell-yaml -ErrorAction Stop
-        if ($env:OpenAIKey) {
+        if ($aiConfigured) {
             Import-Module PSAI -ErrorAction SilentlyContinue
         }        
         # Import all PowerShell modules from $PSScriptRoot
@@ -183,7 +192,7 @@ function Invoke-yamlChecks {
         try {
             Import-Module powershell-yaml -ErrorAction Stop
             # Import all PowerShell modules from $using:PSScriptRoot
-            if ($env:OpenAIKey) {
+            if ($using:aiConfigured) {
                 Import-Module PSAI -ErrorAction SilentlyContinue
             }
             Get-ChildItem -Path $using:PSScriptRoot -Filter "*.ps1" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
@@ -678,8 +687,8 @@ function Invoke-yamlChecks {
             }
         }
 
-        # If OpenAIKey is set, apply AI enrichment to each check result
-        if ($env:OpenAIKey) {
+        # If AI provider env vars are set, apply AI enrichment to each check result
+        if ($using:aiConfigured) {
             $localResults = $localResults | ForEach-Object {
                 Add-AIRecommendationIfNeeded -checkResult $_
             }

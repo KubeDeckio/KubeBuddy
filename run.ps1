@@ -38,6 +38,41 @@ if ($OpenAIKey) {
     $env:OpenAIKey = $OpenAIKey   # PSAI uses this
 }
 
+$AzureOpenAiApiUri = $env:AZURE_OPENAI_APIURI
+if ($AzureOpenAiApiUri) {
+    $env:AZURE_OPENAI_APIURI = $AzureOpenAiApiUri
+}
+
+$AzureOpenAiKey = $env:AZURE_OPENAI_KEY
+if ($AzureOpenAiKey) {
+    $env:AZURE_OPENAI_KEY = $AzureOpenAiKey
+}
+
+$AzureOpenAiApiVersion = $env:AZURE_OPENAI_API_VERSION
+if ($AzureOpenAiApiVersion) {
+    $env:AZURE_OPENAI_API_VERSION = $AzureOpenAiApiVersion
+}
+
+$AzureOpenAiDeployment = $env:AZURE_OPENAI_DEPLOYMENT
+if ($AzureOpenAiDeployment) {
+    $env:AZURE_OPENAI_DEPLOYMENT = $AzureOpenAiDeployment
+}
+
+# If Azure OpenAI is being used, require all Azure OpenAI env vars.
+$usingAzureOpenAI = $AzureOpenAiApiUri -or $AzureOpenAiKey -or $AzureOpenAiApiVersion -or $AzureOpenAiDeployment
+if ($usingAzureOpenAI) {
+    $missingAzureOpenAiVars = @()
+    if (-not $AzureOpenAiApiUri) { $missingAzureOpenAiVars += "AZURE_OPENAI_APIURI" }
+    if (-not $AzureOpenAiKey) { $missingAzureOpenAiVars += "AZURE_OPENAI_KEY" }
+    if (-not $AzureOpenAiApiVersion) { $missingAzureOpenAiVars += "AZURE_OPENAI_API_VERSION" }
+    if (-not $AzureOpenAiDeployment) { $missingAzureOpenAiVars += "AZURE_OPENAI_DEPLOYMENT" }
+
+    if ($missingAzureOpenAiVars.Count -gt 0) {
+        Write-Error "Azure OpenAI is partially configured. Missing required environment variable(s): $($missingAzureOpenAiVars -join ', ')"
+        exit 1
+    }
+}
+
 # ─── Prometheus options ───────────────────────────────────────────────
 $IncludePrometheus = $env:INCLUDE_PROMETHEUS -eq "true"
 $PrometheusUrl = $env:PROMETHEUS_URL
