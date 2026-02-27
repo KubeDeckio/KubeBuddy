@@ -80,6 +80,8 @@ This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compli
 
 > 📘 See the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) for SPN creation and role setup.
 
+For generic Kubernetes (non-AKS) scans, see [Kubernetes Scan Permissions](kubernetes-permissions.md) for the required read-only RBAC setup.
+
 ### (Optional) GitHub CLI
 
 To programmatically fetch the latest released version of KubeBuddy:

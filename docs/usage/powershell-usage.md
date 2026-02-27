@@ -31,6 +31,8 @@ KubeBuddy will detect this and enrich reports with AI-generated summaries and HT
 
 If you're running AKS checks or using the `-Aks` flag, see the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for prerequisites and role setup.
 
+For generic Kubernetes (non-AKS) scans, see [Kubernetes Scan Permissions](kubernetes-permissions.md) for the required read-only RBAC setup.
+
 
 ## Available Commands
 

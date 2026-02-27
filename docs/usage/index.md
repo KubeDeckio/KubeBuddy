@@ -35,6 +35,12 @@ Run KubeBuddy in a container to:
 
 📌 **[Docker Usage](docker-usage.md)** – Guide for using KubeBuddy with Docker.
 
+### 🔐 Kubernetes Permissions
+
+Use this guide to configure least-privilege RBAC for non-AKS clusters and avoid using `cluster-admin` for routine scans.
+
+📌 **[Kubernetes Scan Permissions](kubernetes-permissions.md)** – Required Kubernetes RBAC access for complete scans.
+
 ## 🧠 AI Recommendations (OpenAI)
 
 KubeBuddy now supports AI-powered recommendation generation using OpenAI (ChatGPT) via the [PSAI PowerShell module](https://x.com/dfinke).
