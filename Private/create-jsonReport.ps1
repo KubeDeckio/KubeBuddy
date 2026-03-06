@@ -6,7 +6,8 @@ function Create-JsonReport {
         [switch]$aks,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
-        [string]$ClusterName
+        [string]$ClusterName,
+        [switch]$IncludeRadarArtifacts
     )
 
     # Get cluster metadata
@@ -36,14 +37,27 @@ function Create-JsonReport {
         }
     }
 
-    # Handle AKS checks if -aks switch is provided
-    if ($aks -and $KubeData.AksCluster) {
-        # Add filtered AKS metadata
+    # Handle AKS metadata/checks if -aks switch is provided
+    if ($aks) {
+        # Prefer values discovered in KubeData, but always fall back to explicit CLI parameters.
+        $aksSubscriptionId = $null
+        $aksResourceGroup = $null
+        $aksClusterName = $null
+
+        if ($KubeData -and $KubeData.AksCluster) {
+            $aksSubscriptionId = $KubeData.AksCluster.subscriptionId
+            $aksResourceGroup = $KubeData.AksCluster.resourceGroup
+            $aksClusterName = $KubeData.AksCluster.clusterName
+        }
+
+        if (-not $aksSubscriptionId) { $aksSubscriptionId = $SubscriptionId }
+        if (-not $aksResourceGroup) { $aksResourceGroup = $ResourceGroup }
+        if (-not $aksClusterName) { $aksClusterName = $ClusterName }
+
         $results.metadata.aks = @{
-            subscriptionId = $KubeData.AksCluster.subscriptionId
-            resourceGroup  = $KubeData.AksCluster.resourceGroup
-            clusterName    = $KubeData.AksCluster.clusterName
-            # Add other relevant AKS metadata as needed
+            subscriptionId = $aksSubscriptionId
+            resourceGroup  = $aksResourceGroup
+            clusterName    = $aksClusterName
         }
 
         # Run AKS best practices checks
@@ -158,6 +172,10 @@ function Create-JsonReport {
         }
 
         $results.metrics = @{ cluster = $clusterMetrics; nodes = $nodeMetricsList }
+    }
+
+    if ($IncludeRadarArtifacts) {
+        $results.artifacts = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
     }
 
     # Write JSON

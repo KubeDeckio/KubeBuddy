@@ -153,6 +153,20 @@ Set these to control behavior inside the container:
 | `TXT_REPORT`  | `"true"` for plain text   |
 | `JSON_REPORT` | `"true"` for JSON output  |
 
+### 📡 KubeBuddy Radar (Pro, Optional)
+
+| Variable                 | Description                                                                 |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `RADAR_UPLOAD`           | `"true"` to upload run data to KubeBuddy Radar                             |
+| `RADAR_COMPARE`          | `"true"` to fetch compare summary after upload                             |
+| `RADAR_API_BASE_URL`     | Radar API base URL (default: `https://radar.kubebuddy.io/api/kb-radar/v1`) |
+| `RADAR_ENVIRONMENT`      | Environment label (for example `prod`, `staging`, `dev`)                   |
+| `RADAR_API_USER_ENV`     | Env-var name containing Radar username (default: `KUBEBUDDY_RADAR_API_USER`) |
+| `RADAR_API_PASSWORD_ENV` | Env-var name containing Radar app password (default: `KUBEBUDDY_RADAR_API_PASSWORD`) |
+
+> ⚠️ When `RADAR_UPLOAD` or `RADAR_COMPARE` is enabled in Docker mode, set `JSON_REPORT="true"`.
+> Radar uploads are always JSON payloads.
+
 ### 🤖 AI Recommendations (Optional)
 
 | Variable    | Description                                                                   |
@@ -236,6 +250,26 @@ docker run -it --rm \
       ghcr.io/kubedeckio/kubebuddy:$tagId
     ```
 
+## 📡 Run With Radar Upload (Pro)
+
+=== "Bash"
+
+    ```bash
+    export tagId="v0.0.23"
+
+    docker run -it --rm \
+      -e KUBECONFIG="/home/kubeuser/.kube/config" \
+      -e JSON_REPORT="true" \
+      -e RADAR_UPLOAD="true" \
+      -e RADAR_COMPARE="true" \
+      -e RADAR_ENVIRONMENT="prod" \
+      -e KUBEBUDDY_RADAR_API_USER="<wp-username>" \
+      -e KUBEBUDDY_RADAR_API_PASSWORD="<wp-app-password>" \
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+      -v $HOME/kubebuddy-report:/app/Reports \
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
+
 === "PowerShell"
 
     ```powershell
@@ -243,7 +277,12 @@ docker run -it --rm \
 
     docker run -it --rm `
       -e KUBECONFIG="/home/kubeuser/.kube/config" `
-      -e HTML_REPORT="true" `
+      -e JSON_REPORT="true" `
+      -e RADAR_UPLOAD="true" `
+      -e RADAR_COMPARE="true" `
+      -e RADAR_ENVIRONMENT="prod" `
+      -e KUBEBUDDY_RADAR_API_USER="<wp-username>" `
+      -e KUBEBUDDY_RADAR_API_PASSWORD="<wp-app-password>" `
       -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
       -v $HOME/kubebuddy-report:/app/Reports `
       ghcr.io/kubedeckio/kubebuddy:$tagId

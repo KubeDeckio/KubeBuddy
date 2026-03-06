@@ -21,7 +21,13 @@ function Invoke-KubeBuddy {
         [string]$PrometheusUrl, # Prometheus endpoint
         [string]$PrometheusMode, # Authentication mode: local, basic, bearer, azure
         [string]$PrometheusBearerTokenEnv, # Environment variable for bearer token
-        [System.Management.Automation.PSCredential]$PrometheusCredential # Credential for Prometheus basic auth
+        [System.Management.Automation.PSCredential]$PrometheusCredential, # Credential for Prometheus basic auth
+        [switch]$RadarUpload,
+        [switch]$RadarCompare,
+        [string]$RadarApiBaseUrl,
+        [string]$RadarEnvironment,
+        [string]$RadarApiUserEnv,
+        [string]$RadarApiPasswordEnv
     )
 
     # Assign default value if $outputpath is not set
@@ -83,6 +89,15 @@ function Invoke-KubeBuddy {
             Write-Host "⚠️ Config file not found at '$ConfigPath'. Falling back to defaults." -ForegroundColor Yellow
         }
     }
+
+    $radarSettings = Resolve-KubeBuddyRadarSettings `
+        -RadarUpload:$RadarUpload `
+        -RadarCompare:$RadarCompare `
+        -RadarApiBaseUrl $RadarApiBaseUrl `
+        -RadarEnvironment $RadarEnvironment `
+        -RadarApiUserEnv $RadarApiUserEnv `
+        -RadarApiPasswordEnv $RadarApiPasswordEnv
+    $includeRadarArtifacts = [bool]($radarSettings.enabled -and ($radarSettings.upload_enabled -or $radarSettings.compare_enabled))
 
     # Optionally extend excluded namespaces for this invocation.
     if ($AdditionalExcludedNamespaces -and $AdditionalExcludedNamespaces.Count -gt 0) {
@@ -218,7 +233,8 @@ function Invoke-KubeBuddy {
                 -ResourceGroup $ResourceGroup `
                 -ClusterName $ClusterName `
                 -ExcludeNamespaces:$ExcludeNamespaces `
-                -KubeData $KubeData
+                -KubeData $KubeData `
+                -IncludeRadarArtifacts:$includeRadarArtifacts
 
             if (Test-Path -Path $htmlReportFile) {
                 Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
@@ -237,10 +253,14 @@ function Invoke-KubeBuddy {
                 -SubscriptionId $SubscriptionId `
                 -ResourceGroup $ResourceGroup `
                 -ClusterName $ClusterName `
-                -KubeData $KubeData
+                -KubeData $KubeData `
+                -IncludeRadarArtifacts:$includeRadarArtifacts
 
             Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
         }
+
+        $jsonReportPathForRadar = $null
+        $generatedJsonForRadar = $false
 
         if ($jsonReport) {
             Write-Host "📄 Generating Json report: $jsonReportFile" -ForegroundColor Cyan
@@ -251,12 +271,91 @@ function Invoke-KubeBuddy {
                 -aks:$Aks `
                 -SubscriptionId $SubscriptionId `
                 -ResourceGroup $ResourceGroup `
-                -ClusterName $ClusterName
+                -ClusterName $ClusterName `
+                -IncludeRadarArtifacts:$includeRadarArtifacts
 
             Write-Host "`n🤖 ✅ Json report saved at: $jsonReportFile" -ForegroundColor Green
+            $jsonReportPathForRadar = $jsonReportFile
+        }
+
+        if ($radarSettings.enabled -and ($radarSettings.upload_enabled -or $radarSettings.compare_enabled)) {
+            if (-not $jsonReportPathForRadar) {
+                $jsonReportPathForRadar = Join-Path -Path $reportDir -ChildPath "$reportBaseName-radar-upload.json"
+                Write-Host "📡 Preparing JSON payload for Radar upload: $jsonReportPathForRadar" -ForegroundColor Cyan
+                Create-jsonReport `
+                    -outputpath $jsonReportPathForRadar `
+                    -KubeData $KubeData `
+                    -ExcludeNamespaces:$ExcludeNamespaces `
+                    -aks:$Aks `
+                    -SubscriptionId $SubscriptionId `
+                    -ResourceGroup $ResourceGroup `
+                    -ClusterName $ClusterName `
+                    -IncludeRadarArtifacts:$includeRadarArtifacts
+                $generatedJsonForRadar = $true
+            }
+
+            $uploadedRun = $null
+            if ($radarSettings.upload_enabled) {
+                try {
+                    Write-Host "📡 Uploading scan to KubeBuddy Radar..." -ForegroundColor Cyan
+                    $uploadedRun = Invoke-KubeBuddyRadarUpload `
+                        -ReportPath $jsonReportPathForRadar `
+                        -ModuleVersion $moduleVersion `
+                        -RadarSettings $radarSettings
+
+                    if ($uploadedRun -and $uploadedRun.run_id) {
+                        Write-Host "✅ Radar upload complete. Run ID: $($uploadedRun.run_id)" -ForegroundColor Green
+                    }
+                    else {
+                        Write-Host "✅ Radar upload complete." -ForegroundColor Green
+                    }
+                }
+                catch {
+                    Write-Host "⚠️ Radar upload failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                }
+            }
+
+            if ($radarSettings.compare_enabled) {
+                try {
+                    Write-Host "📊 Fetching Radar compare..." -ForegroundColor Cyan
+                    $compare = Invoke-KubeBuddyRadarCompare -RadarSettings $radarSettings -ToRunId $uploadedRun.run_id
+                    Write-KubeBuddyRadarCompareSummary -Compare $compare
+                }
+                catch {
+                    $isNotFound = $false
+                    $message = $_.Exception.Message
+                    if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+                        try {
+                            $statusCode = [int]$_.Exception.Response.StatusCode
+                            if ($statusCode -eq 404) {
+                                $isNotFound = $true
+                            }
+                        }
+                        catch {}
+                    }
+                    if (-not $isNotFound -and $message -match '\b404\b') {
+                        $isNotFound = $true
+                    }
+
+                    if ($isNotFound) {
+                        Write-Host "ℹ️ Radar compare: no previous run found for this cluster/environment yet." -ForegroundColor DarkCyan
+                    }
+                    else {
+                        Write-Host "⚠️ Radar compare failed: $message" -ForegroundColor Yellow
+                    }
+                }
+            }
+
+            if ($generatedJsonForRadar -and (Test-Path $jsonReportPathForRadar)) {
+                Remove-Item -Path $jsonReportPathForRadar -Force -ErrorAction SilentlyContinue
+            }
         }
 
         return
+    }
+
+    if ($radarSettings.enabled -and ($radarSettings.upload_enabled -or $radarSettings.compare_enabled)) {
+        Write-Host "⚠️ Radar upload/compare only runs with report modes (-jsonReport, -HtmlReport, or -txtReport)." -ForegroundColor Yellow
     }
 
     # Interactive mode

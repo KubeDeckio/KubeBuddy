@@ -35,6 +35,12 @@ Run KubeBuddy in a container to:
 
 📌 **[Docker Usage](docker-usage.md)** – Guide for using KubeBuddy with Docker.
 
+### 📡 KubeBuddy Radar (Pro)
+
+Use JSON run uploads to track cluster score history, compare runs, and review freshness in Radar.
+
+📌 **[Radar Integration (Pro)](../kubebuddy-radar-cli-integration.md)** – CLI flags, Docker env vars, and auth setup.
+
 ### 🔐 Kubernetes Permissions
 
 Use this guide to configure least-privilege RBAC for non-AKS clusters and avoid using `cluster-admin` for routine scans.
@@ -79,4 +85,3 @@ You can generate a key from:
     "source": "AI"
   }
   ```
-

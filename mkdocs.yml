@@ -72,6 +72,7 @@ nav:
       - Checks: usage/checks.md
       - AKS Best Practices: usage/aks-best-practice-checks.md
       - Logging Output: usage/logging-output.md
+      - Radar Integration (Pro): kubebuddy-radar-cli-integration.md
   - Creating Checks: creating-Checks.md
   - Contributing: contributing.md
   - Release Process: releaseprocess.md

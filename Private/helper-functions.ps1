@@ -13,7 +13,8 @@ function Generate-K8sTextReport {
         [switch]$Aks,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
-        [string]$ClusterName
+        [string]$ClusterName,
+        [switch]$IncludeRadarArtifacts
     )
 
     if (Test-Path $ReportFile) {
@@ -153,6 +154,14 @@ function Generate-K8sTextReport {
         
             Write-ToReport "Node: $n - CPU: $avgC% | Mem: $avgM% | Disk: $avgD%"
         }        
+    }
+
+    if ($IncludeRadarArtifacts) {
+        $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
+        $artifactLines = Convert-KubeBuddyRadarArtifactInventoryToText -Inventory $artifactInventory
+        foreach ($line in $artifactLines) {
+            Write-ToReport $line
+        }
     }
 
     $score = Get-ClusterHealthScore -Checks $yamlCheckResults.Items

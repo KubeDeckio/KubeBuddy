@@ -1,226 +1,123 @@
-# KubeBuddy CLI + Radar Integration (Design Draft)
+# KubeBuddy CLI + Radar Integration (Pro)
 
-## Purpose
-Define how `KubeBuddy` CLI can integrate with `KubeBuddy Radar` to:
+Use this guide to upload KubeBuddy JSON scan results into KubeBuddy Radar for:
 
-- detect outdated runtime assets (container images, Helm charts, optional app versions)
-- upload run results for history/trends/comparisons
-- retrieve historical context back into CLI
-- support a paid tier model for storage and API access
+- run history
+- score trends
+- run-to-run compare
+- artifact freshness analysis (image/chart/app where detectable)
 
-## Scope (V1)
+## Deterministic Artifact Inventory (Pro)
 
-### In CLI
-- New checks:
-  - `RAD001`: Outdated container images
-  - `RAD002`: Outdated Helm charts
-- Optional upload mode:
-  - `Invoke-KubeBuddy -RadarUpload`
-- Optional history pull:
-  - `Invoke-KubeBuddy -RadarCompare` (current vs previous run)
+When Radar mode is enabled (`-RadarUpload` or `-RadarCompare`), KubeBuddy now builds a deterministic artifact inventory from Kubernetes workload specs and labels:
 
-### In Radar API
-- Accept KubeBuddy JSON run uploads
-- Persist runs securely per tenant
-- Return trends and run comparisons
+- container images (repo/tag/digest)
+- Helm charts (from `helm.sh/chart` and Helm labels/annotations)
+- app name/version labels (for example `app.kubernetes.io/name`, `app.kubernetes.io/version`)
 
-## High-Level Architecture
-1. CLI runs checks locally.
-2. CLI generates standard report JSON.
-3. If `-RadarUpload` is enabled, CLI sends JSON to Radar API.
-4. Radar stores raw report + normalized finding indexes.
-5. Dashboard uses stored runs for trend/comparison views.
-6. CLI can call compare endpoint for delta output.
+This inventory is added to JSON under `artifacts` and is also shown in HTML/TXT reports only for Radar-mode runs.
 
-## CLI Additions
+## What Gets Uploaded
 
-### New flags
-- `-RadarUpload`
-- `-RadarApiBaseUrl "https://radar.kubebuddy.io/api/kb-radar/v1"`
-- `-RadarProjectKey "<project-slug-or-id>"`
-- `-RadarEnvironment "prod|staging|dev"`
-- `-RadarApiKeyEnv "KUBEBUDDY_RADAR_API_KEY"`
-- `-RadarCompare` (compare against latest prior run)
+Only the JSON report payload is uploaded.
 
-### Config file extension (`~/.kube/kubebuddy-config.yaml`)
+- `Invoke-KubeBuddy -jsonReport -RadarUpload ...`
+- HTML and TXT outputs are local artifacts only
+- Radar upload is non-blocking, so report generation still completes if upload fails
+- Radar now prefers `report.artifacts` for freshness processing and falls back to check-item parsing for older reports
+
+## Authentication
+
+Radar API access uses WordPress Application Passwords (Basic auth).
+
+Set env vars before running KubeBuddy:
+
+```powershell
+$env:KUBEBUDDY_RADAR_API_USER = "<wordpress-username>"
+$env:KUBEBUDDY_RADAR_API_PASSWORD = "<wordpress-app-password>"
+```
+
+## PowerShell Examples
+
+Upload JSON run:
+
+```powershell
+Invoke-KubeBuddy `
+  -jsonReport `
+  -RadarUpload `
+  -RadarEnvironment "prod"
+```
+
+Upload + compare current run with previous run:
+
+```powershell
+Invoke-KubeBuddy `
+  -jsonReport `
+  -RadarUpload `
+  -RadarCompare `
+  -RadarEnvironment "prod"
+```
+
+Use custom Radar endpoint and custom credential env-var names:
+
+```powershell
+Invoke-KubeBuddy `
+  -jsonReport `
+  -RadarUpload `
+  -RadarApiBaseUrl "https://radar.example.com/api/kb-radar/v1" `
+  -RadarApiUserEnv "MY_RADAR_USER_ENV" `
+  -RadarApiPasswordEnv "MY_RADAR_PASS_ENV"
+```
+
+## Docker Entry Point Support (`run.ps1`)
+
+When running the container image, configure Radar via env vars:
+
+```bash
+-e JSON_REPORT="true" \
+-e RADAR_UPLOAD="true" \
+-e RADAR_COMPARE="true" \
+-e RADAR_ENVIRONMENT="prod" \
+-e KUBEBUDDY_RADAR_API_USER="<wordpress-username>" \
+-e KUBEBUDDY_RADAR_API_PASSWORD="<wordpress-app-password>"
+```
+
+Rules enforced by `run.ps1`:
+
+- `RADAR_UPLOAD=true` or `RADAR_COMPARE=true` requires `JSON_REPORT=true`
+
+## Config File Defaults (`kubebuddy-config.yaml`)
+
 ```yaml
 radar:
   enabled: false
   api_base_url: "https://radar.kubebuddy.io/api/kb-radar/v1"
-  project_key: "my-aks-prod"
   environment: "prod"
-  api_key_env: "KUBEBUDDY_RADAR_API_KEY"
+  api_user_env: "KUBEBUDDY_RADAR_API_USER"
+  api_password_env: "KUBEBUDDY_RADAR_API_PASSWORD"
   upload_timeout_seconds: 30
   upload_retries: 2
 ```
 
-### Upload behavior
-- Non-blocking by default:
-  - check/report generation must succeed even if upload fails.
-- If upload fails:
-  - print warning in CLI
-  - include upload error note in report metadata
+CLI flags override config values for that run.
 
-## Radar API Contract (Proposed V1)
-Base URL:
-`/api/kb-radar/v1`
+## Radar UI Output
 
-### 1) Upload run
-`POST /cluster-runs`
+After upload, Radar surfaces data in:
 
-Headers:
-- `Authorization: Basic base64(username:app_password)` (aligns with current Radar auth)
-- `Content-Type: application/json`
+- `/dashboard/`:
+  - latest score
+  - score trend line (30d / 90d)
+  - failed checks trend
+  - quick link to Cluster Reports
+- `/cluster-reports/`:
+  - run list and processing status
+  - compare summary (new/resolved/regressed findings)
+  - freshness table with status and confidence
 
-Request body:
-```json
-{
-  "source": "kubebuddy-cli",
-  "source_version": "0.0.24",
-  "project_key": "my-aks-prod",
-  "environment": "prod",
-  "cluster": {
-    "name": "aks-prod-uks",
-    "provider": "aks",
-    "region": "uksouth"
-  },
-  "run": {
-    "started_at": "2026-02-26T11:14:10Z",
-    "finished_at": "2026-02-26T11:18:34Z",
-    "duration_seconds": 264
-  },
-  "report": {
-    "format_version": "1.0",
-    "health_score": 69.77,
-    "checks": []
-  }
-}
-```
+If a metric is missing from uploaded JSON, UI shows `n/a`.
 
-Response:
-```json
-{
-  "success": true,
-  "run_id": "crun_01JABC...",
-  "ingested_at": "2026-02-26T11:18:35Z"
-}
-```
+## Notes
 
-### 2) List runs
-`GET /cluster-runs?project_key=my-aks-prod&environment=prod&page=1&per_page=20`
-
-### 3) Get single run
-`GET /cluster-runs/{run_id}`
-
-### 4) Compare runs
-`GET /cluster-runs/compare?project_key=my-aks-prod&environment=prod&from=crun_...&to=crun_...`
-
-Returns:
-- score delta
-- new findings
-- resolved findings
-- regressed findings
-
-### 5) Trend summary
-`GET /cluster-runs/trends?project_key=my-aks-prod&environment=prod&window_days=30`
-
-Returns:
-- health score trend
-- fail count trend by severity
-- top recurring checks
-
-## Secure Data Storage Model
-
-### Data classification
-- Raw report JSON may contain sensitive operational data (namespaces, image refs, pod names).
-- Treat all uploaded run payloads as confidential tenant data.
-
-### Storage pattern
-- `cluster_runs` (metadata + pointers)
-- `cluster_run_payloads` (encrypted JSON blob)
-- `cluster_run_findings` (normalized index for query speed)
-
-### Security controls
-- TLS in transit
-- encryption at rest for payload blobs
-- per-tenant row isolation
-- API audit logging (who uploaded/read what and when)
-- retention policy (e.g., 30/90/365 days by plan)
-- deletion endpoint for compliance
-
-## Outdated Artifact Checks (Radar-backed)
-
-### `RAD001` Outdated container images
-Detection strategy:
-- parse image references from workloads
-- resolve digest/tag metadata from registry sources
-- compare running version age vs latest stable
-
-Output:
-- namespace/workload/container/image/current/latest/release_age_days
-- recommendation severity by staleness window
-
-### `RAD002` Outdated Helm charts
-Detection strategy:
-- collect installed chart name/version
-- compare with known latest chart version from Radar catalog
-
-Output:
-- namespace/release/chart/current/latest/delta
-
-## Paid Tier Boundary (Recommended)
-
-### Free
-- local checks only
-- no historical storage
-- no API trend/compare
-
-### Pro / Pro Plus
-- API upload enabled
-- run history retention
-- trend dashboards
-- compare endpoints
-- team API access / automation limits
-
-Rationale:
-- storage + query + API costs are ongoing
-- premium value is historical intelligence, not just one-time scanning
-
-## Dashboard Enhancements (Radar)
-- Cluster run timeline per project/environment
-- Score trend chart and check-fail trend chart
-- "What changed since last run" panel
-- Top regression cards
-- Drill-down into raw findings for each run
-
-## CLI Enhancements (optional after V1)
-- `-RadarCompare` prints:
-  - score delta
-  - new/resolved/regressed checks
-  - top 5 regressions
-- `-RadarRunId` for explicit compare target
-
-## Rollout Plan
-1. Define JSON schema + API endpoints (`cluster-runs` + compare + trends).
-2. Implement upload path in CLI (feature-flagged).
-3. Add storage tables and secure retention controls in Radar.
-4. Build dashboard trend + compare pages.
-5. Add CLI compare command.
-6. Add billing/plan enforcement for upload/history endpoints.
-
-## Open Decisions
-- Auth model long-term:
-  - stay with WP App Passwords, or add scoped service tokens for CI?
-- Max payload size and compression:
-  - recommend gzip support for report upload.
-- PII/secret scrubbing:
-  - define exact fields to redact before upload.
-- Multi-cluster naming:
-  - enforce stable `project_key + environment + cluster.name` identity.
-
-## Suggested Next Deliverables
-1. Finalize API request/response schema as `openapi.yaml`.
-2. Add a minimal CLI prototype:
-   - upload current JSON report to `/cluster-runs`
-   - print returned `run_id`
-3. Add Radar DB migration for `cluster_runs` + payload storage.
+- AKS metadata fields in JSON now fall back to CLI values (`-SubscriptionId`, `-ResourceGroup`, `-ClusterName`) when source values are null.
+- Cluster run retention defaults to 90 days in Radar v1.

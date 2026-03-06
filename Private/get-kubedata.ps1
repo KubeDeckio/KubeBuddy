@@ -84,6 +84,7 @@ function Get-KubeData {
         @{ Name = "Namespaces"; Cmd = { kubectl get namespaces -o json }; Key = "Namespaces"; Items = $true },
         @{ Name = "Events"; Cmd = { kubectl get events --all-namespaces -o json }; Key = "Events"; Items = $true },
         @{ Name = "Jobs"; Cmd = { kubectl get jobs --all-namespaces -o json }; Key = "Jobs"; Items = $true },
+        @{ Name = "CronJobs"; Cmd = { kubectl get cronjobs --all-namespaces -o json }; Key = "CronJobs"; Items = $true },
         @{ Name = "DaemonSets"; Cmd = { kubectl get daemonsets --all-namespaces -o json }; Key = "DaemonSets"; Items = $true },
         @{ Name = "StatefulSets"; Cmd = { kubectl get statefulsets --all-namespaces -o json }; Key = "StatefulSets"; Items = $true },
         @{ Name = "Deployments"; Cmd = { kubectl get deployments --all-namespaces -o json }; Key = "Deployments"; Items = $true },

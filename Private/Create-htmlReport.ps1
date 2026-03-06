@@ -7,7 +7,8 @@ function Generate-K8sHTMLReport {
     [string]$ClusterName,
     [switch]$aks,
     [switch]$ExcludeNamespaces,
-    [object]$KubeData
+    [object]$KubeData,
+    [switch]$IncludeRadarArtifacts
   )
 
   function ConvertToCollapsible {
@@ -551,6 +552,12 @@ $heroRatingHtml
   # Initialize Prometheus HTML content
   $clusterMetricsHtml = ""
   $nodeMetricsHtml = ""
+  $radarArtifactsHtml = ""
+  if ($IncludeRadarArtifacts) {
+    $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
+    $radarArtifactsHtml = Convert-KubeBuddyRadarArtifactInventoryToHtml -Inventory $artifactInventory
+  }
+
   if ($KubeData.PrometheusMetrics -and $KubeData.PrometheusMetrics.NodeCpuUsagePercent) {
     Write-Host "📊 Generating Prometheus metrics for Summary and Nodes tabs..." -ForegroundColor Cyan
 
@@ -950,6 +957,7 @@ $heroRatingHtml
         </div>
       </div>
     </div>
+    $radarArtifactsHtml
   </div>
 </div>
 <div class="tab-content" id="nodes">

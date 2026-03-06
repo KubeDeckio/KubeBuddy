@@ -29,6 +29,7 @@ The `kubebuddy-config.yaml` file supports the following sections:
 - **Excluded Namespaces**: Skip specific namespaces (e.g., system namespaces) from monitoring and checks.
 - **Trusted Registries**: Define trusted container image registries to flag unapproved sources.
 - **Excluded Checks**: Disable specific checks to tailor KubeBuddy’s analysis to your environment.
+- **Radar**: Configure KubeBuddy Radar upload and compare defaults for Pro users.
 
 Each section is optional, and KubeBuddy applies default values when configurations are not specified. Below, we dive into each section with detailed explanations, examples, and scenarios to help you configure KubeBuddy effectively.
 
@@ -285,7 +286,26 @@ excluded_checks:
   - WRK011
 ```
 
-## 6. Applying the Configuration
+## 6. Radar Configuration (Pro)
+
+Use the `radar` section to configure upload and compare defaults for KubeBuddy Radar.
+
+```yaml
+radar:
+  enabled: false
+  api_base_url: "https://radar.kubebuddy.io/api/kb-radar/v1"
+  environment: "prod"
+  api_user_env: "KUBEBUDDY_RADAR_API_USER"
+  api_password_env: "KUBEBUDDY_RADAR_API_PASSWORD"
+  upload_timeout_seconds: 30
+  upload_retries: 2
+```
+
+With this config in place:
+- `Invoke-KubeBuddy -jsonReport -RadarUpload` uploads the run to Radar.
+- `Invoke-KubeBuddy -jsonReport -RadarUpload -RadarCompare` uploads and prints compare delta.
+
+## 7. Applying the Configuration
 To use the `kubebuddy-config.yaml` file, ensure it’s correctly formatted and placed in the default location (`~/.kube/kubebuddy-config.yaml`). Then, run KubeBuddy with any command, such as:
 
 ```powershell
@@ -305,7 +325,7 @@ To confirm that KubeBuddy is using your configuration:
 - Generate a report (`-HtmlReport`) and verify that excluded namespaces and checks are skipped.
 - Inspect the report for flagged untrusted registries to ensure the `trusted_registries` list is enforced.
 
-## 7. Best Practices for Configuration Management
+## 8. Best Practices for Configuration Management
 
 - **Version Control**: Store kubebuddy-config.yaml in a Git repository to track changes and collaborate with your team.
 - **Validate Syntax**: Use a YAML linter (e.g., yamllint) to catch syntax errors before deploying the file.
@@ -313,7 +333,7 @@ To confirm that KubeBuddy is using your configuration:
 - **Integrate with CI/CD**: Automate configuration deployment as part of your cluster provisioning pipeline (e.g., using Azure DevOps or GitHub Actions).
 - **Monitor Impact**: Use Azure Monitor or KubeBuddy’s reports to assess how configuration changes affect cluster health and alerts.
 
-## 8. Troubleshooting Configuration Issues
+## 9. Troubleshooting Configuration Issues
 If KubeBuddy isn’t behaving as expected with your configuration:
 
 - **Check File Location**: Ensure the file is at `~/.kube/kubebuddy-config.yaml`
