@@ -19,9 +19,18 @@
 
 ## 🔑 **STEP 2: Get Your Account Info**
 ```bash
-# Get your account and user details (save these!)
-aws sts get-caller-identity
-# Note: Account ID and your username from the ARN
+# Get your account and user details and store them as variables
+ACCOUNT_INFO=$(aws sts get-caller-identity)
+ACCOUNT_ID=$(echo $ACCOUNT_INFO | jq -r '.Account')
+USER_ARN=$(echo $ACCOUNT_INFO | jq -r '.Arn')
+
+# Display the info (save these for reference!)
+echo "Account ID: $ACCOUNT_ID"
+echo "User ARN: $USER_ARN"
+
+# Example output:
+# Account ID: 582577265601
+# User ARN: arn:aws:iam::582577265601:user/Whiz_User_87997.24531054
 ```
 
 ---
@@ -31,7 +40,7 @@ aws sts get-caller-identity
 ### Create Policy
 ```bash
 aws iam create-policy \
-  --policy-name EKSFullAccessPolicy \
+  --policy-name EKSFullAccessPolicyV3 \
   --policy-document '{
     "Version": "2012-10-17",
     "Statement": [{
@@ -41,6 +50,7 @@ aws iam create-policy \
         "iam:PassRole", "iam:GetRole", "iam:ListRoles", "iam:ListAttachedRolePolicies",
         "iam:CreateOpenIDConnectProvider", "iam:GetOpenIDConnectProvider",
         "iam:CreateInstanceProfile", "iam:AddRoleToInstanceProfile",
+        "iam:TagRole", "iam:UntagRole", "iam:ListRoleTags",
         "cloudformation:*", "autoscaling:*", "cloudtrail:*", "ecr:*",
         "logs:*", "elasticloadbalancing:*", "ssm:GetParameter*"
       ],
@@ -49,46 +59,61 @@ aws iam create-policy \
   }'
 ```
 
-### Create Role (Replace YOUR_ACCOUNT_ID and YOUR_USERNAME)
+### Create Role
 ```bash
 aws iam create-role \
-  --role-name EKSTestRole \
-  --assume-role-policy-document '{
-    "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Principal": {"AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:user/YOUR_USERNAME"},
-      "Action": "sts:AssumeRole"
+  --role-name EKSTestRoleV3 \
+  --assume-role-policy-document "{
+    \"Version\": \"2012-10-17\",
+    \"Statement\": [{
+      \"Effect\": \"Allow\",
+      \"Principal\": {\"AWS\": \"$USER_ARN\"},
+      \"Action\": \"sts:AssumeRole\"
     }]
-  }'
+  }"
 ```
 
 ### Attach Policies to Role
 ```bash
-aws iam attach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/EKSFullAccessPolicy
-aws iam attach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
-aws iam attach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
-aws iam attach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::aws:policy/CloudFormationFullAccess
+aws iam attach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/EKSFullAccessPolicyV3
+aws iam attach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
+aws iam attach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
+aws iam attach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::aws:policy/CloudFormationFullAccess
 ```
 
 ---
 
 ## 🔐 **STEP 4: Assume Role (Get EKS Permissions)**
 ```bash
-# Assume the role
-aws sts assume-role \
-  --role-arn arn:aws:iam::YOUR_ACCOUNT_ID:role/EKSTestRole \
-  --role-session-name EKSTestSession
+# Assume the role and automatically extract credentials
+CREDS=$(aws sts assume-role \
+  --role-arn arn:aws:iam::$ACCOUNT_ID:role/EKSTestRoleV3 \
+  --role-session-name EKSTestSession \
+  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+  --output text)
 
-# Export the credentials from the output above
-export AWS_ACCESS_KEY_ID="ASIA..."
-export AWS_SECRET_ACCESS_KEY="..."
-export AWS_SESSION_TOKEN="..."
+# Automatically export the credentials (no copy/paste needed!)
+export AWS_ACCESS_KEY_ID=$(echo $CREDS | cut -d' ' -f1)
+export AWS_SECRET_ACCESS_KEY=$(echo $CREDS | cut -d' ' -f2)
+export AWS_SESSION_TOKEN=$(echo $CREDS | cut -d' ' -f3)
 
 # Verify role assumption worked
 aws sts get-caller-identity
-# Should show: assumed-role/EKSTestRole/EKSTestSession
+# Should show: assumed-role/EKSTestRoleV3/EKSTestSession
 ```
+
+{
+    "Credentials": {
+        "AccessKeyId": "REDACTED_ACCESS_KEY_ID",
+        "SecretAccessKey": "REDACTED_SECRET_ACCESS_KEY",
+        "SessionToken": "REDACTED_SESSION_TOKEN",
+        "Expiration": "2025-10-29T17:55:33+00:00"
+    },
+    "AssumedRoleUser": {
+        "AssumedRoleId": "AROAYPJCPTPAVJSTC5FOD:EKSTestSession",
+        "Arn": "arn:aws:sts::582577265601:assumed-role/EKSTestRole/EKSTestSession"
+    }
+}
 
 ---
 
@@ -180,12 +205,12 @@ eksctl delete cluster --name kubebuddy-quick --region us-east-1
 # eksctl delete cluster --name kubebuddy-test --region us-east-1
 
 # Clean up IAM (optional, but good practice)
-aws iam detach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/EKSFullAccessPolicy
-aws iam detach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
-aws iam detach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
-aws iam detach-role-policy --role-name EKSTestRole --policy-arn arn:aws:iam::aws:policy/CloudFormationFullAccess
-aws iam delete-role --role-name EKSTestRole
-aws iam delete-policy --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/EKSFullAccessPolicy
+aws iam detach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/EKSFullAccessPolicyV3
+aws iam detach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
+aws iam detach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
+aws iam detach-role-policy --role-name EKSTestRoleV3 --policy-arn arn:aws:iam::aws:policy/CloudFormationFullAccess
+aws iam delete-role --role-name EKSTestRoleV3
+aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/EKSFullAccessPolicyV3
 ```
 
 ---
@@ -261,6 +286,8 @@ pwsh -c "./Private/eks/Test-IndividualChecks.ps1 -CheckCategory Networking"
 ---
 
 ## 🚨 **Troubleshooting**
+
+**If eksctl fails with "iam:TagRole" error:** The role needs tagging permissions. Update your policy with the corrected version above that includes `"iam:TagRole", "iam:UntagRole", "iam:ListRoleTags"` permissions, then detach and reattach the policy to your role.
 
 **If eksctl fails:** Check you're using the assumed role credentials  
 **If permissions fail:** Verify role assumption step worked  
