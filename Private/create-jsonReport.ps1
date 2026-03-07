@@ -22,8 +22,17 @@ function Create-JsonReport {
             clusterName       = $clusterName
             kubernetesVersion = $k8sVersion
             generatedAt       = $generatedAt
+            excludeNamespacesEnabled = [bool]$ExcludeNamespaces
+            excludedNamespaces = @()
         }
         checks   = @{}
+    }
+
+    if ($ExcludeNamespaces) {
+        $effectiveExcludedNamespaces = @(Get-ExcludedNamespaces)
+        if ($effectiveExcludedNamespaces.Count -gt 0) {
+            $results.metadata.excludedNamespaces = @($effectiveExcludedNamespaces)
+        }
     }
 
     # Run YAML-based checks

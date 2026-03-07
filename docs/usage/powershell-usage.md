@@ -56,6 +56,7 @@ The following table provides a quick reference for KubeBuddy powered by KubeDeck
 Radar uploads always use the JSON report payload.
 
 When Radar mode is enabled (`-RadarUpload` or `-RadarCompare`), KubeBuddy includes a deterministic `artifacts` inventory in JSON and adds a **Radar Artifact Inventory (Pro)** section to HTML/TXT reports for that run.
+KubeBuddy does direct Radar catalog lookup and shows `latest` + `status` (`up_to_date`, `minor_behind`, `major_behind`, `unknown`) in report artifact sections.
 
 Set your Radar credentials first (WordPress username + Application Password):
 

@@ -16,6 +16,18 @@ When Radar mode is enabled (`-RadarUpload` or `-RadarCompare`), KubeBuddy now bu
 - app name/version labels (for example `app.kubernetes.io/name`, `app.kubernetes.io/version`)
 
 This inventory is added to JSON under `artifacts` and is also shown in HTML/TXT reports only for Radar-mode runs.
+KubeBuddy performs a direct Radar catalog lookup during report flow and enriches reports with:
+
+- latest known version from Radar catalog
+- status (`up_to_date`, `minor_behind`, `major_behind`, `unknown`)
+- freshness summary counts
+
+Matching/precedence rules:
+
+- Helm charts are matched first and treated as primary version source.
+- Workloads marked as Helm-managed inherit Helm chart version status.
+- Helm-managed image/app rows are omitted from standalone HTML/TXT tables to reduce noise.
+- For semver values, KubeBuddy prefers latest stable in the same minor track first (for example `1.19.x`) before global latest.
 
 ## What Gets Uploaded
 
@@ -25,6 +37,7 @@ Only the JSON report payload is uploaded.
 - HTML and TXT outputs are local artifacts only
 - Radar upload is non-blocking, so report generation still completes if upload fails
 - Radar now prefers `report.artifacts` for freshness processing and falls back to check-item parsing for older reports
+- local JSON/HTML/TXT reports are enriched with direct Radar version lookup data (no async queue wait required)
 
 ## Authentication
 

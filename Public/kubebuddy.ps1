@@ -234,7 +234,8 @@ function Invoke-KubeBuddy {
                 -ClusterName $ClusterName `
                 -ExcludeNamespaces:$ExcludeNamespaces `
                 -KubeData $KubeData `
-                -IncludeRadarArtifacts:$includeRadarArtifacts
+                -IncludeRadarArtifacts:$includeRadarArtifacts `
+                -RadarFreshness $null
 
             if (Test-Path -Path $htmlReportFile) {
                 Write-Host "`n🤖 ✅ HTML report saved at: $htmlReportFile" -ForegroundColor Green
@@ -254,7 +255,8 @@ function Invoke-KubeBuddy {
                 -ResourceGroup $ResourceGroup `
                 -ClusterName $ClusterName `
                 -KubeData $KubeData `
-                -IncludeRadarArtifacts:$includeRadarArtifacts
+                -IncludeRadarArtifacts:$includeRadarArtifacts `
+                -RadarFreshness $null
 
             Write-Host "`n🤖 ✅ Text report saved at: $txtReportFile" -ForegroundColor Green
         }
@@ -294,6 +296,24 @@ function Invoke-KubeBuddy {
                 $generatedJsonForRadar = $true
             }
 
+            $radarFreshness = $null
+            if ($includeRadarArtifacts) {
+                try {
+                    Write-Host "🔎 Looking up artifact versions in Radar catalog..." -ForegroundColor Cyan
+                    $radarFreshness = Invoke-KubeBuddyRadarDirectArtifactLookup -ReportPath $jsonReportPathForRadar -RadarSettings $radarSettings
+                    if ($radarFreshness -and $radarFreshness.summary) {
+                        Write-Host ("✅ Direct lookup: up-to-date {0}, minor behind {1}, major behind {2}, unknown {3}" -f `
+                            $radarFreshness.summary.up_to_date, `
+                            $radarFreshness.summary.minor_behind, `
+                            $radarFreshness.summary.major_behind, `
+                            $radarFreshness.summary.unknown) -ForegroundColor Green
+                    }
+                }
+                catch {
+                    Write-Host "⚠️ Direct artifact lookup failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                }
+            }
+
             $uploadedRun = $null
             if ($radarSettings.upload_enabled) {
                 try {
@@ -312,6 +332,48 @@ function Invoke-KubeBuddy {
                 }
                 catch {
                     Write-Host "⚠️ Radar upload failed: $($_.Exception.Message)" -ForegroundColor Yellow
+                }
+            }
+
+            if ($includeRadarArtifacts -and $radarFreshness) {
+                try {
+                    if ($jsonReport -and (Test-Path $jsonReportFile)) {
+                        Update-KubeBuddyJsonReportWithRadarFreshness -ReportPath $jsonReportFile -Freshness $radarFreshness
+                    }
+
+                    if ($HtmlReport -and (Test-Path $htmlReportFile)) {
+                        Generate-K8sHTMLReport `
+                            -version $moduleVersion `
+                            -outputPath $htmlReportFile `
+                            -aks:$Aks `
+                            -SubscriptionId $SubscriptionId `
+                            -ResourceGroup $ResourceGroup `
+                            -ClusterName $ClusterName `
+                            -ExcludeNamespaces:$ExcludeNamespaces `
+                            -KubeData $KubeData `
+                            -IncludeRadarArtifacts:$includeRadarArtifacts `
+                            -RadarFreshness $radarFreshness
+                    }
+
+                    if ($txtReport -and (Test-Path $txtReportFile)) {
+                        Generate-K8sTextReport `
+                            -ReportFile $txtReportFile `
+                            -ExcludeNamespaces:$ExcludeNamespaces `
+                            -aks:$Aks `
+                            -SubscriptionId $SubscriptionId `
+                            -ResourceGroup $ResourceGroup `
+                            -ClusterName $ClusterName `
+                            -KubeData $KubeData `
+                            -IncludeRadarArtifacts:$includeRadarArtifacts `
+                            -RadarFreshness $radarFreshness
+                    }
+
+                    if ($jsonReport -or $HtmlReport -or $txtReport) {
+                        Write-Host "✅ Local reports updated with direct Radar version status." -ForegroundColor Green
+                    }
+                }
+                catch {
+                    Write-Host "⚠️ Could not enrich local reports with version status: $($_.Exception.Message)" -ForegroundColor Yellow
                 }
             }
 

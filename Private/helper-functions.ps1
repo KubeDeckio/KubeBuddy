@@ -14,7 +14,8 @@ function Generate-K8sTextReport {
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName,
-        [switch]$IncludeRadarArtifacts
+        [switch]$IncludeRadarArtifacts,
+        [object]$RadarFreshness
     )
 
     if (Test-Path $ReportFile) {
@@ -158,7 +159,7 @@ function Generate-K8sTextReport {
 
     if ($IncludeRadarArtifacts) {
         $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
-        $artifactLines = Convert-KubeBuddyRadarArtifactInventoryToText -Inventory $artifactInventory
+        $artifactLines = Convert-KubeBuddyRadarArtifactInventoryToText -Inventory $artifactInventory -Freshness $RadarFreshness
         foreach ($line in $artifactLines) {
             Write-ToReport $line
         }

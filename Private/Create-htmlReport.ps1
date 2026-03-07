@@ -8,7 +8,8 @@ function Generate-K8sHTMLReport {
     [switch]$aks,
     [switch]$ExcludeNamespaces,
     [object]$KubeData,
-    [switch]$IncludeRadarArtifacts
+    [switch]$IncludeRadarArtifacts,
+    [object]$RadarFreshness
   )
 
   function ConvertToCollapsible {
@@ -555,7 +556,7 @@ $heroRatingHtml
   $radarArtifactsHtml = ""
   if ($IncludeRadarArtifacts) {
     $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
-    $radarArtifactsHtml = Convert-KubeBuddyRadarArtifactInventoryToHtml -Inventory $artifactInventory
+    $radarArtifactsHtml = Convert-KubeBuddyRadarArtifactInventoryToHtml -Inventory $artifactInventory -Freshness $RadarFreshness
   }
 
   if ($KubeData.PrometheusMetrics -and $KubeData.PrometheusMetrics.NodeCpuUsagePercent) {
