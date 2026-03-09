@@ -258,6 +258,7 @@
   [data-md-color-scheme="light"],
   [data-md-color-scheme="slate"],
   [data-md-color-scheme="dark"] {
+    --kb-header-gradient: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
     --kb-radar-bg: #16253d;
     --kb-radar-bg-soft: #1d2e49;
     --kb-radar-panel: rgba(44, 61, 87, 0.82);
@@ -287,24 +288,35 @@
   }
 
   .md-header {
-    background: linear-gradient(90deg, #0069ff 0%, #02baff 100%) !important;
-    box-shadow: 0 14px 32px rgba(2, 12, 27, 0.28);
+    background: var(--kb-header-gradient) !important;
+    box-shadow: none;
   }
 
   .md-tabs {
-    background: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
+    background: var(--kb-header-gradient);
     border-top: 0;
     backdrop-filter: blur(12px);
+    box-shadow: none;
   }
 
   .md-tabs__inner {
     background: inherit;
   }
 
+  .md-header__inner,
+  .md-tabs__inner {
+    background: transparent;
+  }
+
   [data-md-color-scheme="default"] .md-tabs,
   [data-md-color-scheme="light"] .md-tabs {
-    background: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
+    background: var(--kb-header-gradient);
     border-top: 0;
+  }
+
+  .md-header::after,
+  .md-tabs::after {
+    display: none;
   }
 
   [data-md-color-scheme="slate"] html,
@@ -516,26 +528,31 @@
   }
 
   .md-top {
-    position: fixed;
-    right: 1.25rem;
-    bottom: 1.25rem;
-    left: auto;
-    top: auto;
+    position: fixed !important;
+    right: 1.25rem !important;
+    bottom: 1.25rem !important;
+    left: auto !important;
+    top: auto !important;
     z-index: 40;
-    margin: 0;
-    width: 3.25rem;
-    height: 3.25rem;
-    padding: 0;
+    margin: 0 !important;
+    width: 3.25rem !important;
+    height: 3.25rem !important;
+    min-width: 3.25rem;
+    min-height: 3.25rem;
+    padding: 0 !important;
     border-radius: 999px;
     backdrop-filter: blur(12px);
-    display: grid;
-    place-items: center;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     font-size: 0;
   }
 
   .md-top svg {
     width: 1.1rem;
     height: 1.1rem;
+    margin: 0;
+    display: block;
   }
 
   [data-md-color-scheme="default"] .md-top,
