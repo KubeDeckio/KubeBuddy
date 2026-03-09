@@ -1,87 +1,83 @@
----
-title: Usage
-parent: Documentation
-nav_order: 2
-layout: default
-hide:
+# KubeBuddy CLI
 
----
+<div class="kb-docs-hero">
+  <div class="kb-docs-kicker">CLI</div>
+  <p>KubeBuddy CLI is the local scanning tool for Kubernetes and AKS. Run it from PowerShell or Docker, generate HTML and JSON reports, and keep your cluster untouched while you inspect it properly.</p>
+</div>
 
-# 🚀 KubeBuddy powered by KubeDeck Usage
+<div class="kb-docs-link-grid">
+  <a class="kb-docs-link-card" href="powershell-usage/">
+    <strong>PowerShell</strong>
+    <span>Use the module directly on Windows, macOS, or Linux and run full scans from your terminal.</span>
+  </a>
+  <a class="kb-docs-link-card" href="docker-usage/">
+    <strong>Docker</strong>
+    <span>Run KubeBuddy in a container for isolated execution and easy CI or jump-host workflows.</span>
+  </a>
+  <a class="kb-docs-link-card" href="kubebuddy-config/">
+    <strong>Config File</strong>
+    <span>Save repeatable scan settings in <code>kubebuddy-config.yaml</code> and keep runs consistent.</span>
+  </a>
+  <a class="kb-docs-link-card" href="../radar/">
+    <strong>KubeBuddy Radar</strong>
+    <span>Connect the CLI to Radar when you want release tracking, alerts, and scan history in one place.</span>
+  </a>
+</div>
 
-KubeBuddy powered by KubeDeck helps you **monitor, analyze, and report** on your Kubernetes environments with ease. Whether you're tracking cluster health, reviewing security configurations, or troubleshooting workloads, KubeBuddy provides structured insights.
+## What It Does
 
-## 🔥 Choose Your Environment
+- Scans Kubernetes and AKS from outside the cluster
+- Finds node, pod, workload, network, RBAC, and storage issues
+- Supports AKS best-practice checks when you need provider-specific coverage
+- Generates HTML, JSON, and terminal output from the same run
+- Pulls Prometheus metrics when available for richer diagnostics
 
-### 🖥️ PowerShell (Windows/Linux/macOS)
+## Choose Your Runtime
 
-Use the PowerShell module to:
-- Monitor node health and usage.
-- Detect failing pods, restart loops, and stuck jobs.
-- Review Kubernetes events by severity.
-- Inspect RBAC roles and security configs.
-- Generate HTML or text reports.
+### PowerShell
 
-📌 **[PowerShell Usage](powershell-usage.md)** – Step-by-step guide for PowerShell users.
+Use the module to:
 
+- monitor node health and usage
+- detect failing pods, restart loops, and stuck jobs
+- review Kubernetes events by severity
+- inspect RBAC roles and security config
+- generate HTML, JSON, or text output
 
-### 🐳 Docker (Cross-platform)
+[PowerShell Usage](powershell-usage.md)
 
-Run KubeBuddy in a container to:
-- Run scans in isolated environments without installing PowerShell.
-- Mount your kubeconfig for access to any cluster.
-- Use HTML, JSON, or TXT outputs for automation or offline viewing.
-- Run AKS-specific checks with SPN credentials.
+### Docker
 
-📌 **[Docker Usage](docker-usage.md)** – Guide for using KubeBuddy with Docker.
+Use Docker to:
 
-### 📡 KubeBuddy Radar (Pro)
+- run scans without installing PowerShell locally
+- mount kubeconfig for access to any cluster
+- generate HTML, JSON, or TXT output for automation
+- run AKS-specific checks with the required credentials
 
-Use JSON run uploads to track cluster score history, compare runs, and review freshness in Radar.
+[Docker Usage](docker-usage.md)
 
-📌 **[Radar Integration (Pro)](../kubebuddy-radar-cli-integration.md)** – CLI flags, Docker env vars, and auth setup.
+## Related Guides
 
-### 🔐 Kubernetes Permissions
+- [Prometheus Integration](prometheus-integration.md)
+- [Checks](checks.md)
+- [AKS Best Practices](aks-best-practice-checks.md)
+- [Logging Output](logging-output.md)
+- [Kubernetes Permissions](kubernetes-permissions.md)
+- [Radar Integration (Pro)](kubebuddy-radar-cli-integration.md)
 
-Use this guide to configure least-privilege RBAC for non-AKS clusters and avoid using `cluster-admin` for routine scans.
+## AI Recommendations
 
-📌 **[Kubernetes Scan Permissions](kubernetes-permissions.md)** – Required Kubernetes RBAC access for complete scans.
+KubeBuddy can enrich findings with AI-generated guidance when you provide an OpenAI API key.
 
-## 🧠 AI Recommendations (OpenAI)
-
-KubeBuddy now supports AI-powered recommendation generation using OpenAI (ChatGPT) via the [PSAI PowerShell module](https://x.com/dfinke).
-
-### How it Works
-
-When KubeBuddy detects issues in your cluster, it can prompt an AI agent to generate:
-
-- A brief **text summary** of recommended actions
-- A rich **HTML block** with actionable suggestions, formatted for inclusion in reports
-
-These recommendations are embedded directly in the **HTML**, **text**, and **JSON** reports.
-
-### Requirements
-
-To enable AI enrichment, you must provide an OpenAI API key:
+Set:
 
 ```powershell
 $env:OpenAIKey = "<your-openai-api-key>"
 ```
 
-You can generate a key from:  
-🔗 https://platform.openai.com/account/api-keys
+AI guidance can appear in:
 
-> If no key is provided (`$env:OpenAIKey` is empty), KubeBuddy will skip AI enrichment and fallback to static/manual recommendations.
-
-### Where AI Output Appears
-
-- **HTML Report**: AI-generated actions appear in a collapsible card labeled `(AI Enhanced)` under each check that supports it.
-- **Text Report**: Recommendations are marked with the prefix `AI Generated Recommendation:` if they were created by the AI.
-- **JSON Report**: The recommendation object includes:
-  ```json
-  {
-    "text": "...",
-    "html": "...",
-    "source": "AI"
-  }
-  ```
+- HTML reports
+- text output
+- JSON report recommendation fields

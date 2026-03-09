@@ -64,16 +64,16 @@ edit_uri: edit/main/docs/
 
 nav:
   - Home: index.md
-  - Usage: 
-      - Overview: usage/index.md
-      - PowerShell: usage/powershell-usage.md
-      - Docker: usage/docker-usage.md
-      - Prometheus Integration: usage/prometheus-integration.md
-      - Config File: usage/kubebuddy-config.md
-      - Checks: usage/checks.md
-      - AKS Best Practices: usage/aks-best-practice-checks.md
-      - Logging Output: usage/logging-output.md
-      - Radar Integration (Pro): kubebuddy-radar-cli-integration.md
+  - CLI: 
+      - Overview: cli/index.md
+      - PowerShell: cli/powershell-usage.md
+      - Docker: cli/docker-usage.md
+      - Prometheus Integration: cli/prometheus-integration.md
+      - Config File: cli/kubebuddy-config.md
+      - Checks: cli/checks.md
+      - AKS Best Practices: cli/aks-best-practice-checks.md
+      - Logging Output: cli/logging-output.md
+      - Radar Integration (Pro): cli/kubebuddy-radar-cli-integration.md
   - Radar:
       - Overview: radar/index.md
       - Getting Started: radar/getting-started.md

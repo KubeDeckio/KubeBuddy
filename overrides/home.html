@@ -75,6 +75,7 @@
     --md-metrics-border: rgba(0, 113, 255, 0.2);
     --md-divider: rgba(15, 23, 42, 0.1);
     --md-section-bg: #f8fafc;
+    --md-hero-overlay: linear-gradient(180deg, rgba(7, 29, 68, 0.54), rgba(7, 29, 68, 0.34));
   }
 
   [data-md-color-scheme="slate"],
@@ -1136,10 +1137,98 @@ z-index: 1;
   font-size: 0.92rem;
 }
 
-.tool-link:hover {
-  border-color: rgba(90, 214, 255, 0.34);
-  color: #9ee8ff !important;
-}
+  .tool-link:hover {
+    border-color: rgba(90, 214, 255, 0.34);
+    color: #9ee8ff !important;
+  }
+
+  [data-md-color-scheme="default"] .hero-tag,
+  [data-md-color-scheme="light"] .hero-tag {
+    background: rgba(255, 255, 255, 0.82);
+    border-color: rgba(2, 113, 255, 0.14);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    color: #0a7ac8;
+  }
+
+  [data-md-color-scheme="default"] .hero-tag-secondary,
+  [data-md-color-scheme="light"] .hero-tag-secondary {
+    color: #b7791f;
+    border-color: rgba(245, 166, 35, 0.22);
+  }
+
+  [data-md-color-scheme="default"] .product-card,
+  [data-md-color-scheme="default"] .tool-card,
+  [data-md-color-scheme="default"] .signal-card,
+  [data-md-color-scheme="default"] .workflow-step,
+  [data-md-color-scheme="light"] .product-card,
+  [data-md-color-scheme="light"] .tool-card,
+  [data-md-color-scheme="light"] .signal-card,
+  [data-md-color-scheme="light"] .workflow-step {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.96));
+    border-color: rgba(2, 113, 255, 0.14);
+    box-shadow: 0 0 0 1px rgba(2, 113, 255, 0.05), 0 16px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-md-color-scheme="default"] .product-points li,
+  [data-md-color-scheme="default"] .tool-card .product-points li,
+  [data-md-color-scheme="light"] .product-points li,
+  [data-md-color-scheme="light"] .tool-card .product-points li {
+    background: rgba(240, 247, 255, 0.96);
+    border-color: rgba(2, 113, 255, 0.08);
+    color: #1e293b;
+  }
+
+  [data-md-color-scheme="default"] .tool-link,
+  [data-md-color-scheme="light"] .tool-link {
+    background: rgba(240, 247, 255, 0.96);
+    border-color: rgba(2, 113, 255, 0.14);
+    color: #155e95 !important;
+  }
+
+  [data-md-color-scheme="default"] .tool-link:hover,
+  [data-md-color-scheme="light"] .tool-link:hover {
+    color: #0a7ac8 !important;
+    border-color: rgba(2, 186, 255, 0.24);
+  }
+
+  [data-md-color-scheme="default"] .metric,
+  [data-md-color-scheme="light"] .metric {
+    box-shadow: 0 0 0 1px rgba(2, 113, 255, 0.05), 0 14px 26px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-md-color-scheme="default"] .metric-value,
+  [data-md-color-scheme="light"] .metric-value {
+    color: #10243a;
+  }
+
+  [data-md-color-scheme="default"] .metric-label,
+  [data-md-color-scheme="light"] .metric-label {
+    color: #0a7ac8 !important;
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-blue,
+  [data-md-color-scheme="light"] .metric-neon-blue {
+    background: linear-gradient(135deg, rgba(2, 186, 255, 0.12), rgba(2, 186, 255, 0.04));
+    border-color: rgba(2, 186, 255, 0.24);
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-green,
+  [data-md-color-scheme="light"] .metric-neon-green {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.12), rgba(46, 204, 113, 0.04));
+    border-color: rgba(46, 204, 113, 0.24);
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-amber,
+  [data-md-color-scheme="light"] .metric-neon-amber {
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.12), rgba(245, 166, 35, 0.04));
+    border-color: rgba(245, 166, 35, 0.24);
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-purple,
+  [data-md-color-scheme="light"] .metric-neon-purple {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(168, 85, 247, 0.04));
+    border-color: rgba(168, 85, 247, 0.24);
+  }
 
 .workflow-step strong {
   display: inline-block;
@@ -1178,7 +1267,7 @@ z-index: 1;
       and helps you catch health, security, configuration, and AKS issues fast.
     </p>
     <div class="dual-cta">
-      <a href="{{ 'usage/' | url }}" class="cta-button">Start with the CLI</a>
+      <a href="{{ 'cli/' | url }}" class="cta-button">Start with the CLI</a>
       <a href="{{ 'kubebuddy-radar-cli-integration/' | url }}" class="cta-button cta-button-secondary">See Radar Integration</a>
     </div>
   </div>
@@ -1221,8 +1310,8 @@ z-index: 1;
           <li>Works as the execution layer for the whole workflow.</li>
         </ul>
         <div class="tool-actions">
-          <a href="{{ 'usage/' | url }}" class="tool-link">CLI Docs</a>
-          <a href="{{ 'usage/powershell-usage/' | url }}" class="tool-link">PowerShell</a>
+          <a href="{{ 'cli/' | url }}" class="tool-link">CLI Docs</a>
+          <a href="{{ 'cli/powershell-usage/' | url }}" class="tool-link">PowerShell</a>
         </div>
       </div>
       <div class="tool-card tool-card-neon-amber">
@@ -1369,7 +1458,7 @@ z-index: 1;
       </div>
     </div>
     <div class="workflow-cta">
-      <a href="{{ 'usage/' | url }}" class="cta-button">Read the CLI Docs</a>
+      <a href="{{ 'cli/' | url }}" class="cta-button">Read the CLI Docs</a>
     </div>
   </section>
   {% endblock %}

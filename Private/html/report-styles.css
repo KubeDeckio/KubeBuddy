@@ -1665,7 +1665,7 @@ code {
 }
 
 .chart-item {
-  background: rgba(72, 86, 110, 0.72);
+  background: var(--bg-container);
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-sm);
   padding: var(--spacing-md);
@@ -1707,8 +1707,7 @@ code {
 .chart-item {
   position: relative;
   /* For zoom icon positioning */
-  background: rgba(72, 86, 110, 0.72);
-  border: 1px solid rgba(118, 139, 171, 0.24);
+  background: var(--bg-container);
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-sm);
   padding: var(--spacing-md);
@@ -1727,7 +1726,7 @@ code {
 .chart-item h3 {
   margin: 0 0 var(--spacing-sm);
   font-size: 16px;
-  color: rgba(232, 241, 255, 0.92);
+  color: var(--text-dark);
 }
 
 /* Zoom Icon */
@@ -2526,10 +2525,14 @@ html[data-kb-theme="radar"] .container,
 html[data-kb-theme="radar"] .table-container,
 html[data-kb-theme="radar"] .quick-fix-card,
 html[data-kb-theme="radar"] .collapsible-container,
-html[data-kb-theme="radar"] details,
-html[data-kb-theme="radar"] .nav-drawer {
+html[data-kb-theme="radar"] details {
   background: transparent;
   border: 0;
+}
+
+html[data-kb-theme="radar"] .nav-drawer {
+  background: linear-gradient(135deg, #1f2b3f, #1a273a);
+  border-right: 1px solid rgba(122, 216, 255, 0.25);
 }
 
 html[data-kb-theme="radar"] .table-container,
