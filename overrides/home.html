@@ -570,25 +570,53 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0;
-    margin: 2rem auto 0;
-    max-width: 900px;
+    margin: 2.4rem auto 3.2rem;
+    max-width: 980px;
     width: 100%;
-    background: var(--md-metrics-bg);
+    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--md-metrics-border);
-    border-radius: 18px;
+    border: 1px solid rgba(2, 186, 255, 0.18);
+    border-radius: 22px;
     overflow: hidden;
-    box-shadow: var(--md-shadow);
+    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 22px 42px rgba(2, 12, 27, 0.3);
     transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .metric {
-    padding: 1.25rem 1rem;
+    min-height: 136px;
+    padding: 1.35rem 1rem 1.2rem;
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
+  }
+
+  .metric-neon-blue {
+    background: linear-gradient(135deg, rgba(0, 194, 255, 0.2), rgba(0, 194, 255, 0.08));
+    border-right-color: rgba(2, 186, 255, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(2, 186, 255, 0.18);
+  }
+
+  .metric-neon-green {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.22), rgba(46, 204, 113, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(46, 204, 113, 0.32), 0 0 24px rgba(46, 204, 113, 0.08);
+  }
+
+  .metric-neon-red {
+    background: linear-gradient(135deg, rgba(255, 92, 117, 0.2), rgba(255, 92, 117, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(255, 92, 117, 0.32), 0 0 24px rgba(255, 92, 117, 0.08);
+  }
+
+  .metric-neon-amber {
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.2), rgba(245, 166, 35, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(245, 166, 35, 0.3), 0 0 24px rgba(245, 166, 35, 0.08);
+  }
+
+  .metric-neon-purple {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(168, 85, 247, 0.08));
+    box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.3), 0 0 24px rgba(168, 85, 247, 0.08);
   }
 
   /* vertical divider on every item except the last */
@@ -597,19 +625,22 @@
   }
 
   .metric-value {
-    font-size: 1.75rem;
-    font-weight: 500;
+    font-size: 3rem;
+    font-weight: 700;
     line-height: 1;
-    color: var(--md-primary-fg-color);
+    color: #eaf3ff;
+    letter-spacing: -0.04em;
   }
 
   .metric-label {
-    margin-top: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--md-primary-fg-color--light) !important;
+    margin-top: 0.7rem;
+    max-width: 140px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #9ee8ff !important;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.12em;
+    line-height: 1.35;
   }
   .metric {
     position: relative;
@@ -620,7 +651,7 @@
   }
   .metric:hover { 
     transform: translateY(-2px);
-    background: rgba(2, 186, 255, 0.06);
+    background: rgba(2, 186, 255, 0.05);
   }
   .metric::after {
     content: '';
@@ -1158,19 +1189,19 @@ z-index: 1;
 
 <!-- Metrics Bar INSIDE hero -->
 <div class="metrics-bar">
-  <div class="metric">
+  <div class="metric metric-neon-blue">
     <div class="metric-value">100+</div>
     <div class="metric-label">Checks</div>
   </div>
-  <div class="metric">
+  <div class="metric metric-neon-green">
     <div class="metric-value">CLI</div>
     <div class="metric-label">Local Scans</div>
   </div>
-  <div class="metric">
+  <div class="metric metric-neon-blue">
     <div class="metric-value">HTML</div>
     <div class="metric-label">Readable Reports</div>
   </div>
-  <div class="metric">
+  <div class="metric metric-neon-purple">
     <div class="metric-value">JSON</div>
     <div class="metric-label">Automation Ready</div>
   </div>
