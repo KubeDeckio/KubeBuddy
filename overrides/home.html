@@ -932,6 +932,50 @@ z-index: 1;
   z-index: 1;
 }
 
+.product-card-neon-blue,
+.tool-card-neon-blue,
+.signal-card-neon-blue,
+.workflow-step-neon-blue {
+  border-color: rgba(2, 186, 255, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(2, 186, 255, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(2, 186, 255, 0.09);
+}
+
+.product-card-neon-amber,
+.tool-card-neon-amber,
+.signal-card-neon-amber,
+.workflow-step-neon-amber {
+  border-color: rgba(245, 166, 35, 0.34);
+  box-shadow:
+    0 0 0 1px rgba(245, 166, 35, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(245, 166, 35, 0.1);
+}
+
+.product-card-neon-red,
+.tool-card-neon-red,
+.signal-card-neon-red,
+.workflow-step-neon-red {
+  border-color: rgba(255, 92, 117, 0.34);
+  box-shadow:
+    0 0 0 1px rgba(255, 92, 117, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(255, 92, 117, 0.1);
+}
+
+.product-card-neon-green,
+.tool-card-neon-green,
+.signal-card-neon-green,
+.workflow-step-neon-green {
+  border-color: rgba(46, 204, 113, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(46, 204, 113, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(46, 204, 113, 0.08);
+}
+
 .product-kicker {
   display: inline-flex;
   align-items: center;
@@ -1098,9 +1142,9 @@ z-index: 1;
   <div class="hero-content">
     <div class="hero-tag-row">
       <span class="hero-tag">KubeBuddy CLI</span>
-      <span class="hero-tag hero-tag-secondary">Works with Radar Pro</span>
+      <span class="hero-tag hero-tag-secondary">Works with KubeBuddy Radar</span>
     </div>
-    <h1>Run deep Kubernetes checks locally without changing your cluster.</h1>
+    <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
     <p class="hero-subhead">
       KubeBuddy scans from your terminal or Docker container, generates HTML and JSON reports,
       and helps you catch health, security, configuration, and AKS issues fast.
@@ -1137,7 +1181,7 @@ z-index: 1;
   <section class="section">
     <h2>The KubeBuddy Tools</h2>
     <div class="tools-grid">
-      <div class="tool-card">
+      <div class="tool-card tool-card-neon-blue">
         <span class="product-kicker">Tool 1</span>
         <h3>KubeBuddy CLI</h3>
         <p>
@@ -1154,17 +1198,17 @@ z-index: 1;
           <a href="{{ 'usage/powershell-usage/' | url }}" class="tool-link">PowerShell</a>
         </div>
       </div>
-      <div class="tool-card">
+      <div class="tool-card tool-card-neon-amber">
         <span class="product-kicker">Tool 2</span>
-        <h3>Radar Pro</h3>
+        <h3>KubeBuddy Radar</h3>
         <p>
-          The hosted layer for history, compare, cluster profiles, and API-driven
-          workflows built on top of KubeBuddy JSON reports.
+          The hosted service for tracking CNCF and cloud-native project releases,
+          getting alerts when new versions land, and reviewing AI-improved release notes.
         </p>
         <ul class="product-points">
-          <li>Cluster Reports, Compare, Trends, and saved Cluster Configs.</li>
-          <li>Encrypted-at-rest report and config storage.</li>
-          <li>Keeps execution local while the UI handles coordination.</li>
+          <li>Track projects, releases, and changes across the cloud-native ecosystem.</li>
+          <li>Get alerts when new releases happen and route them to the right teams.</li>
+          <li>Use Cluster Reports and Cluster Configs when you want KubeBuddy scan history too.</li>
         </ul>
         <div class="tool-actions">
           <a href="{{ 'radar/' | url }}" class="tool-link">Radar Docs</a>
@@ -1177,7 +1221,7 @@ z-index: 1;
   <section class="section">
     <h2>Why Teams Use KubeBuddy</h2>
     <div class="product-split">
-      <div class="product-card">
+      <div class="product-card product-card-neon-blue">
         <span class="product-kicker">CLI First</span>
         <h3>Run the scan where your cluster already lives.</h3>
         <p>
@@ -1190,7 +1234,7 @@ z-index: 1;
           <li>Run locally, in CI, in Docker, or from a jump host.</li>
         </ul>
       </div>
-      <div class="product-card">
+      <div class="product-card product-card-neon-green">
         <span class="product-kicker">Built For Action</span>
         <h3>Get findings you can actually work with.</h3>
         <p>
@@ -1209,15 +1253,15 @@ z-index: 1;
   <section class="section checks-bg">
     <h2>What KubeBuddy Checks</h2>
     <div class="signal-grid">
-      <div class="signal-card">
+      <div class="signal-card signal-card-neon-green">
         <h3>Node And Pod Health</h3>
         <p>Find crash loops, failing workloads, noisy nodes, broken probes, and cluster drift before they become outages.</p>
       </div>
-      <div class="signal-card">
+      <div class="signal-card signal-card-neon-red">
         <h3>Security And RBAC</h3>
         <p>Catch risky RBAC, exposed privileges, insecure defaults, weak registries, and config mistakes that stay hidden in dashboards.</p>
       </div>
-      <div class="signal-card">
+      <div class="signal-card signal-card-neon-amber">
         <h3>Networking, Storage, And AKS</h3>
         <p>Inspect services, PVCs, policies, cluster config, and Microsoft-guided AKS checks from the same workflow.</p>
       </div>
@@ -1235,22 +1279,22 @@ z-index: 1;
   </section>
 
   <section class="section">
-    <h2>Optional Radar Pro Workflow</h2>
+    <h2>Optional KubeBuddy Radar Workflow</h2>
     <div class="product-split">
-      <div class="product-card">
+      <div class="product-card product-card-neon-amber">
         <span class="product-kicker">Radar Integration</span>
-        <h3>Keep history without moving execution into the browser.</h3>
+        <h3>Bring scan history into the same place you track releases.</h3>
         <p>
-          Upload KubeBuddy JSON reports into Radar when you want score history,
-          compare views, and saved scan profiles across clusters.
+          Upload KubeBuddy JSON reports into KubeBuddy Radar when you want score history,
+          compare views, saved scan profiles, and one place to manage both releases and scan results.
         </p>
         <ul class="product-points">
           <li>Compare runs over time and across clusters.</li>
           <li>Manage encrypted scan profiles and generated commands.</li>
-          <li>Keep scans local while Radar handles history and coordination.</li>
+          <li>Keep scans local while Radar handles release tracking, history, and coordination.</li>
         </ul>
       </div>
-      <div class="product-card">
+      <div class="product-card product-card-neon-blue">
         <span class="product-kicker">Use It When Needed</span>
         <h3>KubeBuddy still works fully on its own.</h3>
         <p>
@@ -1270,7 +1314,7 @@ z-index: 1;
   <section class="workflow-section">
     <h2>How The KubeBuddy Workflow Fits Together</h2>
     <div class="workflow-steps">
-      <div class="workflow-step" data-step="1">
+      <div class="workflow-step workflow-step-neon-blue" data-step="1">
         <span class="step-icon">⚙️</span>
         <h3>Run KubeBuddy Locally</h3>
         <p>
@@ -1279,7 +1323,7 @@ z-index: 1;
         </p>
         <strong>CLI first</strong>
       </div>
-      <div class="workflow-step" data-step="2">
+      <div class="workflow-step workflow-step-neon-green" data-step="2">
         <span class="step-icon">🔎</span>
         <h3>Generate A Report</h3>
         <p>
@@ -1288,14 +1332,14 @@ z-index: 1;
         </p>
         <strong>HTML + JSON</strong>
       </div>
-      <div class="workflow-step" data-step="3">
+      <div class="workflow-step workflow-step-neon-amber" data-step="3">
         <span class="step-icon">📈</span>
         <h3>Optionally Track It In Radar</h3>
         <p>
           Review score trends, compare reports, and manage config profiles so
           future scans are consistent across your clusters.
         </p>
-        <strong>Radar Pro</strong>
+        <strong>KubeBuddy Radar</strong>
       </div>
     </div>
     <div class="workflow-cta">
