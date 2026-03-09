@@ -265,12 +265,18 @@
     backdrop-filter: blur(12px);
   }
 
+  [data-md-color-scheme="slate"] html,
+  [data-md-color-scheme="slate"] body,
+  [data-md-color-scheme="dark"] html,
+  [data-md-color-scheme="dark"] body,
   [data-md-color-scheme="slate"] .md-main,
   [data-md-color-scheme="dark"] .md-main {
-    background:
-      radial-gradient(circle at top left, rgba(2, 186, 255, 0.08), transparent 26%),
-      radial-gradient(circle at top right, rgba(0, 105, 255, 0.1), transparent 24%),
-      linear-gradient(180deg, #16253d 0%, #122033 100%) !important;
+    background: #16253d !important;
+  }
+
+  [data-md-color-scheme="slate"] .md-main,
+  [data-md-color-scheme="dark"] .md-main {
+    min-height: 100vh;
   }
 
   [data-md-color-scheme="slate"] .md-content__inner,

@@ -43,6 +43,7 @@ theme:
     - navigation.instant
     - navigation.tracking
     - content.code.annotate
+    - content.code.copy
     - content.tabs.link
     - content.action.edit
 
