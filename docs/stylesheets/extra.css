@@ -292,15 +292,15 @@
   }
 
   .md-tabs {
-    background: rgba(8, 18, 33, 0.34);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(12px);
   }
 
   [data-md-color-scheme="default"] .md-tabs,
   [data-md-color-scheme="light"] .md-tabs {
-    background: rgba(255, 255, 255, 0.72);
-    border-top: 1px solid rgba(2, 113, 255, 0.08);
+    background: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   [data-md-color-scheme="slate"] html,
@@ -519,8 +519,23 @@
     top: auto;
     z-index: 40;
     margin: 0;
+    width: 3.25rem;
+    height: 3.25rem;
+    padding: 0;
     border-radius: 999px;
     backdrop-filter: blur(12px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-indent: 9999px;
+  }
+
+  .md-top::before {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-indent: 0;
+    font-size: 1.15rem;
   }
 
   [data-md-color-scheme="default"] .md-top,
@@ -565,6 +580,16 @@
   [data-md-color-scheme="light"] .md-header .md-header__title {
     color: #f8fbff !important;
     text-shadow: none;
+  }
+
+  .md-tabs__link {
+    opacity: 0.92;
+  }
+
+  .md-tabs__link:hover,
+  .md-tabs__item--active .md-tabs__link {
+    opacity: 1;
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
   }
 
   [data-md-color-scheme="default"] .md-search__form,
