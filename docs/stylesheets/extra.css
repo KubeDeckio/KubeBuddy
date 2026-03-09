@@ -153,3 +153,85 @@
     font-size: 1rem;
     color: #333;
   }
+
+  .kb-docs-hero {
+    position: relative;
+    overflow: hidden;
+    margin: 0 0 1.75rem;
+    padding: 1.5rem 1.6rem;
+    border-radius: 24px;
+    border: 1px solid rgba(90, 214, 255, 0.24);
+    background:
+      linear-gradient(135deg, rgba(21, 43, 78, 0.96), rgba(12, 28, 56, 0.96)),
+      radial-gradient(circle at top right, rgba(90, 214, 255, 0.18), transparent 34%);
+    box-shadow:
+      0 0 0 1px rgba(90, 214, 255, 0.08),
+      0 24px 48px rgba(2, 12, 27, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    color: #eaf3ff;
+  }
+
+  .kb-docs-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(90, 214, 255, 0.24);
+    background: rgba(90, 214, 255, 0.12);
+    color: #9ee8ff;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .kb-docs-link-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 1.25rem 0 1.75rem;
+  }
+
+  .kb-docs-link-card {
+    display: block;
+    padding: 1rem 1.05rem;
+    border-radius: 18px;
+    border: 1px solid rgba(90, 214, 255, 0.18);
+    background: linear-gradient(180deg, rgba(18, 42, 77, 0.92), rgba(11, 28, 56, 0.92));
+    color: #eaf3ff !important;
+    text-decoration: none !important;
+    box-shadow: 0 16px 32px rgba(2, 12, 27, 0.22);
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .kb-docs-link-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(90, 214, 255, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(90, 214, 255, 0.14),
+      0 22px 42px rgba(2, 12, 27, 0.3),
+      0 0 24px rgba(90, 214, 255, 0.08);
+  }
+
+  .kb-docs-link-card strong {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: #5ad6ff;
+  }
+
+  .kb-docs-link-card span {
+    display: block;
+    color: rgba(230, 237, 243, 0.82);
+    line-height: 1.5;
+  }
+
+  .kb-docs-callout {
+    margin: 1.5rem 0;
+    padding: 1rem 1.1rem;
+    border-left: 3px solid #5ad6ff;
+    border-radius: 0 16px 16px 0;
+    background: rgba(90, 214, 255, 0.08);
+    color: inherit;
+  }

@@ -3,6 +3,8 @@ function Get-KubeBuddyRadarConfig {
         enabled                = $false
         api_base_url           = "https://radar.kubebuddy.io/api/kb-radar/v1"
         environment            = "prod"
+        api_user               = ""
+        api_password           = ""
         api_user_env           = "KUBEBUDDY_RADAR_API_USER"
         api_password_env       = "KUBEBUDDY_RADAR_API_PASSWORD"
         upload_timeout_seconds = 30
@@ -25,6 +27,8 @@ function Get-KubeBuddyRadarConfig {
             enabled                = [bool]($radar.enabled ?? $defaults.enabled)
             api_base_url           = [string]($radar.api_base_url ?? $defaults.api_base_url)
             environment            = [string]($radar.environment ?? $defaults.environment)
+            api_user               = [string]($radar.api_user ?? $defaults.api_user)
+            api_password           = [string]($radar.api_password ?? $defaults.api_password)
             api_user_env           = [string]($radar.api_user_env ?? $defaults.api_user_env)
             api_password_env       = [string]($radar.api_password_env ?? $defaults.api_password_env)
             upload_timeout_seconds = [int]($radar.upload_timeout_seconds ?? $defaults.upload_timeout_seconds)
@@ -59,6 +63,8 @@ function Resolve-KubeBuddyRadarSettings {
         upload_enabled   = [bool]$RadarUpload
         api_base_url     = if ($RadarApiBaseUrl) { $RadarApiBaseUrl } else { $config.api_base_url }
         environment      = if ($RadarEnvironment) { $RadarEnvironment } else { $config.environment }
+        api_user         = [string]$config.api_user
+        api_password     = [string]$config.api_password
         api_user_env     = if ($RadarApiUserEnv) { $RadarApiUserEnv } else { $config.api_user_env }
         api_password_env = if ($RadarApiPasswordEnv) { $RadarApiPasswordEnv } else { $config.api_password_env }
         upload_timeout_seconds = [int]$config.upload_timeout_seconds
@@ -66,17 +72,81 @@ function Resolve-KubeBuddyRadarSettings {
     }
 }
 
+function Invoke-KubeBuddyRadarGetConfig {
+    param(
+        [hashtable]$RadarSettings,
+        [string]$ConfigId
+    )
+
+    if (-not $RadarSettings.enabled) {
+        throw "Radar config fetch requires Radar to be enabled."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ConfigId)) {
+        throw "Radar config fetch requires -RadarConfigId."
+    }
+
+    $headers = Get-KubeBuddyRadarAuthHeaders -RadarSettings $RadarSettings
+    $baseUrl = [string]$RadarSettings.api_base_url
+    if ([string]::IsNullOrWhiteSpace($baseUrl)) {
+        throw "Radar API base URL is empty. Set radar.api_base_url or pass -RadarApiBaseUrl."
+    }
+
+    $endpoint = "{0}/cluster-configs/{1}" -f $baseUrl.Trim().TrimEnd('/'), [Uri]::EscapeDataString($ConfigId)
+    $configUri = $null
+    if (-not [Uri]::TryCreate($endpoint, [UriKind]::Absolute, [ref]$configUri)) {
+        throw "Invalid Radar config URI: $endpoint"
+    }
+
+    return Invoke-RestMethod -Uri $configUri -Method Get -Headers $headers -TimeoutSec ([Math]::Max([int]$RadarSettings.upload_timeout_seconds, 5))
+}
+
+function Invoke-KubeBuddyRadarGetConfigFile {
+    param(
+        [hashtable]$RadarSettings,
+        [string]$ConfigId
+    )
+
+    if (-not $RadarSettings.enabled) {
+        throw "Radar config fetch requires Radar to be enabled."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ConfigId)) {
+        throw "Radar config fetch requires -RadarConfigId."
+    }
+
+    $headers = Get-KubeBuddyRadarAuthHeaders -RadarSettings $RadarSettings
+    $baseUrl = [string]$RadarSettings.api_base_url
+    if ([string]::IsNullOrWhiteSpace($baseUrl)) {
+        throw "Radar API base URL is empty. Set radar.api_base_url or pass -RadarApiBaseUrl."
+    }
+
+    $endpoint = "{0}/cluster-configs/{1}/config-file" -f $baseUrl.Trim().TrimEnd('/'), [Uri]::EscapeDataString($ConfigId)
+    $configUri = $null
+    if (-not [Uri]::TryCreate($endpoint, [UriKind]::Absolute, [ref]$configUri)) {
+        throw "Invalid Radar config-file URI: $endpoint"
+    }
+
+    return Invoke-RestMethod -Uri $configUri -Method Get -Headers $headers -TimeoutSec ([Math]::Max([int]$RadarSettings.upload_timeout_seconds, 5))
+}
+
 function Get-KubeBuddyRadarAuthHeaders {
     param([hashtable]$RadarSettings)
 
-    $userEnv = [string]$RadarSettings.api_user_env
-    $passwordEnv = [string]$RadarSettings.api_password_env
-
-    $user = [Environment]::GetEnvironmentVariable($userEnv)
-    $password = [Environment]::GetEnvironmentVariable($passwordEnv)
+    $user = [string]$RadarSettings.api_user
+    $password = [string]$RadarSettings.api_password
 
     if (-not $user -or -not $password) {
-        throw "Radar credentials missing. Set env vars '$userEnv' and '$passwordEnv'."
+        $userEnv = [string]$RadarSettings.api_user_env
+        $passwordEnv = [string]$RadarSettings.api_password_env
+        $user = [Environment]::GetEnvironmentVariable($userEnv)
+        $password = [Environment]::GetEnvironmentVariable($passwordEnv)
+    }
+
+    if (-not $user -or -not $password) {
+        $userEnv = [string]$RadarSettings.api_user_env
+        $passwordEnv = [string]$RadarSettings.api_password_env
+        throw "Radar credentials missing. Set radar.api_user/api_password in config or env vars '$userEnv' and '$passwordEnv'."
     }
 
     $raw = "${user}:${password}"

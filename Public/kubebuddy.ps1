@@ -24,6 +24,8 @@ function Invoke-KubeBuddy {
         [System.Management.Automation.PSCredential]$PrometheusCredential, # Credential for Prometheus basic auth
         [switch]$RadarUpload,
         [switch]$RadarCompare,
+        [switch]$RadarFetchConfig,
+        [string]$RadarConfigId,
         [string]$RadarApiBaseUrl,
         [string]$RadarEnvironment,
         [string]$RadarApiUserEnv,
@@ -97,6 +99,86 @@ function Invoke-KubeBuddy {
         -RadarEnvironment $RadarEnvironment `
         -RadarApiUserEnv $RadarApiUserEnv `
         -RadarApiPasswordEnv $RadarApiPasswordEnv
+
+    if ($RadarFetchConfig) {
+        try {
+            Write-Host "🧭 Fetching cluster config from KubeBuddy Radar..." -ForegroundColor Cyan
+            $fetchedConfig = Invoke-KubeBuddyRadarGetConfig -RadarSettings $radarSettings -ConfigId $RadarConfigId
+            if (-not $fetchedConfig) {
+                throw "Radar returned an empty cluster config response."
+            }
+
+            if (-not $ConfigPath) {
+                $fetchedConfigFile = Invoke-KubeBuddyRadarGetConfigFile -RadarSettings $radarSettings -ConfigId $RadarConfigId
+                $tempFileName = if ($fetchedConfigFile.filename) { [string]$fetchedConfigFile.filename } else { "kubebuddy-config-$RadarConfigId.yaml" }
+                $tempConfigPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $tempFileName
+                Set-Content -Path $tempConfigPath -Value ([string]$fetchedConfigFile.content) -Encoding UTF8
+                Set-KubeBuddyConfigPathOverride -ConfigPath $tempConfigPath
+                Write-Host "🤖 Using Radar-managed config file: $tempConfigPath" -ForegroundColor Cyan
+            }
+            else {
+                Write-Host "🤖 Local -ConfigPath provided. Keeping local YAML config and applying Radar runtime defaults only." -ForegroundColor Cyan
+            }
+
+            $settings = $fetchedConfig.settings
+            $fetchedAks = $settings.aks
+            $fetchedPrometheus = $settings.prometheus
+            $fetchedOutput = $settings.output
+            $fetchedRadar = $settings.radar
+
+            if (-not $Aks -and (($fetchedConfig.provider -eq 'aks') -or $fetchedAks.subscriptionId -or $fetchedAks.resourceGroup -or $fetchedAks.clusterName)) {
+                $Aks = $true
+            }
+            if (-not $SubscriptionId -and $fetchedAks.subscriptionId) { $SubscriptionId = [string]$fetchedAks.subscriptionId }
+            if (-not $ResourceGroup -and $fetchedAks.resourceGroup) { $ResourceGroup = [string]$fetchedAks.resourceGroup }
+            if (-not $ClusterName -and $fetchedAks.clusterName) { $ClusterName = [string]$fetchedAks.clusterName }
+            if (-not $UseAksRestApi -and $fetchedAks.useAksRestApi) { $UseAksRestApi = $true }
+
+            if (-not ($HtmlReport -or $txtReport -or $jsonReport)) {
+                $HtmlReport = [bool]$fetchedOutput.htmlReport
+                $txtReport = [bool]$fetchedOutput.txtReport
+                $jsonReport = [bool]$fetchedOutput.jsonReport
+            }
+
+            if (-not $ExcludeNamespaces -and $fetchedOutput.excludeNamespaces) {
+                $ExcludeNamespaces = $true
+            }
+            if ((-not $AdditionalExcludedNamespaces -or $AdditionalExcludedNamespaces.Count -eq 0) -and $fetchedOutput.additionalExcludedNamespaces) {
+                $AdditionalExcludedNamespaces = @($fetchedOutput.additionalExcludedNamespaces)
+            }
+            if (-not $yes -and $fetchedOutput.yes) {
+                $yes = $true
+            }
+
+            if (-not $IncludePrometheus -and $fetchedPrometheus.enabled) { $IncludePrometheus = $true }
+            if (-not $PrometheusUrl -and $fetchedPrometheus.url) { $PrometheusUrl = [string]$fetchedPrometheus.url }
+            if (-not $PrometheusMode -and $fetchedPrometheus.mode) { $PrometheusMode = [string]$fetchedPrometheus.mode }
+            if (-not $PrometheusBearerTokenEnv -and $fetchedPrometheus.bearerTokenEnv) { $PrometheusBearerTokenEnv = [string]$fetchedPrometheus.bearerTokenEnv }
+
+            if (-not ($RadarUpload -or $RadarCompare)) {
+                $RadarUpload = [bool]$fetchedRadar.upload
+                $RadarCompare = [bool]$fetchedRadar.compare
+            }
+            if (-not $RadarEnvironment -and $fetchedRadar.environment) {
+                $RadarEnvironment = [string]$fetchedRadar.environment
+            }
+
+            $radarSettings = Resolve-KubeBuddyRadarSettings `
+                -RadarUpload:$RadarUpload `
+                -RadarCompare:$RadarCompare `
+                -RadarApiBaseUrl $RadarApiBaseUrl `
+                -RadarEnvironment $RadarEnvironment `
+                -RadarApiUserEnv $RadarApiUserEnv `
+                -RadarApiPasswordEnv $RadarApiPasswordEnv
+
+            Write-Host "✅ Loaded Radar cluster config '$($fetchedConfig.name)' for cluster '$($fetchedConfig.cluster_name)'." -ForegroundColor Green
+        }
+        catch {
+            Write-Host "⚠️ Failed to fetch Radar cluster config: $($_.Exception.Message)" -ForegroundColor Yellow
+            return
+        }
+    }
+
     # Feature flag — set to $true to re-enable Radar artifact inventory in HTML/JSON reports.
     $FEATURE_RADAR_ARTIFACTS = $false
     $includeRadarArtifacts = $FEATURE_RADAR_ARTIFACTS -and [bool]($radarSettings.enabled -and ($radarSettings.upload_enabled -or $radarSettings.compare_enabled))

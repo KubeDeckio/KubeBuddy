@@ -43,7 +43,8 @@ For complete installation, usage, and advanced configuration instructions, visit
 - **HTML & Text Reports:** Generates clean reports for analysis and sharing.
 - **PowerShell Support:** Install via PowerShell Gallery and run on Windows, macOS, or Linux.
 - **AKS Best Practices Check:** Checks Azure Kubernetes Service (AKS) clusters for Best Practices. (Currently 34 fully automated tests!)
-- **KubeBuddy Radar Upload (Pro):** Upload JSON scan runs to Radar for trend history, run comparisons, and freshness insights.
+- **KubeBuddy Radar Upload (Pro):** Upload JSON scan runs to Radar for trend history, run comparisons, and fleet reporting.
+- **Radar Cluster Config Fetch (Pro):** Pull a saved Radar cluster profile into the CLI and reuse the same settings locally or in Docker.
 
 
 ## Installation
@@ -107,7 +108,11 @@ Upload + compare in one run:
 Invoke-KubeBuddy -jsonReport -RadarUpload -RadarCompare -RadarEnvironment "prod"
 ```
 
-When Radar mode is enabled (`-RadarUpload` or `-RadarCompare`), KubeBuddy also adds a deterministic artifact inventory (images, Helm charts, app versions) to the JSON payload and shows a **Radar Artifact Inventory (Pro)** section in HTML/TXT outputs for that run.
+Fetch a saved Radar cluster config and run with it:
+
+```powershell
+Invoke-KubeBuddy -RadarFetchConfig -RadarConfigId "<cluster-config-id>"
+```
 
 
 ## Configuration

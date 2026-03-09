@@ -1,33 +1,16 @@
 # KubeBuddy CLI + Radar Integration (Pro)
 
-Use this guide to upload KubeBuddy JSON scan results into KubeBuddy Radar for:
+Use this guide to upload KubeBuddy JSON scan results into KubeBuddy Radar and to pull saved Radar cluster configs into the CLI for:
 
 - run history
 - score trends
 - run-to-run compare
-- artifact freshness analysis (image/chart/app where detectable)
+- saved cluster configs
+- generated commands and YAML config files
 
-## Deterministic Artifact Inventory (Pro)
+For the Radar web experience itself, including Cluster Reports, Cluster Configs, and the Radar API reference, use the Radar section in these docs:
 
-When Radar mode is enabled (`-RadarUpload` or `-RadarCompare`), KubeBuddy now builds a deterministic artifact inventory from Kubernetes workload specs and labels:
-
-- container images (repo/tag/digest)
-- Helm charts (from `helm.sh/chart` and Helm labels/annotations)
-- app name/version labels (for example `app.kubernetes.io/name`, `app.kubernetes.io/version`)
-
-This inventory is added to JSON under `artifacts` and is also shown in HTML/TXT reports only for Radar-mode runs.
-KubeBuddy performs a direct Radar catalog lookup during report flow and enriches reports with:
-
-- latest known version from Radar catalog
-- status (`up_to_date`, `minor_behind`, `major_behind`, `unknown`)
-- freshness summary counts
-
-Matching/precedence rules:
-
-- Helm charts are matched first and treated as primary version source.
-- Workloads marked as Helm-managed inherit Helm chart version status.
-- Helm-managed image/app rows are omitted from standalone HTML/TXT tables to reduce noise.
-- For semver values, KubeBuddy prefers latest stable in the same minor track first (for example `1.19.x`) before global latest.
+- [KubeBuddy Radar Overview](radar/index.md)
 
 ## What Gets Uploaded
 
@@ -36,8 +19,7 @@ Only the JSON report payload is uploaded.
 - `Invoke-KubeBuddy -jsonReport -RadarUpload ...`
 - HTML and TXT outputs are local artifacts only
 - Radar upload is non-blocking, so report generation still completes if upload fails
-- Radar now prefers `report.artifacts` for freshness processing and falls back to check-item parsing for older reports
-- local JSON/HTML/TXT reports are enriched with direct Radar version lookup data (no async queue wait required)
+- Radar now prefers the uploaded `report` payload and derives report/compare data from it asynchronously after upload
 
 ## Authentication
 
@@ -71,6 +53,24 @@ Invoke-KubeBuddy `
   -RadarEnvironment "prod"
 ```
 
+Fetch a saved Radar cluster config into the CLI:
+
+```powershell
+Invoke-KubeBuddy `
+  -RadarFetchConfig `
+  -RadarConfigId "ccfg_12345678-1234-1234-1234-123456789abc"
+```
+
+Fetch a Radar cluster config and override one value locally:
+
+```powershell
+Invoke-KubeBuddy `
+  -RadarFetchConfig `
+  -RadarConfigId "ccfg_12345678-1234-1234-1234-123456789abc" `
+  -HtmlReport `
+  -OutputPath ./reports
+```
+
 Use custom Radar endpoint and custom credential env-var names:
 
 ```powershell
@@ -90,6 +90,8 @@ When running the container image, configure Radar via env vars:
 -e JSON_REPORT="true" \
 -e RADAR_UPLOAD="true" \
 -e RADAR_COMPARE="true" \
+-e RADAR_FETCH_CONFIG="true" \
+-e RADAR_CONFIG_ID="ccfg_12345678-1234-1234-1234-123456789abc" \
 -e RADAR_ENVIRONMENT="prod" \
 -e KUBEBUDDY_RADAR_API_USER="<wordpress-username>" \
 -e KUBEBUDDY_RADAR_API_PASSWORD="<wordpress-app-password>"
@@ -98,6 +100,7 @@ When running the container image, configure Radar via env vars:
 Rules enforced by `run.ps1`:
 
 - `RADAR_UPLOAD=true` or `RADAR_COMPARE=true` requires `JSON_REPORT=true`
+- `RADAR_FETCH_CONFIG=true` uses the saved Radar cluster profile to populate runtime defaults inside `Invoke-KubeBuddy`
 
 ## Config File Defaults (`kubebuddy-config.yaml`)
 
@@ -106,6 +109,8 @@ radar:
   enabled: false
   api_base_url: "https://radar.kubebuddy.io/api/kb-radar/v1"
   environment: "prod"
+  api_user: "<optional-wordpress-username>"
+  api_password: "<optional-wordpress-app-password>"
   api_user_env: "KUBEBUDDY_RADAR_API_USER"
   api_password_env: "KUBEBUDDY_RADAR_API_PASSWORD"
   upload_timeout_seconds: 30
@@ -113,6 +118,30 @@ radar:
 ```
 
 CLI flags override config values for that run.
+
+## Radar-managed Cluster Configs (Pro)
+
+Radar now supports private per-user cluster profiles stored encrypted at rest. These profiles are designed to hold:
+
+- AKS metadata like subscription ID, resource group, and cluster name
+- Prometheus defaults
+- excluded namespaces
+- excluded checks
+- trusted registries
+- output defaults
+- Radar upload/compare defaults
+
+The Radar UI can:
+
+- save multiple cluster profiles
+- generate the `Invoke-KubeBuddy` command for a selected profile
+- generate and download a `kubebuddy-config.yaml`
+
+The CLI can:
+
+- fetch the profile with `-RadarFetchConfig -RadarConfigId`
+- apply the fetched YAML config when no local `-ConfigPath` is provided
+- keep explicit CLI flags as the highest-precedence overrides
 
 ## Radar UI Output
 
@@ -126,11 +155,14 @@ After upload, Radar surfaces data in:
 - `/cluster-reports/`:
   - run list and processing status
   - compare summary (new/resolved/regressed findings)
-  - freshness table with status and confidence
-
-If a metric is missing from uploaded JSON, UI shows `n/a`.
+  - report detail rendered directly from uploaded JSON while enrichment finishes in the background
+- `/cluster-configs/`:
+  - saved cluster profiles
+  - generated command preview
+  - generated YAML config preview/download
 
 ## Notes
 
 - AKS metadata fields in JSON now fall back to CLI values (`-SubscriptionId`, `-ResourceGroup`, `-ClusterName`) when source values are null.
 - Cluster run retention defaults to 90 days in Radar v1.
+- Radar cluster config pages and APIs are private and sent with `Cache-Control: no-store`.

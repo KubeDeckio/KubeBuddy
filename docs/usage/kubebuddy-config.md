@@ -295,6 +295,8 @@ radar:
   enabled: false
   api_base_url: "https://radar.kubebuddy.io/api/kb-radar/v1"
   environment: "prod"
+  api_user: "<optional-wordpress-username>"
+  api_password: "<optional-wordpress-app-password>"
   api_user_env: "KUBEBUDDY_RADAR_API_USER"
   api_password_env: "KUBEBUDDY_RADAR_API_PASSWORD"
   upload_timeout_seconds: 30
@@ -304,6 +306,7 @@ radar:
 With this config in place:
 - `Invoke-KubeBuddy -jsonReport -RadarUpload` uploads the run to Radar.
 - `Invoke-KubeBuddy -jsonReport -RadarUpload -RadarCompare` uploads and prints compare delta.
+- `Invoke-KubeBuddy -RadarFetchConfig -RadarConfigId <ccfg_...>` can pull a Radar-managed cluster profile and use its generated YAML config automatically when no local `-ConfigPath` is supplied.
 
 ## 7. Applying the Configuration
 To use the `kubebuddy-config.yaml` file, ensure it’s correctly formatted and placed in the default location (`~/.kube/kubebuddy-config.yaml`). Then, run KubeBuddy with any command, such as:

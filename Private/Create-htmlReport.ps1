@@ -752,15 +752,6 @@ $heroRatingHtml
 
   $nodeSectionHeader = @"
 <div class="container">
-<h2 style='margin-bottom: 10px;'>
-  Node Conditions & Metrics (Last 24h)
-  <span class='tooltip'>
-    <span class='info-icon'>i</span>
-    <span class='tooltip-text'>
-      This section provides detailed metrics and configuration for each Kubernetes node including CPU, memory, and disk usage, as well as OS and runtime details.
-    </span>
-  </span>
-</h2>
 <div class="material-input with-icon">
   <i class="material-icons">search</i>
   <div style="position: relative; width: 100%;">

@@ -7,6 +7,8 @@ Describe 'Radar integration parameters' {
         $params | Should -Contain 'RadarUpload'
         $params | Should -Contain 'RadarCompare'
         $params | Should -Contain 'RadarApiBaseUrl'
+        $params | Should -Contain 'RadarFetchConfig'
+        $params | Should -Contain 'RadarConfigId'
     }
 }
 

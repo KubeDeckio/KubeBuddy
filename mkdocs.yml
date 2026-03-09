@@ -73,6 +73,13 @@ nav:
       - AKS Best Practices: usage/aks-best-practice-checks.md
       - Logging Output: usage/logging-output.md
       - Radar Integration (Pro): kubebuddy-radar-cli-integration.md
+  - Radar:
+      - Overview: radar/index.md
+      - Getting Started: radar/getting-started.md
+      - CLI Integration: radar/cli-integration.md
+      - Cluster Reports (Pro): radar/cluster-reports.md
+      - Cluster Configs (Pro): radar/cluster-configs.md
+      - API Reference: radar/api-reference.md
   - Creating Checks: creating-Checks.md
   - Contributing: contributing.md
   - Release Process: releaseprocess.md

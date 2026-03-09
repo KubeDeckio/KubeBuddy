@@ -1090,7 +1090,7 @@ checks:
       $gatewayClasses = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("GatewayClass")) {
         @($KubeData.CustomResourcesByKind["GatewayClass"])
       } else {
-        @((kubectl get gatewayclasses.gateway.networking.k8s.io -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get gatewayclasses.gateway.networking.k8s.io -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
       $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
         @($KubeData.CustomResourcesByKind["Gateway"])
@@ -1318,7 +1318,7 @@ checks:
       $gatewayClasses = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("GatewayClass")) {
         @($KubeData.CustomResourcesByKind["GatewayClass"])
       } else {
-        @((kubectl get gatewayclasses.gateway.networking.k8s.io -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get gatewayclasses.gateway.networking.k8s.io -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
       $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
         @($KubeData.CustomResourcesByKind["Gateway"])
@@ -1423,7 +1423,7 @@ checks:
       $referenceGrants = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("ReferenceGrant")) {
         @($KubeData.CustomResourcesByKind["ReferenceGrant"])
       } else {
-        @((kubectl get referencegrants.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get referencegrants.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
       $secrets = if ($KubeData?.Secrets) {
         if ($KubeData.Secrets.items) { @($KubeData.Secrets.items) } else { @($KubeData.Secrets) }
