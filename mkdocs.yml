@@ -56,6 +56,9 @@ extra:
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - javascripts/extra.js
+
 copyright: Copyright &copy; 2026 KubeDeck
 
 repo_url: https://github.com/kubedeckio/kubebuddy

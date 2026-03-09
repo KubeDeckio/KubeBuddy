@@ -294,7 +294,7 @@
   }
 
   .md-tabs {
-    background: transparent;
+    background: #0071FF !important;
     border-top: 0;
     backdrop-filter: blur(12px);
     box-shadow: none;
@@ -315,7 +315,7 @@
 
   [data-md-color-scheme="default"] .md-tabs,
   [data-md-color-scheme="light"] .md-tabs {
-    background: transparent;
+    background: #0071FF !important;
     border-top: 0;
   }
 
@@ -556,6 +556,11 @@
     align-items: center !important;
     justify-content: center !important;
     font-size: 0;
+    transform: translate3d(0, 0, 0);
+    transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+    will-change: transform;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .md-top svg {
@@ -586,6 +591,11 @@
   .md-top span,
   .md-top .md-ellipsis {
     display: none;
+  }
+
+  .md-top.kb-top-visible {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   [data-md-color-scheme="slate"] .md-search__form,
