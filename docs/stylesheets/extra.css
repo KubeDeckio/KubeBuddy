@@ -293,14 +293,18 @@
 
   .md-tabs {
     background: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 0;
     backdrop-filter: blur(12px);
+  }
+
+  .md-tabs__inner {
+    background: inherit;
   }
 
   [data-md-color-scheme="default"] .md-tabs,
   [data-md-color-scheme="light"] .md-tabs {
     background: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 0;
   }
 
   [data-md-color-scheme="slate"] html,
@@ -524,18 +528,14 @@
     padding: 0;
     border-radius: 999px;
     backdrop-filter: blur(12px);
-    overflow: hidden;
-    white-space: nowrap;
-    text-indent: 9999px;
-  }
-
-  .md-top::before {
-    position: absolute;
-    inset: 0;
     display: grid;
     place-items: center;
-    text-indent: 0;
-    font-size: 1.15rem;
+    font-size: 0;
+  }
+
+  .md-top svg {
+    width: 1.1rem;
+    height: 1.1rem;
   }
 
   [data-md-color-scheme="default"] .md-top,
@@ -554,6 +554,11 @@
 
   .md-top:hover {
     transform: translateY(-2px);
+  }
+
+  .md-top span,
+  .md-top .md-ellipsis {
+    display: none;
   }
 
   [data-md-color-scheme="slate"] .md-search__form,
