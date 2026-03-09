@@ -16,14 +16,6 @@ Radar stores the detailed settings encrypted at rest and serves the page/API wit
 
 Cluster grouping is based on cluster identity. The config UI does not expose a separate Radar environment field.
 
-## WordPress page
-
-Create a page at `/cluster-configs/` with:
-
-```text
-[radar_cluster_configs]
-```
-
 ## What the page does
 
 - list saved cluster profiles
@@ -35,7 +27,7 @@ Create a page at `/cluster-configs/` with:
 
 Radar does not run the scan itself. It only stores the profile and builds the command/config. Execution still happens locally in KubeBuddy CLI or Docker.
 
-Existing WordPress application passwords can be selected by name, but WordPress does not expose their secret again. If you need the downloaded config to include the real password value, create a new key from the Cluster Configs page and save that profile.
+Existing Radar API keys can be selected by name, but their secret is only shown when first created. If you need the downloaded config to include the real password value, create a new key from the Cluster Configs page and save that profile.
 
 ## CLI usage
 

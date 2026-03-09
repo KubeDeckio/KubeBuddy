@@ -79,37 +79,37 @@
 
   [data-md-color-scheme="slate"],
   [data-md-color-scheme="dark"] {
-    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color: #02baff;
     --md-primary-fg-color--light: #5ad6ff;
     --md-primary-fg-color--dark: #0284c7;
     --md-default-fg-color--light: #5ad6ff;
     --md-accent-fg-color: #02baff;
-    --md-primary-bg-color: #0d1117;
-    --md-default-bg-color: #0d1117;
-    --md-default-fg-color: #e6edf3;
-    --md-text-secondary: #8b949e;
-    --md-card-bg-color: #161b22;
-    --md-card-border-color: #30363d;
-    --md-card-bg-hover: #1c2128;
-    --md-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.4);
-    --md-card-shadow-hover: 0 0 0 1px rgba(0, 113, 255, 0.3), 0 8px 24px rgba(0, 0, 0, 0.5);
+    --md-primary-bg-color: #16253d;
+    --md-default-bg-color: #16253d;
+    --md-default-fg-color: #e8f1ff;
+    --md-text-secondary: #b7c8e1;
+    --md-card-bg-color: rgba(44, 61, 87, 0.84);
+    --md-card-border-color: rgba(135, 161, 199, 0.18);
+    --md-card-bg-hover: rgba(49, 68, 95, 0.94);
+    --md-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 18px 38px rgba(2, 12, 27, 0.26);
+    --md-card-shadow-hover: 0 0 0 1px rgba(2, 186, 255, 0.18), 0 22px 44px rgba(2, 12, 27, 0.32), 0 0 24px rgba(2, 186, 255, 0.08);
     --md-card-title-color: #02baff;
-    --md-card-text-color: #8b949e;
-    --md-callout-bg: #161b22;
-    --md-workflow-bg-start: #0d1117;
-    --md-workflow-bg-end: #161b22;
-    --md-code-bg: #161b22;
-    --md-code-fg: #e6edf3;
-    --md-header-bg: #0071FF;
-    --md-header-border: #0071FF;
-    --md-page-bg: #0f172a;
-    --md-page-bg-alt: #1e293b;
-    --md-hero-overlay: rgba(0, 0, 0, 0.75);
+    --md-card-text-color: #b7c8e1;
+    --md-callout-bg: rgba(44, 61, 87, 0.82);
+    --md-workflow-bg-start: #16253d;
+    --md-workflow-bg-end: #122033;
+    --md-code-bg: rgba(13, 24, 40, 0.96);
+    --md-code-fg: #e8f1ff;
+    --md-header-bg: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
+    --md-header-border: rgba(255, 255, 255, 0.08);
+    --md-page-bg: #16253d;
+    --md-page-bg-alt: #122033;
+    --md-hero-overlay: linear-gradient(180deg, rgba(8, 18, 33, 0.58), rgba(8, 18, 33, 0.76));
     --md-hero-text: #f0f6fc;
-    --md-metrics-bg: rgba(22, 27, 34, 0.95);
-    --md-metrics-border: rgba(0, 113, 255, 0.3);
-    --md-divider: rgba(48, 54, 61, 0.5);
-    --md-section-bg: #0f172a;
+    --md-metrics-bg: rgba(44, 61, 87, 0.7);
+    --md-metrics-border: rgba(2, 186, 255, 0.22);
+    --md-divider: rgba(135, 161, 199, 0.16);
+    --md-section-bg: #16253d;
   }
 
   html {
@@ -118,7 +118,10 @@
   
   body {
     scroll-snap-type: y mandatory;
-    background: var(--md-page-bg);
+    background:
+      radial-gradient(circle at top left, rgba(2, 186, 255, 0.08), transparent 24%),
+      radial-gradient(circle at top right, rgba(0, 105, 255, 0.1), transparent 22%),
+      var(--md-page-bg);
     color: var(--md-default-fg-color);
     font-family: "Segoe UI", "Inter", -apple-system, sans-serif;
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -142,6 +145,7 @@
     background: var(--md-header-bg);
     border-bottom: 1px solid var(--md-header-border);
     width: 100%;
+    box-shadow: 0 14px 32px rgba(2, 12, 27, 0.28);
   }
 
   .md-header,
@@ -208,7 +212,7 @@
     width: 100%;
     margin: 0 auto;
     padding: 4rem 2rem;
-    background: var(--md-section-bg);
+    background: transparent;
     color: var(--md-default-fg-color);
     text-align: center;
     display: flex;
@@ -226,7 +230,9 @@
     display: flex; /* Use flex to center children */
     flex-direction: column;
     align-items: center; /* Center children horizontally */
-    background: url("images/header.png") center/cover no-repeat;
+    background:
+      radial-gradient(circle at top right, rgba(2, 186, 255, 0.16), transparent 34%),
+      url("images/header.png") center/cover no-repeat;
     color: var(--md-hero-text);
     z-index: 1;
   }
@@ -274,19 +280,19 @@
     padding: 0.75rem 2rem;
     font-size: 1.1rem;
     font-weight: 600;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #02baff 0%, #0284c7 100%);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #02baff 0%, #0069ff 100%);
     color: #ffffff !important;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(2, 186, 255, 0.35);
+    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.12), 0 16px 28px rgba(2, 12, 27, 0.28);
     text-decoration: none;
   }
   .cta-button:hover {
-    background: linear-gradient(135deg, #0284c7 0%, #026aa1 100%);
+    background: linear-gradient(135deg, #29ccff 0%, #0284c7 100%);
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(2, 186, 255, 0.45);
+    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.18), 0 22px 36px rgba(2, 12, 27, 0.3), 0 0 22px rgba(2, 186, 255, 0.08);
   }
 
   .feature-grid {
@@ -301,9 +307,9 @@
   }
 
   .feature-card {
-    background: var(--md-card-bg-color);
+    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
     padding: 2rem;
-    border-radius: 12px;
+    border-radius: 18px;
     border: 1px solid var(--md-card-border-color);
     box-shadow: var(--md-shadow);
     transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.2s ease, border-color 0.2s ease;
@@ -334,10 +340,10 @@
   }
 
   .info-card {
-    background: var(--md-card-bg-color);
+    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
     color: var(--md-default-fg-color);
     border: 1px solid var(--md-card-border-color);
-    border-radius: 12px;
+    border-radius: 18px;
     padding: 2rem;
     text-align: center;
     margin: 3rem auto;
@@ -374,9 +380,9 @@
 
   .workflow-step {
     flex: 1 1 280px;
-    background: var(--md-card-bg-color);
+    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
     padding: 2rem;
-    border-radius: 12px;
+    border-radius: 18px;
     border: 1px solid var(--md-card-border-color);
     box-shadow: var(--md-shadow);
     text-align: center;
@@ -398,7 +404,7 @@
     top: -1.5rem;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--md-primary-fg-color);
+    background: linear-gradient(135deg, #02baff, #0069ff);
     color: var(--md-hero-text);
     width: 3rem;
     height: 3rem;
@@ -571,7 +577,7 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--md-metrics-border);
-    border-radius: 12px;
+    border-radius: 18px;
     overflow: hidden;
     box-shadow: var(--md-shadow);
     transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -614,7 +620,7 @@
   }
   .metric:hover { 
     transform: translateY(-2px);
-    background: rgba(0, 113, 255, 0.05);
+    background: rgba(2, 186, 255, 0.06);
   }
   .metric::after {
     content: '';

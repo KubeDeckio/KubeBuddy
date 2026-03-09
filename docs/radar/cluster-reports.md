@@ -6,22 +6,14 @@ Cluster Reports stores KubeBuddy JSON scan history per user so you can track sco
 
 - Upload source: KubeBuddy CLI JSON reports
 - Visibility: uploader only
-- Auth: HTTP Basic with WordPress username + Application Password
+- Auth: HTTP Basic with your Radar username + API key
 - Retention default: 90 days
 
-## UI Pages
-
-Create this page in WordPress:
-
-- `/cluster-reports/` with shortcode:
-
-```text
-[radar_cluster_reports]
-```
+## In the Radar UI
 
 Dashboard integration:
 
-- `/dashboard/` includes a Cluster Reports Overview card
+- Dashboard includes a Cluster Reports Overview card
 - score trend line (30d / 90d)
 - latest score and delta vs previous
 - failed-check trend
@@ -147,13 +139,3 @@ Each item includes current version, latest version (if known), confidence, and r
 - Payload JSON is encrypted at rest before DB write (AES-256-GCM).
 - Normalized findings/artifacts are stored for fast compare/trend/freshness queries.
 - Audit logs are recorded for upload/read/compare/freshness actions.
-
-## Admin Insights
-
-WordPress admin now includes a dedicated `Subscription Intelligence` page (`KubeBuddy Radar -> Subscription Intelligence`) with:
-
-- most popular subscribed projects
-- free users near/at limit
-- per-user plan and usage snapshot
-
-Use this to identify upgrade candidates and product demand trends.

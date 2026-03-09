@@ -28,14 +28,14 @@ Before you can use the API, you need to create an API key:
 5. Store it securely (like in a password manager)
 
 **Important notes:**
-- Keys are WordPress Application Passwords tied to your account
+- Keys are Radar API keys tied to your account
 - Your account page only shows keys you've created
 - You can create multiple keys (limit depends on your plan)
 - You can revoke keys anytime if they're compromised
 
 **What you'll need for authentication:**
-- Your WordPress **username** (not email)
-- Your generated **application password**
+- Your Radar **username** (not email)
+- Your generated **API key**
 
 ## Step 2: Make your first request
 
