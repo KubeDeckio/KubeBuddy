@@ -568,19 +568,12 @@
   /* ====== Material-style metrics card ====== */
   .metrics-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
     margin: 2.4rem auto 3.2rem;
-    max-width: 980px;
+    max-width: 1080px;
     width: 100%;
-    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(2, 186, 255, 0.18);
-    border-radius: 22px;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 22px 42px rgba(2, 12, 27, 0.3);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    background: transparent;
   }
 
   .metric {
@@ -591,39 +584,59 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    border-radius: 18px;
+    border: 1px solid rgba(2, 186, 255, 0.18);
+    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 20px 34px rgba(2, 12, 27, 0.26);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 
   .metric-neon-blue {
-    background: linear-gradient(135deg, rgba(0, 194, 255, 0.2), rgba(0, 194, 255, 0.08));
-    border-right-color: rgba(2, 186, 255, 0.16);
-    box-shadow: inset 0 0 0 1px rgba(2, 186, 255, 0.18);
+    background: linear-gradient(135deg, rgba(0, 194, 255, 0.24), rgba(0, 194, 255, 0.1));
+    border-color: rgba(2, 186, 255, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(2, 186, 255, 0.18),
+      0 0 24px rgba(2, 186, 255, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
   }
 
   .metric-neon-green {
-    background: linear-gradient(135deg, rgba(46, 204, 113, 0.22), rgba(46, 204, 113, 0.08));
-    box-shadow: inset 0 0 0 1px rgba(46, 204, 113, 0.32), 0 0 24px rgba(46, 204, 113, 0.08);
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.24), rgba(46, 204, 113, 0.1));
+    border-color: rgba(46, 204, 113, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(46, 204, 113, 0.18),
+      0 0 24px rgba(46, 204, 113, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
   }
 
   .metric-neon-red {
-    background: linear-gradient(135deg, rgba(255, 92, 117, 0.2), rgba(255, 92, 117, 0.08));
-    box-shadow: inset 0 0 0 1px rgba(255, 92, 117, 0.32), 0 0 24px rgba(255, 92, 117, 0.08);
+    background: linear-gradient(135deg, rgba(255, 92, 117, 0.22), rgba(255, 92, 117, 0.1));
+    border-color: rgba(255, 92, 117, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 92, 117, 0.18),
+      0 0 24px rgba(255, 92, 117, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
   }
 
   .metric-neon-amber {
-    background: linear-gradient(135deg, rgba(245, 166, 35, 0.2), rgba(245, 166, 35, 0.08));
-    box-shadow: inset 0 0 0 1px rgba(245, 166, 35, 0.3), 0 0 24px rgba(245, 166, 35, 0.08);
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.22), rgba(245, 166, 35, 0.1));
+    border-color: rgba(245, 166, 35, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(245, 166, 35, 0.18),
+      0 0 24px rgba(245, 166, 35, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
   }
 
   .metric-neon-purple {
-    background: linear-gradient(135deg, rgba(168, 85, 247, 0.22), rgba(168, 85, 247, 0.08));
-    box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.3), 0 0 24px rgba(168, 85, 247, 0.08);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.24), rgba(168, 85, 247, 0.1));
+    border-color: rgba(168, 85, 247, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(168, 85, 247, 0.18),
+      0 0 24px rgba(168, 85, 247, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
   }
 
   /* vertical divider on every item except the last */
-  .metric:not(:last-child) {
-    border-right: 1px solid var(--md-divider);
-  }
-
   .metric-value {
     font-size: 3rem;
     font-weight: 700;
@@ -650,8 +663,7 @@
     background: transparent;
   }
   .metric:hover { 
-    transform: translateY(-2px);
-    background: rgba(2, 186, 255, 0.05);
+    transform: translateY(-4px);
   }
   .metric::after {
     content: '';
@@ -678,25 +690,12 @@
     .metrics-bar {
       grid-template-columns: 1fr;
     }
-    .metric:not(:last-child) {
-      /* swap vertical dividers for horizontal */
-      border-right: none;
-      border-bottom: 1px solid var(--md-divider);
-    }
   }
 
   /* tablets / larger phones: two columns */
   @media (min-width: 481px) and (max-width: 768px) {
     .metrics-bar {
       grid-template-columns: repeat(2, 1fr);
-    }
-    .metric:not(:nth-child(2n)) {
-      /* only draw a divider on the right of odd items */
-      border-right: 1px solid var(--md-divider);
-    }
-    /* remove bottom border on the last row */
-    .metric:nth-last-child(-n + 2) {
-      border-bottom: none;
     }
   }
 
@@ -1213,7 +1212,6 @@ z-index: 1;
     <h2>The KubeBuddy Tools</h2>
     <div class="tools-grid">
       <div class="tool-card tool-card-neon-blue">
-        <span class="product-kicker">Tool 1</span>
         <h3>KubeBuddy CLI</h3>
         <p>
           The scanning tool for Kubernetes and AKS. Run it locally, in Docker,
@@ -1230,7 +1228,6 @@ z-index: 1;
         </div>
       </div>
       <div class="tool-card tool-card-neon-amber">
-        <span class="product-kicker">Tool 2</span>
         <h3>KubeBuddy Radar</h3>
         <p>
           The hosted service for tracking CNCF and cloud-native project releases,
