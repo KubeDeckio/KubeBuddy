@@ -588,6 +588,19 @@
     box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.18), 0 18px 32px rgba(2, 12, 27, 0.24);
   }
 
+  .md-top:hover,
+  .md-top:focus,
+  .md-top:focus-visible,
+  .md-top:active {
+    transform: translate3d(0, 0, 0) !important;
+  }
+
+  .md-top:focus,
+  .md-top:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(2, 186, 255, 0.22), 0 18px 32px rgba(2, 12, 27, 0.24);
+  }
+
   .md-top span,
   .md-top .md-ellipsis {
     display: none;
