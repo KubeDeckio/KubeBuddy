@@ -48,20 +48,20 @@ function Create-JsonReport {
 
     # Handle AKS metadata/checks if -aks switch is provided
     if ($aks) {
-        # Prefer values discovered in KubeData, but always fall back to explicit CLI parameters.
-        $aksSubscriptionId = $null
-        $aksResourceGroup = $null
-        $aksClusterName = $null
+        # Trust explicit CLI AKS identity first; only fall back to discovered values when missing.
+        $aksSubscriptionId = if ($SubscriptionId) { $SubscriptionId } else { $null }
+        $aksResourceGroup = if ($ResourceGroup) { $ResourceGroup } else { $null }
+        $aksClusterName = if ($ClusterName) { $ClusterName } else { $null }
 
         if ($KubeData -and $KubeData.AksCluster) {
-            $aksSubscriptionId = $KubeData.AksCluster.subscriptionId
-            $aksResourceGroup = $KubeData.AksCluster.resourceGroup
-            $aksClusterName = $KubeData.AksCluster.clusterName
+            if (-not $aksSubscriptionId) { $aksSubscriptionId = $KubeData.AksCluster.subscriptionId }
+            if (-not $aksResourceGroup) { $aksResourceGroup = $KubeData.AksCluster.resourceGroup }
+            if (-not $aksClusterName) { $aksClusterName = $KubeData.AksCluster.clusterName }
         }
 
-        if (-not $aksSubscriptionId) { $aksSubscriptionId = $SubscriptionId }
-        if (-not $aksResourceGroup) { $aksResourceGroup = $ResourceGroup }
-        if (-not $aksClusterName) { $aksClusterName = $ClusterName }
+        if ($aksClusterName) {
+            $results.metadata.clusterName = $aksClusterName
+        }
 
         $results.metadata.aks = @{
             subscriptionId = $aksSubscriptionId
@@ -184,7 +184,7 @@ function Create-JsonReport {
     }
 
     if ($IncludeRadarArtifacts) {
-        $results.artifacts = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
+        $results.artifacts = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
     }
 
     # Write JSON

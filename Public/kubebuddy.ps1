@@ -97,7 +97,9 @@ function Invoke-KubeBuddy {
         -RadarEnvironment $RadarEnvironment `
         -RadarApiUserEnv $RadarApiUserEnv `
         -RadarApiPasswordEnv $RadarApiPasswordEnv
-    $includeRadarArtifacts = [bool]($radarSettings.enabled -and ($radarSettings.upload_enabled -or $radarSettings.compare_enabled))
+    # Feature flag — set to $true to re-enable Radar artifact inventory in HTML/JSON reports.
+    $FEATURE_RADAR_ARTIFACTS = $false
+    $includeRadarArtifacts = $FEATURE_RADAR_ARTIFACTS -and [bool]($radarSettings.enabled -and ($radarSettings.upload_enabled -or $radarSettings.compare_enabled))
 
     # Optionally extend excluded namespaces for this invocation.
     if ($AdditionalExcludedNamespaces -and $AdditionalExcludedNamespaces.Count -gt 0) {

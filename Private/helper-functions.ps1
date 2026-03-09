@@ -158,7 +158,7 @@ function Generate-K8sTextReport {
     }
 
     if ($IncludeRadarArtifacts) {
-        $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
+        $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
         $artifactLines = Convert-KubeBuddyRadarArtifactInventoryToText -Inventory $artifactInventory -Freshness $RadarFreshness
         foreach ($line in $artifactLines) {
             Write-ToReport $line

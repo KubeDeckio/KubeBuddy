@@ -1095,12 +1095,12 @@ checks:
       $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
         @($KubeData.CustomResourcesByKind["Gateway"])
       } else {
-        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
       $httpRoutes = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("HTTPRoute")) {
         @($KubeData.CustomResourcesByKind["HTTPRoute"])
       } else {
-        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
 
       if ($ExcludeNamespaces) {
@@ -1159,7 +1159,7 @@ checks:
       $httpRoutes = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("HTTPRoute")) {
         @($KubeData.CustomResourcesByKind["HTTPRoute"])
       } else {
-        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
 
       if ($ExcludeNamespaces) { $httpRoutes = Exclude-Namespaces -items $httpRoutes }
@@ -1239,12 +1239,12 @@ checks:
       $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
         @($KubeData.CustomResourcesByKind["Gateway"])
       } else {
-        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
       $httpRoutes = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("HTTPRoute")) {
         @($KubeData.CustomResourcesByKind["HTTPRoute"])
       } else {
-        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get httproutes.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
 
       if ($ExcludeNamespaces) {
@@ -1323,7 +1323,7 @@ checks:
       $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
         @($KubeData.CustomResourcesByKind["Gateway"])
       } else {
-        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
 
       if ($ExcludeNamespaces) {
@@ -1418,7 +1418,7 @@ checks:
       $gateways = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("Gateway")) {
         @($KubeData.CustomResourcesByKind["Gateway"])
       } else {
-        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
+        @((kubectl get gateways.gateway.networking.k8s.io --all-namespaces -o json --ignore-not-found 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).items)
       }
       $referenceGrants = if ($KubeData?.CustomResourcesByKind -and $KubeData.CustomResourcesByKind.ContainsKey("ReferenceGrant")) {
         @($KubeData.CustomResourcesByKind["ReferenceGrant"])

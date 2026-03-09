@@ -555,7 +555,7 @@ $heroRatingHtml
   $nodeMetricsHtml = ""
   $radarArtifactsHtml = ""
   if ($IncludeRadarArtifacts) {
-    $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData
+    $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
     $radarArtifactsHtml = Convert-KubeBuddyRadarArtifactInventoryToHtml -Inventory $artifactInventory -Freshness $RadarFreshness
   }
 

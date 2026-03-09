@@ -89,20 +89,35 @@ function Get-KubeBuddyMetadataMap {
 
 function Get-KubeBuddyRadarArtifactInventory {
     param(
-        [object]$KubeData
+        [object]$KubeData,
+        [switch]$ExcludeNamespaces
     )
 
     $imagesByKey = @{}
     $helmByKey = @{}
     $appsByKey = @{}
+    $inventorySource = if ($KubeData -and $KubeData.RawArtifactInventory) { $KubeData.RawArtifactInventory } else { $KubeData }
+    $excludedNamespaces = @()
+    $excludedSet = @{}
+    $omittedWorkloads = 0
+    $omittedNamespaceMap = @{}
+
+    if ($ExcludeNamespaces) {
+        $excludedNamespaces = @(Get-ExcludedNamespaces)
+        foreach ($ns in $excludedNamespaces) {
+            if (-not [string]::IsNullOrWhiteSpace([string]$ns)) {
+                $excludedSet[[string]$ns.ToLowerInvariant()] = $true
+            }
+        }
+    }
 
     $workloadSets = @(
-        @{ Kind = 'Deployment'; Items = @($KubeData.Deployments) },
-        @{ Kind = 'StatefulSet'; Items = @($KubeData.StatefulSets) },
-        @{ Kind = 'DaemonSet'; Items = @($KubeData.DaemonSets) },
-        @{ Kind = 'Job'; Items = @($KubeData.Jobs) },
-        @{ Kind = 'CronJob'; Items = @($KubeData.CronJobs) },
-        @{ Kind = 'Pod'; Items = @($KubeData.Pods.items) }
+        @{ Kind = 'Deployment'; Items = @($inventorySource.Deployments) },
+        @{ Kind = 'StatefulSet'; Items = @($inventorySource.StatefulSets) },
+        @{ Kind = 'DaemonSet'; Items = @($inventorySource.DaemonSets) },
+        @{ Kind = 'Job'; Items = @($inventorySource.Jobs) },
+        @{ Kind = 'CronJob'; Items = @($inventorySource.CronJobs) },
+        @{ Kind = 'Pod'; Items = @($inventorySource.Pods) }
     )
 
     foreach ($set in $workloadSets) {
@@ -113,6 +128,12 @@ function Get-KubeBuddyRadarArtifactInventory {
             $metadata = $item.metadata
             $namespace = if ($metadata.namespace) { [string]$metadata.namespace } else { 'cluster-wide' }
             $workloadName = if ($metadata.name) { [string]$metadata.name } else { 'unknown' }
+
+            if ($ExcludeNamespaces -and $excludedSet.ContainsKey($namespace.ToLowerInvariant())) {
+                $omittedWorkloads++
+                $omittedNamespaceMap[$namespace] = $true
+                continue
+            }
 
             $metaMaps = Get-KubeBuddyMetadataMap -Metadata $metadata
             $labels = @{}
@@ -267,6 +288,12 @@ function Get-KubeBuddyRadarArtifactInventory {
         images = $images
         helmCharts = $helmCharts
         apps = $apps
+        meta = @{
+            excludedNamespacesApplied = [bool]$ExcludeNamespaces
+            excludedNamespaces = @($excludedNamespaces)
+            omittedWorkloads = [int]$omittedWorkloads
+            omittedNamespaces = @($omittedNamespaceMap.Keys | Sort-Object)
+        }
         summary = @{
             images = $images.Count
             helmCharts = $helmCharts.Count
@@ -291,7 +318,7 @@ function Get-KubeBuddyRadarFreshnessLookup {
 
         $artifactType = [string]($item.artifact_type ?? '')
         $artifactKey = [string]($item.artifact_key ?? '')
-        $currentVersion = [string]($item.current_version ?? '')
+        $currentVersion = Normalize-KubeBuddyRadarVersion -Version ([string]($item.current_version ?? ''))
         if ([string]::IsNullOrWhiteSpace($artifactType) -or [string]::IsNullOrWhiteSpace($artifactKey)) {
             continue
         }
@@ -317,7 +344,8 @@ function Get-KubeBuddyRadarArtifactFreshnessItem {
         return $null
     }
 
-    $fullKey = ("{0}|{1}|{2}" -f $ArtifactType.ToLowerInvariant(), $ArtifactKey.ToLowerInvariant(), $CurrentVersion.ToLowerInvariant())
+    $normalizedVersion = Normalize-KubeBuddyRadarVersion -Version ([string]$CurrentVersion)
+    $fullKey = ("{0}|{1}|{2}" -f $ArtifactType.ToLowerInvariant(), $ArtifactKey.ToLowerInvariant(), $normalizedVersion)
     if ($FreshnessLookup.ContainsKey($fullKey)) {
         return $FreshnessLookup[$fullKey]
     }
@@ -330,27 +358,139 @@ function Get-KubeBuddyRadarArtifactFreshnessItem {
     return $null
 }
 
+function Normalize-KubeBuddyRadarVersion {
+    param(
+        [string]$Version
+    )
+
+    $v = [string]$Version
+    if ([string]::IsNullOrWhiteSpace($v)) {
+        return ''
+    }
+    $trimmed = $v.Trim().ToLowerInvariant()
+    if ($trimmed.StartsWith('v') -and $trimmed.Length -gt 1 -and [char]::IsDigit($trimmed[1])) {
+        return $trimmed.Substring(1)
+    }
+    return $trimmed
+}
+
+function Merge-KubeBuddyHelmChartRows {
+    param(
+        [object[]]$HelmCharts
+    )
+
+    $rows = @($HelmCharts)
+    if ($rows.Count -eq 0) {
+        return @()
+    }
+
+    $statusRank = @{
+        'major_behind' = 4
+        'minor_behind' = 3
+        'unknown' = 2
+        'up_to_date' = 1
+    }
+    $map = @{}
+
+    foreach ($chart in $rows) {
+        if (-not $chart) { continue }
+        $name = [string]($chart.name ?? '')
+        $ns = [string]($chart.namespace ?? $chart.releaseNamespace ?? '')
+        $key = ("{0}|{1}" -f $name.ToLowerInvariant(), $ns.ToLowerInvariant())
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+
+        if (-not $map.ContainsKey($key)) {
+            $map[$key] = $chart
+            continue
+        }
+
+        $cur = $map[$key]
+        $curStatus = [string]($cur.freshnessStatus ?? 'unknown')
+        $nextStatus = [string]($chart.freshnessStatus ?? 'unknown')
+        $curRank = if ($statusRank.ContainsKey($curStatus)) { [int]$statusRank[$curStatus] } else { 0 }
+        $nextRank = if ($statusRank.ContainsKey($nextStatus)) { [int]$statusRank[$nextStatus] } else { 0 }
+        if ($nextRank -gt $curRank) {
+            $map[$key] = $chart
+            $cur = $chart
+        }
+
+        if ([string]::IsNullOrWhiteSpace([string]($cur.releaseName ?? '')) -and -not [string]::IsNullOrWhiteSpace([string]($chart.releaseName ?? ''))) {
+            $cur.releaseName = [string]$chart.releaseName
+        }
+        if ([string]::IsNullOrWhiteSpace([string]($cur.latestVersion ?? '')) -and -not [string]::IsNullOrWhiteSpace([string]($chart.latestVersion ?? ''))) {
+            $cur.latestVersion = [string]$chart.latestVersion
+        }
+    }
+
+    return @($map.Values | Sort-Object name, namespace)
+}
+
+function Get-KubeBuddyRadarArtifactRecommendation {
+    param(
+        [string]$Status,
+        [string]$Latest,
+        [bool]$IsMonitored = $false
+    )
+
+    $statusNorm = ([string]$Status).Trim().ToLowerInvariant()
+    $latestNorm = ([string]$Latest).Trim()
+    if ($statusNorm -eq 'major_behind' -or $statusNorm -eq 'minor_behind') {
+        if (-not [string]::IsNullOrWhiteSpace($latestNorm) -and $latestNorm -ne 'not monitored') {
+            return "Update recommended. Target $latestNorm and review breaking changes."
+        }
+        return "Update recommended. Review latest release notes and breaking changes."
+    }
+    if ($statusNorm -eq 'up_to_date') {
+        return "Up to date. Keep monitoring for new releases."
+    }
+    if ($IsMonitored -or (-not [string]::IsNullOrWhiteSpace($latestNorm) -and $latestNorm -ne 'not monitored')) {
+        return "Best-effort version compare. Review release notes before updating."
+    }
+    return "Not monitored in catalog yet. Request this artifact to be added."
+}
+
 function Convert-KubeBuddyRadarArtifactInventoryToText {
     param(
         [hashtable]$Inventory,
         [object]$Freshness
     )
 
-    if (-not $Inventory) {
-        return @()
-    }
+    return @()
 
     $lines = @()
     $freshnessLookup = Get-KubeBuddyRadarFreshnessLookup -Freshness $Freshness
+    $helmChartsMerged = Merge-KubeBuddyHelmChartRows -HelmCharts @($Inventory.helmCharts)
     $lines += ""
-    $lines += "[📡 Radar Artifact Inventory (Pro)]"
-    $lines += "Images: $($Inventory.summary.images) | Helm Charts: $($Inventory.summary.helmCharts)"
+    $lines += "[📦 Outdated Artifacts]"
+    $lines += "Best-effort version matching from chart/image names and tags. Results are indicative, not guaranteed 100% accurate."
+    $lines += "Helm Charts: $($helmChartsMerged.Count) | Images: $($Inventory.summary.images)"
+    if ($Inventory.meta -and [int]($Inventory.meta.omittedWorkloads ?? 0) -gt 0) {
+        $lines += "Excluded namespaces omitted $([int]$Inventory.meta.omittedWorkloads) workload(s) from inventory: $((@($Inventory.meta.omittedNamespaces) -join ', '))"
+    }
     if ($Freshness -and $Freshness.summary) {
         $lines += "Freshness: Up-to-date $($Freshness.summary.up_to_date) | Minor behind $($Freshness.summary.minor_behind) | Major behind $($Freshness.summary.major_behind) | Unknown $($Freshness.summary.unknown)"
     }
 
     $lines += ""
-    $lines += "[Images]"
+    $lines += "[Helm Charts]"
+    if ($helmChartsMerged.Count -eq 0) {
+        $lines += "- None found."
+    }
+    else {
+        foreach ($chart in $helmChartsMerged) {
+            $version = if ($chart.version) { $chart.version } else { 'unknown' }
+            $release = if ($chart.releaseName) { $chart.releaseName } else { 'unknown' }
+            $freshnessItem = Get-KubeBuddyRadarArtifactFreshnessItem -FreshnessLookup $freshnessLookup -ArtifactType 'helm_chart' -ArtifactKey ([string]$chart.name) -CurrentVersion ([string]$version)
+            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } elseif ($chart.latestVersion) { [string]$chart.latestVersion } else { 'not monitored' }
+            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } elseif ($chart.freshnessStatus) { [string]$chart.freshnessStatus } else { 'unknown' }
+            $isMonitored = ($freshnessItem -and ( -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.latest_version ?? '')) -or -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.source ?? '')) )) -or ($latest -ne 'not monitored')
+            $recommendation = Get-KubeBuddyRadarArtifactRecommendation -Status $status -Latest $latest -IsMonitored:$isMonitored
+            $lines += "- Chart: $($chart.name) | Version: $version | Latest: $latest | Status: $status | Release: $release | Namespace: $($chart.namespace) | Workload: $($chart.workloadKind)/$($chart.workloadName) | Recommendation: $recommendation"
+        }
+    }
+
+    $lines += ""
+    $lines += "[Container Images]"
     if ($Inventory.images.Count -eq 0) {
         $lines += "- None found."
     }
@@ -363,25 +503,11 @@ function Convert-KubeBuddyRadarArtifactInventoryToText {
             if ($freshnessItem -and [string]($freshnessItem.status ?? '') -eq 'covered_by_controller') {
                 continue
             }
-            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } else { 'not monitored' }
-            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } else { 'unknown' }
-            $lines += "- Image: $($img.fullRef) | Version: $($img.currentVersion) | Latest: $latest | Status: $status | Namespace: $($img.namespace) | Workload: $($img.workloadKind)/$($img.workloadName) | Container: $($img.containerName)"
-        }
-    }
-
-    $lines += ""
-    $lines += "[Helm Charts]"
-    if ($Inventory.helmCharts.Count -eq 0) {
-        $lines += "- None found."
-    }
-    else {
-        foreach ($chart in $Inventory.helmCharts) {
-            $version = if ($chart.version) { $chart.version } else { 'unknown' }
-            $release = if ($chart.releaseName) { $chart.releaseName } else { 'unknown' }
-            $freshnessItem = Get-KubeBuddyRadarArtifactFreshnessItem -FreshnessLookup $freshnessLookup -ArtifactType 'helm_chart' -ArtifactKey ([string]$chart.name) -CurrentVersion ([string]$version)
-            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } else { 'not monitored' }
-            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } else { 'unknown' }
-            $lines += "- Chart: $($chart.name) | Version: $version | Latest: $latest | Status: $status | Release: $release | Namespace: $($chart.namespace) | Workload: $($chart.workloadKind)/$($chart.workloadName)"
+            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } elseif ($img.latestVersion) { [string]$img.latestVersion } else { 'not monitored' }
+            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } elseif ($img.freshnessStatus) { [string]$img.freshnessStatus } else { 'unknown' }
+            $isMonitored = ($freshnessItem -and ( -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.latest_version ?? '')) -or -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.source ?? '')) )) -or ($latest -ne 'not monitored')
+            $recommendation = Get-KubeBuddyRadarArtifactRecommendation -Status $status -Latest $latest -IsMonitored:$isMonitored
+            $lines += "- Image: $($img.fullRef) | Version: $($img.currentVersion) | Latest: $latest | Status: $status | Namespace: $($img.namespace) | Workload: $($img.workloadKind)/$($img.workloadName) | Container: $($img.containerName) | Recommendation: $recommendation"
         }
     }
 
@@ -394,11 +520,10 @@ function Convert-KubeBuddyRadarArtifactInventoryToHtml {
         [object]$Freshness
     )
 
-    if (-not $Inventory) {
-        return ""
-    }
+    return ""
 
     $freshnessLookup = Get-KubeBuddyRadarFreshnessLookup -Freshness $Freshness
+    $helmChartsMerged = Merge-KubeBuddyHelmChartRows -HelmCharts @($Inventory.helmCharts)
     $freshnessSummaryHtml = ""
     if ($Freshness -and $Freshness.summary) {
         $freshnessSummaryHtml = @"
@@ -424,57 +549,63 @@ function Convert-KubeBuddyRadarArtifactInventoryToHtml {
                 $omittedImagesCoveredByHelm++
                 continue
             }
-            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } else { 'not monitored' }
-            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } else { 'unknown' }
-            $imageRowsCollection += "<tr><td>$($img.fullRef)</td><td>$($img.currentVersion)</td><td>$latest</td><td>$status</td><td>$($img.namespace)</td><td>$($img.workloadKind)/$($img.workloadName)</td><td>$($img.containerName)</td></tr>"
+            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } elseif ($img.latestVersion) { [string]$img.latestVersion } else { 'not monitored' }
+            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } elseif ($img.freshnessStatus) { [string]$img.freshnessStatus } else { 'unknown' }
+            $isMonitored = ($freshnessItem -and ( -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.latest_version ?? '')) -or -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.source ?? '')) )) -or ($latest -ne 'not monitored')
+            $recommendation = Get-KubeBuddyRadarArtifactRecommendation -Status $status -Latest $latest -IsMonitored:$isMonitored
+            $imageRowsCollection += "<tr><td>$($img.fullRef)</td><td>$($img.currentVersion)</td><td>$latest</td><td>$status</td><td>$($img.namespace)</td><td>$($img.workloadKind)/$($img.workloadName)</td><td>$($img.containerName)</td><td>$recommendation</td></tr>"
         }
     }
     $imageRows = if ($imageRowsCollection.Count -gt 0) {
         $imageRowsCollection -join "`n"
     } else {
-        "<tr><td colspan='7'>No standalone container images detected (all covered by Helm chart checks or none detected).</td></tr>"
+        "<tr><td colspan='8'>No standalone container images detected (all covered by Helm chart checks or none detected).</td></tr>"
     }
 
-    $chartRows = if ($Inventory.helmCharts.Count -gt 0) {
-        ($Inventory.helmCharts | ForEach-Object {
+    $chartRows = if ($helmChartsMerged.Count -gt 0) {
+        ($helmChartsMerged | ForEach-Object {
             $version = if ($_.version) { $_.version } else { 'unknown' }
             $release = if ($_.releaseName) { $_.releaseName } else { 'unknown' }
             $freshnessItem = Get-KubeBuddyRadarArtifactFreshnessItem -FreshnessLookup $freshnessLookup -ArtifactType 'helm_chart' -ArtifactKey ([string]$_.name) -CurrentVersion ([string]$version)
-            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } else { 'not monitored' }
-            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } else { 'unknown' }
-            "<tr><td>$($_.name)</td><td>$version</td><td>$latest</td><td>$status</td><td>$release</td><td>$($_.namespace)</td><td>$($_.workloadKind)/$($_.workloadName)</td></tr>"
+            $latest = if ($freshnessItem -and $freshnessItem.latest_version) { [string]$freshnessItem.latest_version } elseif ($_.latestVersion) { [string]$_.latestVersion } else { 'not monitored' }
+            $status = if ($freshnessItem -and $freshnessItem.status) { [string]$freshnessItem.status } elseif ($_.freshnessStatus) { [string]$_.freshnessStatus } else { 'unknown' }
+            $isMonitored = ($freshnessItem -and ( -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.latest_version ?? '')) -or -not [string]::IsNullOrWhiteSpace([string]($freshnessItem.source ?? '')) )) -or ($latest -ne 'not monitored')
+            $recommendation = Get-KubeBuddyRadarArtifactRecommendation -Status $status -Latest $latest -IsMonitored:$isMonitored
+            "<tr><td>$($_.name)</td><td>$version</td><td>$latest</td><td>$status</td><td>$release</td><td>$($_.namespace)</td><td>$($_.workloadKind)/$($_.workloadName)</td><td>$recommendation</td></tr>"
         }) -join "`n"
     }
     else {
-        "<tr><td colspan='7'>No Helm charts detected.</td></tr>"
+        "<tr><td colspan='8'>No Helm charts detected.</td></tr>"
     }
 
     return @"
-<h2>Radar Artifact Inventory (Pro)</h2>
+<h2>Outdated Artifacts</h2>
 <p>This section is included because Radar mode is enabled for this run. It captures deterministic image, Helm chart, and app versions from Kubernetes workload specs and labels.</p>
+<p><strong>Best effort:</strong> version matching is based on artifact names and tags. Results are indicative and may not be 100% accurate.</p>
+$(if ($Inventory.meta -and [int]($Inventory.meta.omittedWorkloads ?? 0) -gt 0) { "<p><strong>Excluded namespaces:</strong> omitted $([int]$Inventory.meta.omittedWorkloads) workload(s) from inventory: $((@($Inventory.meta.omittedNamespaces) -join ', ')).</p>" } else { "" })
 $freshnessSummaryHtml
 <div class="hero-metrics">
+  <div class="metric-card default"><div class="card-content"><p>⎈ Helm Charts: <strong>$($helmChartsMerged.Count)</strong></p></div></div>
   <div class="metric-card default"><div class="card-content"><p>🧱 Images: <strong>$($Inventory.summary.images)</strong></p></div></div>
-  <div class="metric-card default"><div class="card-content"><p>⎈ Helm Charts: <strong>$($Inventory.summary.helmCharts)</strong></p></div></div>
-  <div class="metric-card default"><div class="card-content"><p>📊 Tracked: <strong>$([int]$Inventory.summary.images + [int]$Inventory.summary.helmCharts)</strong></p></div></div>
-</div>
-
-<h3>Container Images</h3>
-<div class="table-container">
-  <table>
-    <thead><tr><th>Image</th><th>Version</th><th>Latest</th><th>Status</th><th>Namespace</th><th>Workload</th><th>Container</th></tr></thead>
-    <tbody>
-      $imageRows
-    </tbody>
-  </table>
+  <div class="metric-card default"><div class="card-content"><p>📊 Tracked: <strong>$([int]$Inventory.summary.images + [int]$helmChartsMerged.Count)</strong></p></div></div>
 </div>
 
 <h3>Helm Charts</h3>
 <div class="table-container">
   <table>
-    <thead><tr><th>Chart</th><th>Version</th><th>Latest</th><th>Status</th><th>Release</th><th>Namespace</th><th>Workload</th></tr></thead>
+    <thead><tr><th>Chart</th><th>Version</th><th>Latest</th><th>Status</th><th>Release</th><th>Namespace</th><th>Workload</th><th>Recommendation</th></tr></thead>
     <tbody>
       $chartRows
+    </tbody>
+  </table>
+</div>
+
+<h3>Container Images</h3>
+<div class="table-container">
+  <table>
+    <thead><tr><th>Image</th><th>Version</th><th>Latest</th><th>Status</th><th>Namespace</th><th>Workload</th><th>Container</th><th>Recommendation</th></tr></thead>
+    <tbody>
+      $imageRows
     </tbody>
   </table>
 </div>

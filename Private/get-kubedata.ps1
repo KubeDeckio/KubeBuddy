@@ -379,6 +379,16 @@ function Get-KubeData {
         }
     }
     
+    # Preserve unfiltered workload collections for Radar artifact inventory.
+    $data.RawArtifactInventory = @{
+        Deployments  = @($data.Deployments)
+        StatefulSets = @($data.StatefulSets)
+        DaemonSets   = @($data.DaemonSets)
+        Jobs         = @($data.Jobs)
+        CronJobs     = @($data.CronJobs)
+        Pods         = if ($data.Pods -and $data.Pods.items) { @($data.Pods.items) } else { @() }
+    }
+
 
     # Namespace filtering
     if ($ExcludeNamespaces) {

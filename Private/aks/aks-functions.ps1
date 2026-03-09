@@ -96,7 +96,18 @@ function Invoke-AKSBestPractices {
         $constraints = @()
     
         try {
+            $canUseCachedCluster = $false
             if ($KubeData -and $KubeData.AksCluster -and $KubeData.Constraints) {
+                $cachedClusterName = [string]($KubeData.AksCluster.clusterName ?? '')
+                $cachedResourceGroup = [string]($KubeData.AksCluster.resourceGroup ?? '')
+                $cachedSubscriptionId = [string]($KubeData.AksCluster.subscriptionId ?? '')
+                $canUseCachedCluster =
+                    ($cachedClusterName -eq [string]$ClusterName) -and
+                    ($cachedResourceGroup -eq [string]$ResourceGroup) -and
+                    ($cachedSubscriptionId -eq [string]$SubscriptionId)
+            }
+
+            if ($canUseCachedCluster) {
                 $clusterInfo = $KubeData.AksCluster
                 $constraints = $KubeData.Constraints
                 Write-Host "`r🤖 Using cached AKS cluster data. " -ForegroundColor Green
