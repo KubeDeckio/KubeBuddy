@@ -683,9 +683,6 @@ $heroRatingHtml
     $nodeId = "node_$($nodeName -replace '[^a-zA-Z0-9]', '_')"
 
     $nodeContent = @"
-<div class='collapsible-header' style='background: var(--brand-blue); color: white; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 8px 8px 0 0;'>
-  $nodeName
-</div>
 <div class='recommendation-card node-card'>
   <div style='padding: 15px;'>
     <p><strong>OS:</strong> $osImage<br>

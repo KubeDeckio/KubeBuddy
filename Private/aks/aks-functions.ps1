@@ -125,7 +125,7 @@ function Invoke-AKSBestPractices {
     
                 Write-Host -NoNewline "`n🤖 Fetching Kubernetes constraints..." -ForegroundColor Cyan
                 $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-                Write-Host "`r🤖 Constraints fetched." -ForegroundColor Green
+                Write-Host "`r🤖 Constraints fetched.             " -ForegroundColor Green
             }
     
             $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints } -Force

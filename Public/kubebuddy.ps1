@@ -358,6 +358,7 @@ function Invoke-KubeBuddy {
                 -SubscriptionId $SubscriptionId `
                 -ResourceGroup $ResourceGroup `
                 -ClusterName $ClusterName `
+                -PrometheusUrl $PrometheusUrl `
                 -IncludeRadarArtifacts:$includeRadarArtifacts
 
             Write-Host "`n🤖 ✅ Json report saved at: $jsonReportFile" -ForegroundColor Green
@@ -376,6 +377,7 @@ function Invoke-KubeBuddy {
                     -SubscriptionId $SubscriptionId `
                     -ResourceGroup $ResourceGroup `
                     -ClusterName $ClusterName `
+                    -PrometheusUrl $PrometheusUrl `
                     -IncludeRadarArtifacts:$includeRadarArtifacts
                 $generatedJsonForRadar = $true
             }

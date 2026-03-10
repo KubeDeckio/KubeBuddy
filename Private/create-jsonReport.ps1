@@ -7,6 +7,7 @@ function Create-JsonReport {
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName,
+        [string]$PrometheusUrl,
         [switch]$IncludeRadarArtifacts
     )
 
@@ -17,6 +18,13 @@ function Create-JsonReport {
     $generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
     # Initialize results structure
+    $effectivePrometheusUrl = ""
+    if ($KubeData -and $KubeData.PrometheusUrl) {
+        $effectivePrometheusUrl = [string]$KubeData.PrometheusUrl
+    } elseif ($PrometheusUrl) {
+        $effectivePrometheusUrl = [string]$PrometheusUrl
+    }
+
     $results = @{
         metadata = @{
             clusterName       = $clusterName
@@ -24,6 +32,7 @@ function Create-JsonReport {
             generatedAt       = $generatedAt
             excludeNamespacesEnabled = [bool]$ExcludeNamespaces
             excludedNamespaces = @()
+            prometheusUrl = $effectivePrometheusUrl
         }
         checks   = @{}
     }
