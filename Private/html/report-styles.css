@@ -1051,6 +1051,10 @@ code {
   z-index: 2000;
 }
 
+#backToTop {
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
 #menuFab {
   left: var(--spacing-lg);
   right: auto;
@@ -1063,10 +1067,19 @@ code {
   justify-content: center;
 }
 
-#backToTop:hover,
 #menuFab:hover {
   background: var(--brand-blue-dk);
   transform: translateY(-2px);
+}
+
+#backToTop:hover,
+#backToTop:focus-visible {
+  background: var(--brand-blue-dk);
+  text-decoration: none;
+}
+
+#backToTop:active {
+  transform: none;
 }
 
 #printContainer button,
