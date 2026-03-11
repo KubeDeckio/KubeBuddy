@@ -43,6 +43,8 @@ For complete installation, usage, and advanced configuration instructions, visit
 - **HTML & Text Reports:** Generates clean reports for analysis and sharing.
 - **PowerShell Support:** Install via PowerShell Gallery and run on Windows, macOS, or Linux.
 - **AKS Best Practices Check:** Checks Azure Kubernetes Service (AKS) clusters for Best Practices. (Currently 34 fully automated tests!)
+- **KubeBuddy Radar Upload (Pro):** Upload JSON scan runs to Radar for trend history, run comparisons, and fleet reporting.
+- **Radar Cluster Config Fetch (Pro):** Pull a saved Radar cluster profile into the CLI and reuse the same settings locally or in Docker.
 
 
 ## Installation
@@ -91,6 +93,27 @@ Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceG
   Invoke-KubeBuddy -txtReport -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
   ```
 
+### **Upload to KubeBuddy Radar (Pro)**
+
+```powershell
+$env:KUBEBUDDY_RADAR_API_USER = "<your-wordpress-username>"
+$env:KUBEBUDDY_RADAR_API_PASSWORD = "<your-wordpress-app-password>"
+
+Invoke-KubeBuddy -jsonReport -RadarUpload -RadarEnvironment "prod"
+```
+
+Upload + compare in one run:
+
+```powershell
+Invoke-KubeBuddy -jsonReport -RadarUpload -RadarCompare -RadarEnvironment "prod"
+```
+
+Fetch a saved Radar cluster config and run with it:
+
+```powershell
+Invoke-KubeBuddy -RadarFetchConfig -RadarConfigId "<cluster-config-id>"
+```
+
 
 ## Configuration
 
@@ -130,4 +153,3 @@ All notable changes to this project are documented in the **[CHANGELOG](./CHANGE
 ## License
 
 This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for more details.
-

@@ -43,6 +43,7 @@ theme:
     - navigation.instant
     - navigation.tracking
     - content.code.annotate
+    - content.code.copy
     - content.tabs.link
     - content.action.edit
 
@@ -55,6 +56,9 @@ extra:
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - javascripts/extra.js
+
 copyright: Copyright &copy; 2026 KubeDeck
 
 repo_url: https://github.com/kubedeckio/kubebuddy
@@ -63,15 +67,23 @@ edit_uri: edit/main/docs/
 
 nav:
   - Home: index.md
-  - Usage: 
-      - Overview: usage/index.md
-      - PowerShell: usage/powershell-usage.md
-      - Docker: usage/docker-usage.md
-      - Prometheus Integration: usage/prometheus-integration.md
-      - Config File: usage/kubebuddy-config.md
-      - Checks: usage/checks.md
-      - AKS Best Practices: usage/aks-best-practice-checks.md
-      - Logging Output: usage/logging-output.md
+  - CLI: 
+      - Overview: cli/index.md
+      - PowerShell: cli/powershell-usage.md
+      - Docker: cli/docker-usage.md
+      - Prometheus Integration: cli/prometheus-integration.md
+      - Config File: cli/kubebuddy-config.md
+      - Checks: cli/checks.md
+      - AKS Best Practices: cli/aks-best-practice-checks.md
+      - Logging Output: cli/logging-output.md
+      - Radar Integration (Pro): cli/kubebuddy-radar-cli-integration.md
+  - Radar:
+      - Overview: radar/index.md
+      - Getting Started: radar/getting-started.md
+      - CLI Integration: radar/cli-integration.md
+      - Cluster Reports (Pro): radar/cluster-reports.md
+      - Cluster Configs (Pro): radar/cluster-configs.md
+      - API Reference: radar/api-reference.md
   - Creating Checks: creating-Checks.md
   - Contributing: contributing.md
   - Release Process: releaseprocess.md

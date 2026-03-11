@@ -1051,6 +1051,10 @@ code {
   z-index: 2000;
 }
 
+#backToTop {
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
 #menuFab {
   left: var(--spacing-lg);
   right: auto;
@@ -1063,10 +1067,19 @@ code {
   justify-content: center;
 }
 
-#backToTop:hover,
 #menuFab:hover {
   background: var(--brand-blue-dk);
   transform: translateY(-2px);
+}
+
+#backToTop:hover,
+#backToTop:focus-visible {
+  background: var(--brand-blue-dk);
+  text-decoration: none;
+}
+
+#backToTop:active {
+  transform: none;
 }
 
 #printContainer button,
@@ -2409,5 +2422,502 @@ details>summary.node-summary .summary-metrics .metric-badge {
     /* brand tweaks if needed */
     --brand-blue: var(--brand-blue-dk2);
     --brand-blue-dk: var(--brand-blue);
+  }
+}
+
+/* Theme picker + switchable theme variants */
+.kb-theme-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.35);
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+}
+
+.kb-theme-picker-menu {
+  margin: 12px;
+  width: calc(100% - 24px);
+  box-sizing: border-box;
+}
+
+.kb-theme-picker-floating {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 99999;
+}
+
+.kb-theme-picker label {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.kb-theme-picker select {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  background: #0b1220;
+  color: #e2e8f0;
+  padding: 4px 8px;
+  font-size: 12px;
+  min-width: 130px;
+}
+
+html[data-kb-theme="radar"] {
+  --brand-blue: #00b6ff;
+  --brand-blue-dk: #0d8de3;
+  --bg-light: #101a2e;
+  --text-dark: #d4deec;
+  --text-light: #f7fbff;
+  --shadow-sm: 0 6px 16px rgba(2, 8, 22, 0.25);
+  --shadow-md: 0 12px 28px rgba(2, 8, 22, 0.35);
+  --error-color: #ff4d5c;
+  --warning-color: #f5a623;
+  --success-color: #2ecc71;
+  --bg-dark: #0b1424;
+  --surface: #1f2b3f;
+  --text-on-dark: #d4deec;
+  --subtle-on-dark: #9ba9be;
+  --bg-container: #273449;
+  --bg-panel: #202d41;
+  --bg-subtle: #1a273a;
+  --border-color: #3b4b63;
+  --bg-rec-banner: rgba(0, 182, 255, 0.12);
+  --nav-bg-start: #1f2b3f;
+  --nav-bg-end: #1a273a;
+  --link-color: #00bfff;
+  --link-hover: #66d7ff;
+}
+
+html[data-kb-theme="radar"] body {
+  background: #111c31;
+  color: var(--text-dark);
+}
+
+html[data-kb-theme="radar"] .header {
+  background: linear-gradient(90deg, #1776f2 0%, #1490f0 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+html[data-kb-theme="radar"] .header .tabs {
+  border-bottom-color: rgba(255, 255, 255, 0.25);
+}
+
+html[data-kb-theme="radar"] .header .tabs li {
+  color: #e9f6ff;
+}
+
+html[data-kb-theme="radar"] .header .tabs li:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+html[data-kb-theme="radar"] .header .tabs li.active {
+  border-bottom-color: #7ad8ff;
+}
+
+html[data-kb-theme="radar"] .container h1,
+html[data-kb-theme="radar"] .container h2 {
+  color: #00c2ff;
+}
+
+html[data-kb-theme="radar"] .compatibility.warning {
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.32), rgba(245, 166, 35, 0.2));
+  border: 1px solid rgba(245, 166, 35, 0.75);
+  color: #ffe8bf;
+  box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.12), 0 10px 24px rgba(245, 166, 35, 0.2);
+}
+
+html[data-kb-theme="radar"] .container,
+html[data-kb-theme="radar"] .table-container,
+html[data-kb-theme="radar"] .quick-fix-card,
+html[data-kb-theme="radar"] .collapsible-container,
+html[data-kb-theme="radar"] details {
+  background: transparent;
+  border: 0;
+}
+
+html[data-kb-theme="radar"] .nav-drawer {
+  background: linear-gradient(135deg, #1f2b3f, #1a273a);
+  border-right: 1px solid rgba(122, 216, 255, 0.25);
+}
+
+html[data-kb-theme="radar"] .table-container,
+html[data-kb-theme="radar"] .collapsible-container,
+html[data-kb-theme="radar"] details {
+  background: transparent;
+}
+
+/* Check pages should not look nested inside one giant card */
+html[data-kb-theme="radar"] #nodes > .container,
+html[data-kb-theme="radar"] #namespaces > .container,
+html[data-kb-theme="radar"] #workloads > .container,
+html[data-kb-theme="radar"] #pods > .container,
+html[data-kb-theme="radar"] #jobs > .container,
+html[data-kb-theme="radar"] #networking > .container,
+html[data-kb-theme="radar"] #storage > .container,
+html[data-kb-theme="radar"] #configuration > .container,
+html[data-kb-theme="radar"] #security > .container,
+html[data-kb-theme="radar"] #events > .container,
+html[data-kb-theme="radar"] #aks > .container {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* Check tabs: keep one outer wrapper and make each check a separate card */
+html[data-kb-theme="radar"] .tab-content > .container > .table-container {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
+}
+
+html[data-kb-theme="radar"] .tab-content > .container > .table-container > .table-container {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(39, 52, 73, 0.96), rgba(33, 46, 66, 0.96));
+  border: 1px solid #3f5677;
+  border-radius: 12px;
+  box-shadow: 0 10px 22px rgba(8, 18, 34, 0.24);
+  overflow: hidden;
+}
+
+html[data-kb-theme="radar"] .tab-content h2[id] {
+  background: linear-gradient(135deg, rgba(0, 194, 255, 0.13), rgba(16, 36, 58, 0.88));
+  border: 1px solid #3a5677;
+  border-radius: 12px;
+  padding: 13px 15px;
+  margin-bottom: 10px;
+  box-shadow: inset 0 1px 0 rgba(124, 220, 255, 0.08);
+}
+
+html[data-kb-theme="radar"] .collapsible-container > details {
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(33, 47, 69, 0.96), rgba(30, 43, 63, 0.96));
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+html[data-kb-theme="radar"] .metric-card {
+  background: rgba(41, 56, 78, 0.72);
+  border: 1px solid rgba(85, 104, 132, 0.6);
+  color: #eaf3ff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+html[data-kb-theme="radar"] summary,
+html[data-kb-theme="radar"] .collapsible-container summary {
+  background: #1c2a3f;
+  color: #dbe8f8;
+}
+
+html[data-kb-theme="radar"] .collapsible-container > details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 40px 11px 14px;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  position: relative;
+  font-weight: 600;
+}
+
+html[data-kb-theme="radar"] .collapsible-container > details > summary::after {
+  content: '▾';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #7cdcff;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+html[data-kb-theme="radar"] .collapsible-container > details[open] > summary {
+  border-bottom-color: transparent;
+}
+
+html[data-kb-theme="radar"] .collapsible-container > details[open] > summary::after {
+  transform: translateY(-50%) rotate(180deg);
+  color: #b9eeff;
+}
+
+/* AKS collapsibles: explicit chevron cue on the right */
+html[data-kb-theme="radar"] #aks .collapsible-container > details > summary {
+  padding-right: 40px;
+}
+
+html[data-kb-theme="radar"] summary:hover,
+html[data-kb-theme="radar"] .collapsible-container summary:hover {
+  background: #2a3c58;
+}
+
+html[data-kb-theme="radar"] .metric-card.critical {
+  background: linear-gradient(135deg, rgba(255, 77, 92, 0.28), rgba(255, 77, 92, 0.14));
+  border-color: rgba(255, 77, 92, 0.72);
+  color: #ffe9ec;
+  box-shadow: 0 0 0 1px rgba(255, 77, 92, 0.12), 0 10px 24px rgba(255, 77, 92, 0.2);
+}
+
+html[data-kb-theme="radar"] .metric-card.warning {
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.3), rgba(245, 166, 35, 0.14));
+  border-color: rgba(245, 166, 35, 0.75);
+  color: #fff3e1;
+  box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.12), 0 10px 24px rgba(245, 166, 35, 0.2);
+}
+
+html[data-kb-theme="radar"] .metric-card.info,
+html[data-kb-theme="radar"] .metric-card.default,
+html[data-kb-theme="radar"] .metric-card.normal {
+  color: #eaf3ff;
+}
+
+html[data-kb-theme="radar"] .metric-card.info,
+html[data-kb-theme="radar"] .metric-card.default {
+  background: linear-gradient(135deg, rgba(0, 194, 255, 0.28), rgba(0, 194, 255, 0.14));
+  border-color: rgba(0, 194, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(0, 194, 255, 0.12), 0 10px 24px rgba(0, 194, 255, 0.2);
+}
+
+html[data-kb-theme="radar"] .metric-card.normal {
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.28), rgba(46, 204, 113, 0.14));
+  border-color: rgba(46, 204, 113, 0.75);
+  color: #e8fff2;
+  box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.12), 0 10px 24px rgba(46, 204, 113, 0.2);
+}
+
+html[data-kb-theme="radar"] .metric-badge {
+  border: 1px solid rgba(148, 172, 206, 0.5);
+}
+
+html[data-kb-theme="radar"] .metric-badge.critical {
+  background: rgba(255, 77, 92, 0.25);
+  border-color: rgba(255, 77, 92, 0.6);
+}
+
+html[data-kb-theme="radar"] .metric-badge.warning {
+  background: rgba(245, 166, 35, 0.25);
+  border-color: rgba(245, 166, 35, 0.6);
+}
+
+html[data-kb-theme="radar"] .metric-badge.info,
+html[data-kb-theme="radar"] .metric-badge.default {
+  background: rgba(0, 194, 255, 0.25);
+  border-color: rgba(0, 194, 255, 0.6);
+}
+
+html[data-kb-theme="radar"] .metric-badge.normal {
+  background: rgba(46, 204, 113, 0.25);
+  border-color: rgba(46, 204, 113, 0.6);
+}
+
+html[data-kb-theme="radar"] .node-summary {
+  gap: 12px;
+}
+
+html[data-kb-theme="radar"] .summary-inner {
+  gap: 10px;
+  align-items: flex-start;
+}
+
+html[data-kb-theme="radar"] .summary-metrics {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+html[data-kb-theme="radar"] .node-name {
+  color: #8ad8ff;
+}
+
+html[data-kb-theme="radar"] .check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(92, 114, 145, 0.45);
+}
+
+html[data-kb-theme="radar"] .check-item:last-child {
+  border-bottom: none;
+}
+
+html[data-kb-theme="radar"] .check-id {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 194, 255, 0.55);
+  background: rgba(0, 194, 255, 0.14);
+  color: #9de6ff;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+html[data-kb-theme="radar"] .check-name {
+  flex: 1;
+  color: #d8e6f8;
+  line-height: 1.4;
+}
+
+html[data-kb-theme="radar"] table th {
+  background: #10243a;
+  color: #00c2ff;
+  border-bottom: 1px solid #2f415b;
+}
+
+html[data-kb-theme="radar"] table td {
+  border-bottom-color: #31445f;
+  color: #d4deec;
+}
+
+html[data-kb-theme="radar"] .collapsible-container table {
+  margin-top: 0;
+}
+
+/* Flatten deep nested wrappers inside expanded checks */
+html[data-kb-theme="radar"] .tab-content > .container > .table-container > .table-container > .table-container,
+html[data-kb-theme="radar"] .collapsible-container > details > .table-container {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+/* Avoid phantom horizontal bars from nested wrappers in report markup */
+html[data-kb-theme="radar"] .table-container table {
+  margin: 8px 0 0;
+}
+
+html[data-kb-theme="radar"] .table-container .table-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+html[data-kb-theme="radar"] .table-pagination {
+  margin: 8px 0 0;
+  padding: 0;
+  padding-bottom: 12px;
+  border: 0;
+  background: transparent;
+}
+
+/* Radar-themed scrollbars for overflow panels */
+html[data-kb-theme="radar"] .table-container,
+html[data-kb-theme="radar"] .scrollable-content,
+html[data-kb-theme="radar"] .api-summary details pre,
+html[data-kb-theme="radar"] .health-checks pre.health-output,
+html[data-kb-theme="radar"] .collapsible-container pre {
+  scrollbar-width: thin;
+  scrollbar-color: #00bfff #14263d;
+}
+
+html[data-kb-theme="radar"] .table-container::-webkit-scrollbar,
+html[data-kb-theme="radar"] .scrollable-content::-webkit-scrollbar,
+html[data-kb-theme="radar"] .api-summary details pre::-webkit-scrollbar,
+html[data-kb-theme="radar"] .health-checks pre.health-output::-webkit-scrollbar,
+html[data-kb-theme="radar"] .collapsible-container pre::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html[data-kb-theme="radar"] .table-container::-webkit-scrollbar-track,
+html[data-kb-theme="radar"] .scrollable-content::-webkit-scrollbar-track,
+html[data-kb-theme="radar"] .api-summary details pre::-webkit-scrollbar-track,
+html[data-kb-theme="radar"] .health-checks pre.health-output::-webkit-scrollbar-track,
+html[data-kb-theme="radar"] .collapsible-container pre::-webkit-scrollbar-track {
+  background: #14263d;
+  border-radius: 999px;
+}
+
+html[data-kb-theme="radar"] .table-container::-webkit-scrollbar-thumb,
+html[data-kb-theme="radar"] .scrollable-content::-webkit-scrollbar-thumb,
+html[data-kb-theme="radar"] .api-summary details pre::-webkit-scrollbar-thumb,
+html[data-kb-theme="radar"] .health-checks pre.health-output::-webkit-scrollbar-thumb,
+html[data-kb-theme="radar"] .collapsible-container pre::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #00c8ff, #0d8de3);
+  border: 2px solid #14263d;
+  border-radius: 999px;
+}
+
+html[data-kb-theme="radar"] .table-container::-webkit-scrollbar-thumb:hover,
+html[data-kb-theme="radar"] .scrollable-content::-webkit-scrollbar-thumb:hover,
+html[data-kb-theme="radar"] .api-summary details pre::-webkit-scrollbar-thumb:hover,
+html[data-kb-theme="radar"] .health-checks pre.health-output::-webkit-scrollbar-thumb:hover,
+html[data-kb-theme="radar"] .collapsible-container pre::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #3ad7ff, #17a5ff);
+}
+
+html[data-kb-theme="radar"] .collapsible-container details[id$="_recommendations"][open] .recommendation-card {
+  background: linear-gradient(135deg, rgba(44, 61, 87, 0.95), rgba(33, 48, 70, 0.95));
+  border-color: #3b5376;
+}
+
+html[data-kb-theme="radar"] .recommendation-banner {
+  background: rgba(0, 194, 255, 0.14);
+  border-bottom-color: #385475;
+  color: #8bdfff;
+  border-left: 3px solid rgba(0, 194, 255, 0.6);
+}
+
+html[data-kb-theme="radar"] .quick-fix-card {
+  background: linear-gradient(135deg, rgba(51, 68, 94, 0.9), rgba(38, 52, 76, 0.9));
+}
+
+html[data-kb-theme="radar"] .quick-fix-card[data-lostpct="High"] {
+  border-left-color: #ff4d5c;
+  box-shadow: 0 0 0 1px rgba(255, 77, 92, 0.1), 0 8px 22px rgba(255, 77, 92, 0.16);
+}
+
+html[data-kb-theme="radar"] .quick-fix-card[data-lostpct="Medium"] {
+  border-left-color: #f5a623;
+  box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.1), 0 8px 22px rgba(245, 166, 35, 0.16);
+}
+
+html[data-kb-theme="radar"] .quick-fix-card[data-lostpct="Low"] {
+  border-left-color: #2ecc71;
+  box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.1), 0 8px 22px rgba(46, 204, 113, 0.16);
+}
+
+html[data-kb-theme="radar"] .nav-item a {
+  color: #d4deec;
+}
+
+html[data-kb-theme="radar"] .nav-item a:hover {
+  background: #2d3f5a;
+  color: #00c2ff;
+}
+
+html[data-kb-theme="radar"] .footer {
+  background: #172237;
+  border-top: 1px solid #2f415b;
+  color: #c8d4e8;
+}
+
+@media (max-width: 900px) {
+  html[data-kb-theme="radar"] .summary-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  html[data-kb-theme="radar"] .summary-metrics {
+    justify-content: flex-start;
   }
 }

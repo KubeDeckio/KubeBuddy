@@ -21,6 +21,14 @@ $ClientSecret = $env:AZURE_CLIENT_SECRET
 $TenantId = $env:AZURE_TENANT_ID
 $UseAksRestApi = $env:USE_AKS_REST_API -eq "true"
 $ConfigPath = $env:KUBEBUDDY_CONFIG_PATH
+$RadarUpload = $env:RADAR_UPLOAD -eq "true"
+$RadarCompare = $env:RADAR_COMPARE -eq "true"
+$RadarFetchConfig = $env:RADAR_FETCH_CONFIG -eq "true"
+$RadarConfigId = $env:RADAR_CONFIG_ID
+$RadarApiBaseUrl = $env:RADAR_API_BASE_URL
+$RadarEnvironment = $env:RADAR_ENVIRONMENT
+$RadarApiUserEnv = $env:RADAR_API_USER_ENV
+$RadarApiPasswordEnv = $env:RADAR_API_PASSWORD_ENV
 
 # Optional list values (comma-separated)
 $AdditionalExcludedNamespaces = @()
@@ -55,6 +63,13 @@ if ($env:PROMETHEUS_USERNAME -and $env:PROMETHEUS_PASSWORD) {
 # Require at least one report format
 if (-not ($HtmlReport -or $txtReport -or $jsonReport)) {
     Write-Error "You must enable at least one report format: HTML_REPORT, TXT_REPORT, or JSON_REPORT."
+    exit 1
+}
+
+# Radar upload/compare always works with JSON payloads.
+# Enforce JSON_REPORT in container mode so behavior is explicit and predictable.
+if (($RadarUpload -or $RadarCompare) -and -not $jsonReport) {
+    Write-Error "RADAR_UPLOAD/RADAR_COMPARE requires JSON_REPORT=true in container mode."
     exit 1
 }
 
@@ -137,6 +152,14 @@ $parameters = @{
     PrometheusMode           = $PrometheusMode
     PrometheusCredential     = $PrometheusCredential
     PrometheusBearerTokenEnv = $PrometheusBearerTokenEnv
+    RadarUpload              = $RadarUpload
+    RadarCompare             = $RadarCompare
+    RadarFetchConfig         = $RadarFetchConfig
+    RadarConfigId            = $RadarConfigId
+    RadarApiBaseUrl          = $RadarApiBaseUrl
+    RadarEnvironment         = $RadarEnvironment
+    RadarApiUserEnv          = $RadarApiUserEnv
+    RadarApiPasswordEnv      = $RadarApiPasswordEnv
 }
 
 try {

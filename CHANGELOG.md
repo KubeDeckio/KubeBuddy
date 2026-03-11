@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.0.25] - 2026-03-09
+
+### Added
+
+* **KubeBuddy Radar cluster reports workflow**
+  * Added secure upload of JSON scan reports into KubeBuddy Radar for Pro users.
+  * Added report history, score trends, and compare workflows in Radar so cluster improvements and regressions are easier to track over time.
+  * Added support for comparing previous scans from the same cluster or across different clusters in the Radar UI.
+
+* **Radar cluster config profiles and command builder**
+  * Added a new Cluster Configs experience in Radar for saving per-cluster scan profiles.
+  * Added command and `kubebuddy-config.yaml` generation so operators can copy the exact command they need without building it manually.
+  * Added the ability to seed starter profiles from previously uploaded cluster reports.
+
+* **Radar config pull support in KubeBuddy CLI**
+  * Added `-RadarFetchConfig` and `-RadarConfigId` so KubeBuddy can pull a saved Radar profile before running a scan.
+  * Added `run.ps1` support for Radar config fetch so Docker-based runs can use the same saved profiles.
+
+### Changed
+
+* **Cluster identity and report grouping**
+  * Updated Radar and CLI flows so cluster history is grouped around the actual cluster name.
+  * Reduced reliance on a separate Radar environment value in the UI to keep the model simpler and less confusing.
+
+* **Radar UI improvements for reports and compare**
+  * Renamed and reworked the cluster reporting pages so they read more clearly as reports rather than raw runs.
+  * Improved dashboard cards, report selectors, compare layout, and report navigation to better match the rest of the Radar experience.
+  * Improved compare views so they focus more clearly on what changed between reports.
+
+* **Cluster Configs UX**
+  * Improved the layout, help text, tooltips, field grouping, and defaults for saved scan profiles.
+  * Updated the page to treat Kubernetes as the primary experience, with AKS options shown only when needed.
+  * Added inline API key selection and creation so generated configs can be prepared more easily for Radar uploads.
+
+### Fixed
+
+* **Radar upload and compare reliability**
+  * Fixed multiple upload and compare issues around route handling, compare messaging, and new-report visibility in the portal.
+  * Improved first-run behavior so missing previous-report compare results are handled more cleanly.
+
+* **Cluster metadata consistency**
+  * Fixed AKS report metadata so explicit cluster name, resource group, and subscription values are carried into JSON correctly.
+  * Improved cached AKS data handling to reduce incorrect reuse across different clusters.
+
+* **Namespace exclusion and artifact collection behavior**
+  * Improved how excluded namespaces are represented in JSON and report flows.
+  * Reduced noisy output for missing Gateway API CRDs by suppressing unnecessary resource-type errors when those CRDs are not installed.
+
+
 ## [0.0.24] - 2026-02-26
 
 ### Enhanced
@@ -202,7 +251,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * **New per-node Prometheus view**: click into any node’s card to see its individual metrics and time-series charts right in your report.
   * Plus new `KubeData` settings (URL, mode, credentials, headers, etc.) to configure your Prometheus connection securely.
 
-* **Top 5 Impprovements**: The Overview page now surfaces the five checks whose remediation yields the greatest cluster-health score gain, showing estimated points gain per issue.
+* **Top 5 Improvements**: The Overview page now surfaces the five checks whose remediation yields the greatest cluster-health score gain, showing estimated points gain per issue.
 
 * **“Hero” Issue-Summary cards**
   Right at the top of your HTML report you’ll now see a row of big, color-coded cards showing how many checks failed at each severity level (Critical, Warning, Info).

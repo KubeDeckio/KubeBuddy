@@ -6,7 +6,9 @@ function Create-JsonReport {
         [switch]$aks,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
-        [string]$ClusterName
+        [string]$ClusterName,
+        [string]$PrometheusUrl,
+        [switch]$IncludeRadarArtifacts
     )
 
     # Get cluster metadata
@@ -16,13 +18,30 @@ function Create-JsonReport {
     $generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
     # Initialize results structure
+    $effectivePrometheusUrl = ""
+    if ($KubeData -and $KubeData.PrometheusUrl) {
+        $effectivePrometheusUrl = [string]$KubeData.PrometheusUrl
+    } elseif ($PrometheusUrl) {
+        $effectivePrometheusUrl = [string]$PrometheusUrl
+    }
+
     $results = @{
         metadata = @{
             clusterName       = $clusterName
             kubernetesVersion = $k8sVersion
             generatedAt       = $generatedAt
+            excludeNamespacesEnabled = [bool]$ExcludeNamespaces
+            excludedNamespaces = @()
+            prometheusUrl = $effectivePrometheusUrl
         }
         checks   = @{}
+    }
+
+    if ($ExcludeNamespaces) {
+        $effectiveExcludedNamespaces = @(Get-ExcludedNamespaces)
+        if ($effectiveExcludedNamespaces.Count -gt 0) {
+            $results.metadata.excludedNamespaces = @($effectiveExcludedNamespaces)
+        }
     }
 
     # Run YAML-based checks
@@ -36,14 +55,27 @@ function Create-JsonReport {
         }
     }
 
-    # Handle AKS checks if -aks switch is provided
-    if ($aks -and $KubeData.AksCluster) {
-        # Add filtered AKS metadata
+    # Handle AKS metadata/checks if -aks switch is provided
+    if ($aks) {
+        # Trust explicit CLI AKS identity first; only fall back to discovered values when missing.
+        $aksSubscriptionId = if ($SubscriptionId) { $SubscriptionId } else { $null }
+        $aksResourceGroup = if ($ResourceGroup) { $ResourceGroup } else { $null }
+        $aksClusterName = if ($ClusterName) { $ClusterName } else { $null }
+
+        if ($KubeData -and $KubeData.AksCluster) {
+            if (-not $aksSubscriptionId) { $aksSubscriptionId = $KubeData.AksCluster.subscriptionId }
+            if (-not $aksResourceGroup) { $aksResourceGroup = $KubeData.AksCluster.resourceGroup }
+            if (-not $aksClusterName) { $aksClusterName = $KubeData.AksCluster.clusterName }
+        }
+
+        if ($aksClusterName) {
+            $results.metadata.clusterName = $aksClusterName
+        }
+
         $results.metadata.aks = @{
-            subscriptionId = $KubeData.AksCluster.subscriptionId
-            resourceGroup  = $KubeData.AksCluster.resourceGroup
-            clusterName    = $KubeData.AksCluster.clusterName
-            # Add other relevant AKS metadata as needed
+            subscriptionId = $aksSubscriptionId
+            resourceGroup  = $aksResourceGroup
+            clusterName    = $aksClusterName
         }
 
         # Run AKS best practices checks
@@ -158,6 +190,10 @@ function Create-JsonReport {
         }
 
         $results.metrics = @{ cluster = $clusterMetrics; nodes = $nodeMetricsList }
+    }
+
+    if ($IncludeRadarArtifacts) {
+        $results.artifacts = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
     }
 
     # Write JSON

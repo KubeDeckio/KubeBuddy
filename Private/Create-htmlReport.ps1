@@ -7,7 +7,9 @@ function Generate-K8sHTMLReport {
     [string]$ClusterName,
     [switch]$aks,
     [switch]$ExcludeNamespaces,
-    [object]$KubeData
+    [object]$KubeData,
+    [switch]$IncludeRadarArtifacts,
+    [object]$RadarFreshness
   )
 
   function ConvertToCollapsible {
@@ -551,6 +553,12 @@ $heroRatingHtml
   # Initialize Prometheus HTML content
   $clusterMetricsHtml = ""
   $nodeMetricsHtml = ""
+  $radarArtifactsHtml = ""
+  if ($IncludeRadarArtifacts) {
+    $artifactInventory = Get-KubeBuddyRadarArtifactInventory -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
+    $radarArtifactsHtml = Convert-KubeBuddyRadarArtifactInventoryToHtml -Inventory $artifactInventory -Freshness $RadarFreshness
+  }
+
   if ($KubeData.PrometheusMetrics -and $KubeData.PrometheusMetrics.NodeCpuUsagePercent) {
     Write-Host "📊 Generating Prometheus metrics for Summary and Nodes tabs..." -ForegroundColor Cyan
 
@@ -675,9 +683,6 @@ $heroRatingHtml
     $nodeId = "node_$($nodeName -replace '[^a-zA-Z0-9]', '_')"
 
     $nodeContent = @"
-<div class='collapsible-header' style='background: var(--brand-blue); color: white; padding: 10px 15px; font-size: 16px; font-weight: bold; border-radius: 8px 8px 0 0;'>
-  $nodeName
-</div>
 <div class='recommendation-card node-card'>
   <div style='padding: 15px;'>
     <p><strong>OS:</strong> $osImage<br>
@@ -744,15 +749,6 @@ $heroRatingHtml
 
   $nodeSectionHeader = @"
 <div class="container">
-<h2 style='margin-bottom: 10px;'>
-  Node Conditions & Metrics (Last 24h)
-  <span class='tooltip'>
-    <span class='info-icon'>i</span>
-    <span class='tooltip-text'>
-      This section provides detailed metrics and configuration for each Kubernetes node including CPU, memory, and disk usage, as well as OS and runtime details.
-    </span>
-  </span>
-</h2>
 <div class="material-input with-icon">
   <i class="material-icons">search</i>
   <div style="position: relative; width: 100%;">
@@ -950,6 +946,7 @@ $heroRatingHtml
         </div>
       </div>
     </div>
+    $radarArtifactsHtml
   </div>
 </div>
 <div class="tab-content" id="nodes">

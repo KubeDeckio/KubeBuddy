@@ -1,6 +1,7 @@
 // Ensure DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded, initializing charts');
+    initReportThemePicker();
 
     let lightbox = document.querySelector('.chart-lightbox');
     if (!lightbox) {
@@ -19,6 +20,51 @@ document.addEventListener('DOMContentLoaded', () => {
         if (score < 50) return '#B71C1C';
         if (score < 80) return '#ffa000';
         return '#4CAF50';
+    }
+
+    function buildChartTheme(unit, xTitle = 'Time (Last 24h)', showLegend = true) {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: unit,
+                        color: 'rgba(226, 236, 248, 0.92)'
+                    },
+                    ticks: {
+                        color: 'rgba(210, 224, 243, 0.88)'
+                    },
+                    grid: {
+                        color: 'rgba(154, 177, 206, 0.22)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: xTitle,
+                        color: 'rgba(226, 236, 248, 0.92)'
+                    },
+                    ticks: {
+                        color: 'rgba(210, 224, 243, 0.88)'
+                    },
+                    grid: {
+                        color: 'rgba(154, 177, 206, 0.12)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: showLegend,
+                    labels: {
+                        color: 'rgba(232, 241, 255, 0.94)'
+                    }
+                },
+                tooltip: { mode: 'index', intersect: false }
+            }
+        };
     }
 
     const filteredNodeCards = document.getElementById('filteredNodeCards');
@@ -106,18 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         tension: 0.4
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, title: { display: true, text: unit } },
-                        x: { title: { display: true, text: 'Time (Last 24h)' } }
-                    },
-                    plugins: {
-                        legend: { display: true },
-                        tooltip: { mode: 'index', intersect: false }
-                    }
-                }
+                options: buildChartTheme(unit)
             });
         } catch (e) {
             console.error(`Failed to render line chart (${label}):`, e);
@@ -224,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 display: true,
                                 text: `${data.value} Nodes`,
                                 position: 'bottom',
+                                color: 'rgba(232, 241, 255, 0.94)',
                                 font: { size: 16 }
                             }
                         }
@@ -1074,4 +1110,62 @@ function sortNodeCards(container) {
             .localeCompare(b.querySelector('.node-name').textContent);
     });
     cards.forEach(c => container.appendChild(c));
+}
+
+function getSavedReportTheme() {
+    const fallback = 'original';
+    try {
+        const saved = localStorage.getItem('kb_report_theme');
+        return (saved === 'radar' || saved === 'original') ? saved : fallback;
+    } catch (error) {
+        return fallback;
+    }
+}
+
+function applyReportTheme(theme) {
+    const selected = (theme === 'radar' || theme === 'original') ? theme : 'original';
+    if (selected === 'radar') {
+        document.documentElement.setAttribute('data-kb-theme', 'radar');
+    } else {
+        document.documentElement.removeAttribute('data-kb-theme');
+    }
+    try {
+        localStorage.setItem('kb_report_theme', selected);
+    } catch (error) {
+        // Ignore storage failures.
+    }
+}
+
+function initReportThemePicker() {
+    if (document.querySelector('.kb-theme-picker')) return;
+
+    const selectedTheme = getSavedReportTheme();
+    applyReportTheme(selectedTheme);
+
+    const picker = document.createElement('div');
+    picker.className = 'kb-theme-picker';
+    picker.innerHTML = `
+      <label for="kb-theme-picker-select">Theme</label>
+      <select id="kb-theme-picker-select" aria-label="Report theme">
+        <option value="original">Original</option>
+        <option value="radar">Radar</option>
+      </select>
+    `;
+
+    const select = picker.querySelector('#kb-theme-picker-select');
+    if (select) {
+        select.value = selectedTheme;
+        select.addEventListener('change', (event) => {
+            applyReportTheme(event.target.value);
+        });
+    }
+
+    const navDrawer = document.getElementById('navDrawer');
+    if (navDrawer) {
+        picker.classList.add('kb-theme-picker-menu');
+        navDrawer.appendChild(picker);
+    } else {
+        picker.classList.add('kb-theme-picker-floating');
+        document.body.appendChild(picker);
+    }
 }

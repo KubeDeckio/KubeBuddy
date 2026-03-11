@@ -50,6 +50,18 @@ The following table provides a quick reference for KubeBuddy powered by KubeDeck
 | Run a KubeBuddy powered by KubeDeck with an AKS Best Practices Check | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
 | Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 | Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
+| Upload JSON scan to Radar (Pro) | `Invoke-KubeBuddy -jsonReport -RadarUpload -RadarEnvironment prod` |
+| Compare latest run with previous in Radar (Pro) | `Invoke-KubeBuddy -jsonReport -RadarUpload -RadarCompare -RadarEnvironment prod` |
+| Fetch a saved Radar cluster config (Pro) | `Invoke-KubeBuddy -RadarFetchConfig -RadarConfigId <cluster-config-id>` |
+
+Radar uploads always use the JSON report payload.
+
+Set your Radar credentials first (WordPress username + Application Password):
+
+```powershell
+$env:KUBEBUDDY_RADAR_API_USER = "<wordpress-username>"
+$env:KUBEBUDDY_RADAR_API_PASSWORD = "<wordpress-app-password>"
+```
 
 ## 1. Running KubeBuddy powered by KubeDeck
 
@@ -214,6 +226,14 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 | `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `-OutputPath`.                                                   |
 | `-JsonReport`            | Switch   | (N/A)                                | Generates a JSON report in `-OutputPath`.                                                    |
 | `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `-OutputPath`.                                                   |
+| `-RadarUpload`           | Switch   | (N/A)                                | Uploads generated JSON report to KubeBuddy Radar (Pro feature).                              |
+| `-RadarCompare`          | Switch   | (N/A)                                | Fetches run-to-run compare summary from Radar after upload.                                   |
+| `-RadarFetchConfig`      | Switch   | (N/A)                                | Fetches a saved Radar cluster config and applies it before the scan runs.                     |
+| `-RadarConfigId`         | String   | (None)                               | Radar cluster config ID to fetch (for example `ccfg_...`).                                    |
+| `-RadarApiBaseUrl`       | String   | `https://radar.kubebuddy.io/api/kb-radar/v1` | Overrides Radar API base URL.                                                          |
+| `-RadarEnvironment`      | String   | `prod`                               | Environment label used by Radar (for example `prod`, `staging`, `dev`).                      |
+| `-RadarApiUserEnv`       | String   | `KUBEBUDDY_RADAR_API_USER`           | Environment variable name containing Radar username.                                          |
+| `-RadarApiPasswordEnv`   | String   | `KUBEBUDDY_RADAR_API_PASSWORD`       | Environment variable name containing Radar app password.                                      |
 
 ### Cluster-Specific Config Files
 

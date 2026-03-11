@@ -75,41 +75,42 @@
     --md-metrics-border: rgba(0, 113, 255, 0.2);
     --md-divider: rgba(15, 23, 42, 0.1);
     --md-section-bg: #f8fafc;
+    --md-hero-overlay: linear-gradient(180deg, rgba(7, 29, 68, 0.54), rgba(7, 29, 68, 0.34));
   }
 
   [data-md-color-scheme="slate"],
   [data-md-color-scheme="dark"] {
-    --md-primary-fg-color: #0071FF;
+    --md-primary-fg-color: #02baff;
     --md-primary-fg-color--light: #5ad6ff;
     --md-primary-fg-color--dark: #0284c7;
     --md-default-fg-color--light: #5ad6ff;
     --md-accent-fg-color: #02baff;
-    --md-primary-bg-color: #0d1117;
-    --md-default-bg-color: #0d1117;
-    --md-default-fg-color: #e6edf3;
-    --md-text-secondary: #8b949e;
-    --md-card-bg-color: #161b22;
-    --md-card-border-color: #30363d;
-    --md-card-bg-hover: #1c2128;
-    --md-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.4);
-    --md-card-shadow-hover: 0 0 0 1px rgba(0, 113, 255, 0.3), 0 8px 24px rgba(0, 0, 0, 0.5);
+    --md-primary-bg-color: #16253d;
+    --md-default-bg-color: #16253d;
+    --md-default-fg-color: #e8f1ff;
+    --md-text-secondary: #b7c8e1;
+    --md-card-bg-color: rgba(44, 61, 87, 0.84);
+    --md-card-border-color: rgba(135, 161, 199, 0.18);
+    --md-card-bg-hover: rgba(49, 68, 95, 0.94);
+    --md-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 18px 38px rgba(2, 12, 27, 0.26);
+    --md-card-shadow-hover: 0 0 0 1px rgba(2, 186, 255, 0.18), 0 22px 44px rgba(2, 12, 27, 0.32), 0 0 24px rgba(2, 186, 255, 0.08);
     --md-card-title-color: #02baff;
-    --md-card-text-color: #8b949e;
-    --md-callout-bg: #161b22;
-    --md-workflow-bg-start: #0d1117;
-    --md-workflow-bg-end: #161b22;
-    --md-code-bg: #161b22;
-    --md-code-fg: #e6edf3;
-    --md-header-bg: #0071FF;
-    --md-header-border: #0071FF;
-    --md-page-bg: #0f172a;
-    --md-page-bg-alt: #1e293b;
-    --md-hero-overlay: rgba(0, 0, 0, 0.75);
+    --md-card-text-color: #b7c8e1;
+    --md-callout-bg: rgba(44, 61, 87, 0.82);
+    --md-workflow-bg-start: #16253d;
+    --md-workflow-bg-end: #122033;
+    --md-code-bg: rgba(13, 24, 40, 0.96);
+    --md-code-fg: #e8f1ff;
+    --md-header-bg: linear-gradient(90deg, #0069ff 0%, #02baff 100%);
+    --md-header-border: rgba(255, 255, 255, 0.08);
+    --md-page-bg: #16253d;
+    --md-page-bg-alt: #122033;
+    --md-hero-overlay: linear-gradient(180deg, rgba(8, 18, 33, 0.58), rgba(8, 18, 33, 0.76));
     --md-hero-text: #f0f6fc;
-    --md-metrics-bg: rgba(22, 27, 34, 0.95);
-    --md-metrics-border: rgba(0, 113, 255, 0.3);
-    --md-divider: rgba(48, 54, 61, 0.5);
-    --md-section-bg: #0f172a;
+    --md-metrics-bg: rgba(44, 61, 87, 0.7);
+    --md-metrics-border: rgba(2, 186, 255, 0.22);
+    --md-divider: rgba(135, 161, 199, 0.16);
+    --md-section-bg: #16253d;
   }
 
   html {
@@ -118,7 +119,10 @@
   
   body {
     scroll-snap-type: y mandatory;
-    background: var(--md-page-bg);
+    background:
+      radial-gradient(circle at top left, rgba(2, 186, 255, 0.08), transparent 24%),
+      radial-gradient(circle at top right, rgba(0, 105, 255, 0.1), transparent 22%),
+      var(--md-page-bg);
     color: var(--md-default-fg-color);
     font-family: "Segoe UI", "Inter", -apple-system, sans-serif;
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -140,7 +144,6 @@
     justify-content: space-between;
     padding: 1rem 2rem;
     background: var(--md-header-bg);
-    border-bottom: 1px solid var(--md-header-border);
     width: 100%;
   }
 
@@ -155,6 +158,24 @@
 
   .md-header a {
     color: #ffffff !important;
+  }
+
+  [data-md-color-scheme="default"] .md-header,
+  [data-md-color-scheme="default"] .md-header__button,
+  [data-md-color-scheme="default"] .md-header__topic,
+  [data-md-color-scheme="default"] .md-header .md-header__title,
+  [data-md-color-scheme="default"] .md-tabs__link,
+  [data-md-color-scheme="default"] .md-tabs__item,
+  [data-md-color-scheme="default"] .md-header a,
+  [data-md-color-scheme="light"] .md-header,
+  [data-md-color-scheme="light"] .md-header__button,
+  [data-md-color-scheme="light"] .md-header__topic,
+  [data-md-color-scheme="light"] .md-header .md-header__title,
+  [data-md-color-scheme="light"] .md-tabs__link,
+  [data-md-color-scheme="light"] .md-tabs__item,
+  [data-md-color-scheme="light"] .md-header a {
+    color: #f8fbff !important;
+    text-shadow: none;
   }
 
   .md-main {
@@ -208,7 +229,7 @@
     width: 100%;
     margin: 0 auto;
     padding: 4rem 2rem;
-    background: var(--md-section-bg);
+    background: transparent;
     color: var(--md-default-fg-color);
     text-align: center;
     display: flex;
@@ -226,7 +247,9 @@
     display: flex; /* Use flex to center children */
     flex-direction: column;
     align-items: center; /* Center children horizontally */
-    background: url("images/header.png") center/cover no-repeat;
+    background:
+      radial-gradient(circle at top right, rgba(2, 186, 255, 0.16), transparent 34%),
+      url("images/header.png") center/cover no-repeat;
     color: var(--md-hero-text);
     z-index: 1;
   }
@@ -274,19 +297,19 @@
     padding: 0.75rem 2rem;
     font-size: 1.1rem;
     font-weight: 600;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #02baff 0%, #0284c7 100%);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #02baff 0%, #0069ff 100%);
     color: #ffffff !important;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(2, 186, 255, 0.35);
+    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.12), 0 16px 28px rgba(2, 12, 27, 0.28);
     text-decoration: none;
   }
   .cta-button:hover {
-    background: linear-gradient(135deg, #0284c7 0%, #026aa1 100%);
+    background: linear-gradient(135deg, #29ccff 0%, #0284c7 100%);
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(2, 186, 255, 0.45);
+    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.18), 0 22px 36px rgba(2, 12, 27, 0.3), 0 0 22px rgba(2, 186, 255, 0.08);
   }
 
   .feature-grid {
@@ -301,9 +324,9 @@
   }
 
   .feature-card {
-    background: var(--md-card-bg-color);
+    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
     padding: 2rem;
-    border-radius: 12px;
+    border-radius: 18px;
     border: 1px solid var(--md-card-border-color);
     box-shadow: var(--md-shadow);
     transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.2s ease, border-color 0.2s ease;
@@ -334,10 +357,10 @@
   }
 
   .info-card {
-    background: var(--md-card-bg-color);
+    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
     color: var(--md-default-fg-color);
     border: 1px solid var(--md-card-border-color);
-    border-radius: 12px;
+    border-radius: 18px;
     padding: 2rem;
     text-align: center;
     margin: 3rem auto;
@@ -374,9 +397,9 @@
 
   .workflow-step {
     flex: 1 1 280px;
-    background: var(--md-card-bg-color);
+    background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
     padding: 2rem;
-    border-radius: 12px;
+    border-radius: 18px;
     border: 1px solid var(--md-card-border-color);
     box-shadow: var(--md-shadow);
     text-align: center;
@@ -398,7 +421,7 @@
     top: -1.5rem;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--md-primary-fg-color);
+    background: linear-gradient(135deg, #02baff, #0069ff);
     color: var(--md-hero-text);
     width: 3rem;
     height: 3rem;
@@ -562,59 +585,100 @@
   /* ====== Material-style metrics card ====== */
   .metrics-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0;
-    margin: 2rem auto 0;
-    max-width: 900px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin: 2.4rem auto 3.2rem;
+    max-width: 1080px;
     width: 100%;
-    background: var(--md-metrics-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--md-metrics-border);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: var(--md-shadow);
-    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .metric {
-    padding: 1.25rem 1rem;
+    min-height: 136px;
+    padding: 1.35rem 1rem 1.2rem;
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
+    border-radius: 18px;
+    border: 1px solid rgba(2, 186, 255, 0.18);
+    box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 20px 34px rgba(2, 12, 27, 0.26);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .metric-neon-blue {
+    background: linear-gradient(135deg, rgba(0, 194, 255, 0.24), rgba(0, 194, 255, 0.1));
+    border-color: rgba(2, 186, 255, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(2, 186, 255, 0.18),
+      0 0 24px rgba(2, 186, 255, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
+  }
+
+  .metric-neon-green {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.24), rgba(46, 204, 113, 0.1));
+    border-color: rgba(46, 204, 113, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(46, 204, 113, 0.18),
+      0 0 24px rgba(46, 204, 113, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
+  }
+
+  .metric-neon-red {
+    background: linear-gradient(135deg, rgba(255, 92, 117, 0.22), rgba(255, 92, 117, 0.1));
+    border-color: rgba(255, 92, 117, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 92, 117, 0.18),
+      0 0 24px rgba(255, 92, 117, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
+  }
+
+  .metric-neon-amber {
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.22), rgba(245, 166, 35, 0.1));
+    border-color: rgba(245, 166, 35, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(245, 166, 35, 0.18),
+      0 0 24px rgba(245, 166, 35, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
+  }
+
+  .metric-neon-purple {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.24), rgba(168, 85, 247, 0.1));
+    border-color: rgba(168, 85, 247, 0.34);
+    box-shadow:
+      inset 0 0 0 1px rgba(168, 85, 247, 0.18),
+      0 0 24px rgba(168, 85, 247, 0.08),
+      0 20px 34px rgba(2, 12, 27, 0.26);
   }
 
   /* vertical divider on every item except the last */
-  .metric:not(:last-child) {
-    border-right: 1px solid var(--md-divider);
-  }
-
   .metric-value {
-    font-size: 1.75rem;
-    font-weight: 500;
+    font-size: 3rem;
+    font-weight: 700;
     line-height: 1;
-    color: var(--md-primary-fg-color);
+    color: #eaf3ff;
+    letter-spacing: -0.04em;
   }
 
   .metric-label {
-    margin-top: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--md-primary-fg-color--light) !important;
+    margin-top: 0.7rem;
+    max-width: 140px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #9ee8ff !important;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.12em;
+    line-height: 1.35;
   }
   .metric {
     position: relative;
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.2s ease, background-color 0.2s ease;
-    background: transparent;
   }
   .metric:hover { 
-    transform: translateY(-2px);
-    background: rgba(0, 113, 255, 0.05);
+    transform: translateY(-4px);
   }
   .metric::after {
     content: '';
@@ -641,25 +705,12 @@
     .metrics-bar {
       grid-template-columns: 1fr;
     }
-    .metric:not(:last-child) {
-      /* swap vertical dividers for horizontal */
-      border-right: none;
-      border-bottom: 1px solid var(--md-divider);
-    }
   }
 
   /* tablets / larger phones: two columns */
   @media (min-width: 481px) and (max-width: 768px) {
     .metrics-bar {
       grid-template-columns: repeat(2, 1fr);
-    }
-    .metric:not(:nth-child(2n)) {
-      /* only draw a divider on the right of odd items */
-      border-right: 1px solid var(--md-divider);
-    }
-    /* remove bottom border on the last row */
-    .metric:nth-last-child(-n + 2) {
-      border-bottom: none;
     }
   }
 
@@ -847,124 +898,633 @@ z-index: 1;
   margin-top: -1px;
 }
 
+.hero-tag-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 214, 255, 0.2);
+  background: rgba(23, 38, 63, 0.64);
+  box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 10px 22px rgba(2, 12, 27, 0.18);
+  color: #9ee8ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-tag-secondary {
+  color: #ffd86a;
+  border-color: rgba(255, 216, 106, 0.22);
+}
+
+.dual-cta {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cta-button-secondary {
+  background: rgba(23, 38, 63, 0.72);
+  color: #dff3ff !important;
+  border: 1px solid rgba(90, 214, 255, 0.18);
+}
+
+.cta-button-secondary:hover {
+  background: rgba(31, 49, 77, 0.92);
+}
+
+.product-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.product-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.8rem;
+  border-radius: 22px;
+  border: 1px solid rgba(90, 214, 255, 0.18);
+  background: linear-gradient(180deg, rgba(49, 68, 95, 0.96), rgba(36, 52, 77, 0.96));
+  box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 22px 42px rgba(2, 12, 27, 0.3);
+  text-align: left;
+}
+
+.product-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at top right, rgba(2, 186, 255, 0.12), transparent 36%);
+}
+
+.product-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.product-card-neon-blue,
+.tool-card-neon-blue,
+.signal-card-neon-blue,
+.workflow-step-neon-blue {
+  border-color: rgba(2, 186, 255, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(2, 186, 255, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(2, 186, 255, 0.09);
+}
+
+.product-card-neon-amber,
+.tool-card-neon-amber,
+.signal-card-neon-amber,
+.workflow-step-neon-amber {
+  border-color: rgba(245, 166, 35, 0.34);
+  box-shadow:
+    0 0 0 1px rgba(245, 166, 35, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(245, 166, 35, 0.1);
+}
+
+.product-card-neon-red,
+.tool-card-neon-red,
+.signal-card-neon-red,
+.workflow-step-neon-red {
+  border-color: rgba(255, 92, 117, 0.34);
+  box-shadow:
+    0 0 0 1px rgba(255, 92, 117, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(255, 92, 117, 0.1);
+}
+
+.product-card-neon-green,
+.tool-card-neon-green,
+.signal-card-neon-green,
+.workflow-step-neon-green {
+  border-color: rgba(46, 204, 113, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(46, 204, 113, 0.14),
+    0 22px 42px rgba(2, 12, 27, 0.3),
+    0 0 24px rgba(46, 204, 113, 0.08);
+}
+
+.product-kicker {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(2, 186, 255, 0.12);
+  border: 1px solid rgba(2, 186, 255, 0.2);
+  color: #9ee8ff;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.product-card h3 {
+  margin: 0 0 0.8rem;
+  font-size: 1.7rem;
+}
+
+.product-card p {
+  margin: 0 0 1rem;
+}
+
+.product-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.product-points li {
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: rgba(22, 34, 56, 0.54);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--md-default-fg-color);
+}
+
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.4rem;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.signal-card {
+  padding: 1.5rem;
+  border-radius: 20px;
+  border: 1px solid rgba(90, 214, 255, 0.16);
+  background: linear-gradient(180deg, rgba(49, 68, 95, 0.94), rgba(36, 52, 77, 0.94));
+  box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 18px 36px rgba(2, 12, 27, 0.24);
+  text-align: left;
+}
+
+.signal-card h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1.25rem;
+}
+
+.signal-card p {
+  margin: 0;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.tool-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.8rem;
+  border-radius: 22px;
+  border: 1px solid rgba(90, 214, 255, 0.18);
+  background: linear-gradient(180deg, rgba(49, 68, 95, 0.96), rgba(36, 52, 77, 0.96));
+  box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.08), 0 22px 42px rgba(2, 12, 27, 0.3);
+  text-align: left;
+}
+
+.tool-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at top right, rgba(2, 186, 255, 0.12), transparent 36%);
+}
+
+.tool-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.tool-card h3 {
+  margin: 0.2rem 0 0.8rem;
+  font-size: 1.7rem;
+}
+
+.tool-card p {
+  margin: 0 0 1rem;
+}
+
+.tool-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-top: 1.1rem;
+}
+
+.tool-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 214, 255, 0.24);
+  background: linear-gradient(135deg, rgba(34, 58, 94, 0.98), rgba(20, 37, 67, 0.98));
+  color: #f5fbff !important;
+  text-decoration: none !important;
+  font-weight: 700;
+  font-size: 0.92rem;
+  box-shadow: 0 12px 22px rgba(2, 12, 27, 0.2);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+  .tool-link:hover {
+    transform: translateY(-2px);
+    border-color: rgba(90, 214, 255, 0.4);
+    color: #ffffff !important;
+    box-shadow: 0 16px 28px rgba(2, 12, 27, 0.26), 0 0 18px rgba(2, 186, 255, 0.08);
+  }
+
+  .tool-card-neon-blue .tool-link {
+    background: linear-gradient(135deg, rgba(2, 186, 255, 0.3), rgba(0, 105, 255, 0.26));
+    border-color: rgba(2, 186, 255, 0.34);
+    color: #f5fbff !important;
+    box-shadow: 0 14px 24px rgba(2, 12, 27, 0.22), 0 0 18px rgba(2, 186, 255, 0.08);
+  }
+
+  .tool-card-neon-blue .tool-link:hover {
+    background: linear-gradient(135deg, rgba(2, 186, 255, 0.42), rgba(0, 105, 255, 0.34));
+    border-color: rgba(90, 214, 255, 0.5);
+  }
+
+  .tool-card-neon-amber .tool-link {
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.26), rgba(255, 216, 106, 0.18));
+    border-color: rgba(245, 166, 35, 0.34);
+    color: #fff4d0 !important;
+    box-shadow: 0 14px 24px rgba(2, 12, 27, 0.22), 0 0 18px rgba(245, 166, 35, 0.08);
+  }
+
+  .tool-card-neon-amber .tool-link:hover {
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.38), rgba(255, 216, 106, 0.26));
+    border-color: rgba(255, 216, 106, 0.5);
+  }
+
+  [data-md-color-scheme="default"] .hero-tag,
+  [data-md-color-scheme="light"] .hero-tag {
+    background: rgba(255, 255, 255, 0.82);
+    border-color: rgba(2, 113, 255, 0.14);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    color: #0a7ac8;
+  }
+
+  [data-md-color-scheme="default"] .hero-tag-secondary,
+  [data-md-color-scheme="light"] .hero-tag-secondary {
+    color: #b7791f;
+    border-color: rgba(245, 166, 35, 0.22);
+  }
+
+  [data-md-color-scheme="default"] .product-card,
+  [data-md-color-scheme="default"] .tool-card,
+  [data-md-color-scheme="default"] .signal-card,
+  [data-md-color-scheme="default"] .workflow-step,
+  [data-md-color-scheme="light"] .product-card,
+  [data-md-color-scheme="light"] .tool-card,
+  [data-md-color-scheme="light"] .signal-card,
+  [data-md-color-scheme="light"] .workflow-step {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 255, 0.96));
+    border-color: rgba(2, 113, 255, 0.14);
+    box-shadow: 0 0 0 1px rgba(2, 113, 255, 0.05), 0 16px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-md-color-scheme="default"] .product-points li,
+  [data-md-color-scheme="default"] .tool-card .product-points li,
+  [data-md-color-scheme="light"] .product-points li,
+  [data-md-color-scheme="light"] .tool-card .product-points li {
+    background: rgba(240, 247, 255, 0.96);
+    border-color: rgba(2, 113, 255, 0.08);
+    color: #1e293b;
+  }
+
+  [data-md-color-scheme="default"] .tool-link,
+  [data-md-color-scheme="light"] .tool-link {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(236, 245, 255, 0.98));
+    border-color: rgba(2, 113, 255, 0.18);
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    color: #0e4f82 !important;
+  }
+
+  [data-md-color-scheme="default"] .tool-link:hover,
+  [data-md-color-scheme="light"] .tool-link:hover {
+    color: #0268a8 !important;
+    border-color: rgba(2, 186, 255, 0.3);
+    box-shadow: 0 14px 26px rgba(2, 113, 255, 0.12);
+  }
+
+  [data-md-color-scheme="default"] .tool-card-neon-blue .tool-link,
+  [data-md-color-scheme="light"] .tool-card-neon-blue .tool-link {
+    background: linear-gradient(180deg, rgba(224, 244, 255, 0.98), rgba(206, 236, 255, 0.98));
+    border-color: rgba(2, 186, 255, 0.28);
+    color: #045b91 !important;
+    box-shadow: 0 12px 22px rgba(2, 113, 255, 0.12);
+  }
+
+  [data-md-color-scheme="default"] .tool-card-neon-blue .tool-link:hover,
+  [data-md-color-scheme="light"] .tool-card-neon-blue .tool-link:hover {
+    background: linear-gradient(180deg, rgba(206, 236, 255, 1), rgba(188, 229, 255, 1));
+    border-color: rgba(2, 186, 255, 0.38);
+    color: #024d7b !important;
+  }
+
+  [data-md-color-scheme="default"] .tool-card-neon-amber .tool-link,
+  [data-md-color-scheme="light"] .tool-card-neon-amber .tool-link {
+    background: linear-gradient(180deg, rgba(255, 246, 224, 0.98), rgba(255, 237, 196, 0.98));
+    border-color: rgba(245, 166, 35, 0.28);
+    color: #9a5a00 !important;
+    box-shadow: 0 12px 22px rgba(245, 166, 35, 0.12);
+  }
+
+  [data-md-color-scheme="default"] .tool-card-neon-amber .tool-link:hover,
+  [data-md-color-scheme="light"] .tool-card-neon-amber .tool-link:hover {
+    background: linear-gradient(180deg, rgba(255, 239, 202, 1), rgba(255, 228, 176, 1));
+    border-color: rgba(245, 166, 35, 0.4);
+    color: #7a4700 !important;
+  }
+
+  [data-md-color-scheme="default"] .cta-button-secondary,
+  [data-md-color-scheme="light"] .cta-button-secondary {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(235, 244, 255, 0.98));
+    border-color: rgba(2, 113, 255, 0.16);
+    color: #11406d !important;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-md-color-scheme="default"] .cta-button-secondary:hover,
+  [data-md-color-scheme="light"] .cta-button-secondary:hover {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(224, 239, 255, 1));
+    border-color: rgba(2, 186, 255, 0.28);
+    color: #0a5f9a !important;
+    box-shadow: 0 16px 28px rgba(2, 113, 255, 0.12);
+  }
+
+  [data-md-color-scheme="default"] .cta-button,
+  [data-md-color-scheme="light"] .cta-button {
+    box-shadow: 0 14px 28px rgba(0, 113, 255, 0.16);
+  }
+
+  [data-md-color-scheme="default"] .metric,
+  [data-md-color-scheme="light"] .metric {
+    box-shadow: 0 0 0 1px rgba(2, 113, 255, 0.05), 0 14px 26px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-md-color-scheme="default"] .metric-value,
+  [data-md-color-scheme="light"] .metric-value {
+    color: #10243a;
+  }
+
+  [data-md-color-scheme="default"] .metric-label,
+  [data-md-color-scheme="light"] .metric-label {
+    color: #0a7ac8 !important;
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-blue,
+  [data-md-color-scheme="light"] .metric-neon-blue {
+    background: linear-gradient(135deg, rgba(2, 186, 255, 0.12), rgba(2, 186, 255, 0.04));
+    border-color: rgba(2, 186, 255, 0.24);
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-green,
+  [data-md-color-scheme="light"] .metric-neon-green {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.12), rgba(46, 204, 113, 0.04));
+    border-color: rgba(46, 204, 113, 0.24);
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-amber,
+  [data-md-color-scheme="light"] .metric-neon-amber {
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.12), rgba(245, 166, 35, 0.04));
+    border-color: rgba(245, 166, 35, 0.24);
+  }
+
+  [data-md-color-scheme="default"] .metric-neon-purple,
+  [data-md-color-scheme="light"] .metric-neon-purple {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(168, 85, 247, 0.04));
+    border-color: rgba(168, 85, 247, 0.24);
+  }
+
+.workflow-step strong {
+  display: inline-block;
+  margin-top: 0.8rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(2, 186, 255, 0.2);
+  background: rgba(2, 186, 255, 0.1);
+  color: #9ee8ff;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media screen and (max-width: 900px) {
+  .product-split,
+  .signal-grid,
+  .tools-grid {
+    grid-template-columns: 1fr;
+    padding: 0 1rem;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .hero-content {
+    max-width: 100%;
+    padding: 2rem 1rem;
+  }
+
+  .hero-wrap h1 {
+    width: min(100%, 10ch);
+    margin-left: auto;
+    margin-right: auto;
+    font-size: clamp(2.5rem, 13vw, 4rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .hero-subhead {
+    max-width: 34rem;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+  }
+
+  .hero-tag-row {
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .hero-wrap {
+    padding: 4.5rem 1rem 3.5rem;
+  }
+
+  .hero-wrap h1 {
+    width: min(100%, 9ch);
+    font-size: clamp(2.3rem, 15vw, 3.8rem);
+    line-height: 0.94;
+  }
+
+  .hero-subhead {
+    max-width: 20rem;
+    font-size: 1.02rem;
+    line-height: 1.55;
+  }
+}
+
 </style>
 
 <!-- Hero + Metrics Section -->
 <section class="hero-wrap">
   <div class="hero-content">
+    <div class="hero-tag-row">
+      <span class="hero-tag">KubeBuddy CLI</span>
+      <span class="hero-tag hero-tag-secondary">Works with KubeBuddy Radar</span>
+    </div>
     <h1>Kubernetes says your cluster is healthy. It’s probably not.</h1>
     <p class="hero-subhead">
-      Stop guessing. Start fixing your cluster in seconds – now with 
-      <span class="ai-badge">built-in 🤖 AI</span> guidance.
+      KubeBuddy scans from your terminal or Docker container, generates HTML and JSON reports,
+      and helps you catch health, security, configuration, and AKS issues fast.
     </p>
-    <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
+    <div class="dual-cta">
+      <a href="{{ 'cli/' | url }}" class="cta-button">Start with the CLI</a>
+      <a href="{{ 'kubebuddy-radar-cli-integration/' | url }}" class="cta-button cta-button-secondary">See Radar Integration</a>
+    </div>
   </div>
 </section>
 
 <!-- Metrics Bar INSIDE hero -->
 <div class="metrics-bar">
-  <div class="metric">
+  <div class="metric metric-neon-blue">
     <div class="metric-value">100+</div>
     <div class="metric-label">Checks</div>
   </div>
-  <div class="metric">
-    <div class="metric-value">Realtime</div>
-    <div class="metric-label">Scanning</div>
+  <div class="metric metric-neon-green">
+    <div class="metric-value">CLI</div>
+    <div class="metric-label">Local Scans</div>
   </div>
-  <div class="metric">
-    <div class="metric-value">AI</div>
-    <div class="metric-label">Supported</div>
+  <div class="metric metric-neon-amber">
+    <div class="metric-value">HTML</div>
+    <div class="metric-label">Readable Reports</div>
   </div>
-  <div class="metric">
-    <div class="metric-value">v0.0.24</div>
-    <div class="metric-label">Latest Release</div>
+  <div class="metric metric-neon-purple">
+    <div class="metric-value">JSON</div>
+    <div class="metric-label">Automation Ready</div>
   </div>
 </div>
 
 {% endblock %} {% block content %}
 <div class="md-grid md-typeset">
   <section class="section">
-    <h2>Why KubeBuddy?</h2>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <span class="callout-icon">🔍</span>
-        <h3>Comprehensive Diagnostics</h3>
+    <h2>The KubeBuddy Tools</h2>
+    <div class="tools-grid">
+      <div class="tool-card tool-card-neon-blue">
+        <h3>KubeBuddy CLI</h3>
         <p>
-          Detects node failures, pod crashes, security risks, and networking
-          issues with one command.
+          The scanning tool for Kubernetes and AKS. Run it locally, in Docker,
+          on a jump host, or in CI to generate HTML, JSON, and terminal reports.
         </p>
+        <ul class="product-points">
+          <li>Deep cluster, workload, security, and AKS checks.</li>
+          <li>No agents or in-cluster install required.</li>
+          <li>Works as the execution layer for the whole workflow.</li>
+        </ul>
+        <div class="tool-actions">
+          <a href="{{ 'cli/' | url }}" class="tool-link">CLI Docs</a>
+          <a href="{{ 'cli/powershell-usage/' | url }}" class="tool-link">PowerShell</a>
+        </div>
       </div>
-      <div class="feature-card">
-        <span class="callout-icon">🚀</span>
-        <h3>No Cluster Intrusion</h3>
+      <div class="tool-card tool-card-neon-amber">
+        <h3>KubeBuddy Radar</h3>
         <p>
-          Runs externally via your terminal or Docker, requiring no agents or
-          Helm charts.
+          The hosted service for tracking CNCF and cloud-native project releases,
+          getting alerts when new versions land, and reviewing AI-improved release notes.
         </p>
+        <ul class="product-points">
+          <li>Track projects, releases, and changes across the cloud-native ecosystem.</li>
+          <li>Get alerts when new releases happen and route them to the right teams.</li>
+          <li>Use Cluster Reports and Cluster Configs when you want KubeBuddy scan history too.</li>
+        </ul>
+        <div class="tool-actions">
+          <a href="{{ 'radar/' | url }}" class="tool-link">Radar Docs</a>
+          <a href="{{ 'kubebuddy-radar-cli-integration/' | url }}" class="tool-link">Integration</a>
+        </div>
       </div>
-      <div class="feature-card">
-        <span class="callout-icon">📊</span>
-        <h3>Actionable Reports</h3>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Why Teams Use KubeBuddy</h2>
+    <div class="product-split">
+      <div class="product-card product-card-neon-blue">
+        <span class="product-kicker">CLI First</span>
+        <h3>Run the scan where your cluster already lives.</h3>
         <p>
-          Export detailed HTML, JSON, or CLI summaries for quick insights and
-          sharing.
+          Use PowerShell or Docker to scan Kubernetes and AKS without installing
+          agents, Helm charts, or in-cluster components.
         </p>
+        <ul class="product-points">
+          <li>Generate HTML, JSON, and terminal output from the same run.</li>
+          <li>Pull Prometheus metrics when available for richer diagnostics.</li>
+          <li>Run locally, in CI, in Docker, or from a jump host.</li>
+        </ul>
       </div>
-      <div class="feature-card">
-        <span class="callout-icon">🛡️</span>
-        <h3>Clean Execution</h3>
+      <div class="product-card product-card-neon-green">
+        <span class="product-kicker">Built For Action</span>
+        <h3>Get findings you can actually work with.</h3>
         <p>
-          KubeBuddy runs entirely outside your cluster. No agents, no config
-          drift, no exposure.
+          KubeBuddy is designed to move from detection to action fast, with clear
+          reports and consistent checks across clusters.
         </p>
-      </div>
-      <div class="feature-card">
-        <span class="callout-icon">🧪</span>
-        <h3>Stateless by Design</h3>
-        <p>
-          Scans don't persist anything. No runtime footprint, no security
-          baggage.
-        </p>
-      </div>
-      <div class="feature-card">
-        <span class="callout-icon">⚡</span>
-        <h3>Runs Anywhere</h3>
-        <p>Use it locally, in CI/CD, or on a jump host — wherever you work.</p>
+        <ul class="product-points">
+          <li>Catch node, pod, workload, RBAC, network, and storage issues in one pass.</li>
+          <li>Run AKS best-practice checks when you need provider-specific coverage.</li>
+          <li>Keep the cluster untouched while you inspect it from outside.</li>
+        </ul>
       </div>
     </div>
   </section>
 
   <section class="section checks-bg">
     <h2>What KubeBuddy Checks</h2>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <h3>Node & Pod Health</h3>
-        <p>Identifies failed nodes, pending pods, and crash loops.</p>
+    <div class="signal-grid">
+      <div class="signal-card signal-card-neon-green">
+        <h3>Node And Pod Health</h3>
+        <p>Find crash loops, failing workloads, noisy nodes, broken probes, and cluster drift before they become outages.</p>
       </div>
-      <div class="feature-card">
-        <h3>Security Risks</h3>
-        <p>
-          Scans for risky roles, excessive bindings, and exposed permissions.
-        </p>
+      <div class="signal-card signal-card-neon-red">
+        <h3>Security And RBAC</h3>
+        <p>Catch risky RBAC, exposed privileges, insecure defaults, weak registries, and config mistakes that stay hidden in dashboards.</p>
       </div>
-      <div class="feature-card">
-        <h3>Networking & Storage</h3>
-        <p>Checks PVCs, services, policies, and reachability issues.</p>
-      </div>
-      <div class="feature-card">
-        <h3>AKS Best Practices</h3>
-        <p>Runs Microsoft-guided checks with a single flag.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Cluster Config</h3>
-        <p>Checks context, kubeconfig, versions, and misaligned settings.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Resource Limits</h3>
-        <p>
-          Flags containers missing CPU or memory limits. Prevent noisy
-          neighbors.
-        </p>
+      <div class="signal-card signal-card-neon-amber">
+        <h3>Networking, Storage, And AKS</h3>
+        <p>Inspect services, PVCs, policies, cluster config, and Microsoft-guided AKS checks from the same workflow.</p>
       </div>
     </div>
   </section>
@@ -972,44 +1532,79 @@ z-index: 1;
   <section class="section ai-section">
     <div class="info-card ai-highlight" style="animation: fadeInUp 0.6s ease forwards;">
       <div class="ai-icon">🤖</div>
-      <h3 class="ai-title">Now with Built-In AI Guidance</h3>
+      <h3 class="ai-title">Clear Guidance, Not Just Raw Findings</h3>
       <p class="ai-description">
-        Struggling to interpret raw metrics or vague warnings? KubeBuddy now integrates with OpenAI to give clear, actionable advice for each issue, with real examples from your cluster.
+        Use the CLI to surface the findings fast, then review the HTML and JSON reports to decide what changed, what matters, and what to fix first.
       </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Optional KubeBuddy Radar Workflow</h2>
+    <div class="product-split">
+      <div class="product-card product-card-neon-amber">
+        <span class="product-kicker">Radar Integration</span>
+        <h3>Bring scan history into the same place you track releases.</h3>
+        <p>
+          Upload KubeBuddy JSON reports into KubeBuddy Radar when you want score history,
+          compare views, saved scan profiles, and one place to manage both releases and scan results.
+        </p>
+        <ul class="product-points">
+          <li>Compare runs over time and across clusters.</li>
+          <li>Manage encrypted scan profiles and generated commands.</li>
+          <li>Keep scans local while Radar handles release tracking, history, and coordination.</li>
+        </ul>
+      </div>
+      <div class="product-card product-card-neon-blue">
+        <span class="product-kicker">Use It When Needed</span>
+        <h3>KubeBuddy still works fully on its own.</h3>
+        <p>
+          You do not need Radar to run scans, generate reports, or work through
+          findings. Radar is the optional control plane for teams that want more history and compare.
+        </p>
+        <ul class="product-points">
+          <li>CLI-only workflow stays simple and self-contained.</li>
+          <li>Radar adds run history, compare, and config management.</li>
+          <li>Choose the level of workflow you need.</li>
+        </ul>
+      </div>
     </div>
   </section>
   
 
   <section class="workflow-section">
-    <h2>How KubeBuddy Works</h2>
+    <h2>How The KubeBuddy Workflow Fits Together</h2>
     <div class="workflow-steps">
-      <div class="workflow-step" data-step="1">
+      <div class="workflow-step workflow-step-neon-blue" data-step="1">
         <span class="step-icon">⚙️</span>
-        <h3>Connect & Scan</h3>
+        <h3>Run KubeBuddy Locally</h3>
         <p>
-          KubeBuddy uses your existing kubeconfig to scan your cluster
-          externally, no agents required.
+          Scan from your terminal, jump box, CI job, or Docker container using
+          your existing kubeconfig and provider access.
         </p>
+        <strong>CLI first</strong>
       </div>
-      <div class="workflow-step" data-step="2">
+      <div class="workflow-step workflow-step-neon-green" data-step="2">
         <span class="step-icon">🔎</span>
-        <h3>Analyze Issues</h3>
+        <h3>Generate A Report</h3>
         <p>
-          Detects hidden problems like misconfigurations, security risks, and
-          resource failures in seconds.
+          Keep the HTML locally for deep inspection and use the JSON for automation
+          or optional Radar uploads.
         </p>
+        <strong>HTML + JSON</strong>
       </div>
-      <div class="workflow-step" data-step="3">
+      <div class="workflow-step workflow-step-neon-amber" data-step="3">
         <span class="step-icon">📈</span>
-        <h3>Deliver Insights</h3>
+        <h3>Optionally Track It In Radar</h3>
         <p>
-          Generates clear, actionable reports in HTML, JSON, or CLI format for
-          immediate action.
+          Review score trends, compare reports, and manage config profiles so
+          future scans are consistent across your clusters.
         </p>
+        <strong>KubeBuddy Radar</strong>
       </div>
     </div>
     <div class="workflow-cta">
-      <a href="{{ 'usage/' | url }}" class="cta-button">Get Started</a>
+      <a href="{{ 'cli/' | url }}" class="cta-button">Read the CLI Docs</a>
     </div>
   </section>
   {% endblock %}
