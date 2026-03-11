@@ -617,17 +617,21 @@
   }
 
   [data-md-color-scheme="default"] .md-tabs__link,
-  [data-md-color-scheme="default"] .md-nav__link,
   [data-md-color-scheme="default"] .md-header__button,
   [data-md-color-scheme="default"] .md-header__topic,
   [data-md-color-scheme="default"] .md-header .md-header__title,
   [data-md-color-scheme="light"] .md-tabs__link,
-  [data-md-color-scheme="light"] .md-nav__link,
   [data-md-color-scheme="light"] .md-header__button,
   [data-md-color-scheme="light"] .md-header__topic,
   [data-md-color-scheme="light"] .md-header .md-header__title {
     color: #f8fbff !important;
     text-shadow: none;
+  }
+
+  /* Sidebar and TOC nav links in light mode — must be readable on white background */
+  [data-md-color-scheme="default"] .md-nav__link,
+  [data-md-color-scheme="light"] .md-nav__link {
+    color: #1e293b !important;
   }
 
   .md-tabs__link {
