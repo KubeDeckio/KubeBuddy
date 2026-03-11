@@ -556,9 +556,9 @@
     align-items: center !important;
     justify-content: center !important;
     font-size: 0;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) !important;
     transition: opacity 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
-    will-change: transform;
+    will-change: opacity;
     opacity: 0;
     pointer-events: none;
   }
@@ -586,13 +586,6 @@
 
   .md-top:hover {
     box-shadow: 0 0 0 1px rgba(2, 186, 255, 0.18), 0 18px 32px rgba(2, 12, 27, 0.24);
-  }
-
-  .md-top:hover,
-  .md-top:focus,
-  .md-top:focus-visible,
-  .md-top:active {
-    transform: translate3d(0, 0, 0) !important;
   }
 
   .md-top:focus,
