@@ -5,54 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [0.0.25] - 2026-03-09
+## [0.0.25] - 2026-03-12
 
 ### Added
 
-* **KubeBuddy Radar cluster reports workflow**
-  * Added secure upload of JSON scan reports into KubeBuddy Radar for Pro users.
-  * Added report history, score trends, and compare workflows in Radar so cluster improvements and regressions are easier to track over time.
-  * Added support for comparing previous scans from the same cluster or across different clusters in the Radar UI.
+* **Radar report upload support for storage and comparison**
+  * Added support to upload KubeBuddy JSON scan reports to Radar so teams can keep report history over time.
+  * Uploaded reports can now be used for comparison workflows and trend tracking across cluster runs.
+  * https://radar.kubebuddy.io
 
-* **Radar cluster config profiles and command builder**
-  * Added a new Cluster Configs experience in Radar for saving per-cluster scan profiles.
-  * Added command and `kubebuddy-config.yaml` generation so operators can copy the exact command they need without building it manually.
-  * Added the ability to seed starter profiles from previously uploaded cluster reports.
+* **Radar profile pull support in KubeBuddy CLI**
+  * Added `-RadarFetchConfig` and `-RadarConfigId` so KubeBuddy can pull a saved profile before running checks.
+  * Added `run.ps1` support for Radar config pull so containerized runs can use the same profile-driven workflow.
 
-* **Radar config pull support in KubeBuddy CLI**
-  * Added `-RadarFetchConfig` and `-RadarConfigId` so KubeBuddy can pull a saved Radar profile before running a scan.
-  * Added `run.ps1` support for Radar config fetch so Docker-based runs can use the same saved profiles.
+* **Improved cluster metadata in JSON output**
+  * Added stronger propagation of cluster name, AKS resource group, and subscription metadata into generated JSON report payloads.
 
 ### Changed
 
-* **Cluster identity and report grouping**
-  * Updated Radar and CLI flows so cluster history is grouped around the actual cluster name.
-  * Reduced reliance on a separate Radar environment value in the UI to keep the model simpler and less confusing.
+* **Cluster identity consistency in CLI flows**
+  * Updated CLI data flow to prioritize explicit cluster identity fields so scan metadata stays consistent across runs.
 
-* **Radar UI improvements for reports and compare**
-  * Renamed and reworked the cluster reporting pages so they read more clearly as reports rather than raw runs.
-  * Improved dashboard cards, report selectors, compare layout, and report navigation to better match the rest of the Radar experience.
-  * Improved compare views so they focus more clearly on what changed between reports.
-
-* **Cluster Configs UX**
-  * Improved the layout, help text, tooltips, field grouping, and defaults for saved scan profiles.
-  * Updated the page to treat Kubernetes as the primary experience, with AKS options shown only when needed.
-  * Added inline API key selection and creation so generated configs can be prepared more easily for Radar uploads.
+* **Namespace exclusion output behavior**
+  * Improved how excluded namespaces are represented in JSON output and downstream report-processing flows.
 
 ### Fixed
 
-* **Radar upload and compare reliability**
-  * Fixed multiple upload and compare issues around route handling, compare messaging, and new-report visibility in the portal.
-  * Improved first-run behavior so missing previous-report compare results are handled more cleanly.
+* **AKS cached metadata reuse**
+  * Fixed cached AKS metadata behavior to reduce incorrect value carry-over between different cluster runs.
 
-* **Cluster metadata consistency**
-  * Fixed AKS report metadata so explicit cluster name, resource group, and subscription values are carried into JSON correctly.
-  * Improved cached AKS data handling to reduce incorrect reuse across different clusters.
-
-* **Namespace exclusion and artifact collection behavior**
-  * Improved how excluded namespaces are represented in JSON and report flows.
-  * Reduced noisy output for missing Gateway API CRDs by suppressing unnecessary resource-type errors when those CRDs are not installed.
-
+* **Gateway API noise in scan output**
+  * Reduced noisy output when Gateway API CRDs are not installed by suppressing unnecessary missing resource-type errors.
 
 ## [0.0.24] - 2026-02-26
 
@@ -75,35 +58,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-* **Prometheus node sizing insights (`PROM006`)**
-  * Added a new capacity check that classifies nodes as `Underutilized`, `Right-sized`, or `Saturated` using p95 CPU/memory trends from Prometheus.
-  * Added configurable sizing thresholds in `kubebuddy-config.yaml`:
-    * `node_sizing_downsize_cpu_p95`
-    * `node_sizing_downsize_mem_p95`
-    * `node_sizing_upsize_cpu_p95`
-    * `node_sizing_upsize_mem_p95`
+* **Radar report upload support for storage and comparison**
+  * Added support to upload KubeBuddy JSON scan reports to Radar so teams can keep report history over time.
+  * Uploaded reports can now be used for comparison workflows and trend tracking across cluster runs.
 
-* **Prometheus pod sizing insights (`PROM007`)**
-  * Added per-container recommendations for CPU/memory requests and memory limits using p95 usage.
-  * CPU limit recommendation defaults to `none`, with explicit rationale included in findings output.
-  * Added configurable pod sizing knobs:
-    * `pod_sizing_profile` (`conservative|balanced|aggressive`)
-    * `pod_sizing_compare_profiles`
-    * `pod_sizing_target_cpu_utilization`
-    * `pod_sizing_target_mem_utilization`
-    * `pod_sizing_cpu_request_floor_mcores`
-    * `pod_sizing_mem_request_floor_mib`
-    * `pod_sizing_mem_limit_buffer_percent`
+* **Radar profile pull support in KubeBuddy CLI**
+  * Added `-RadarFetchConfig` and `-RadarConfigId` so KubeBuddy can pull a saved profile before running checks.
+  * Added `run.ps1` support for Radar config pull so containerized runs can use the same profile-driven workflow.
 
-* **Profile comparison mode for pod sizing**
-  * Added optional comparison mode to emit all three profiles in **HTML** and **JSON** outputs.
-  * Added an HTML selector on `PROM007` findings to filter by profile.
-  * Kept CLI/text output focused on the single active profile for readability.
-
-* **Gateway API networking checks**
-  * Added `NET013` to flag Ingress usage where Gateway API resources are not yet adopted.
-  * Added `NET014` to detect HTTPRoutes with missing parentRefs or not Accepted by any parent Gateway.
-  * Added `NET015` to detect Gateways that have no attached HTTPRoutes.
+* **Improved cluster metadata in JSON output**
+  * Added stronger propagation of cluster name, AKS resource group, and subscription metadata into generated JSON report payloads.
 
 ### Changed
 
@@ -182,122 +146,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-* **Automatic dark mode**: The HTML report now respects your browser’s `prefers-color-scheme` setting and will automatically switch to a dark theme when your system is in dark mode.
+* **Radar report upload support for storage and comparison**
+  * Added support to upload KubeBuddy JSON scan reports to Radar so teams can keep report history over time.
+  * Uploaded reports can now be used for comparison workflows and trend tracking across cluster runs.
 
-* **Expanded Storage Checks:** Introduced a comprehensive set of new checks to enhance Kubernetes storage monitoring and optimization:
-    * **PV001: Orphaned Persistent Volumes:** Detects Persistent Volumes not bound to any Persistent Volume Claim, helping to reclaim unused storage.
-    * **PVC002: PVCs Using Default StorageClass:** Flags PVCs that implicitly rely on a default `storageClassName`, encouraging explicit configuration for better clarity and portability.
-    * **PVC003: ReadWriteMany PVCs on Incompatible Storage:** Warns about PVCs requesting `ReadWriteMany` access mode when the underlying storage is typically block-based and doesn't support concurrent writes from multiple nodes, preventing potential data corruption.
-    * **PVC004: Unbound Persistent Volume Claims:** Flags PVCs stuck in a `Pending` phase, often indicating issues with the StorageClass, available PVs, or the storage provisioner.
-    * **SC001: Deprecated StorageClass Provisioners:** Identifies StorageClasses using deprecated or legacy in-tree provisioners, recommending migration to CSI drivers for future compatibility.
-    * **SC002: StorageClass Prevents Volume Expansion:** Detects StorageClasses that do not allow volume expansion, which can limit dynamic scaling of stateful applications.
-    * **SC003: High Cluster Storage Usage:** Monitors the overall percentage of used storage across the cluster, alerting when usage exceeds predefined thresholds (80%). _Uses Prometheus_.
+* **Radar profile pull support in KubeBuddy CLI**
+  * Added `-RadarFetchConfig` and `-RadarConfigId` so KubeBuddy can pull a saved profile before running checks.
+  * Added `run.ps1` support for Radar config pull so containerized runs can use the same profile-driven workflow.
 
-* **Expanded Networking Checks:** Added several new checks to identify common misconfigurations and security risks in Kubernetes networking:
-    * **NET005: Ingress Host/Path Conflicts:** Detects Ingress resources with overlapping host and path combinations, which can lead to unpredictable traffic routing.
-    * **NET006: Ingress Using Wildcard Hosts:** Flags Ingress resources using wildcard hostnames (`*.example.com`), which may provide broader access than intended and should be reviewed.
-    * **NET007: Service TargetPort Mismatch:** Identifies Services where the `targetPort` does not match any `containerPort` in the backing pods, preventing effective traffic delivery.
-    * **NET008: ExternalName Service to Internal IP:** Highlights `ExternalName` type Services configured to point to private IP ranges, potentially indicating an unusual or misconfigured internal routing pattern.
-    * **NET009: Overly Permissive Network Policy:** Warns about NetworkPolicies that define `policyTypes` but lack specific rules (allowing all traffic for that type) or include overly broad `ipBlock` definitions like `0.0.0.0/0`.
-    * **NET010: Network Policy Overly Permissive IPBlock:** Specifically identifies NetworkPolicies that utilize `0.0.0.0/0` in their `ipBlock` rules, granting unrestricted access which poses a significant security risk.
-    * **NET011: Network Policy Missing PolicyTypes:** Flags NetworkPolicies that do not explicitly define `policyTypes`, improving clarity and ensuring consistent behavior across different Kubernetes versions and CNI plugins.
-    * **NET012: Pod HostNetwork Usage:** Identifies pods configured with `hostNetwork: true`, which allows direct access to the node's network interfaces, bypassing Kubernetes network isolation and potentially increasing security risk.
-
-* **Pod Density per Node check (NODE003):**
-    * Calculates pod density as `(running pods ÷ max‑pods capacity) × 100`.
-    * Alerts when percentage crosses warning (80% default) or critical (90% default) thresholds.
-
-* **Workload Label Consistency Check (WRK009):**
-
-    * Ensures that Deployment selectors match the labels on their Pod templates and that Services targeting those Deployments use consistent label selectors.
-    * Helps catch silent routing issues or monitoring mismatches caused by label typos or misalignment.
-    * Applies to Deployments and their associated Pods and Services.
-
-## [0.0.22] – 2025-06-04
-
-### Added
-
-* **AI Recommendations with PSAI Integration**
-  KubeBuddy now supports AI-powered recommendations, leveraging OpenAI's ChatGPT via the excellent [PSAI module by @dfinke](https://x.com/dfinke):
-
-  * When checks return findings, KubeBuddy automatically prompts GPT to generate:
-
-    * A **short plain-text summary** of recommended actions
-    * A **detailed HTML block** with actionable advice and documentation links
-  * These recommendations are:
-
-    * Embedded in the **HTML report** as collapsible "Recommended Actions" cards (with `AI Enhanced` labels)
-    * Shown in the **text report** with a clear prefix: `AI Generated Recommendation:`
-    * Included in the **JSON output** under the `Recommendation` object, with `.text`, `.html`, and `.source` fields (`source = "AI"`)
-  * Graceful fallback: if no `OpenAIKey` is set or the AI call fails, checks fall back to static/manual recommendations or omit the section entirely
-
-## [0.0.21] – 2025-05-29
-
-### Fixes
-
-* Fixed an issue where the code would not actually run the checks.
-
-## [0.0.20] – 2025-05-29
-
-### What’s New
-
-* **Prometheus integration**
-  We’ve wired KubeBuddy up to Prometheus so you can get real-time node and API-server metrics:
-
-  * **CPU & Memory Usage** (PROM001 & PROM002): track average usage across all nodes over the last 24 hours.
-  * **Memory Saturation** (PROM003): see how much of each node’s allocatable memory is actually in use.
-  * **API Server Latency** (PROM004): alert you if request latency spikes beyond healthy thresholds.
-  * **CPU Overcommitment** (PROM005): flag any nodes whose pods are asking for more CPU than they can deliver.
-  * **New per-node Prometheus view**: click into any node’s card to see its individual metrics and time-series charts right in your report.
-  * Plus new `KubeData` settings (URL, mode, credentials, headers, etc.) to configure your Prometheus connection securely.
-
-* **Top 5 Improvements**: The Overview page now surfaces the five checks whose remediation yields the greatest cluster-health score gain, showing estimated points gain per issue.
-
-* **“Hero” Issue-Summary cards**
-  Right at the top of your HTML report you’ll now see a row of big, color-coded cards showing how many checks failed at each severity level (Critical, Warning, Info).
-
-  * Click a card and it smoothly expands inline to list every failing check in that category.
-  * Built entirely with our new `.hero-metrics`, `.metric-card`, `.expand-content` and `.scrollable-content` CSS, plus a tiny `toggleExpand()` script for the show-and-hide behaviour.
-
-### Improvements
-
-* **HTML report polish**
-
-  * Hover over any check header to see a handy info-icon tooltip with the full description.
-  * Long “Findings” and “Recommendations” sections are now tucked into collapsible panels to keep your report neat.
-  * Each recommendation is wrapped in a stylish card with a banner and auto-linked “Docs:” reference.
-  * All tables live inside a `<div class="table-container">` and are built by hand to ensure proper HTML-escaping and XSS safety.
-
-* **Under-the-hood tweaks for Prometheus checks**
-
-  * All Prometheus parameters (`Url`, `Mode`, `Username`, etc.) are now predeclared so they work correctly inside PowerShell’s parallel runspaces.
-  * Threshold lookups in parallel blocks now use `$using:thresholds`.
-  * If you haven’t set a Prometheus URL or headers, KubeBuddy will quietly skip those checks (no noisy errors).
-
-### Fixes
-
-* **Null-value errors** eliminated by:
-
-  * Checking that each threshold key actually exists before casting.
-  * Verifying your `PrometheusHeaders` hashtable isn’t null or empty before poking its keys or making HTTP calls.
-
-
-## [0.0.19] - 2025-05-02
-
-### Fixed
-
-* **Check Execution Bug Fixes**:
-
-  * Fixed an issue where certain security checks (e.g., `SEC010`) would not report results even when violations were present. 
-
-
-## [0.0.18] - 2025-05-02
-
-### Added
-- **New AKS Best Practice Checks**:
-  - Added `AKSBP013`: "No B-Series VMs in Node Pools" to ensure node pools do not use burstable B-series VMs, which can lead to inconsistent performance in production workloads (Severity: High).
-  - Added `AKSBP014`: "Use v5 or Newer SKU VMs for Node Pools" to enforce the use of v5 or newer VM SKUs for better performance and reliability during updates (Severity: Medium).
-- Total checks now at **92** across all categories.
+* **Improved cluster metadata in JSON output**
+  * Added stronger propagation of cluster name, AKS resource group, and subscription metadata into generated JSON report payloads.
 
 ### Changed
 - **Updated Recommendations for All Checks**:
