@@ -2,7 +2,7 @@ $Global:MakeReport = $false  # Global flag to control report mode
 
 $moduleVersion = "v0.0.4"
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams','', Justification='Uses environment variable names for Radar auth lookup; no plaintext password parameter is accepted.')]
+[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams','', Justification='Uses environment variable names for Radar auth lookup; no plaintext password parameter is accepted.')]
 function Invoke-KubeBuddy {
     param (
         [switch]$HtmlReport,

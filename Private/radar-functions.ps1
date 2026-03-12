@@ -40,7 +40,7 @@ function Get-KubeBuddyRadarConfig {
     }
 }
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams','', Justification='Uses environment variable names for Radar auth lookup; no plaintext password parameter is accepted.')]
+[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams','', Justification='Uses environment variable names for Radar auth lookup; no plaintext password parameter is accepted.')]
 function Resolve-KubeBuddyRadarSettings {
     param(
         [switch]$RadarUpload,
