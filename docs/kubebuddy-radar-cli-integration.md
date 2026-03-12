@@ -79,7 +79,7 @@ Invoke-KubeBuddy `
   -RadarUpload `
   -RadarApiBaseUrl "https://radar.example.com/api/kb-radar/v1" `
   -RadarApiUserEnv "MY_RADAR_USER_ENV" `
-  -RadarApiPasswordEnv "MY_RADAR_PASS_ENV"
+  -RadarApiSecretEnv "MY_RADAR_PASS_ENV"
 ```
 
 ## Docker Entry Point Support (`run.ps1`)

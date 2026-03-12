@@ -40,7 +40,6 @@ function Get-KubeBuddyRadarConfig {
     }
 }
 
-[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams','', Justification='Uses environment variable names for Radar auth lookup; no plaintext password parameter is accepted.')]
 function Resolve-KubeBuddyRadarSettings {
     param(
         [switch]$RadarUpload,
@@ -48,7 +47,7 @@ function Resolve-KubeBuddyRadarSettings {
         [string]$RadarApiBaseUrl,
         [string]$RadarEnvironment,
         [string]$RadarApiUserEnv,
-        [string]$RadarApiPasswordEnv
+        [string]$RadarApiSecretEnv
     )
 
     $config = Get-KubeBuddyRadarConfig
@@ -67,7 +66,7 @@ function Resolve-KubeBuddyRadarSettings {
         api_user         = [string]$config.api_user
         api_password     = [string]$config.api_password
         api_user_env     = if ($RadarApiUserEnv) { $RadarApiUserEnv } else { $config.api_user_env }
-        api_password_env = if ($RadarApiPasswordEnv) { $RadarApiPasswordEnv } else { $config.api_password_env }
+        api_password_env = if ($RadarApiSecretEnv) { $RadarApiSecretEnv } else { $config.api_password_env }
         upload_timeout_seconds = [int]$config.upload_timeout_seconds
         upload_retries   = [int]$config.upload_retries
     }

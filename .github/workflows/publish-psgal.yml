@@ -63,14 +63,6 @@ jobs:
         run: |
           $results = Invoke-ScriptAnalyzer -Path ./ -Recurse -Severity 'Error', 'Warning' -ExcludeRule PSAvoidUsingWriteHost, PSAvoidUsingConvertToSecureStringWithPlainText
 
-          # Filter known false positives: RadarApiUserEnv / RadarApiPasswordEnv hold env var *names*,
-          # not actual credentials. Matched by message content so only these exact params are exempt.
-          # Any new Username/Password param added anywhere (including these files) will still fail.
-          $results = $results | Where-Object {
-              -not ($_.RuleName -eq 'PSAvoidUsingUsernameAndPasswordParams' -and
-                    ($_.Message -match 'RadarApiUserEnv|RadarApiPasswordEnv'))
-          }
-
           $warnings = $results | Where-Object { $_.Severity -eq 'Warning' }
           $errors = $results | Where-Object { $_.Severity -eq 'Error' }
 

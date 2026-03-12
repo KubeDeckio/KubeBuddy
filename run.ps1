@@ -28,7 +28,7 @@ $RadarConfigId = $env:RADAR_CONFIG_ID
 $RadarApiBaseUrl = $env:RADAR_API_BASE_URL
 $RadarEnvironment = $env:RADAR_ENVIRONMENT
 $RadarApiUserEnv = $env:RADAR_API_USER_ENV
-$RadarApiPasswordEnv = $env:RADAR_API_PASSWORD_ENV
+$RadarApiSecretEnv = $env:RADAR_API_PASSWORD_ENV
 
 # Optional list values (comma-separated)
 $AdditionalExcludedNamespaces = @()
@@ -159,7 +159,7 @@ $parameters = @{
     RadarApiBaseUrl          = $RadarApiBaseUrl
     RadarEnvironment         = $RadarEnvironment
     RadarApiUserEnv          = $RadarApiUserEnv
-    RadarApiPasswordEnv      = $RadarApiPasswordEnv
+    RadarApiSecretEnv        = $RadarApiSecretEnv
 }
 
 try {

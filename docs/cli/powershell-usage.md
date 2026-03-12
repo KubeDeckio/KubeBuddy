@@ -233,7 +233,7 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 | `-RadarApiBaseUrl`       | String   | `https://radar.kubebuddy.io/api/kb-radar/v1` | Overrides Radar API base URL.                                                          |
 | `-RadarEnvironment`      | String   | `prod`                               | Environment label used by Radar (for example `prod`, `staging`, `dev`).                      |
 | `-RadarApiUserEnv`       | String   | `KUBEBUDDY_RADAR_API_USER`           | Environment variable name containing Radar username.                                          |
-| `-RadarApiPasswordEnv`   | String   | `KUBEBUDDY_RADAR_API_PASSWORD`       | Environment variable name containing Radar app password.                                      |
+| `-RadarApiSecretEnv`     | String   | `KUBEBUDDY_RADAR_API_PASSWORD`       | Environment variable name containing Radar app password/secret.                               |
 
 ### Cluster-Specific Config Files
 

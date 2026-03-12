@@ -41,7 +41,7 @@ Optional overrides:
 
 - `-RadarApiBaseUrl` (default `https://radar.kubebuddy.io/api/kb-radar/v1`)
 - `-RadarApiUserEnv` (default `KUBEBUDDY_RADAR_API_USER`)
-- `-RadarApiPasswordEnv` (default `KUBEBUDDY_RADAR_API_PASSWORD`)
+- `-RadarApiSecretEnv` (default `KUBEBUDDY_RADAR_API_PASSWORD`)
 
 Fetch a saved Radar cluster config:
 

@@ -2,7 +2,6 @@ $Global:MakeReport = $false  # Global flag to control report mode
 
 $moduleVersion = "v0.0.4"
 
-[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams','', Justification='Uses environment variable names for Radar auth lookup; no plaintext password parameter is accepted.')]
 function Invoke-KubeBuddy {
     param (
         [switch]$HtmlReport,
@@ -30,7 +29,7 @@ function Invoke-KubeBuddy {
         [string]$RadarApiBaseUrl,
         [string]$RadarEnvironment,
         [string]$RadarApiUserEnv,
-        [string]$RadarApiPasswordEnv
+        [string]$RadarApiSecretEnv
     )
 
     # Assign default value if $outputpath is not set
@@ -99,7 +98,7 @@ function Invoke-KubeBuddy {
         -RadarApiBaseUrl $RadarApiBaseUrl `
         -RadarEnvironment $RadarEnvironment `
         -RadarApiUserEnv $RadarApiUserEnv `
-        -RadarApiPasswordEnv $RadarApiPasswordEnv
+        -RadarApiSecretEnv $RadarApiSecretEnv
 
     if ($RadarFetchConfig) {
         try {
@@ -170,7 +169,7 @@ function Invoke-KubeBuddy {
                 -RadarApiBaseUrl $RadarApiBaseUrl `
                 -RadarEnvironment $RadarEnvironment `
                 -RadarApiUserEnv $RadarApiUserEnv `
-                -RadarApiPasswordEnv $RadarApiPasswordEnv
+                -RadarApiSecretEnv $RadarApiSecretEnv
 
             Write-Host "✅ Loaded Radar cluster config '$($fetchedConfig.name)' for cluster '$($fetchedConfig.cluster_name)'." -ForegroundColor Green
         }
