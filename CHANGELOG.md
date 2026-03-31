@@ -40,7 +40,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Updated documentation for:
   * AKS Automatic migration readiness under the AKS usage page
   * shared checks reference entries for the new and updated checks
-  * changelog notes for the new reports and action-plan artifacts
 
 
 ## [0.0.25] - 2026-03-12
