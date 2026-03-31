@@ -87,11 +87,12 @@ Each table includes:
 | NET010 | Network Policy Overly Permissive IPBlock | Flags NetworkPolicies that include '0.0.0.0/0' in their 'ipBlock' rules, effectively allowing traffic to/from all IPs for that rule, which can be a security risk. | high | 5 |
 | NET011 | Network Policy Missing PolicyTypes | Detects NetworkPolicies that do not explicitly define 'policyTypes'. While defaulting to Ingress in some older versions, explicit definition improves clarity and future compatibility across different CNI plugins and Kubernetes versions. | low | 1 |
 | NET012 | Pod HostNetwork Usage | Identifies pods configured to use 'hostNetwork: true', which allows direct access to the node's network interfaces, bypassing Kubernetes networking. | high | 4 |
-| NET013 | Ingress Present Without Gateway API Adoption | Detects Ingress usage where Gateway API resources are not yet adopted, helping teams plan migration. | warning | 2 |
+| NET013 | Ingress Present Without Gateway API Adoption | Detects Ingress usage where Gateway API resources are not yet adopted, helping teams plan migration to Gateway API-based ingress. | warning | 2 |
 | NET014 | HTTPRoute Missing or Unaccepted Parent | Detects HTTPRoutes with no parentRefs or routes not Accepted by any parent Gateway. | critical | 3 |
 | NET015 | Gateways Without Attached HTTPRoutes | Detects Gateway resources that currently have no HTTPRoutes attached via parentRefs. | warning | 2 |
 | NET016 | Gateway API Readiness Conditions | Detects GatewayClass/Gateway resources that are not Accepted or Programmed and may not route traffic. | critical | 3 |
 | NET017 | Gateway TLS Secret and Cross-Namespace ReferenceGrant Validation | Validates Gateway listener certificateRefs and required ReferenceGrants for cross-namespace Secret usage. | critical | 3 |
+| NET018 | Duplicate Service Selectors | Detects multiple Services in the same namespace using the same selector set. | warning | 3 |
 | PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours. | Medium | 2 |
 
 ### Nodes
@@ -163,8 +164,12 @@ Each table includes:
 | SEC012 | Added Linux Capabilities              | Use of extra Linux capabilities via `securityContext.capabilities.add`. | Medium   | 2      |
 | SEC013 | EmptyDir Volume Usage                 | `emptyDir` volumes are non-persistent and cleared on restart.           | Low      | 1      |
 | SEC014 | Untrusted Image Registries            | Pulling from unapproved registries.                                     | High     | 3      |
-| SEC015 | Pods Using Default ServiceAccount     | Pods still use the default ServiceAccount with broad perms.             | Medium   | 3      |
-| SEC016 | Non-Existent Secret References        | Pods referencing missing Secrets; causes runtime failures.              | High     | 4      |
+| SEC015 | Host Ports in Pod Specs               | Detects containers that bind host ports directly on the node.           | High     | 4      |
+| SEC016 | Unconfined Seccomp Profiles           | Detects pod or container seccomp profiles explicitly set to `Unconfined`. | High   | 4      |
+| SEC017 | Non-Default ProcMount                 | Detects containers that set a `procMount` value other than `Default`.   | High     | 3      |
+| SEC018 | Disallowed Sysctls                    | Detects sysctls outside the Kubernetes baseline allowlist.              | High     | 3      |
+| SEC019 | Unsupported AppArmor Values           | Detects unsupported AppArmor annotations or structured profile types.   | High     | 2      |
+| SEC020 | Seccomp Profile Not Configured        | Detects pods and containers without an explicit seccomp profile.        | Warning  | 2      |
 
 ### Storage
 
@@ -188,7 +193,7 @@ Each table includes:
 | WRK002 | Deployment Missing Replicas                    | Fewer replicas than specified.                                            | High     | 2      |
 | WRK003 | Incomplete StatefulSet Rollout                 | Rollout not finished; may cause issues.                                   | Medium   | 2      |
 | WRK004 | HPA Misconfig or Inactivity                    | HPA not working or pointing to nothing.                                   | Medium   | 2      |
-| WRK005 | Missing Resource Requests/Limits               | No CPU/memory limits; risks noisy neighbor problems.                      | High     | 3      |
+| WRK005 | Missing Resource Requests                      | Missing CPU or memory requests on one or more containers.                 | High     | 3      |
 | WRK006 | PodDisruptionBudget Coverage                   | Missing or misconfigured PDBs.                                            | Medium   | 2      |
 | WRK007 | Missing Health Probes                          | No liveness or readiness probes; risks silent failures.                   | Medium   | 2      |
 | WRK008 | Deployment Selector Without Matching Pods      | Selectors that don’t match any pods, leading to 0 replicas.               | Medium   | 2      |
@@ -197,6 +202,8 @@ Each table includes:
 | WRK011 | VPA Update Mode and Declarative Resource Conflict Risk | Flags VPA Auto/Recreate targets likely to conflict with declarative ownership or HPA. | Warning | 2 |
 | WRK012 | PodDisruptionBudget Adequacy for Replicated Workloads | Detects missing/overly strict/overly permissive PDB settings on 2+ replica workloads. | Warning | 2 |
 | WRK013 | CrashLoopBackOff and OOMKilled Guardrail | Highlights unstable pods to guard against unsafe right-sizing decisions.    | Critical | 3      |
+| WRK014 | Missing Memory Limits | Detects workloads whose containers do not define a memory limit. | Warning | 2 |
+| WRK015 | Replicated Workloads Missing Spread Constraints | Detects Deployments or StatefulSets with 2+ replicas that define neither anti-affinity nor topology spread constraints. | Warning | 3 |
 
 
 ## Usage Notes
@@ -217,3 +224,32 @@ Each table includes:
   - **Passed**: no items listed
   - **Failed**: lists affected resources + suggested fixes
   - Click IDs to jump to detailed recommendations in the report
+
+## AKS Automatic Readiness Metadata
+
+Some shared checks now also carry AKS Automatic-specific metadata used to derive the AKS Automatic migration readiness view in reports.
+
+- `AutomaticRelevance`
+  - `blocker`
+  - `warning`
+- `AutomaticScope`
+  - `workload`
+  - `cluster`
+  - `platform`
+- `AutomaticReason`
+  - used to group remediation actions in the AKS Automatic action plan
+- `AutomaticAdmissionBehavior`
+  - `denies_on_enforce`
+  - `warns_only`
+  - `mutates_on_enforce`
+- `AutomaticMutationOutcome`
+  - optional observed/documented AKS Automatic behavior note shown in HTML, text, and JSON outputs
+
+This metadata does not create a separate check engine. It allows KubeBuddy to derive AKS Automatic readiness from the same shared checks used elsewhere in the product.
+
+In the AKS Automatic standalone action plan, this metadata is also used to:
+
+- split actions into blocker-driven and warning-driven migration sections
+- build per-action migration cards instead of a single wide table
+- group structured affected resources into namespace/workload/resource/Helm tables
+- attach manifest examples for common remediation themes

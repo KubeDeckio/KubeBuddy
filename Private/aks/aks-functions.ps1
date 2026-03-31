@@ -125,7 +125,7 @@ function Invoke-AKSBestPractices {
     
                 Write-Host -NoNewline "`n🤖 Fetching Kubernetes constraints..." -ForegroundColor Cyan
                 $constraints = kubectl get constraints -A -o json | ConvertFrom-Json | Select-Object -ExpandProperty items
-                Write-Host "`r🤖 Constraints fetched.             " -ForegroundColor Green
+                Write-Host "`r🤖 Constraints fetched.                          " -ForegroundColor Green
             }
     
             $clusterInfo | Add-Member -MemberType NoteProperty -Name "KubeData" -Value @{ Constraints = $constraints } -Force
@@ -273,6 +273,11 @@ function Invoke-AKSBestPractices {
                     Name           = $check.Name
                     Severity       = $check.Severity
                     Category       = $check.Category
+                    AutomaticRelevance = $check.AutomaticRelevance
+                    AutomaticScope     = $check.AutomaticScope
+                    AutomaticReason    = $check.AutomaticReason
+                    AutomaticAdmissionBehavior = $check.AutomaticAdmissionBehavior
+                    AutomaticMutationOutcome   = $check.AutomaticMutationOutcome
                     Status         = $result
                     ObservedValue  = $observedValue
                     FailMessage    = $failMsg
@@ -293,6 +298,11 @@ function Invoke-AKSBestPractices {
                     Name           = $check.Name ? $check.Name : "Unnamed Check $($check.ID)"
                     Severity       = $check.Severity ? $check.Severity : "Medium"
                     Category       = $check.Category ? $check.Category : "Unknown"
+                    AutomaticRelevance = $check.AutomaticRelevance
+                    AutomaticScope     = $check.AutomaticScope
+                    AutomaticReason    = $check.AutomaticReason
+                    AutomaticAdmissionBehavior = $check.AutomaticAdmissionBehavior
+                    AutomaticMutationOutcome   = $check.AutomaticMutationOutcome
                     Status         = "❌ ERROR"
                     ObservedValue  = "N/A"
                     Recommendation = "Error processing check: $_"
@@ -349,7 +359,7 @@ function Invoke-AKSBestPractices {
                 }
             }
     
-            $reportData += $checks | Select-Object ID, @{Name = "Check"; Expression = { $_.Name } }, Severity, Category, Status, ObservedValue, FailMessage, Recommendation, @{
+            $reportData += $checks | Select-Object ID, @{Name = "Check"; Expression = { $_.Name } }, Severity, Category, AutomaticRelevance, AutomaticScope, AutomaticReason, AutomaticAdmissionBehavior, AutomaticMutationOutcome, Status, ObservedValue, FailMessage, Recommendation, @{
                 Name       = 'URL'
                 Expression = { if ($_.URL) { "<a href='$($_.URL)' target='_blank'>Learn More</a>" } else { "" } }
             }
@@ -413,6 +423,11 @@ function Invoke-AKSBestPractices {
                         Name           = $_.Check
                         Severity       = $_.Severity
                         Category       = $_.Category
+                        AutomaticRelevance = $_.AutomaticRelevance
+                        AutomaticScope     = $_.AutomaticScope
+                        AutomaticReason    = $_.AutomaticReason
+                        AutomaticAdmissionBehavior = $_.AutomaticAdmissionBehavior
+                        AutomaticMutationOutcome   = $_.AutomaticMutationOutcome
                         Status         = $_.Status
                         ObservedValue  = $_.ObservedValue
                         FailMessage    = $_.FailMessage
@@ -506,6 +521,11 @@ $($categorySections -join "`n")
                         Name           = $_.Check
                         Severity       = $_.Severity
                         Category       = $_.Category
+                        AutomaticRelevance = $_.AutomaticRelevance
+                        AutomaticScope     = $_.AutomaticScope
+                        AutomaticReason    = $_.AutomaticReason
+                        AutomaticAdmissionBehavior = $_.AutomaticAdmissionBehavior
+                        AutomaticMutationOutcome   = $_.AutomaticMutationOutcome
                         Status         = $_.Status
                         ObservedValue  = $_.ObservedValue
                         FailMessage    = $_.FailMessage

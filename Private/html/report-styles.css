@@ -883,6 +883,10 @@ table a:hover {
   background: var(--success-color);
 }
 
+.compatibility.critical {
+  background: var(--error-color);
+}
+
 .compatibility.warning {
   background: var(--warning-color);
   color: #111;
@@ -890,6 +894,51 @@ table a:hover {
 
 .compatibility.unknown {
   background: #9E9E9E;
+}
+
+.aks-automatic-readiness {
+  margin: 20px 0 28px;
+}
+
+.aks-automatic-readiness > details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-pill.healthy {
+  background: rgba(76, 175, 80, 0.16);
+  color: #1b5e20;
+}
+
+.status-pill.warning {
+  background: rgba(255, 160, 0, 0.16);
+  color: #8a4b00;
+}
+
+.status-pill.critical {
+  background: rgba(183, 28, 28, 0.16);
+  color: #7f1d1d;
+}
+
+.status-pill.unknown,
+.status-pill.default {
+  background: rgba(55, 71, 79, 0.12);
+  color: #37474f;
 }
 
 /* Health Checks */
@@ -2534,6 +2583,13 @@ html[data-kb-theme="radar"] .compatibility.warning {
   box-shadow: 0 0 0 1px rgba(245, 166, 35, 0.12), 0 10px 24px rgba(245, 166, 35, 0.2);
 }
 
+html[data-kb-theme="radar"] .compatibility.critical {
+  background: linear-gradient(135deg, rgba(255, 77, 92, 0.32), rgba(255, 77, 92, 0.2));
+  border: 1px solid rgba(255, 77, 92, 0.78);
+  color: #ffe9ec;
+  box-shadow: 0 0 0 1px rgba(255, 77, 92, 0.12), 0 10px 24px rgba(255, 77, 92, 0.2);
+}
+
 html[data-kb-theme="radar"] .container,
 html[data-kb-theme="radar"] .table-container,
 html[data-kb-theme="radar"] .quick-fix-card,
@@ -2583,7 +2639,7 @@ html[data-kb-theme="radar"] .tab-content > .container > .table-container {
 
 html[data-kb-theme="radar"] .tab-content > .container > .table-container > .table-container {
   margin: 0 0 14px;
-  padding: 12px 14px;
+  padding: 12px 18px;
   background: linear-gradient(180deg, rgba(39, 52, 73, 0.96), rgba(33, 46, 66, 0.96));
   border: 1px solid #3f5677;
   border-radius: 12px;
@@ -2796,19 +2852,58 @@ html[data-kb-theme="radar"] .collapsible-container > details > .table-container 
   background: transparent;
   border: 0;
   box-shadow: none;
-  padding: 0;
+  padding: 0 8px;
   margin: 8px 0 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Avoid phantom horizontal bars from nested wrappers in report markup */
 html[data-kb-theme="radar"] .table-container table {
   margin: 8px 0 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 html[data-kb-theme="radar"] .table-container .table-container {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+  padding-left: 8px;
+  padding-right: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+html[data-kb-theme="radar"] #aks > .container > .table-container,
+html[data-kb-theme="radar"] #aks > .container > section > .table-container,
+html[data-kb-theme="radar"] #aks .collapsible-container > details > .table-container {
+  padding-left: 12px;
+  padding-right: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+html[data-kb-theme="radar"] #aks .table-pagination {
+  padding-left: 12px;
+  padding-right: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+html[data-kb-theme="radar"] #aks .aks-automatic-readiness h3 + .table-container,
+html[data-kb-theme="radar"] #aks .aks-automatic-readiness h3 + p + .table-container {
+  margin-top: 12px;
+}
+
+html[data-kb-theme="radar"] #aks .aks-automatic-readiness h3 {
+  margin-top: 22px;
+  margin-bottom: 8px;
 }
 
 html[data-kb-theme="radar"] .table-pagination {
@@ -2817,6 +2912,9 @@ html[data-kb-theme="radar"] .table-pagination {
   padding-bottom: 12px;
   border: 0;
   background: transparent;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Radar-themed scrollbars for overflow panels */

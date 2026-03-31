@@ -18,6 +18,9 @@ $disasterRecoveryChecks = @(
         Expected    = $true;
         FailMessage = "Cluster is using the Free tier without SLA guarantees, providing no financial commitment for uptime and limited support options. Free tier offers best-effort availability but no compensation for outages, making it unsuitable for production workloads requiring reliability commitments.";
         Severity    = "Medium";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "platform";
+        AutomaticReason    = "aks_platform";
         Recommendation = "Upgrade to Standard tier using 'az aks update --resource-group <rg> --name <cluster> --tier Standard' to get 99.95% uptime SLA, financially-backed availability guarantees, and improved support. This is essential for production workloads requiring high availability.";
         URL         = "https://learn.microsoft.com/azure/aks/free-standard-pricing-tiers";
     }

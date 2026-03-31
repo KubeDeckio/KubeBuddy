@@ -349,32 +349,35 @@ checks:
 
       $results
   - ID: "WRK005"
-    Name: "Missing Resource Requests or Limits"
+    Name: "Missing Resource Requests"
     Category: "Workloads"
     Section: "Workloads"
     ResourceKind: "Pod"
     Severity: "warning"
     Weight: 3
-    Description: "Checks that every container has CPU and memory requests and a memory limit."
-    FailMessage: "One or more containers are missing a resource request or a memory limit."
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "resource_requests"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: workloads with missing resource requests can be denied at admission. Some safeguard versions also document request mutation/defaulting behavior."
+    Description: "Checks that every container has explicit CPU and memory requests."
+    FailMessage: "One or more containers are missing a CPU or memory request."
     URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
     Recommendation:
-      text: "Define cpu/memory requests and a memory limit on all containers."
+      text: "Define cpu and memory requests on all containers."
       html: |
         <div class="recommendation-content">
           <ul>
             <li>Add <code>resources.requests.cpu</code> and <code>resources.requests.memory</code> to <strong>every</strong> container.</li>
-            <li>Set a <code>resources.limits.memory</code> value to protect nodes from OOM events.</li>
-            <li><em>CPU limits are optional</em>; include <code>resources.limits.cpu</code> only when you need strict throttling.</li>
             <li>Review both workload and <code>initContainers</code> with <code>kubectl get deploy,statefulset,daemonset -A -o yaml</code>.</li>
             <li>Apply any missing fields, then rerun KubeBuddy to confirm.</li>
           </ul>
         </div>
     SpeechBubble:
-      - "🤖 Some containers are still missing resource requests or a memory limit."
+      - "🤖 Some containers are still missing resource requests."
       - ""
       - "⚠️ Without requests the scheduler can’t make good placement decisions."
-      - "💡 Memory limits help prevent node OOMs; CPU limits are optional by design."
+      - "💡 Set both CPU and memory requests explicitly so admission and scheduling behave predictably."
     Script: |
       param(
           [object]$KubeData,
@@ -383,7 +386,7 @@ checks:
       )
       
       # ------------------------------------------------------------------
-      # Helper: evaluate a single container for missing resource settings
+      # Helper: evaluate a single container for missing request settings
       # ------------------------------------------------------------------
       function Test-ContainerResources {
           param(
@@ -397,16 +400,12 @@ checks:
           $requests = $Container.resources
       
           $missing = @()
-      
-          # Robust presence checks ---------------------------------------
           $cpuReq    = if ($requests) { $requests.requests?.cpu } else { $null }
           $memReq    = if ($requests) { $requests.requests?.memory } else { $null }
-          $memLimit  = if ($limits)   { $limits.limits?.memory    } else { $null }
-      
+
           if ([string]::IsNullOrWhiteSpace($cpuReq))   { $missing += 'CPU request' }
           if ([string]::IsNullOrWhiteSpace($memReq))   { $missing += 'Memory request' }
-          if ([string]::IsNullOrWhiteSpace($memLimit)) { $missing += 'Memory limit' }
-      
+
           if ($missing) {
               [pscustomobject]@{
                   Namespace     = $Namespace
@@ -472,6 +471,95 @@ checks:
           }
       }
       
+      $results
+
+  - ID: "WRK014"
+    Name: "Missing Memory Limits"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "Pod"
+    Severity: "warning"
+    Weight: 2
+    Description: "Checks that every container has an explicit memory limit."
+    FailMessage: "One or more containers are missing a memory limit."
+    URL: "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+    Recommendation:
+      text: "Define a memory limit on all containers to reduce the risk of node OOM pressure."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Add <code>resources.limits.memory</code> to every application and init container.</li>
+            <li>Set the limit high enough for normal peaks, then tune requests separately.</li>
+            <li>Review workloads with <code>kubectl get deploy,statefulset,daemonset -A -o yaml</code> to confirm the source manifests carry the limit.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some containers are missing memory limits."
+      - ""
+      - "📌 That can increase the blast radius of memory spikes on shared nodes."
+      - ""
+      - "⚠️ Set explicit memory limits at the source manifest."
+    Script: |
+      param(
+          [object]$KubeData,
+          [string]$Namespace,
+          [switch]$ExcludeNamespaces
+      )
+
+      function Test-ContainerMemoryLimit {
+          param(
+              [object]$Container,
+              [string]$ContainerType,
+              [string]$Namespace,
+              [string]$Workload
+          )
+
+          $memLimit = $Container.resources?.limits?.memory
+          if ([string]::IsNullOrWhiteSpace($memLimit)) {
+              [pscustomobject]@{
+                  Namespace     = $Namespace
+                  Workload      = $Workload
+                  Container     = $Container.name
+                  ContainerType = $ContainerType
+                  Message       = 'Memory limit missing'
+              }
+          }
+      }
+
+      $kinds = @('deployments','statefulsets','daemonsets')
+      $workloads = foreach ($plural in $kinds) {
+          $kind = ($plural -replace 's$') -creplace '^.', { $_.Value.ToUpper() }
+          $items = if ($KubeData -and $KubeData[$plural]) {
+              $KubeData[$plural]
+          } else {
+              (kubectl get $plural -A -o json | ConvertFrom-Json).items
+          }
+
+          if ($ExcludeNamespaces) { $items = Exclude-Namespaces -items $items }
+          if ($Namespace) { $items = $items | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+          foreach ($w in $items) {
+              if (-not $w.PSObject.Properties['kind']) {
+                  $w | Add-Member kind $kind
+              }
+              $w
+          }
+      }
+
+      $results = @()
+      foreach ($w in $workloads) {
+          $spec = $w.spec?.template?.spec
+          if (-not $spec) { continue }
+
+          foreach ($c in ($spec.containers | Where-Object { $_ })) {
+              $results += Test-ContainerMemoryLimit -Container $c -ContainerType 'Container' -Namespace $w.metadata.namespace -Workload "$("$($w.kind)/$($w.metadata.name)")"
+          }
+
+          foreach ($c in ($spec.initContainers | Where-Object { $_ })) {
+              $results += Test-ContainerMemoryLimit -Container $c -ContainerType 'InitContainer' -Namespace $w.metadata.namespace -Workload "$("$($w.kind)/$($w.metadata.name)")"
+          }
+      }
+
       $results
 
 
@@ -630,6 +718,9 @@ checks:
     ResourceKind: "Deployment"
     Severity: "warning"
     Weight: 4
+    AutomaticRelevance: "warning"
+    AutomaticScope: "workload"
+    AutomaticReason: "health_probes"
     Description: "Detects containers without health probes (readiness/liveness)."
     FailMessage: "Missing readiness or liveness probes."
     Recommendation:
@@ -1337,3 +1428,83 @@ checks:
       }
 
       return $results
+
+  - ID: "WRK015"
+    Name: "Replicated Workloads Missing Spread Constraints"
+    Category: "Workloads"
+    Section: "Workloads"
+    ResourceKind: "Deployment"
+    Severity: "warning"
+    Weight: 3
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "pod_spread"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: replicated workloads without pod anti-affinity or topology spread constraints can be denied at admission."
+    Description: "Detects Deployments and StatefulSets with more than one replica that define neither pod anti-affinity nor topology spread constraints."
+    FailMessage: "Replicated workload has no pod spreading rules."
+    URL: "https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/"
+    Recommendation:
+      text: "Add pod anti-affinity or topology spread constraints to replicated workloads."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Add <code>topologySpreadConstraints</code> or <code>affinity.podAntiAffinity</code> to each workload with multiple replicas.</li>
+            <li>Prefer distribution across nodes and zones using stable labels such as <code>topology.kubernetes.io/zone</code> and <code>kubernetes.io/hostname</code>.</li>
+            <li>Update the source Deployment, StatefulSet, or Helm values so the spreading rule is maintained on future releases.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Some replicated workloads do not declare any pod spreading rules."
+      - ""
+      - "📌 AKS Automatic can reject those workloads to avoid single-node placement."
+      - ""
+      - "⚠️ Add topology spread or pod anti-affinity at the source manifest."
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $workloads = @()
+      foreach ($entry in @(
+          @{ Kind = 'Deployment'; Items = ($KubeData?.Deployments ?? (kubectl get deployments -A -o json | ConvertFrom-Json).items) },
+          @{ Kind = 'StatefulSet'; Items = ($KubeData?.StatefulSets ?? (kubectl get statefulsets -A -o json | ConvertFrom-Json).items) }
+      )) {
+          $items = @($entry.Items)
+          if ($ExcludeNamespaces) { $items = Exclude-Namespaces -items $items }
+          if ($Namespace) { $items = $items | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+          foreach ($item in $items) {
+              if ($item) {
+                  if (-not $item.PSObject.Properties['kind']) {
+                      $item | Add-Member kind $entry.Kind -Force
+                  }
+                  $workloads += $item
+              }
+          }
+      }
+
+      $results = @()
+      foreach ($workload in $workloads) {
+          $replicas = if ($null -ne $workload.spec.replicas) { [int]$workload.spec.replicas } else { 1 }
+          if ($replicas -le 1) { continue }
+
+          $podSpec = $workload.spec?.template?.spec
+          if (-not $podSpec) { continue }
+
+          $requiredAntiAffinity = @($podSpec.affinity?.podAntiAffinity?.requiredDuringSchedulingIgnoredDuringExecution)
+          $preferredAntiAffinity = @($podSpec.affinity?.podAntiAffinity?.preferredDuringSchedulingIgnoredDuringExecution)
+          $topologySpread = @($podSpec.topologySpreadConstraints)
+
+          $hasAntiAffinity = ($requiredAntiAffinity.Count -gt 0) -or ($preferredAntiAffinity.Count -gt 0)
+          $hasSpread = $topologySpread.Count -gt 0
+
+          if (-not $hasAntiAffinity -and -not $hasSpread) {
+              $results += [pscustomobject]@{
+                  Namespace = $workload.metadata.namespace
+                  Workload  = "$($workload.kind)/$($workload.metadata.name)"
+                  Replicas  = $replicas
+                  Message   = 'Replicated workload defines neither pod anti-affinity nor topology spread constraints'
+              }
+          }
+      }
+
+      $results

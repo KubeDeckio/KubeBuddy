@@ -1,0 +1,760 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aks-automatic-admission-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-root-user
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-root-user
+  template:
+    metadata:
+      labels:
+        app: test-root-user
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          securityContext:
+            runAsUser: 0
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-privileged
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-privileged
+  template:
+    metadata:
+      labels:
+        app: test-privileged
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-host-network
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-host-network
+  template:
+    metadata:
+      labels:
+        app: test-host-network
+    spec:
+      hostNetwork: true
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-host-pid
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-host-pid
+  template:
+    metadata:
+      labels:
+        app: test-host-pid
+    spec:
+      hostPID: true
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-host-ipc
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-host-ipc
+  template:
+    metadata:
+      labels:
+        app: test-host-ipc
+    spec:
+      hostIPC: true
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-host-port
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-host-port
+  template:
+    metadata:
+      labels:
+        app: test-host-port
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          ports:
+            - containerPort: 80
+              hostPort: 8080
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-host-path
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-host-path
+  template:
+    metadata:
+      labels:
+        app: test-host-path
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          volumeMounts:
+            - name: host-data
+              mountPath: /host-data
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+      volumes:
+        - name: host-data
+          hostPath:
+            path: /tmp
+            type: Directory
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-seccomp-unconfined
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-seccomp-unconfined
+  template:
+    metadata:
+      labels:
+        app: test-seccomp-unconfined
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          securityContext:
+            seccompProfile:
+              type: Unconfined
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-proc-mount
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-proc-mount
+  template:
+    metadata:
+      labels:
+        app: test-proc-mount
+    spec:
+      hostUsers: false
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          securityContext:
+            procMount: Unmasked
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-sysctls
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-sysctls
+  template:
+    metadata:
+      labels:
+        app: test-sysctls
+    spec:
+      securityContext:
+        sysctls:
+          - name: net.ipv4.tcp_keepalive_time
+            value: "600"
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-latest-tag
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-latest-tag
+  template:
+    metadata:
+      labels:
+        app: test-latest-tag
+    spec:
+      containers:
+        - name: app
+          image: nginx:latest
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-no-tag
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-no-tag
+  template:
+    metadata:
+      labels:
+        app: test-no-tag
+    spec:
+      containers:
+        - name: app
+          image: nginx
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-missing-probes
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-missing-probes
+  template:
+    metadata:
+      labels:
+        app: test-missing-probes
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-missing-requests
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-missing-requests
+  template:
+    metadata:
+      labels:
+        app: test-missing-requests
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-low-requests
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-low-requests
+  template:
+    metadata:
+      labels:
+        app: test-low-requests
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 50Mi
+            limits:
+              cpu: 50m
+              memory: 50Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-request-over-limit
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-request-over-limit
+  template:
+    metadata:
+      labels:
+        app: test-request-over-limit
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-antiaffinity-mutation
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: test-antiaffinity-mutation
+  template:
+    metadata:
+      labels:
+        app: test-antiaffinity-mutation
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-reserved-label
+  namespace: aks-automatic-admission-test
+  labels:
+    kubernetes.azure.com/test: reserved
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-reserved-label
+  template:
+    metadata:
+      labels:
+        app: test-reserved-label
+        kubernetes.azure.com/test: reserved
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-cap-add
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-cap-add
+  template:
+    metadata:
+      labels:
+        app: test-cap-add
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          securityContext:
+            capabilities:
+              add:
+                - SYS_ADMIN
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-bad-apparmor
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-bad-apparmor
+  template:
+    metadata:
+      labels:
+        app: test-bad-apparmor
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/app: unconfined
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: test-azure-file-intree
+provisioner: kubernetes.io/azure-file
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-unique-selector-a
+  namespace: aks-automatic-admission-test
+spec:
+  selector:
+    app: test-shared-selector
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-unique-selector-b
+  namespace: aks-automatic-admission-test
+spec:
+  selector:
+    app: test-shared-selector
+  ports:
+    - name: http
+      port: 81
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-shared-selector
+  namespace: aks-automatic-admission-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-shared-selector
+  template:
+    metadata:
+      labels:
+        app: test-shared-selector
+    spec:
+      containers:
+        - name: app
+          image: nginx:1.25.5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80

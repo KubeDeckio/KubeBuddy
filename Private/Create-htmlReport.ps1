@@ -100,11 +100,14 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
   $apiHealthHtml = Show-ApiServerHealth -html
   Write-Host "`r🤖 Cluster Information fetched.   " -ForegroundColor Green
 
-  
+
+  $automaticReadinessHtml = ""
   if ($aks) {
     Write-Host -NoNewline "`n🤖 Running AKS Best Practices Checklist..." -ForegroundColor Cyan
     $aksBestPractices = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Html -KubeData:$KubeData
     Write-Host "`r🤖 AKS Check Results fetched.          " -ForegroundColor Green
+
+    $aksBestPracticeJson = Invoke-AKSBestPractices -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -Json -KubeData:$KubeData
 
     $aksPass = $aksBestPractices.Passed
     $aksFail = $aksBestPractices.Failed
@@ -124,7 +127,6 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 
     # Use ScoreColor directly for the score box (hex color for inline style)
     $heroRatingHtml = @"
-<h2>AKS Best Practices Summary</h2>
 <div class="hero-metrics">
   <div class="metric-card normal">
     <div class="card-content">
@@ -151,16 +153,6 @@ th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
       <p>⭐ Rating: <strong>$aksRating</strong></p>
     </div>
   </div>
-</div>
-"@
-
-    $aksHealthCheck = @"
-<div class="container">
-$heroRatingHtml
-<h2 id="aksFindings">AKS Best Practices Results</h2>
-<div class="table-container">
-  $aksReportData
-</div>
 </div>
 "@
 
@@ -339,6 +331,36 @@ $heroRatingHtml
     }
 
     Set-Variable -Name ("collapsible" + $check.Id + "Html") -Value $content
+  }
+
+  if ($aks) {
+    $actionPlanFile = Join-Path -Path (Split-Path -Parent $outputPath) -ChildPath ("{0}-aks-automatic-action-plan.html" -f [System.IO.Path]::GetFileNameWithoutExtension($outputPath))
+    $automaticReadiness = Get-KubeBuddyAutomaticReadiness `
+      -YamlChecks @($allCheckResults) `
+      -AksChecks @($aksBestPracticeJson.Items) `
+      -ClusterName $ClusterName `
+      -ActionPlanPath $actionPlanFile `
+      -AksClusterInfo $KubeData.AksCluster `
+      -KubeData $KubeData
+    $automaticReadinessHtml = Convert-KubeBuddyAutomaticReadinessToHtml -Readiness $automaticReadiness
+    if (-not $automaticReadiness.summary.skipped -and $automaticReadiness.summary.actionPlanPath) {
+      New-KubeBuddyAutomaticActionPlanHtml -OutputPath $actionPlanFile -Readiness $automaticReadiness -ClusterName $ClusterName
+      Write-Host "🤖 AKS Automatic action plan saved at: $actionPlanFile" -ForegroundColor Green
+    }
+
+$aksHealthCheck = @"
+<div class="container">
+<h1>AKS Best Practices Results</h1>
+$heroRatingHtml
+<div class="table-container">
+  $aksReportData
+</div>
+<section class="aks-automatic-readiness-section">
+  <h2>AKS Automatic Migration Readiness</h2>
+  $automaticReadinessHtml
+</section>
+</div>
+"@
   }
 
   $clusterSummaryText = $clusterSummaryRaw -join "`n"

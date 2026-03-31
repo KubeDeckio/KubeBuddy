@@ -52,6 +52,9 @@ $networkingChecks = @(
         Expected    = $true;
         FailMessage = "Cluster is not using Azure CNI with Cilium dataplane. Cilium leverages eBPF for high-performance networking, improved observability, and efficient network policy enforcement compared to traditional iptables-based solutions. Kubenet provides limited VNet integration and lacks advanced networking features.";
         Severity    = "Medium";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "platform";
+        AutomaticReason    = "aks_networking";
         Recommendation = "For new clusters, use '--network-plugin azure --network-dataplane cilium --network-plugin-mode overlay' for optimal performance. Azure CNI powered by Cilium provides eBPF-based packet processing, better scalability, and advanced L3-L7 network policies. Existing clusters should migrate by creating a new cluster with Cilium enabled.";
         URL         = "https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium";
     }

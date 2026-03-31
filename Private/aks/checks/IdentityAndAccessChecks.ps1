@@ -29,6 +29,9 @@ $identityChecks = @(
         Expected   = $true;
         FailMessage = "Workload Identity is disabled, forcing applications to use less secure authentication methods like storing Azure service principal secrets in Kubernetes, using pod identity (deprecated), or instance metadata. This increases credential exposure risk and limits fine-grained access control.";
         Severity   = "Medium";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "cluster";
+        AutomaticReason    = "aks_security";
         Recommendation = "Enable Workload Identity using 'az aks update --resource-group <rg> --name <cluster> --enable-workload-identity' (requires OIDC issuer). Create Kubernetes service accounts and federate them with Azure managed identities for secure, token-based authentication to Azure services.";
         URL         = "https://learn.microsoft.com/azure/aks/workload-identity-overview";
     },

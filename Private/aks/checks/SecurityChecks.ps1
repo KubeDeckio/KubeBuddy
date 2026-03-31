@@ -40,6 +40,9 @@ $securityChecks = @(
         Expected    = $true;
         FailMessage = "OIDC issuer is disabled, preventing workload identity federation and forcing applications to use less secure authentication methods like stored secrets or service principal credentials. This limits your ability to implement zero-trust security for pod-to-Azure service authentication.";
         Severity    = "Medium";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "cluster";
+        AutomaticReason    = "aks_security";
         Recommendation = "Enable OIDC issuer using 'az aks update --resource-group <rg> --name <cluster> --enable-oidc-issuer'. This enables workload identity federation, allowing pods to authenticate to Azure services using service account tokens instead of secrets.";
         URL         = "https://learn.microsoft.com/azure/aks/workload-identity-deploy-cluster";
     },
@@ -62,6 +65,9 @@ $securityChecks = @(
         Expected       = $true;
         FailMessage    = "Image Cleaner is disabled, allowing stale and potentially vulnerable container images to accumulate on node disks. This increases storage costs, extends attack surface with outdated images containing known CVEs, and can impact node performance due to disk space consumption.";
         Severity       = "Medium";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "cluster";
+        AutomaticReason    = "aks_security";
         Recommendation = "Enable Image Cleaner using 'az aks update --resource-group <rg> --name <cluster> --enable-image-cleaner'. Configure cleaning interval and retention policies to automatically remove unused container images and reduce attack surface.";
         URL            = "https://learn.microsoft.com/azure/aks/image-cleaner";
     },

@@ -29,6 +29,9 @@ $resourceManagementChecks = @(
         Expected       = $true;
         FailMessage    = "Vertical Pod Autoscaler is disabled, resulting in static resource requests that are often oversized (wasting resources and money) or undersized (causing performance issues and throttling). VPA provides data-driven recommendations to optimize pod resource allocation based on actual usage patterns.";
         Severity       = "Medium";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "cluster";
+        AutomaticReason    = "aks_autoscaling";
         Recommendation = "Enable VPA using 'az aks update --resource-group <rg> --name <cluster> --enable-vpa'. Deploy VPA objects with 'updateMode: Auto' or 'Off' for recommendations only. Monitor VPA recommendations and adjust application resource requests/limits accordingly for better resource efficiency.";
         URL            = "https://learn.microsoft.com/azure/aks/vertical-pod-autoscaler";
     },
@@ -40,6 +43,9 @@ $resourceManagementChecks = @(
         Expected       = $true;
         FailMessage    = "KEDA add-on is disabled, preventing event-driven autoscaling for workloads that process queues, messages, or respond to external metrics. This forces reliance solely on CPU/memory-based HPA scaling, which is suboptimal for event-driven architectures and can lead to over-provisioning or delayed scaling during traffic spikes.";
         Severity       = "Low";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "cluster";
+        AutomaticReason    = "aks_autoscaling";
         Recommendation = "Enable KEDA using 'az aks update --resource-group <rg> --name <cluster> --enable-keda'. Deploy ScaledObject resources to define event sources (Azure Queue, Service Bus, Kafka, HTTP, etc.) and scaling behavior. KEDA complements HPA by enabling scale-to-zero and event-driven scaling patterns.";
         URL            = "https://learn.microsoft.com/azure/aks/keda-about";
     },
@@ -54,6 +60,9 @@ $resourceManagementChecks = @(
         Expected       = $true;
         FailMessage    = "Neither Node Auto-provisioning (NAP) nor Cluster Autoscaler is enabled, requiring manual node scaling that leads to inefficient resource allocation. NAP uses Karpenter to automatically select optimal VM SKUs based on workload requirements, providing better cost optimization and scaling flexibility than traditional cluster autoscaler.";
         Severity       = "High";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "platform";
+        AutomaticReason    = "aks_autoscaling";
         Recommendation = "Enable Node Auto-provisioning using 'az aks update --resource-group <rg> --name <cluster> --node-provisioning-mode Auto' for Karpenter-based dynamic provisioning. Alternatively, enable Cluster Autoscaler with 'az aks update --enable-cluster-autoscaler'. NAP is recommended for modern workloads with diverse resource requirements.";
         URL            = "https://learn.microsoft.com/azure/aks/node-auto-provisioning";
     }    
