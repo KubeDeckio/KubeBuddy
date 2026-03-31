@@ -348,33 +348,108 @@ checks:
     Category: "Resource Management"
     Section: "Pods"
     Name: "Container images do not use latest tag"
-    Description: "Flags containers using the 'latest' tag in their image, which can cause unpredictable upgrades."
+    Description: "Flags containers using the 'latest' tag or no explicit tag in their image, which can cause unpredictable upgrades."
     ResourceKind: "Pod"
-    Condition: "spec.containers[].image"
-    Operator: "not_contains"
-    Expected: ":latest"
-    FailMessage: "Container image uses the 'latest' tag, which can lead to unpredictable deployments."
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "image_tag"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "AKS Deployment Safeguards can deny workloads that use the latest tag or omit an explicit version tag."
+    Operator: "script"
+    FailMessage: "Container image uses the 'latest' tag or omits an explicit version tag, which can lead to unpredictable deployments."
     Severity: critical
     Weight: 3
     Recommendation:
-      text: "Specify an explicit image tag (e.g., ':v1.2.3') to ensure consistent deployments."
+      text: "Specify an explicit image tag (e.g., ':v1.2.3') on every container and initContainer to ensure consistent deployments."
       html: |
         <div class="recommendation-content">
           <h4>🛠️ Use Specific Image Tags</h4>
           <ul>
-            <li><strong>Don't use</strong> the <code>:latest</code> tag in container images.</li>
+            <li><strong>Don't use</strong> the <code>:latest</code> tag or leave the image tag blank.</li>
             <li><strong>Why:</strong> It can pull different images on each deploy, leading to drift.</li>
             <li><strong>Fix:</strong> Tag images explicitly (e.g., <code>:v1.2.3</code>) and update the pod spec.</li>
             <li><strong>Docs:</strong> <a href="https://kubernetes.io/docs/concepts/containers/images/#image-tags" target="_blank">Kubernetes Image Tagging</a></li>
           </ul>
         </div>
     SpeechBubble:
-      - "🤖 Some containers are using the ':latest' image tag."
+      - "🤖 Some containers are using the ':latest' image tag or no tag at all."
       - ""
       - "📌 This causes unpredictable behavior across deployments."
       - ""
       - "⚠️ Always use explicit version tags (e.g., :v1.2.3)."
     URL: "https://kubernetes.io/docs/concepts/containers/images/#image-tags"
+    Script: |
+      param ([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      function Test-ExplicitImageTag {
+        param([string]$Image)
+
+        $raw = [string]$Image
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+          return @{
+            HasExplicitTag = $false
+            Reason = "Image reference is empty"
+          }
+        }
+
+        $imageRef = $raw.Trim()
+        $nameOnly = ($imageRef -split '@', 2)[0]
+        $lastSlash = $nameOnly.LastIndexOf('/')
+        $lastColon = $nameOnly.LastIndexOf(':')
+        $hasTag = $lastColon -gt $lastSlash
+
+        if (-not $hasTag) {
+          return @{
+            HasExplicitTag = $false
+            Reason = "Image has no explicit tag"
+          }
+        }
+
+        $tag = $nameOnly.Substring($lastColon + 1)
+        if ([string]::IsNullOrWhiteSpace($tag) -or $tag.ToLowerInvariant() -eq 'latest') {
+          return @{
+            HasExplicitTag = $false
+            Reason = "Image uses the latest tag"
+          }
+        }
+
+        return @{
+          HasExplicitTag = $true
+          Reason = ""
+        }
+      }
+
+      $pods = if ($KubeData?.Pods) {
+        $KubeData.Pods.items
+      } else {
+        (kubectl get pods -A -o json | ConvertFrom-Json).items
+      }
+      if ($ExcludeNamespaces) {
+        $pods = Exclude-Namespaces -items $pods
+      }
+      if ($Namespace) {
+        $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        $containers = @($pod.spec.containers) + @($pod.spec.initContainers)
+        foreach ($container in $containers) {
+          if (-not $container) { continue }
+          $imageCheck = Test-ExplicitImageTag -Image ([string]$container.image)
+          if (-not $imageCheck.HasExplicitTag) {
+            $results += [PSCustomObject]@{
+              Namespace = $pod.metadata.namespace
+              Pod = $pod.metadata.name
+              Container = $container.name
+              Image = [string]$container.image
+              Issue = $imageCheck.Reason
+            }
+          }
+        }
+      }
+
+      return $results
   - ID: "POD008"
     Name: "Automounting API Credentials Enabled in Pods"
     Category: "Security"

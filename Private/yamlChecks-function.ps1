@@ -349,6 +349,11 @@ function Invoke-yamlChecks {
                             Weight         = $check.Weight
                             Description    = $check.Description
                             Recommendation = $check.Recommendation  # Store the raw recommendation (hashtable or string)
+                            AutomaticRelevance = $check.AutomaticRelevance
+                            AutomaticScope     = $check.AutomaticScope
+                            AutomaticReason    = $check.AutomaticReason
+                            AutomaticAdmissionBehavior = $check.AutomaticAdmissionBehavior
+                            AutomaticMutationOutcome   = $check.AutomaticMutationOutcome
                             URL            = $check["URL"]
                             Items          = @()
                             Total          = 0
@@ -492,6 +497,11 @@ function Invoke-yamlChecks {
                             Weight         = $check.Weight
                             Description    = $check.Description
                             Recommendation = $check.Recommendation
+                            AutomaticRelevance = $check.AutomaticRelevance
+                            AutomaticScope     = $check.AutomaticScope
+                            AutomaticReason    = $check.AutomaticReason
+                            AutomaticAdmissionBehavior = $check.AutomaticAdmissionBehavior
+                            AutomaticMutationOutcome   = $check.AutomaticMutationOutcome
                             URL            = $check.URL
                             Items          = $items
                             Total          = $items.Count
@@ -612,6 +622,11 @@ function Invoke-yamlChecks {
                     Weight         = $check.Weight
                     Description    = $check.Description
                     Recommendation = $check.Recommendation  # Store the raw recommendation (hashtable or string)
+                    AutomaticRelevance = $check.AutomaticRelevance
+                    AutomaticScope     = $check.AutomaticScope
+                    AutomaticReason    = $check.AutomaticReason
+                    AutomaticAdmissionBehavior = $check.AutomaticAdmissionBehavior
+                    AutomaticMutationOutcome   = $check.AutomaticMutationOutcome
                     URL            = $check["URL"]
                     Items          = @()
                     Total          = 0

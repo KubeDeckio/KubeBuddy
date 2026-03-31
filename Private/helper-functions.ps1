@@ -32,6 +32,7 @@ function Generate-K8sTextReport {
     Write-Host "`n🤖 Cluster Summary fetched." -ForegroundColor Green
 
     $yamlCheckResults = Invoke-yamlChecks -Text -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
+    $aksCheckItems = @()
 
     foreach ($check in $yamlCheckResults.Items) {
         Write-ToReport "`n[$($check.ID) - $($check.Name)]"
@@ -71,6 +72,7 @@ function Generate-K8sTextReport {
     if ($Aks) {
         Write-ToReport -Message "`n[✅ AKS Best Practices Check]`n"
         $aksResults = Invoke-AKSBestPractices -Text -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName -KubeData:$KubeData
+        $aksCheckItems = @($aksResults.Items)
         Write-Host "`n🤖 AKS Information fetched." -ForegroundColor Green
 
         # Write individual AKS check results
@@ -102,6 +104,16 @@ function Generate-K8sTextReport {
 
         # Write the AKS summary
         Write-ToReport -Message ($aksResults.TextOutput -join "`n")
+
+        $automaticReadiness = Get-KubeBuddyAutomaticReadiness `
+            -YamlChecks @($yamlCheckResults.Items) `
+            -AksChecks $aksCheckItems `
+            -ClusterName $ClusterName `
+            -AksClusterInfo $KubeData.AksCluster `
+            -KubeData $KubeData
+        foreach ($line in (Convert-KubeBuddyAutomaticReadinessToText -Readiness $automaticReadiness)) {
+            Write-ToReport $line
+        }
     }
 
     # ----- Prometheus Metrics (Last 24h) -----

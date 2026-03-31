@@ -136,6 +136,11 @@ checks:
     ResourceKind: "Pod"
     Severity: "critical"
     Weight: 4
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "host_namespace"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: workloads using hostPID or hostNetwork can be denied by baseline admission policy."
     Operator: "script"
     Script: |
       param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
@@ -202,6 +207,9 @@ checks:
     ResourceKind: "Pod"
     Severity: "critical"
     Weight: 5
+    AutomaticRelevance: "warning"
+    AutomaticScope: "workload"
+    AutomaticReason: "aks_security"
     Operator: "script"
     Script: |
       param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
@@ -282,6 +290,11 @@ checks:
     ResourceKind: "Pod"
     Severity: "critical"
     Weight: 5
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "privileged"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: privileged containers can be denied at admission."
     Operator: "script"
     Script: |
       param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
@@ -345,6 +358,11 @@ checks:
     ResourceKind: "Pod"
     Severity: "critical"
     Weight: 3
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "host_namespace"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: workloads using hostIPC can be denied by baseline admission policy."
     Operator: "script"
     Script: |
       param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
@@ -652,6 +670,11 @@ checks:
     ResourceKind: "Pod"
     Severity: "critical"
     Weight: 3
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "host_path"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: workloads using hostPath volumes can be denied at admission."
     Description: >
       Flags pods that use hostPath volumes, which mount parts of the host filesystem.
       This bypasses isolation and can be dangerous if misused.
@@ -685,6 +708,360 @@ checks:
         }
       }
   
+      return @{
+        Items = $results
+        IssueCount = $results.Count
+      }
+  - ID: "SEC015"
+    Name: "Host Ports in Pod Specs"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Pod"
+    Severity: "critical"
+    Weight: 4
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "host_ports"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: workloads using hostPort can be denied by baseline admission policy."
+    Description: >
+      Detects containers that bind host ports directly on the node.
+      This reduces isolation and is disallowed by baseline Pod Security Standards.
+    FailMessage: "Container uses a hostPort"
+    Recommendation:
+      text: "Remove hostPort bindings and expose workloads using Services, Ingress, or Gateway APIs instead."
+      html: |
+        <ul>
+          <li>Remove <code>hostPort</code> from container port definitions.</li>
+          <li>Use a Service or Ingress for north-south access.</li>
+          <li>Reserve host networking only for platform workloads that truly require it.</li>
+        </ul>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
+      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        $containers = @()
+        $containers += $pod.spec.containers
+        $containers += $pod.spec.initContainers
+        $containers += $pod.spec.ephemeralContainers
+
+        foreach ($container in ($containers | Where-Object { $_ })) {
+          foreach ($port in ($container.ports ?? @())) {
+            if ($null -ne $port.hostPort -and [int]$port.hostPort -gt 0) {
+              $results += [pscustomobject]@{
+                Namespace = $pod.metadata.namespace
+                Pod       = $pod.metadata.name
+                Container = $container.name
+                HostPort  = [int]$port.hostPort
+                Issue     = "hostPort is configured"
+              }
+            }
+          }
+        }
+      }
+
+      return @{
+        Items = $results
+        IssueCount = $results.Count
+      }
+  - ID: "SEC016"
+    Name: "Unconfined Seccomp Profiles"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Pod"
+    Severity: "critical"
+    Weight: 4
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "seccomp"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: seccomp profiles explicitly set to Unconfined can be denied at admission."
+    Description: >
+      Detects pod or container seccomp profiles explicitly set to Unconfined.
+    FailMessage: "Seccomp profile is set to Unconfined"
+    Recommendation:
+      text: "Use RuntimeDefault or Localhost seccomp profiles instead of Unconfined."
+      html: |
+        <ul>
+          <li>Set <code>securityContext.seccompProfile.type: RuntimeDefault</code> at pod or container level.</li>
+          <li>Use a <code>Localhost</code> profile only when you maintain a custom seccomp profile.</li>
+        </ul>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
+      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        $podSeccomp = $pod.spec.securityContext?.seccompProfile?.type
+        if ($podSeccomp -eq 'Unconfined') {
+          $results += [pscustomobject]@{
+            Namespace = $pod.metadata.namespace
+            Pod       = $pod.metadata.name
+            Scope     = 'Pod'
+            Value     = 'Unconfined'
+            Issue     = 'Pod seccomp profile is Unconfined'
+          }
+        }
+
+        $containers = @()
+        $containers += $pod.spec.containers
+        $containers += $pod.spec.initContainers
+        $containers += $pod.spec.ephemeralContainers
+        foreach ($container in ($containers | Where-Object { $_ })) {
+          $seccomp = $container.securityContext?.seccompProfile?.type
+          if ($seccomp -eq 'Unconfined') {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Pod       = $pod.metadata.name
+              Container = $container.name
+              Scope     = 'Container'
+              Value     = 'Unconfined'
+              Issue     = 'Container seccomp profile is Unconfined'
+            }
+          }
+        }
+      }
+
+      return @{
+        Items = $results
+        IssueCount = $results.Count
+      }
+  - ID: "SEC017"
+    Name: "Non-Default ProcMount"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Pod"
+    Severity: "critical"
+    Weight: 3
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "proc_mount"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: non-default procMount values can be denied at admission."
+    Description: >
+      Detects containers that set a procMount value other than the default.
+    FailMessage: "Container uses a non-default procMount"
+    Recommendation:
+      text: "Remove procMount overrides or set them to Default."
+      html: |
+        <ul>
+          <li>Set <code>securityContext.procMount: Default</code> or omit the field.</li>
+          <li>Review debugging and observability agents that rely on custom proc mounts.</li>
+        </ul>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
+      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        $containers = @()
+        $containers += $pod.spec.containers
+        $containers += $pod.spec.initContainers
+        $containers += $pod.spec.ephemeralContainers
+        foreach ($container in ($containers | Where-Object { $_ })) {
+          $procMount = $container.securityContext?.procMount
+          if ($procMount -and $procMount -ne 'Default') {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Pod       = $pod.metadata.name
+              Container = $container.name
+              ProcMount = $procMount
+              Issue     = 'procMount must be Default or omitted'
+            }
+          }
+        }
+      }
+
+      return @{
+        Items = $results
+        IssueCount = $results.Count
+      }
+  - ID: "SEC018"
+    Name: "Disallowed Sysctls"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Pod"
+    Severity: "critical"
+    Weight: 3
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "sysctls"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "AKS Automatic may deny workloads that specify sysctls outside the baseline allowlist."
+    Description: >
+      Detects sysctls outside the Kubernetes baseline Pod Security Standards allowlist.
+    FailMessage: "Pod specifies disallowed sysctls"
+    Recommendation:
+      text: "Remove non-baseline sysctls or redesign the workload to avoid kernel tuning inside the pod."
+      html: |
+        <ul>
+          <li>Keep only baseline-allowed sysctls such as safe <code>net.ipv4.ip_local_port_range</code> or <code>kernel.shm_rmid_forced</code>.</li>
+          <li>Move node-level kernel tuning into node or image configuration where possible.</li>
+        </ul>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $allowed = @(
+        'kernel.shm_rmid_forced',
+        'net.ipv4.ip_local_port_range',
+        'net.ipv4.tcp_syncookies',
+        'net.ipv4.ping_group_range',
+        'net.ipv4.ip_unprivileged_port_start',
+        'net.ipv4.ip_local_reserved_ports'
+      )
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
+      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        foreach ($sysctl in ($pod.spec.securityContext?.sysctls ?? @())) {
+          if ($sysctl.name -and $allowed -notcontains $sysctl.name) {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Pod       = $pod.metadata.name
+              Sysctl    = $sysctl.name
+              Value     = $sysctl.value
+              Issue     = 'Sysctl is outside the baseline allowlist'
+            }
+          }
+        }
+      }
+
+      return @{
+        Items = $results
+        IssueCount = $results.Count
+      }
+  - ID: "SEC019"
+    Name: "Unsupported AppArmor Values"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Pod"
+    Severity: "critical"
+    Weight: 2
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "apparmor"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: unsupported AppArmor values can be denied at admission."
+    Description: >
+      Detects AppArmor annotations or profile types that are not permitted by baseline Pod Security Standards.
+    FailMessage: "Pod specifies unsupported AppArmor values"
+    Recommendation:
+      text: "Use RuntimeDefault or Localhost AppArmor profiles, or remove custom unsupported AppArmor values."
+      html: |
+        <ul>
+          <li>Allowed values are <code>runtime/default</code> or <code>localhost/*</code> in annotations, and <code>RuntimeDefault</code> or <code>Localhost</code> for structured profiles.</li>
+          <li>Remove legacy or custom profile names that AKS Automatic baseline policy would reject.</li>
+        </ul>
+    URL: "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
+      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        foreach ($prop in ($pod.metadata.annotations?.PSObject.Properties ?? @())) {
+          if ($prop.Name -like 'container.apparmor.security.beta.kubernetes.io/*') {
+            $value = [string]$prop.Value
+            if ($value -and $value -ne 'runtime/default' -and -not $value.StartsWith('localhost/')) {
+              $results += [pscustomobject]@{
+                Namespace  = $pod.metadata.namespace
+                Pod        = $pod.metadata.name
+                Annotation = $prop.Name
+                Value      = $value
+                Issue      = 'Unsupported AppArmor annotation value'
+              }
+            }
+          }
+        }
+
+        $containers = @()
+        $containers += $pod.spec.containers
+        $containers += $pod.spec.initContainers
+        $containers += $pod.spec.ephemeralContainers
+        foreach ($container in ($containers | Where-Object { $_ })) {
+          $profileType = $container.securityContext?.appArmorProfile?.type
+          if ($profileType -and $profileType -notin @('RuntimeDefault', 'Localhost')) {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Pod       = $pod.metadata.name
+              Container = $container.name
+              Value     = $profileType
+              Issue     = 'Unsupported AppArmor profile type'
+            }
+          }
+        }
+      }
+
+      return @{
+        Items = $results
+        IssueCount = $results.Count
+      }
+  - ID: "SEC020"
+    Name: "Seccomp Profile Not Configured"
+    Category: "Pod Security"
+    Section: "Security"
+    ResourceKind: "Pod"
+    Severity: "warning"
+    Weight: 2
+    AutomaticRelevance: "warning"
+    AutomaticScope: "workload"
+    AutomaticReason: "seccomp"
+    AutomaticAdmissionBehavior: "warns_only"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: workloads without an explicit seccomp profile can generate a warning requiring RuntimeDefault or Localhost."
+    Description: >
+      Detects pods and containers that don't explicitly configure a seccomp profile.
+    FailMessage: "Seccomp profile is not configured."
+    Recommendation:
+      text: "Set seccompProfile.type to RuntimeDefault or Localhost at the pod or container level."
+      html: |
+        <div class="recommendation-content">
+          <ul>
+            <li>Set <code>securityContext.seccompProfile.type: RuntimeDefault</code> for the pod or each container.</li>
+            <li>If you need a custom profile, use <code>Localhost</code> and ensure the profile exists on the node.</li>
+            <li>Doing this avoids AKS Automatic seccomp warnings and makes the security posture explicit.</li>
+          </ul>
+        </div>
+    URL: "https://kubernetes.io/docs/concepts/security/linux-kernel-security-constraints/#seccomp"
+    Script: |
+      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $pods = $KubeData?.Pods?.items ?? (kubectl get pods -A -o json | ConvertFrom-Json).items
+      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
+      if ($Namespace) { $pods = $pods | Where-Object { $_.metadata.namespace -eq $Namespace } }
+
+      $results = @()
+      foreach ($pod in $pods) {
+        $podSeccomp = $pod.spec.securityContext.seccompProfile.type
+        $containers = @($pod.spec.containers) + @($pod.spec.initContainers) + @($pod.spec.ephemeralContainers)
+        foreach ($container in $containers) {
+          if (-not $container) { continue }
+          $containerSeccomp = $container.securityContext.seccompProfile.type
+          if (-not $containerSeccomp -and -not $podSeccomp) {
+            $results += [pscustomobject]@{
+              Namespace = $pod.metadata.namespace
+              Pod = $pod.metadata.name
+              Container = $container.name
+              Issue = "No explicit seccomp profile"
+            }
+          }
+        }
+      }
+
       return @{
         Items = $results
         IssueCount = $results.Count
@@ -739,6 +1116,11 @@ checks:
     ResourceKind: "Pod"
     Severity: "warning"
     Weight: 2
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "capabilities"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: workloads that add unsupported Linux capabilities such as SYS_ADMIN can be denied at admission."
     Description: >
       Flags containers that add extra Linux capabilities using securityContext.capabilities.add.
     FailMessage: "Linux capabilities added"

@@ -146,6 +146,22 @@ az aks get-credentials \
 
 KubeBuddy powered by KubeDeck evaluates various aspects of your **Azure Kubernetes Service (AKS)** setup, highlighting potential issues and confirming best practices.
 
+## AKS Automatic Migration Readiness
+
+KubeBuddy also derives an **AKS Automatic Migration Readiness** view from the shared Kubernetes and AKS checks when you run with `-Aks`.
+
+This is documented in its own page:
+
+- [AKS Automatic Migration Readiness](aks-automatic-migration-readiness.md)
+
+Use that page for:
+
+- blocker vs warning behavior
+- action-plan output
+- JSON and HTML report sections
+- affected-resource mapping
+- ingress and Gateway API migration guidance
+
 ## Checks Overview
 
 Below is a categorized list of key AKS checks, ordered by **ID and Category**.

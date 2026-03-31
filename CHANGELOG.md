@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.26] - 2026-03-31
+
+### Added
+
+* **AKS Automatic migration readiness derived from shared checks**
+  * Added a derived AKS Automatic migration readiness view to HTML, text, CLI, and JSON outputs when running KubeBuddy with `-Aks`.
+  * Added a standalone `*-aks-automatic-action-plan.html` artifact focused on migration work, with a suggested migration sequence, blocker-driven actions, warning-driven actions, and Microsoft Learn links for creating a new AKS Automatic cluster.
+  * Added JSON output fields for `metadata.aksAutomaticSummary` and `aksAutomaticReadiness.*`.
+  * Added affected-resource resolution back to owning workloads and Helm-managed sources where possible so findings point users to the manifest or chart that actually needs to change.
+  * Added skip logic so the readiness view is not generated when the source AKS cluster already uses `sku.name = Automatic`.
+  * Added structured affected-resource tables and manifest examples to the standalone action plan.
+
+* **New shared Kubernetes checks used by AKS Automatic readiness**
+  * Added `WRK014` for missing memory limits.
+  * Added `WRK015` for replicated workloads missing anti-affinity or topology spread constraints.
+  * Added AKS Automatic migration relevance to `NET013` for Ingress-to-Gateway API planning.
+  * Added `NET018` for duplicate Service selectors.
+  * Added `SEC020` for workloads that do not explicitly configure a seccomp profile.
+
+### Changed
+
+* **AKS Automatic readiness now follows observed cluster admission behavior**
+  * Updated shared checks and AKS Automatic metadata to reflect observed AKS Automatic behavior rather than treating all AKS best-practice issues as migration blockers.
+  * `WRK005` now focuses on missing resource requests, while missing memory limits remain a separate best-practice warning via `WRK014`.
+  * `POD007` now detects both `:latest` images and images without an explicit version tag.
+  * Added AKS Automatic blocker/warning metadata to relevant shared checks for host namespaces, privileged containers, hostPath, hostPort, seccomp, procMount, AppArmor, Linux capabilities, probes, storage provisioners, and AKS alignment checks.
+  * Updated the standalone action plan layout from a compact table to full-width action cards for readability.
+  * Split standalone migration actions into blocker and warning sections so only blocker items are treated as mandatory before migration.
+  * Added Gateway API migration guidance for clusters still relying on Ingress assumptions.
+  * Removed the target-cluster build section from the rendered AKS Automatic reports so the feature stays focused on migration blockers and warnings.
+
+### Docs
+
+* Updated documentation for:
+  * AKS Automatic migration readiness under the AKS usage page
+  * shared checks reference entries for the new and updated checks
+
 
 ## [0.0.25] - 2026-03-12
 

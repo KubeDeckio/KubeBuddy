@@ -75,6 +75,7 @@ nav:
       - Config File: cli/kubebuddy-config.md
       - Checks: cli/checks.md
       - AKS Best Practices: cli/aks-best-practice-checks.md
+      - AKS Automatic Migration Readiness: cli/aks-automatic-migration-readiness.md
       - Logging Output: cli/logging-output.md
       - Radar Integration (Pro): cli/kubebuddy-radar-cli-integration.md
   - Radar:

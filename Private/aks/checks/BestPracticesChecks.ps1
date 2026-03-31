@@ -40,6 +40,9 @@ $bestPracticesChecks = @(
         Expected       = 0;
         FailMessage    = "Node pools use Ubuntu instead of Azure Linux. Azure Linux is Microsoft's optimized container host OS with reduced attack surface (smaller package footprint), faster boot times, improved security patching, and better integration with Azure platform services.";
         Severity       = "High";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "platform";
+        AutomaticReason    = "aks_platform";
         Recommendation = "Migrate to Azure Linux by creating new node pools with 'az aks nodepool add --os-sku AzureLinux', then migrate workloads and delete old pools. Note: In-place OS SKU changes are not supported, requiring node pool replacement.";
         URL            = "https://learn.microsoft.com/azure/aks/use-azure-linux";
     },    
@@ -180,6 +183,9 @@ $bestPracticesChecks = @(
         Expected       = $true;
         FailMessage    = "Deployment Safeguards are disabled, allowing non-compliant workloads to be deployed without validation of Kubernetes best practices. This leads to deployments without resource requests/limits, missing health probes, no anti-affinity rules, and other configuration issues that impact reliability and cost.";
         Severity       = "Medium";
+        AutomaticRelevance = "alignment";
+        AutomaticScope     = "cluster";
+        AutomaticReason    = "aks_platform";
         Recommendation = "Enable Deployment Safeguards using 'az aks update --resource-group <rg> --name <cluster> --safeguards-level Warning' for alerting or 'Enforcement' to block non-compliant deployments. This enforces best practices including resource requests, readiness/liveness probes, pod anti-affinity, and Pod Security Standards.";
         URL            = "https://learn.microsoft.com/azure/aks/deployment-safeguards";
     }

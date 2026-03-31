@@ -1076,6 +1076,9 @@ checks:
     ResourceKind: "Ingress"
     Severity: "warning"
     Weight: 2
+    AutomaticRelevance: "warning"
+    AutomaticScope: "workload"
+    AutomaticReason: "gateway_api"
     Script: |
       param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
 
@@ -1535,3 +1538,94 @@ checks:
       - ""
       - "⚠️ Missing secrets or grants can break HTTPS listeners."
     URL: "https://gateway-api.sigs.k8s.io/api-types/referencegrant/"
+
+  - ID: "NET018"
+    Category: "Networking"
+    Section: "Networking"
+    Name: "Duplicate Service Selectors"
+    Description: "Detects multiple Services in the same namespace using the same selector set."
+    ResourceKind: "Service"
+    Severity: "warning"
+    Weight: 3
+    AutomaticRelevance: "blocker"
+    AutomaticScope: "workload"
+    AutomaticReason: "service_selector"
+    AutomaticAdmissionBehavior: "denies_on_enforce"
+    AutomaticMutationOutcome: "Observed on AKS Automatic: creating multiple Services with the same selector can be denied at admission."
+    Script: |
+      param($KubeData, $Namespace, [switch]$ExcludeNamespaces)
+
+      $services = if ($KubeData?.Services) {
+        @($KubeData.Services.items)
+      } else {
+        @((kubectl get services --all-namespaces -o json | ConvertFrom-Json).items)
+      }
+      if ($ExcludeNamespaces) {
+        $services = Exclude-Namespaces -items $services
+      }
+      if ($Namespace) {
+        $services = $services | Where-Object { $_.metadata.namespace -eq $Namespace }
+      }
+
+      function Get-SelectorKey {
+        param([object]$Selector)
+
+        if (-not $Selector) { return '' }
+
+        $pairs = foreach ($name in ($Selector.PSObject.Properties.Name | Sort-Object)) {
+          "{0}={1}" -f $name, [string]$Selector.$name
+        }
+
+        return ($pairs -join ';')
+      }
+
+      $grouped = @{}
+      foreach ($svc in $services) {
+        if ($svc.spec.type -eq 'ExternalName') { continue }
+        $selector = $svc.spec.selector
+        $selectorKey = Get-SelectorKey -Selector $selector
+        if (-not $selectorKey) { continue }
+
+        $groupKey = "{0}|{1}" -f $svc.metadata.namespace, $selectorKey
+        if (-not $grouped.ContainsKey($groupKey)) {
+          $grouped[$groupKey] = @()
+        }
+        $grouped[$groupKey] += $svc
+      }
+
+      $results = @()
+      foreach ($group in $grouped.GetEnumerator()) {
+        $items = @($group.Value)
+        if ($items.Count -lt 2) { continue }
+
+        $serviceNames = @($items | ForEach-Object { $_.metadata.name } | Sort-Object)
+        foreach ($svc in $items) {
+          $results += [pscustomobject]@{
+            Namespace = $svc.metadata.namespace
+            Resource  = "service/$($svc.metadata.name)"
+            Value     = $svc.spec.selector | ConvertTo-Json -Compress
+            Message   = "Service shares its selector with: $($serviceNames -join ', ')"
+          }
+        }
+      }
+
+      return $results
+    FailMessage: "Multiple Services share the same selector"
+    Recommendation:
+      text: "Use unique selectors per Service so AKS Automatic admission does not reject overlapping service ownership."
+      html: |
+        <div class="recommendation-content">
+          <h4>🎯 Use Unique Service Selectors</h4>
+          <ul>
+            <li>Review Services in the same namespace that select the exact same pod label set.</li>
+            <li>Split selectors so each Service represents a distinct routing contract, or consolidate duplicate Services where appropriate.</li>
+            <li>Update the source manifest or Helm chart so the selector change persists across releases.</li>
+          </ul>
+        </div>
+    SpeechBubble:
+      - "🤖 Multiple Services are targeting the same exact selector."
+      - ""
+      - "📌 AKS Automatic can reject that pattern during admission."
+      - ""
+      - "⚠️ Give each Service a distinct selector or consolidate duplicates."
+    URL: "https://kubernetes.io/docs/concepts/services-networking/service/"

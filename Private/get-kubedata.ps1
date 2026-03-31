@@ -86,6 +86,7 @@ function Get-KubeData {
         @{ Name = "Jobs"; Cmd = { kubectl get jobs --all-namespaces -o json }; Key = "Jobs"; Items = $true },
         @{ Name = "CronJobs"; Cmd = { kubectl get cronjobs --all-namespaces -o json }; Key = "CronJobs"; Items = $true },
         @{ Name = "DaemonSets"; Cmd = { kubectl get daemonsets --all-namespaces -o json }; Key = "DaemonSets"; Items = $true },
+        @{ Name = "ReplicaSets"; Cmd = { kubectl get replicasets --all-namespaces -o json }; Key = "ReplicaSets"; Items = $true },
         @{ Name = "StatefulSets"; Cmd = { kubectl get statefulsets --all-namespaces -o json }; Key = "StatefulSets"; Items = $true },
         @{ Name = "Deployments"; Cmd = { kubectl get deployments --all-namespaces -o json }; Key = "Deployments"; Items = $true },
         @{ Name = "PodDisruptionBudgets"; Cmd = { kubectl get pdb --all-namespaces -o json }; Key = "PodDisruptionBudgets"; Items = $true },
@@ -382,6 +383,7 @@ function Get-KubeData {
     # Preserve unfiltered workload collections for Radar artifact inventory.
     $data.RawArtifactInventory = @{
         Deployments  = @($data.Deployments)
+        ReplicaSets  = @($data.ReplicaSets)
         StatefulSets = @($data.StatefulSets)
         DaemonSets   = @($data.DaemonSets)
         Jobs         = @($data.Jobs)
@@ -395,7 +397,7 @@ function Get-KubeData {
         Write-Host "`n🤖 🚫 Excluding selected namespaces..." -ForegroundColor Yellow
         foreach ($key in @(
                 'Pods', 'Jobs', 'Deployments', 'Services',
-                'DaemonSets', 'StatefulSets', 'PersistentVolumeClaims',
+                'DaemonSets', 'ReplicaSets', 'StatefulSets', 'PersistentVolumeClaims',
                 'Events', 'NetworkPolicies', 'Roles', 'RoleBindings',
                 'Constraints'
             )) {

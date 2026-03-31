@@ -46,6 +46,7 @@ function Create-JsonReport {
 
     # Run YAML-based checks
     $yamlCheckResults = Invoke-yamlChecks -Json -KubeData $KubeData -ExcludeNamespaces:$ExcludeNamespaces
+    $aksCheckItems = @()
 
     # Flatten YAML checks into checks map
     $checksMap = @{}
@@ -84,6 +85,7 @@ function Create-JsonReport {
 
             # Integrate AKS checks into checksMap
             if ($aksCheckResults -and $aksCheckResults.Items) {
+                $aksCheckItems = @($aksCheckResults.Items)
                 foreach ($aksCheck in $aksCheckResults.Items) {
                     if ($aksCheck.ID) {
                         $checksMap[$aksCheck.ID] = $aksCheck
@@ -115,6 +117,15 @@ function Create-JsonReport {
 
     # Assign checks to results
     $results.checks = $checksMap
+
+    $automaticReadiness = Get-KubeBuddyAutomaticReadiness `
+        -YamlChecks @($yamlCheckResults.Items) `
+        -AksChecks $aksCheckItems `
+        -ClusterName $results.metadata.clusterName `
+        -AksClusterInfo $KubeData.AksCluster `
+        -KubeData $KubeData
+    $results.aksAutomaticReadiness = $automaticReadiness
+    $results.metadata.aksAutomaticSummary = $automaticReadiness.summary
 
     # Calculate score from all checks
     $allChecks = $yamlCheckResults.Items
