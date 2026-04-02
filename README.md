@@ -25,7 +25,7 @@
 
 </br>
 
-**KubeBuddy** is a PowerShell-based Kubernetes assistant that helps you monitor cluster health, workloads, networking, security, and more. It generates **HTML** and **text-based reports** to help you quickly assess your Kubernetes environment.
+**KubeBuddy** is a PowerShell-based Kubernetes assistant that helps you monitor cluster health, workloads, networking, security, and more. It generates **HTML**, **text-based**, and **CSV reports** to help you quickly assess your Kubernetes environment.
 
 ## Documentation
 
@@ -40,7 +40,7 @@ For complete installation, usage, and advanced configuration instructions, visit
 - **RBAC & Security Checks:** Identifies excessive permissions and misconfigurations.
 - **Storage & Networking Insights:** Analyzes persistent volumes, services, and network policies.
 - **Customizable Thresholds:** Configure warning/critical levels in `kubebuddy-config.yaml`.
-- **HTML & Text Reports:** Generates clean reports for analysis and sharing.
+- **HTML, Text & CSV Reports:** Generates clean reports for analysis and sharing. CSV output includes check ID, name, severity, status, message, recommendation, and URL — ideal for spreadsheets, dashboards, and audit logs.
 - **PowerShell Support:** Install via PowerShell Gallery and run on Windows, macOS, or Linux.
 - **AKS Best Practices Check:** Checks Azure Kubernetes Service (AKS) clusters for Best Practices. (Currently 34 fully automated tests!)
 - **KubeBuddy Radar Upload (Pro):** Upload JSON scan runs to Radar for trend history, run comparisons, and fleet reporting.
@@ -84,13 +84,22 @@ Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceG
   ```powershell
   Invoke-KubeBuddy -txtReport
   ```
+- **CSV Report:**
+  ```powershell
+  Invoke-KubeBuddy -CsvReport
+  ```
+  Exports scan results to a `.csv` file with columns: `ID`, `Name`, `Category`, `Severity`, `Status`, `Message`, `Recommendation`, `URL`. Useful for spreadsheets, dashboards, or audit logs.
 - **Add AKS Best Practices section to HTML report:**
   ```powershell
   Invoke-KubeBuddy -HtmlReport -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
   ```
-  - **Add AKS Best Practices section to Text report:**
+- **Add AKS Best Practices section to Text report:**
   ```powershell
   Invoke-KubeBuddy -txtReport -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
+  ```
+- **Add AKS Best Practices to CSV report:**
+  ```powershell
+  Invoke-KubeBuddy -CsvReport -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
   ```
 
 ### **Upload to KubeBuddy Radar (Pro)**
