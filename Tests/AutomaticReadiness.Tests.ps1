@@ -351,7 +351,7 @@ Describe 'AKS Automatic readiness aggregation' {
             Test-Path $path | Should -BeTrue
             (Get-Content -Raw $path) | Should -Match 'AKS Automatic Action Plan'
             (Get-Content -Raw $path) | Should -Match 'Define container resource requests'
-            (Get-Content -Raw $path) | Should -Match 'Target Cluster Build Notes'
+            (Get-Content -Raw $path) | Should -Match 'Build a New AKS Automatic Cluster'
         }
 
         It 'skips readiness when the AKS cluster sku is Automatic' {

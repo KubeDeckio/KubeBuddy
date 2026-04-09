@@ -9,14 +9,31 @@ Describe 'Invoke-KubeBuddy' {
     Context 'HTML Report mode' {
 
         BeforeAll {
+            function global:kubectl {
+                'docker-desktop'
+            }
+
             # module‑private helpers
-            Mock -CommandName Get-KubeData            -ModuleName KubeBuddy -MockWith { @{ dummy = $true } }
+            Mock -CommandName Get-KubeData -ModuleName KubeBuddy -MockWith { @{ dummy = $true } }
             Mock -CommandName Generate-K8sHTMLReport -ModuleName KubeBuddy
+            Mock -CommandName Clear-Host -ModuleName KubeBuddy
+            Mock -CommandName Clear-KubeBuddyConfigPathOverride -ModuleName KubeBuddy
+            Mock -CommandName Clear-ExcludedNamespacesOverride -ModuleName KubeBuddy
+            Mock -CommandName Get-ExcludedNamespaces -ModuleName KubeBuddy -MockWith { @() }
+            Mock -CommandName Resolve-KubeBuddyRadarSettings -ModuleName KubeBuddy -MockWith {
+                @{
+                    enabled = $false
+                    upload_enabled = $false
+                    compare_enabled = $false
+                }
+            }
         }
 
         It 'Calls Get-KubeData and Generate-K8sHTMLReport on -HtmlReport' {
             # simulate that the HTML file appears
-            Mock -CommandName Test-Path -ModuleName KubeBuddy -MockWith { $true }
+            Mock -CommandName Test-Path -ModuleName KubeBuddy -ParameterFilter { $Path -like '*.html' } -MockWith { $true }
+            Mock -CommandName Test-Path -ModuleName KubeBuddy -ParameterFilter { $Path -notlike '*.html' } -MockWith { $true }
+            Mock -CommandName Write-Host -ModuleName KubeBuddy -MockWith { }
 
             Invoke-KubeBuddy -HtmlReport -outputpath $PWD -yes
 
@@ -25,8 +42,8 @@ Describe 'Invoke-KubeBuddy' {
         }
 
         It 'Writes an error if the HTML file was not created' {
-            # Mock inside the KubeBuddy module
-            Mock -CommandName Test-Path   -ModuleName KubeBuddy -MockWith { $false }
+            Mock -CommandName Test-Path -ModuleName KubeBuddy -ParameterFilter { $Path -like '*.html' } -MockWith { $false }
+            Mock -CommandName Test-Path -ModuleName KubeBuddy -ParameterFilter { $Path -notlike '*.html' } -MockWith { $true }
             Mock -CommandName Write-Host -ModuleName KubeBuddy -MockWith { }
     
             Invoke-KubeBuddy -HtmlReport -OutputPath $PWD -Yes
@@ -35,7 +52,7 @@ Describe 'Invoke-KubeBuddy' {
                 -ModuleName KubeBuddy `
                 -CommandName Write-Host `
                 -Times 1 `
-                -ParameterFilter { $_ -like '*🚫 Failed to generate the HTML report*' }
+                -ParameterFilter { $Object -like '*Failed to generate the HTML report*' }
         }    
     }
 
