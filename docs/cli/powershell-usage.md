@@ -203,6 +203,14 @@ Invoke-KubeBuddy -txtReport -OutputPath ./custom-report.txt
 ./custom-report.txt
 ```
 
+```powershell
+Invoke-KubeBuddy -CsvReport -OutputPath ./custom-report.csv
+```
+✔️ Saves the **CSV** report as:
+```
+./custom-report.csv
+```
+
 
 
 ## 4. Running an AKS Health Check alongside the HTML report
@@ -232,7 +240,21 @@ Invoke-KubeBuddy -jsonReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup
 
 ---
 
-## 5. Running an AKS Health Check alongside the txt report
+## 6. Running an AKS Health Check alongside the CSV report
+
+To check best practices for an Azure Kubernetes Service (AKS) cluster and export results to CSV:
+
+```powershell
+az login
+az account set --subscription <subscription-id>
+Invoke-KubeBuddy -CsvReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+```
+
+<a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/csv-report-sample.csv" target="_blank" rel="noopener noreferrer">View Sample CSV Report</a>
+
+---
+
+## 7. Running an AKS Health Check alongside the txt report
 
 To check best practices for an Azure Kubernetes Service (AKS) cluster:
 
@@ -247,7 +269,7 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 
 ---
 
-## 6. Additional Parameters
+## 8. Additional Parameters
 
 | Parameter                 | Type      | Default                              | Description                                                                                  |
 |---------------------------|----------|--------------------------------------|----------------------------------------------------------------------------------------------|
