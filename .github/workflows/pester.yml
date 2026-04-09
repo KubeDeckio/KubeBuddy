@@ -1,0 +1,29 @@
+name: Run Pester Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name Pester -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module -Name powershell-yaml -Scope CurrentUser -Force -SkipPublisherCheck
+
+      - name: Run Pester
+        shell: pwsh
+        run: |
+          Invoke-Pester -Path ./Tests -CI

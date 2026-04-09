@@ -150,6 +150,7 @@ Set these to control behavior inside the container:
 | Variable      | Description               |
 | ------------- | ------------------------- |
 | `HTML_REPORT` | `"true"` to generate HTML |
+| `CSV_REPORT`  | `"true"` for CSV output   |
 | `TXT_REPORT`  | `"true"` for plain text   |
 | `JSON_REPORT` | `"true"` for JSON output  |
 
@@ -247,6 +248,34 @@ docker run -it --rm \
       -e HTML_REPORT="true" \
       -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
       -v $HOME/kubebuddy-report:/app/Reports \
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
+
+## 📄 Generate a CSV Report in Docker
+
+=== "Bash"
+
+    ```bash
+    export tagId="v0.0.23"
+
+    docker run -it --rm \
+      -e KUBECONFIG="/home/kubeuser/.kube/config" \
+      -e CSV_REPORT="true" \
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+      -v $HOME/kubebuddy-report:/app/Reports \
+      ghcr.io/kubedeckio/kubebuddy:$tagId
+    ```
+
+=== "PowerShell"
+
+    ```powershell
+    $tagId = "v0.0.23"
+
+    docker run -it --rm `
+      -e KUBECONFIG="/home/kubeuser/.kube/config" `
+      -e CSV_REPORT="true" `
+      -v $HOME/.kube/config:/tmp/kubeconfig-original:ro `
+      -v $HOME/kubebuddy-report:/app/Reports `
       ghcr.io/kubedeckio/kubebuddy:$tagId
     ```
 

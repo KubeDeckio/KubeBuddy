@@ -13,6 +13,7 @@ $ResourceGroup = $env:RESOURCE_GROUP
 $SubscriptionId = $env:SUBSCRIPTION_ID
 $ExcludeNS = $env:EXCLUDE_NAMESPACES -eq "true"
 $HtmlReport = $env:HTML_REPORT -eq "true"
+$CsvReport = $env:CSV_REPORT -eq "true"
 $txtReport = $env:TXT_REPORT -eq "true"
 $jsonReport = $env:JSON_REPORT -eq "true"
 $Aks = $env:AKS_MODE -eq "true"
@@ -61,8 +62,8 @@ if ($env:PROMETHEUS_USERNAME -and $env:PROMETHEUS_PASSWORD) {
 
 
 # Require at least one report format
-if (-not ($HtmlReport -or $txtReport -or $jsonReport)) {
-    Write-Error "You must enable at least one report format: HTML_REPORT, TXT_REPORT, or JSON_REPORT."
+if (-not ($HtmlReport -or $CsvReport -or $txtReport -or $jsonReport)) {
+    Write-Error "You must enable at least one report format: HTML_REPORT, CSV_REPORT, TXT_REPORT, or JSON_REPORT."
     exit 1
 }
 
@@ -139,6 +140,7 @@ $parameters = @{
     SubscriptionId           = $SubscriptionId
     ExcludeNamespaces        = $ExcludeNS
     HtmlReport               = $HtmlReport
+    CsvReport                = $CsvReport
     txtReport                = $txtReport
     jsonReport               = $jsonReport
     Aks                      = $Aks
