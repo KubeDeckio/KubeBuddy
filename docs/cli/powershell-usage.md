@@ -42,8 +42,9 @@ The following table provides a quick reference for KubeBuddy powered by KubeDeck
 |---------------------------|----------------|
 | Run KubeBuddy powered by KubeDeck | `Invoke-KubeBuddy` |
 | Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
-| Generate an JSON report | `Invoke-KubeBuddy -jsonReport` |
+| Generate a JSON report | `Invoke-KubeBuddy -jsonReport` |
 | Generate a text report | `Invoke-KubeBuddy -txtReport` |
+| Generate a CSV report | `Invoke-KubeBuddy -CsvReport` |
 | Generate reports with custom path | `Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report` |
 | Use cluster-specific config file | `Invoke-KubeBuddy -HtmlReport -ConfigPath ~/.kube/kubebuddy-config-prod.yaml` |
 | Exclude configured + extra namespaces | `Invoke-KubeBuddy -HtmlReport -ExcludeNamespaces -AdditionalExcludedNamespaces "azure-monitor","istio-system"` |
@@ -112,6 +113,33 @@ Invoke-KubeBuddy -txtReport
 
 ---
 
+### **Generate a CSV Report**
+```powershell
+Invoke-KubeBuddy -CsvReport
+```
+
+Exports all scan results to a `.csv` file. Each row represents a single finding with the following columns:
+
+| Column | Description |
+|--------|-------------|
+| `ID` | Check identifier (e.g. `NET004`, `SEC001`) |
+| `Name` | Human-readable check name |
+| `Category` | Check category (e.g. `Security`, `Networking`) |
+| `Severity` | `critical`, `warning`, or `info` |
+| `Status` | `PASS`, `FAIL`, or `ERROR` |
+| `Message` | Affected resource and issue description |
+| `Recommendation` | Remediation guidance |
+| `URL` | Link to relevant documentation |
+
+For FAIL results, one row is written per affected resource. The file is written as **UTF-8 with BOM** so it opens correctly in Excel.
+
+To include AKS best practice checks in the CSV:
+```powershell
+Invoke-KubeBuddy -CsvReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
+```
+
+---
+
 ### **Customizing Report Output Path**
 You can specify a **custom filename or directory** for the report using `-OutputPath`.
 
@@ -138,6 +166,14 @@ Invoke-KubeBuddy -txtReport -OutputPath ./reports
 ✔️ Saves the **TXT** report as:
 ```
 ./reports/kubebuddy-report-YYYYMMDD-HHMMSS.txt
+```
+
+```powershell
+Invoke-KubeBuddy -CsvReport -OutputPath ./reports
+```
+✔️ Saves the **CSV** report as:
+```
+./reports/kubebuddy-report-YYYYMMDD-HHMMSS.csv
 ```
 
 ---
@@ -225,7 +261,8 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 | `-AdditionalExcludedNamespaces` | String[] | (None)                         | Adds extra namespaces to exclude at runtime; implies `-ExcludeNamespaces`.                   |
 | `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `-OutputPath`.                                                   |
 | `-JsonReport`            | Switch   | (N/A)                                | Generates a JSON report in `-OutputPath`.                                                    |
-| `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `-OutputPath`.                                                   |
+| `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `-OutputPath`.                                                    |
+| `-CsvReport`             | Switch   | (N/A)                                | Generates a CSV report in `-OutputPath`. One row per finding; UTF-8 with BOM for Excel.      |
 | `-RadarUpload`           | Switch   | (N/A)                                | Uploads generated JSON report to KubeBuddy Radar (Pro feature).                              |
 | `-RadarCompare`          | Switch   | (N/A)                                | Fetches run-to-run compare summary from Radar after upload.                                   |
 | `-RadarFetchConfig`      | Switch   | (N/A)                                | Fetches a saved Radar cluster config and applies it before the scan runs.                     |

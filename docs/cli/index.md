@@ -29,7 +29,7 @@
 - Scans Kubernetes and AKS from outside the cluster
 - Finds node, pod, workload, network, RBAC, and storage issues
 - Supports AKS best-practice checks when you need provider-specific coverage
-- Generates HTML, JSON, and terminal output from the same run
+- Generates HTML, JSON, CSV, and terminal output from the same run
 - Pulls Prometheus metrics when available for richer diagnostics
 
 ## Choose Your Runtime
@@ -42,7 +42,7 @@ Use the module to:
 - detect failing pods, restart loops, and stuck jobs
 - review Kubernetes events by severity
 - inspect RBAC roles and security config
-- generate HTML, JSON, or text output
+- generate HTML, JSON, CSV, or text output
 
 [PowerShell Usage](powershell-usage.md)
 
