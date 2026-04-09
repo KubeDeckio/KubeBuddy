@@ -7,6 +7,7 @@ function Invoke-KubeBuddy {
         [switch]$HtmlReport,
         [switch]$txtReport,
         [switch]$jsonReport,
+        [switch]$CsvReport,
         [switch]$Aks,
         [switch]$ExcludeNamespaces,
         [string[]]$AdditionalExcludedNamespaces,
@@ -60,6 +61,7 @@ function Invoke-KubeBuddy {
     $htmlReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.html"
     $txtReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.txt"
     $jsonReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.json"
+    $csvReportFile = Join-Path -Path $reportDir -ChildPath "$reportBaseName.csv"
     Clear-Host
 
     # KubeBuddy ASCII Art
@@ -274,7 +276,7 @@ function Invoke-KubeBuddy {
     }
 
     # Report modes
-    $reportRequested = $HtmlReport -or $txtReport -or $jsonReport
+    $reportRequested = $HtmlReport -or $txtReport -or $jsonReport -or $CsvReport
     if ($reportRequested) {
         if ($Aks -and (-not $SubscriptionId -or -not $ResourceGroup -or -not $ClusterName)) {
             Write-Host "⚠️ ERROR: -Aks requires -SubscriptionId, -ResourceGroup, and -ClusterName" -ForegroundColor Red
@@ -347,6 +349,25 @@ function Invoke-KubeBuddy {
 
         $jsonReportPathForRadar = $null
         $generatedJsonForRadar = $false
+
+        if ($CsvReport) {
+            Write-Host "📄 Generating CSV report: $csvReportFile" -ForegroundColor Cyan
+            Create-CsvReport `
+                -OutputPath $csvReportFile `
+                -KubeData $KubeData `
+                -ExcludeNamespaces:$ExcludeNamespaces `
+                -Aks:$Aks `
+                -SubscriptionId $SubscriptionId `
+                -ResourceGroup $ResourceGroup `
+                -ClusterName $ClusterName
+
+            if (Test-Path -Path $csvReportFile) {
+                Write-Host "`n🤖 ✅ CSV report saved at: $csvReportFile" -ForegroundColor Green
+            }
+            else {
+                Write-Host "`n🚫 Failed to generate the CSV report. Please check for errors above." -ForegroundColor Red
+            }
+        }
 
         if ($jsonReport) {
             Write-Host "📄 Generating Json report: $jsonReportFile" -ForegroundColor Cyan
