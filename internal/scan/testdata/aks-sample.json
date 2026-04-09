@@ -1,0 +1,101 @@
+{
+  "name": "sample-aks",
+  "sku": {
+    "tier": "Free"
+  },
+  "identity": {
+    "type": "SystemAssigned"
+  },
+  "properties": {
+    "enableRbac": false,
+    "disableLocalAccounts": false,
+    "nodeResourceGroup": "MC_sample_rg_sample_uksouth",
+    "podSecurityAdmissionConfiguration": null,
+    "apiServerAccessProfile": {
+      "enablePrivateCluster": false,
+      "authorizedIpRanges": []
+    },
+    "aadProfile": {
+      "enableAzureRBAC": false,
+      "managed": false
+    },
+    "securityProfile": {
+      "workloadIdentity": {
+        "enabled": false
+      },
+      "imageCleaner": {
+        "enabled": false
+      },
+      "defender": {
+        "securityMonitoring": {
+          "enabled": false
+        }
+      }
+    },
+    "oidcIssuerProfile": {
+      "enabled": false
+    },
+    "addonProfiles": {
+      "azurepolicy": {
+        "enabled": false
+      },
+      "azureKeyvaultSecretsProvider": {
+        "enabled": false
+      },
+      "omsagent": {
+        "enabled": false
+      }
+    },
+    "azureMonitorProfile": {
+      "metrics": {
+        "enabled": false
+      }
+    },
+    "networkProfile": {
+      "networkPolicy": "none",
+      "networkPlugin": "kubenet",
+      "networkDataplane": "azure"
+    },
+    "ingressProfile": {
+      "webAppRouting": {
+        "enabled": false
+      }
+    },
+    "metricsProfile": {
+      "costAnalysis": {
+        "enabled": false
+      }
+    },
+    "nodeProvisioningProfile": {
+      "mode": "Manual"
+    },
+    "autoUpgradeProfile": {
+      "upgradeChannel": "none",
+      "nodeOSUpgradeChannel": "None"
+    },
+    "guardrailsProfile": {
+      "level": "Disabled"
+    },
+    "workloadAutoScalerProfile": {
+      "verticalPodAutoscaler": {
+        "enabled": false
+      },
+      "keda": {
+        "enabled": false
+      }
+    },
+    "agentPoolProfiles": [
+      {
+        "mode": "System",
+        "osType": "Linux",
+        "osSKU": "Ubuntu",
+        "osDiskType": "Managed",
+        "osDiskSizeGb": 64,
+        "vmSize": "Standard_B4ms",
+        "availabilityZones": ["1"],
+        "currentOrchestratorVersion": "1.29.0"
+      }
+    ],
+    "currentKubernetesVersion": "1.30.0"
+  }
+}

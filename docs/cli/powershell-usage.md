@@ -7,7 +7,7 @@ layout: default
 
 # PowerShell Usage
 
-If you're using **KubeBuddy powered by KubeDeck** via PowerShell, this guide will help you monitor and analyze your Kubernetes clusters. Below are detailed instructions and examples for various commands.
+If you're using **KubeBuddy powered by KubeDeck** via PowerShell, this guide covers the module-based compatibility path. For the native binary, use [Native CLI Usage](native-cli-usage.md).
 
 ## 🔧 Prerequisites
 

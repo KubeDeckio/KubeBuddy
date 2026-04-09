@@ -1,0 +1,413 @@
+checks:
+  - id: SEC001
+    name: Orphaned Secrets
+    category: Security
+    section: Security
+    resource_kind: Secret
+    severity: Warning
+    weight: 2
+    description: Detects Secrets not used by workloads or related resources.
+    fail_message: Secret is unused.
+    recommendation: Remove unused Secrets after confirming they are not required.
+    url: https://kubernetes.io/docs/concepts/configuration/secret/
+    native_handler: SEC001
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: SEC002
+    name: Pods using hostPID or hostNetwork
+    category: Pods
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 4
+    description: Flags pods that share the host PID or network namespace, which can compromise isolation and node security.
+    fail_message: Pod uses hostPID or hostNetwork
+    recommendation: Avoid using hostPID or hostNetwork unless strictly required. These settings reduce isolation and can expose the host.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <h4>Avoid Host-Level Sharing</h4>
+        <ul>
+          <li>Set <code>hostPID: false</code> and <code>hostNetwork: false</code> unless needed for special workloads.</li>
+          <li>Review security implications of namespace sharing with the host.</li>
+          <li>Restrict use of these settings to trusted namespaces and workloads.</li>
+          <li>Consider using PSPs or OPA/Gatekeeper policies to prevent usage cluster-wide.</li>
+        </ul>
+      </div>
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline
+    native_handler: SEC002
+    value:
+      path: spec.hostNetwork
+    operator: not_equals
+    expected: true
+
+  - id: SEC004
+    name: Privileged Containers
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 5
+    description: Detects containers running with privileged mode enabled.
+    fail_message: Privileged container found
+    recommendation: Avoid using privileged containers unless absolutely necessary, as they grant broad access to host resources.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <h4>Disable Privileged Containers</h4>
+        <ul>
+          <li>Remove <code>securityContext.privileged: true</code> from container specs.</li>
+          <li>Refactor workloads to avoid needing host-level access.</li>
+          <li>Enforce restrictions using Pod Security Policies or OPA/Gatekeeper.</li>
+          <li>Limit use to dedicated namespaces with strict controls.</li>
+        </ul>
+      </div>
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+    native_handler: SEC004
+    value:
+      path: spec.containers[].securityContext.privileged
+    operator: not_equals
+    expected: true
+
+  - id: SEC003
+    name: Pods Running as Root
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 5
+    description: Detects pods running with UID 0 or no explicit runAsUser setting, which defaults to root in many images.
+    fail_message: Pod runs as root user or has no runAsUser set
+    recommendation: Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <h4>RunAsUser Hardening</h4>
+        <ul>
+          <li>Set <code>runAsUser</code> to a non-zero UID at pod or container level.</li>
+          <li>Avoid relying on container defaults and define securityContext explicitly.</li>
+          <li>Validate any custom base images that may default to root.</li>
+        </ul>
+      </div>
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline
+    native_handler: SEC003
+    value:
+      path: spec.securityContext.runAsUser
+    operator: equals
+    expected: 0
+
+  - id: SEC010
+    name: HostPath Volume Usage
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 3
+    description: Flags pods that use hostPath volumes, which mount parts of the host filesystem and bypass isolation.
+    fail_message: HostPath volume present in pod
+    recommendation: Avoid using hostPath unless absolutely necessary. Use persistent volumes instead.
+    recommendation_html: |
+      <ul>
+        <li>Remove hostPath volumes unless needed for host-level access.</li>
+        <li>Consider alternatives like persistent volume claims or configMaps.</li>
+      </ul>
+    url: https://kubernetes.io/docs/concepts/storage/volumes/#hostpath
+    native_handler: SEC010
+    value:
+      path: spec.volumes[].hostPath.path
+    operator: equals
+    expected: null
+
+  - id: SEC006
+    name: Pods Missing Secure Defaults
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Checks if pods are missing recommended securityContext fields such as runAsNonRoot, readOnlyRootFilesystem, or allowPrivilegeEscalation.
+    fail_message: One or more pods are missing recommended security settings.
+    recommendation: Set runAsNonRoot=true, readOnlyRootFilesystem=true, and allowPrivilegeEscalation=false for all pods and containers.
+    recommendation_html: |
+      <ul>
+        <li>Set <code>securityContext.runAsNonRoot: true</code></li>
+        <li>Set <code>securityContext.readOnlyRootFilesystem: true</code></li>
+        <li>Set <code>securityContext.allowPrivilegeEscalation: false</code></li>
+      </ul>
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    native_handler: SEC006
+    value:
+      path: spec.containers[].securityContext
+    operator: equals
+    expected: null
+
+  - id: SEC012
+    name: Added Linux Capabilities
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: Warning
+    weight: 2
+    description: Flags containers that add extra Linux capabilities using securityContext.capabilities.add.
+    fail_message: Linux capabilities added
+    recommendation: Avoid adding capabilities unless necessary. Most apps do not need them.
+    recommendation_html: |
+      <ul>
+        <li>Review and remove unnecessary capabilities.</li>
+        <li>Default to dropping all, then selectively add only what is needed.</li>
+      </ul>
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+    native_handler: SEC012
+    value:
+      path: spec.containers[].securityContext.capabilities.add
+    operator: equals
+    expected: null
+
+  - id: SEC019
+    name: Unsupported AppArmor Values
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 2
+    description: Detects AppArmor annotations or profile types that are not permitted by baseline Pod Security Standards.
+    fail_message: Pod specifies unsupported AppArmor values
+    recommendation: Use RuntimeDefault or Localhost AppArmor profiles, or remove custom unsupported AppArmor values.
+    recommendation_html: |
+      <ul>
+        <li>Allowed values are <code>runtime/default</code> or <code>localhost/*</code> in annotations, and <code>RuntimeDefault</code> or <code>Localhost</code> for structured profiles.</li>
+        <li>Remove legacy or custom profile names that AKS Automatic baseline policy would reject.</li>
+      </ul>
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline
+    native_handler: SEC019
+    value:
+      path: metadata.annotations
+    operator: equals
+    expected: null
+
+  - id: SEC020
+    name: Seccomp Profile Not Configured
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: Warning
+    weight: 2
+    description: Detects pods and containers that do not explicitly configure a seccomp profile.
+    fail_message: Seccomp profile is not configured.
+    recommendation: Set seccompProfile.type to RuntimeDefault or Localhost at the pod or container level.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <ul>
+          <li>Set <code>securityContext.seccompProfile.type: RuntimeDefault</code> for the pod or each container.</li>
+          <li>If you need a custom profile, use <code>Localhost</code> and ensure the profile exists on the node.</li>
+          <li>Doing this avoids AKS Automatic seccomp warnings and makes the security posture explicit.</li>
+        </ul>
+      </div>
+    url: https://kubernetes.io/docs/concepts/security/linux-kernel-security-constraints/#seccomp
+    native_handler: SEC020
+    value:
+      path: spec.securityContext.seccompProfile.type
+    operator: equals
+    expected: null
+
+  - id: SEC009
+    name: Missing Capabilities Drop
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Checks containers that do not drop all Linux capabilities via securityContext.capabilities.drop = ['ALL'].
+    fail_message: Container does not drop all capabilities
+    recommendation: Explicitly drop all Linux capabilities unless specific ones are needed.
+    recommendation_html: |
+      <ul>
+        <li>Set <code>securityContext.capabilities.drop: ['ALL']</code> in container specs.</li>
+        <li>Allow only required capabilities via <code>add</code> list, if any.</li>
+      </ul>
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+    native_handler: SEC009
+    value:
+      path: spec.containers[].securityContext.capabilities.drop
+    operator: equals
+    expected: ALL
+
+  - id: SEC005
+    name: Pods Using hostIPC
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 3
+    description: Detects pods that enable hostIPC.
+    fail_message: hostIPC is enabled.
+    recommendation: Disable hostIPC unless a workload absolutely requires it.
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    native_handler: SEC005
+    value:
+      path: spec.hostIPC
+    operator: exists
+
+  - id: SEC007
+    name: Missing Pod Security Admission Labels
+    category: Pod Security
+    section: Security
+    resource_kind: Namespace
+    severity: Low
+    weight: 2
+    description: Flags namespaces missing pod security admission enforce labels.
+    fail_message: Namespace is missing pod security admission labels.
+    recommendation: Set enforce, warn, and audit Pod Security labels on namespaces.
+    url: https://kubernetes.io/docs/concepts/security/pod-security-admission/
+    native_handler: SEC007
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: SEC008
+    name: Secrets in Environment Variables
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 2
+    description: Detects secrets exposed through environment variables.
+    fail_message: Secret is exposed through an environment variable.
+    recommendation: Prefer mounted files or external secret providers over env vars where possible.
+    url: https://kubernetes.io/docs/concepts/configuration/secret/
+    native_handler: SEC008
+    value:
+      path: spec.containers
+    operator: exists
+
+  - id: SEC011
+    name: Containers Running as UID 0
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 3
+    description: Flags containers explicitly configured to run as UID 0.
+    fail_message: Container runs as UID 0.
+    recommendation: Set runAsUser to a non-zero UID.
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    native_handler: SEC011
+    value:
+      path: spec.containers
+    operator: exists
+
+  - id: SEC014
+    name: Untrusted Image Registries
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 2
+    description: Flags images that do not come from trusted registries.
+    fail_message: Image comes from an untrusted registry.
+    recommendation: Restrict deployments to approved image registries.
+    url: https://kubernetes.io/docs/concepts/containers/images/
+    native_handler: SEC014
+    value:
+      path: spec.containers
+    operator: exists
+
+  - id: SEC016
+    name: Unconfined Seccomp Profiles
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 3
+    description: Detects pods or containers explicitly using the Unconfined seccomp profile.
+    fail_message: Unconfined seccomp profile detected.
+    recommendation: Use RuntimeDefault or a vetted Localhost profile instead.
+    url: https://kubernetes.io/docs/concepts/security/linux-kernel-security-constraints/#seccomp
+    native_handler: SEC016
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: SEC017
+    name: Non-Default ProcMount
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 2
+    description: Flags containers that set procMount to a non-default value.
+    fail_message: Container uses a non-default procMount.
+    recommendation: Keep procMount at Default unless there is a tightly controlled justification.
+    url: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    native_handler: SEC017
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: SEC013
+    name: EmptyDir Volume Usage
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: Low
+    weight: 1
+    description: EmptyDir volumes are ephemeral and cleared on pod restart. Use only if data persistence is not needed.
+    fail_message: EmptyDir used
+    recommendation: Use persistent volumes or configMaps instead of EmptyDir when persistence is required.
+    recommendation_html: |
+      <ul>
+        <li>Audit use of EmptyDir volumes in production workloads.</li>
+        <li>Replace with PVCs or other managed storage if persistence is needed.</li>
+      </ul>
+    url: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
+    native_handler: SEC013
+    value:
+      path: spec.volumes[].emptyDir
+    operator: equals
+    expected: null
+
+  - id: SEC015
+    name: Pods Using Default ServiceAccount
+    category: Pod Security
+    section: Security
+    resource_kind: Pod
+    severity: High
+    weight: 3
+    description: Flags pods using the default service account, which may have broad permissions.
+    fail_message: Pod uses default ServiceAccount
+    recommendation: Assign a dedicated ServiceAccount to each workload with least-privilege permissions.
+    recommendation_html: |
+      <ul>
+        <li>Create and bind a custom ServiceAccount per application.</li>
+        <li>Avoid using the <code>default</code> ServiceAccount unless absolutely necessary.</li>
+      </ul>
+    url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+    value:
+      path: spec.serviceAccountName
+    operator: not_equals
+    expected: default
+
+  - id: SEC018
+    name: Automounting API Credentials Enabled in ServiceAccounts
+    category: Security
+    section: Security
+    resource_kind: ServiceAccount
+    severity: High
+    weight: 3
+    description: Flags ServiceAccounts where automounting of API credentials is enabled, affecting associated Pods.
+    fail_message: Some ServiceAccounts have automountServiceAccountToken enabled, potentially exposing API credentials to Pods.
+    recommendation: Set automountServiceAccountToken to false in ServiceAccount specs unless Pods require API access.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <h4>Disable Automounting in ServiceAccounts</h4>
+        <ul>
+          <li>Add <code>automountServiceAccountToken: false</code> to the ServiceAccount spec.</li>
+          <li>Edit with <code>kubectl edit serviceaccount &lt;sa-name&gt; -n &lt;namespace&gt;</code>.</li>
+          <li>Ensure Pods needing API access override this in their spec with <code>automountServiceAccountToken: true</code>.</li>
+          <li>Use RBAC to limit ServiceAccount permissions if access is required.</li>
+        </ul>
+      </div>
+    url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+    value:
+      path: automountServiceAccountToken
+    operator: not_equals
+    expected: true

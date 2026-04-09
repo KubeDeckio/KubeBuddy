@@ -1,0 +1,47 @@
+checks:
+  - id: EVENT001
+    name: Grouped Warning Events
+    section: Kubernetes Events
+    category: Events
+    resource_kind: events
+    severity: Warning
+    weight: 2
+    description: Groups recent Warning events by Reason and Message.
+    fail_message: Recurring warning events detected
+    recommendation: Check for recurring issues. Investigate sources using kubectl describe or logs.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <ul>
+          <li>Group similar warnings to spot patterns.</li>
+          <li>Use <code>kubectl describe</code> and logs to investigate.</li>
+        </ul>
+      </div>
+    url: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#event-v1-core
+    native_handler: EVENT001
+    value:
+      path: type
+    operator: not_equals
+    expected: Warning
+
+  - id: EVENT002
+    name: Full Warning Event Log
+    section: Kubernetes Events
+    category: Events
+    resource_kind: events
+    severity: Warning
+    weight: 1
+    description: Lists all recent Warning events in the cluster.
+    fail_message: Warning events found in recent Kubernetes logs
+    recommendation: Review recent warnings. Correlate events with impacted resources.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <ul>
+          <li>Use <code>kubectl describe</code> to get full context.</li>
+          <li>Check logs for root cause.</li>
+        </ul>
+      </div>
+    url: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#event-v1-core
+    value:
+      path: type
+    operator: not_equals
+    expected: Warning

@@ -1,0 +1,75 @@
+checks:
+  - id: AKSNET001
+    name: Authorized IP Ranges Configured (Public Clusters)
+    category: Networking
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      any:
+        - path: properties.apiServerAccessProfile.enablePrivateCluster
+          operator: equals
+          expected: true
+        - path: properties.apiServerAccessProfile.authorizedIpRanges
+          operator: greater_than
+          expected: 0
+    operator: equals
+    expected: true
+    fail_message: API server accepts connections from any internet IP address, creating a large attack surface for brute force attacks, credential stuffing, and vulnerability exploitation. This violates network security best practices and most compliance frameworks.
+    recommendation: Configure authorized IP ranges using 'az aks update --resource-group <rg> --name <cluster> --api-server-authorized-ip-ranges <ip-ranges>'. Include management networks, CI/CD systems, and jump boxes using CIDR notation. Alternatively, migrate to a private cluster for enhanced security.
+    url: https://learn.microsoft.com/azure/aks/api-server-authorized-ip-ranges
+
+  - id: AKSNET002
+    name: Network Policy Check
+    category: Networking
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.networkProfile.networkPolicy
+    operator: not_equals
+    expected: none
+    fail_message: Network policies are disabled, allowing unrestricted pod-to-pod communication across all namespaces and services. This creates a flat network where compromised workloads can freely access databases, APIs, and other sensitive services without segmentation controls.
+    recommendation: Enable network policy during cluster creation with '--network-policy azure' (Azure CNI) or '--network-policy calico' (kubenet). Create NetworkPolicy resources to define ingress/egress rules for pods, implementing micro-segmentation and zero-trust networking principles.
+    url: https://learn.microsoft.com/azure/aks/operator-best-practices-network#control-traffic-flow-with-network-policies
+
+  - id: AKSNET003
+    name: Web App Routing Enabled
+    category: Networking
+    severity: Low
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.ingressProfile.webAppRouting.enabled
+    operator: equals
+    expected: true
+    fail_message: Web App Routing add-on is disabled, requiring manual ingress controller management, DNS configuration, and SSL certificate handling. This increases operational overhead and may lead to inconsistent external access patterns and security configurations.
+    recommendation: Enable Web App Routing using 'az aks enable-addons --resource-group <rg> --name <cluster> --addons web_application_routing'. Configure DNS zones and SSL certificates for automatic ingress management. Consider using Application Gateway Ingress Controller (AGIC) for enterprise scenarios.
+    url: https://learn.microsoft.com/azure/aks/web-app-routing
+
+  - id: AKSNET004
+    name: Azure CNI with Cilium Dataplane Recommended
+    category: Networking
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    automatic_relevance: alignment
+    automatic_scope: platform
+    automatic_reason: aks_networking
+    value:
+      all:
+        - path: properties.networkProfile.networkPlugin
+          operator: not_equals
+          expected: kubenet
+        - path: properties.networkProfile.networkDataplane
+          operator: equals
+          expected: cilium
+    operator: equals
+    expected: true
+    fail_message: Cluster is not using Azure CNI with Cilium dataplane. Cilium leverages eBPF for high-performance networking, improved observability, and efficient network policy enforcement compared to traditional iptables-based solutions. Kubenet provides limited VNet integration and lacks advanced networking features.
+    recommendation: For new clusters, use '--network-plugin azure --network-dataplane cilium --network-plugin-mode overlay' for optimal performance. Azure CNI powered by Cilium provides eBPF-based packet processing, better scalability, and advanced L3-L7 network policies. Existing clusters should migrate by creating a new cluster with Cilium enabled.
+    url: https://learn.microsoft.com/azure/aks/azure-cni-powered-by-cilium

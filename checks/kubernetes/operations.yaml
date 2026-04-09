@@ -1,0 +1,576 @@
+checks:
+  - id: CFG001
+    name: Orphaned ConfigMaps
+    category: Best Practices
+    section: Configuration Hygiene
+    resource_kind: ConfigMap
+    severity: Warning
+    weight: 1
+    description: Detects ConfigMaps that are not referenced by workloads or related resources.
+    fail_message: ConfigMap is not referenced by any workloads or services.
+    recommendation: Delete unused ConfigMaps after confirming they are not needed.
+    url: https://kubernetes.io/docs/concepts/configuration/configmap/
+    native_handler: CFG001
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: CFG002
+    name: Duplicate ConfigMap Names
+    category: Best Practices
+    section: Configuration Hygiene
+    resource_kind: ConfigMap
+    severity: Warning
+    weight: 1
+    description: Detects ConfigMaps with identical names across multiple namespaces.
+    fail_message: ConfigMap name reused in multiple namespaces.
+    recommendation: Use unique ConfigMap names to avoid confusion across namespaces.
+    url: https://kubernetes.io/docs/concepts/configuration/configmap/
+    native_handler: CFG002
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: CFG003
+    name: Large ConfigMaps
+    category: Best Practices
+    section: Configuration Hygiene
+    resource_kind: ConfigMap
+    severity: Warning
+    weight: 2
+    description: Finds ConfigMaps larger than 1 MiB.
+    fail_message: ConfigMap exceeds 1 MiB in size.
+    recommendation: Move large data out of ConfigMaps into more suitable storage.
+    url: https://kubernetes.io/docs/concepts/configuration/configmap/
+    native_handler: CFG003
+    value:
+      path: data
+    operator: exists
+
+  - id: NS001
+    name: Empty Namespaces
+    category: Namespaces
+    section: Namespaces
+    resource_kind: Namespace
+    severity: Low
+    weight: 1
+    description: Finds namespaces with no running pods.
+    fail_message: Namespace has no pods.
+    recommendation: Remove stale namespaces after confirming they are no longer needed.
+    url: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+    native_handler: NS001
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: NS002
+    name: Missing or Weak ResourceQuotas
+    category: Namespaces
+    section: Namespaces
+    resource_kind: Namespace
+    severity: Warning
+    weight: 3
+    description: Detects namespaces with missing or incomplete ResourceQuota definitions.
+    fail_message: ResourceQuota is missing or incomplete.
+    recommendation: Set CPU, memory, and pod quotas for each namespace.
+    url: https://kubernetes.io/docs/concepts/policy/resource-quotas/
+    native_handler: NS002
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: NS003
+    name: Missing LimitRanges
+    category: Namespaces
+    section: Namespaces
+    resource_kind: Namespace
+    severity: Warning
+    weight: 2
+    description: Detects namespaces without a defined LimitRange.
+    fail_message: Namespace has no LimitRange.
+    recommendation: Define default CPU and memory ranges for each namespace.
+    url: https://kubernetes.io/docs/concepts/policy/limit-range/
+    native_handler: NS003
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: NS004
+    name: Pods in Default Namespace
+    category: Namespaces
+    section: Namespaces
+    resource_kind: Pod
+    severity: Warning
+    weight: 2
+    description: Flags pods running in the default namespace.
+    fail_message: Pod is running in the default namespace.
+    recommendation: Move workloads into dedicated namespaces instead of using default.
+    url: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+    native_handler: NS004
+    value:
+      path: metadata.namespace
+    operator: exists
+
+  - id: JOB001
+    name: Stuck Kubernetes Jobs
+    category: Jobs
+    section: Jobs
+    resource_kind: jobs
+    severity: Warning
+    weight: 2
+    description: Finds Jobs that have started but not completed within the threshold.
+    fail_message: Job appears stuck.
+    recommendation: Inspect job status, pods, and logs to identify the blocker.
+    url: https://kubernetes.io/docs/concepts/workloads/controllers/job/
+    native_handler: JOB001
+    value:
+      path: status.startTime
+    operator: exists
+
+  - id: JOB002
+    name: Failed Kubernetes Jobs
+    category: Jobs
+    section: Jobs
+    resource_kind: jobs
+    severity: High
+    weight: 3
+    description: Detects jobs with failures and no successful completions.
+    fail_message: Job failed with no successful completions.
+    recommendation: Review job logs and recent failures.
+    url: https://kubernetes.io/docs/concepts/workloads/controllers/job/
+    native_handler: JOB002
+    value:
+      path: status.failed
+    operator: exists
+
+  - id: POD001
+    name: Pods with High Restarts
+    category: Workloads
+    section: Pods
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Detects pods that have restarted more than the configured thresholds.
+    fail_message: Pod has restarted excessively.
+    recommendation: Inspect logs, probes, and resource settings for unstable pods.
+    url: https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/
+    native_handler: POD001
+    value:
+      path: status.containerStatuses
+    operator: exists
+
+  - id: POD002
+    name: Long Running Pods
+    category: Workloads
+    section: Pods
+    resource_kind: Pod
+    severity: Warning
+    weight: 2
+    description: Flags pods that have been running longer than configured thresholds.
+    fail_message: Pod has been running longer than expected.
+    recommendation: Review long-running pods and confirm they match the intended rollout state.
+    url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+    native_handler: POD002
+    value:
+      path: status.startTime
+    operator: exists
+
+  - id: POD006
+    name: Leftover Debug Pods
+    category: Workloads
+    section: Pods
+    resource_kind: Pod
+    severity: Warning
+    weight: 2
+    description: Detects pods created by kubectl debug that have not been cleaned up.
+    fail_message: Leftover debug pod found.
+    recommendation: Delete unused debug pods after troubleshooting is complete.
+    url: https://kubernetes.io/docs/tasks/debug/debug-cluster/debug-running-pod/
+    native_handler: POD006
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: POD007
+    name: Container images do not use latest tag
+    category: Resource Management
+    section: Pods
+    resource_kind: Pod
+    severity: High
+    weight: 3
+    description: Flags containers using latest or no explicit tag.
+    fail_message: Container image uses latest or omits an explicit tag.
+    recommendation: Pin image versions explicitly for predictable deployments.
+    url: https://kubernetes.io/docs/concepts/containers/images/#image-tags
+    native_handler: POD007
+    value:
+      path: spec.containers
+    operator: exists
+
+  - id: RBAC001
+    name: RBAC Misconfigurations
+    category: RBAC
+    section: Security
+    resource_kind: ClusterRoleBinding
+    severity: High
+    weight: 4
+    description: Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces.
+    fail_message: RBAC misconfiguration detected.
+    recommendation: Fix missing roleRefs, service accounts, and invalid namespaces in RBAC bindings.
+    url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+    native_handler: RBAC001
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: RBAC002
+    name: RBAC Overexposure
+    category: RBAC
+    section: Security
+    resource_kind: ClusterRoleBinding
+    severity: High
+    weight: 5
+    description: Identifies dangerous RBAC grants such as cluster-admin and wildcard permissions.
+    fail_message: RBAC overexposure risk detected.
+    recommendation: Use least privilege and remove broad or sensitive grants.
+    url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+    native_handler: RBAC002
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: RBAC003
+    name: Orphaned ServiceAccounts
+    category: RBAC
+    section: Security
+    resource_kind: ServiceAccount
+    severity: Warning
+    weight: 2
+    description: Finds ServiceAccounts not used by pods or RBAC bindings.
+    fail_message: ServiceAccount is unused.
+    recommendation: Remove unused ServiceAccounts to reduce RBAC clutter.
+    url: https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/
+    native_handler: RBAC003
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: RBAC004
+    name: Orphaned and Ineffective Roles
+    category: RBAC
+    section: Security
+    resource_kind: Role, ClusterRole
+    severity: Low
+    weight: 1
+    description: Flags roles and clusterroles that are unused or define no rules.
+    fail_message: Role or ClusterRole is unused or ineffective.
+    recommendation: Remove unused RBAC roles and keep active ones minimal.
+    url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+    native_handler: RBAC004
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: WRK001
+    name: DaemonSets Not Fully Running
+    category: Workloads
+    section: Workloads
+    resource_kind: DaemonSet
+    severity: Warning
+    weight: 2
+    description: Detects DaemonSets that have fewer ready pods than desired.
+    fail_message: DaemonSet is not running on all desired nodes.
+    recommendation: Inspect scheduling constraints, taints, and resource pressure.
+    url: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
+    native_handler: WRK001
+    value:
+      path: status.numberReady
+    operator: exists
+
+  - id: WRK002
+    name: Deployment Missing Replicas
+    category: Workloads
+    section: Workloads
+    resource_kind: Deployment
+    severity: Warning
+    weight: 3
+    description: Detects Deployments where available replicas are less than desired.
+    fail_message: Deployment has fewer available replicas than desired.
+    recommendation: Review rollout status and failing pods.
+    url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+    native_handler: WRK002
+    value:
+      path: status.availableReplicas
+    operator: exists
+
+  - id: WRK003
+    name: StatefulSet Incomplete Rollout
+    category: Workloads
+    section: Workloads
+    resource_kind: StatefulSet
+    severity: Warning
+    weight: 3
+    description: Detects StatefulSets with fewer ready replicas than desired.
+    fail_message: StatefulSet has fewer ready replicas than desired.
+    recommendation: Review rollout status, readiness, and storage binding issues.
+    url: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+    native_handler: WRK003
+    value:
+      path: status.readyReplicas
+    operator: exists
+
+  - id: WRK004
+    name: HPA Misconfiguration or Inactivity
+    category: Workloads
+    section: Workloads
+    resource_kind: HorizontalPodAutoscaler
+    severity: Warning
+    weight: 1
+    description: Checks for HPAs with missing targets, metrics, or inactive scaling.
+    fail_message: HPA is misconfigured, inactive, or not scaling correctly.
+    recommendation: Review HPA target references, metrics, and scaling conditions.
+    url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+    native_handler: WRK004
+    value:
+      path: spec.scaleTargetRef
+    operator: exists
+
+  - id: WRK005
+    name: Missing Resource Requests
+    category: Workloads
+    section: Workloads
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Checks that every container has explicit CPU and memory requests.
+    fail_message: Container is missing CPU or memory requests.
+    recommendation: Set explicit CPU and memory requests on every container.
+    url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    native_handler: WRK005
+    value:
+      path: spec.containers
+    operator: exists
+
+  - id: WRK006
+    name: PDB Coverage and Effectiveness
+    category: PDBs
+    section: Workloads
+    resource_kind: PodDisruptionBudget
+    severity: High
+    weight: 2
+    description: Detects missing or weak PodDisruptionBudgets.
+    fail_message: Workload is unprotected or PDB is weak.
+    recommendation: Add matching PDBs and avoid ineffective settings.
+    url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+    native_handler: WRK006
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: WRK007
+    name: Missing Readiness and Liveness Probes
+    category: Probes
+    section: Workloads
+    resource_kind: Deployment
+    severity: Warning
+    weight: 4
+    description: Detects containers without readiness or liveness probes.
+    fail_message: Missing readiness or liveness probes.
+    recommendation: Add both readiness and liveness probes to each app container.
+    url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+    native_handler: WRK007
+    value:
+      path: spec.template.spec.containers
+    operator: exists
+
+  - id: WRK008
+    name: Deployment Selector Without Matching Pods
+    category: Workloads
+    section: Workloads
+    resource_kind: Deployment
+    severity: Warning
+    weight: 2
+    description: Detects Deployments whose selectors do not match any existing pods.
+    fail_message: Deployment selector does not match any pods.
+    recommendation: Make sure deployment selectors and pod labels align.
+    url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+    native_handler: WRK008
+    value:
+      path: spec.selector.matchLabels
+    operator: exists
+
+  - id: WRK009
+    name: Deployment, Pod, and Service Label Consistency
+    category: Workloads
+    section: Workloads
+    resource_kind: Deployment
+    severity: Warning
+    weight: 3
+    description: Validates that deployments, pods, and services use aligned labels and selectors.
+    fail_message: Label mismatches found between Deployment selectors, Pod labels, or Service selectors.
+    recommendation: Keep deployment selectors, pod template labels, and service selectors aligned.
+    url: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+    native_handler: WRK009
+    value:
+      path: spec.selector.matchLabels
+    operator: exists
+
+  - id: WRK014
+    name: Missing Memory Limits
+    category: Workloads
+    section: Workloads
+    resource_kind: Pod
+    severity: Warning
+    weight: 2
+    description: Checks that every container has an explicit memory limit.
+    fail_message: Container is missing a memory limit.
+    recommendation: Add a memory limit to each application and init container.
+    url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    native_handler: WRK014
+    value:
+      path: spec.containers
+    operator: exists
+
+  - id: WRK013
+    name: CrashLoopBackOff and OOMKilled Guardrail
+    category: Workloads
+    section: Workloads
+    resource_kind: Pod
+    severity: High
+    weight: 3
+    description: Flags pods with CrashLoopBackOff, OOMKilled state, or high restart counts.
+    fail_message: Pod has stability guardrail issues.
+    recommendation: Inspect restart causes and align resource requests, limits, and probe settings.
+    url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+    native_handler: WRK013
+    value:
+      path: status.containerStatuses
+    operator: exists
+
+  - id: WRK015
+    name: Replicated Workloads Missing Spread Constraints
+    category: Workloads
+    section: Workloads
+    resource_kind: Deployment
+    severity: Warning
+    weight: 2
+    description: Detects replicated workloads that define neither anti-affinity nor topology spread constraints.
+    fail_message: Replicated workload lacks spread constraints.
+    recommendation: Add pod anti-affinity or topology spread constraints to improve resilience.
+    url: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+    native_handler: WRK015
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: WRK010
+    name: HPA Metrics Without Matching Resource Requests
+    category: Workloads
+    section: Workloads
+    resource_kind: HorizontalPodAutoscaler
+    severity: Warning
+    weight: 2
+    description: Detects HPAs that scale on CPU or memory metrics when target containers lack matching requests.
+    fail_message: HPA target containers are missing required resource requests.
+    recommendation: Add the matching CPU or memory requests to all target containers.
+    url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+    native_handler: WRK010
+    value:
+      path: spec.metrics
+    operator: exists
+
+  - id: WRK011
+    name: VPA Update Mode and Declarative Resource Conflict Risk
+    category: Workloads
+    section: Workloads
+    resource_kind: verticalpodautoscalers.autoscaling.k8s.io
+    severity: Warning
+    weight: 2
+    description: Flags VPAs in Auto/Recreate mode that may conflict with declarative resource ownership or HPAs.
+    fail_message: VPA mode may conflict with declarative resources or HPA scaling.
+    recommendation: Use VPA Off or Initial for recommendation-only flows, or separate ownership boundaries clearly.
+    url: https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler
+    native_handler: WRK011
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: WRK012
+    name: PodDisruptionBudget Adequacy for Replicated Workloads
+    category: PDBs
+    section: Workloads
+    resource_kind: PodDisruptionBudget
+    severity: Warning
+    weight: 2
+    description: Validates that replicated workloads have matching PDBs with sensible settings.
+    fail_message: PDB is missing or poorly sized for the workload.
+    recommendation: Add matching PDBs and tune minAvailable or maxUnavailable for safe disruption handling.
+    url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+    native_handler: WRK012
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: NODE001
+    name: Node Readiness and Conditions
+    category: Nodes
+    section: Nodes
+    resource_kind: Node
+    severity: High
+    weight: 8
+    description: Detects nodes that are not Ready.
+    fail_message: One or more nodes are not Ready.
+    recommendation: Investigate kubelet, runtime, network, and node conditions.
+    url: https://kubernetes.io/docs/concepts/architecture/nodes/
+    native_handler: NODE001
+    value:
+      path: status.conditions
+    operator: exists
+
+  - id: NODE002
+    name: Node Resource Pressure
+    category: Nodes
+    section: Nodes
+    resource_kind: Node
+    severity: Warning
+    weight: 6
+    description: Detects nodes under high CPU, memory, or disk usage.
+    fail_message: One or more nodes are under high resource usage.
+    recommendation: Rebalance workloads or add capacity for pressured nodes.
+    url: https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/
+    native_handler: NODE002
+    value:
+      path: metadata.name
+    operator: exists
+
+  - id: NODE003
+    name: Max Pods per Node
+    category: Nodes
+    section: Nodes
+    resource_kind: Node
+    severity: Warning
+    weight: 3
+    description: Flags nodes approaching or exceeding pod density thresholds.
+    fail_message: Node is approaching the configured pod capacity threshold.
+    recommendation: Rebalance workloads or add node capacity before saturation.
+    url: https://kubernetes.io/docs/concepts/architecture/nodes/
+    native_handler: NODE003
+    value:
+      path: status.capacity.pods
+    operator: exists
+
+  - id: SC003
+    name: High Cluster Storage Usage
+    category: Utilization
+    section: Storage
+    resource_kind: Node
+    severity: Warning
+    weight: 4
+    description: Monitors overall used storage across the cluster.
+    fail_message: Cluster storage usage is above recommended threshold.
+    recommendation: Clean up old data or expand capacity before the cluster runs out of space.
+    url: https://kubernetes.io/docs/concepts/storage/volumes/
+    native_handler: SC003
+    value:
+      path: metadata.name
+    operator: exists

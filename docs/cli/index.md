@@ -2,10 +2,14 @@
 
 <div class="kb-docs-hero">
   <div class="kb-docs-kicker">CLI</div>
-  <p>KubeBuddy CLI is the local scanning tool for Kubernetes and AKS. Run it from PowerShell or Docker, generate HTML and JSON reports, and keep your cluster untouched while you inspect it properly.</p>
+  <p>KubeBuddy CLI is the local scanning tool for Kubernetes and AKS. Run the native binary directly, use the same runtime in Docker, or keep the PowerShell path where you still need it.</p>
 </div>
 
 <div class="kb-docs-link-grid">
+  <a class="kb-docs-link-card" href="native-cli-usage/">
+    <strong>Native CLI</strong>
+    <span>Use the native <code>kubebuddy</code> binary for probing, summaries, scans, and full report runs.</span>
+  </a>
   <a class="kb-docs-link-card" href="powershell-usage/">
     <strong>PowerShell</strong>
     <span>Use the module directly on Windows, macOS, or Linux and run full scans from your terminal.</span>
@@ -34,6 +38,18 @@
 
 ## Choose Your Runtime
 
+### Native CLI
+
+Use the native binary to:
+
+- probe cluster access before a run
+- execute the full KubeBuddy engine from a single CLI
+- generate HTML, JSON, CSV, or text reports
+- run declarative native scans and AKS YAML scans
+- reuse the same runtime locally and in Docker
+
+[Native CLI Usage](native-cli-usage.md)
+
 ### PowerShell
 
 Use the module to:
@@ -59,6 +75,7 @@ Use Docker to:
 
 ## Related Guides
 
+- [Native CLI Usage](native-cli-usage.md)
 - [Prometheus Integration](prometheus-integration.md)
 - [Checks](checks.md)
 - [AKS Best Practices](aks-best-practice-checks.md)

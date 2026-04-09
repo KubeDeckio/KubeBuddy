@@ -115,10 +115,15 @@ checks:
 
       
       $top = if (-not $usePrometheus) {
-          if ($KubeData?.TopNodes) {
-              $KubeData.TopNodes
+          if ($null -ne $KubeData -and $KubeData.PSObject.Properties.Name -contains 'TopNodes') {
+              @($KubeData.TopNodes)
           } else {
-              kubectl top nodes | Out-String -Stream
+              try {
+                  kubectl top nodes --no-headers 2>$null | Out-String -Stream
+              }
+              catch {
+                  @()
+              }
           }
       } else {
           @()

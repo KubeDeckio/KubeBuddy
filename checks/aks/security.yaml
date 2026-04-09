@@ -1,0 +1,128 @@
+checks:
+  - id: AKSSEC001
+    name: Private Cluster
+    category: Security
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.apiServerAccessProfile.enablePrivateCluster
+    operator: equals
+    expected: true
+    fail_message: API server is publicly accessible from the internet, exposing your cluster to potential attacks, unauthorized access attempts, and compliance violations. This creates a significant security risk as attackers can attempt to exploit Kubernetes API vulnerabilities.
+    recommendation: Configure as a private cluster using 'az aks create --enable-private-cluster' or 'az aks update --enable-private-cluster' for existing clusters. This routes API server traffic through private endpoints within your VNet. Configure private DNS zones and ensure network connectivity from management machines.
+    url: https://learn.microsoft.com/azure/aks/private-clusters
+
+  - id: AKSSEC002
+    name: Azure Policy Add-on
+    category: Security
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.addonProfiles.azurepolicy.enabled
+    operator: equals
+    expected: true
+    fail_message: Azure Policy add-on is disabled, preventing enforcement of organizational security policies, compliance standards (like PCI-DSS, SOC2), and governance rules. This increases risk of policy violations and makes it difficult to maintain consistent security configurations across workloads.
+    recommendation: Enable Azure Policy add-on using 'az aks enable-addons --resource-group <rg> --name <cluster> --addons azure-policy'. Deploy built-in policy initiatives like 'Kubernetes cluster pod security restricted standards' and create custom policies for your organization's requirements.
+    url: https://learn.microsoft.com/azure/aks/policy-reference
+
+  - id: AKSSEC003
+    name: Defender for Containers
+    category: Security
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.securityProfile.defender.securityMonitoring.enabled
+    operator: equals
+    expected: true
+    fail_message: Microsoft Defender for Containers is not active, leaving your cluster without runtime threat detection, vulnerability scanning, or security recommendations. This means potential malware, suspicious activities, or known CVEs in container images may go undetected.
+    recommendation: Enable Defender for Containers using 'az aks update --resource-group <rg> --name <cluster> --enable-defender' or through Security Center in Azure Portal. Configure vulnerability scanning, runtime threat detection, and compliance monitoring for comprehensive container security.
+    url: https://learn.microsoft.com/azure/defender-for-cloud/defender-for-containers-introduction
+
+  - id: AKSSEC004
+    name: OIDC Issuer Enabled
+    category: Security
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    automatic_relevance: alignment
+    automatic_scope: cluster
+    automatic_reason: aks_security
+    value:
+      path: properties.oidcIssuerProfile.enabled
+    operator: equals
+    expected: true
+    fail_message: OIDC issuer is disabled, preventing workload identity federation and forcing applications to use less secure authentication methods like stored secrets or service principal credentials. This limits your ability to implement zero-trust security for pod-to-Azure service authentication.
+    recommendation: Enable OIDC issuer using 'az aks update --resource-group <rg> --name <cluster> --enable-oidc-issuer'. This enables workload identity federation, allowing pods to authenticate to Azure services using service account tokens instead of secrets.
+    url: https://learn.microsoft.com/azure/aks/workload-identity-deploy-cluster
+
+  - id: AKSSEC005
+    name: Azure Key Vault Integration
+    category: Security
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.addonProfiles.azureKeyvaultSecretsProvider.enabled
+    operator: equals
+    expected: true
+    fail_message: Azure Key Vault CSI driver is not enabled, forcing applications to store secrets directly in Kubernetes as base64-encoded values or environment variables. This creates security risks as secrets are visible in cluster etcd, pod specifications, and logs, and cannot leverage Key Vault's access policies or audit capabilities.
+    recommendation: Enable Key Vault CSI driver using 'az aks enable-addons --resource-group <rg> --name <cluster> --addons azure-keyvault-secrets-provider'. Create SecretProviderClass resources to mount secrets, certificates, and keys from Azure Key Vault as volumes in pods.
+    url: https://learn.microsoft.com/azure/aks/csi-secrets-store-driver
+
+  - id: AKSSEC006
+    name: Image Cleaner Enabled
+    category: Security
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    automatic_relevance: alignment
+    automatic_scope: cluster
+    automatic_reason: aks_security
+    value:
+      path: properties.securityProfile.imageCleaner.enabled
+    operator: equals
+    expected: true
+    fail_message: Image Cleaner is disabled, allowing stale and potentially vulnerable container images to accumulate on node disks. This increases storage costs, extends attack surface with outdated images containing known CVEs, and can impact node performance due to disk space consumption.
+    recommendation: Enable Image Cleaner using 'az aks update --resource-group <rg> --name <cluster> --enable-image-cleaner'. Configure cleaning interval and retention policies to automatically remove unused container images and reduce attack surface.
+    url: https://learn.microsoft.com/azure/aks/image-cleaner
+
+  - id: AKSSEC007
+    name: Kubernetes Dashboard Disabled
+    category: Security
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      coalesce:
+        - path: properties.addonProfiles.kubeDashboard.enabled
+        - value: false
+    operator: not_equals
+    expected: false
+    fail_message: Kubernetes Dashboard is active and publicly accessible, creating a significant security vulnerability. The dashboard has historically been targeted by attackers and provides broad cluster access if compromised. It lacks robust authentication mechanisms and can expose sensitive cluster information.
+    recommendation: Disable the Kubernetes dashboard using 'az aks disable-addons --addons kube-dashboard --resource-group <rg> --name <cluster>'. Use Azure Portal, kubectl, or other secure management tools instead. If dashboard access is required, implement proper authentication and network restrictions.
+    url: https://learn.microsoft.com/azure/aks/kubernetes-dashboard
+
+  - id: AKSSEC008
+    name: Pod Security Admission Enabled
+    category: Security
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.podSecurityAdmissionConfiguration
+    operator: not_equals
+    expected: null
+    fail_message: Pod Security Admission is not configured on this cluster, meaning there are no built-in Kubernetes security controls to prevent insecure pod configurations. Without PSA, pods can run with dangerous settings like privileged mode, host network access, or unsafe capabilities, increasing container escape risks.
+    recommendation: Configure Pod Security Admission by setting pod security standards on namespaces. Use 'kubectl label namespace <namespace> pod-security.kubernetes.io/enforce=restricted pod-security.kubernetes.io/audit=restricted pod-security.kubernetes.io/warn=restricted' for production namespaces. Consider 'baseline' for less restrictive environments. This is separate from Azure Policy and provides Kubernetes-native security controls.
+    url: https://learn.microsoft.com/azure/aks/use-psa

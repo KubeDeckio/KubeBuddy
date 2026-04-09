@@ -80,7 +80,11 @@ function Get-KubeData {
     $resources = @(
         @{ Name = "Pods"; Cmd = { kubectl get pods --all-namespaces -o json }; Key = "Pods"; Items = $false },
         @{ Name = "Nodes"; Cmd = { kubectl get nodes -o json }; Key = "Nodes"; Items = $false },
-        @{ Name = "Top Nodes"; Cmd = { kubectl top nodes --no-headers }; Key = "TopNodes"; Raw = $true },
+        @{ Name = "Top Nodes"; Cmd = {
+            $topResult = kubectl top nodes --no-headers 2>$null
+            if ($LASTEXITCODE -ne 0) { return $null }
+            return $topResult
+        }; Key = "TopNodes"; Raw = $true; Optional = $true },
         @{ Name = "Namespaces"; Cmd = { kubectl get namespaces -o json }; Key = "Namespaces"; Items = $true },
         @{ Name = "Events"; Cmd = { kubectl get events --all-namespaces -o json }; Key = "Events"; Items = $true },
         @{ Name = "Jobs"; Cmd = { kubectl get jobs --all-namespaces -o json }; Key = "Jobs"; Items = $true },
@@ -152,6 +156,7 @@ function Get-KubeData {
             Key     = $res.Key
             Label   = $res.Name
             Raw     = $res.Raw
+            Optional = [bool]$res.Optional
             Value   = $value
             Success = $success
             Error   = if ($success) { $null } else { $errorMessage }
@@ -183,10 +188,22 @@ function Get-KubeData {
             $data[$r.Key] = $r.Value
         }
         else {
-            Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
-            Write-Host "Critical error: Stopping execution due to failure in $($r.Label) - $($r.Error)" -ForegroundColor DarkGray
-            return $false  # return error flag
-            return
+            if ($r.Optional) {
+                Write-Host "⚠️ $($r.Label): $($r.Error)" -ForegroundColor Yellow
+                Write-Host "Continuing without optional resource data for $($r.Label)." -ForegroundColor DarkGray
+                if ($r.Raw) {
+                    $data[$r.Key] = @()
+                }
+                else {
+                    $data[$r.Key] = $null
+                }
+            }
+            else {
+                Write-Host "❌ $($r.Label): $($r.Error)" -ForegroundColor Red
+                Write-Host "Critical error: Stopping execution due to failure in $($r.Label) - $($r.Error)" -ForegroundColor DarkGray
+                return $false  # return error flag
+                return
+            }
         }
     }
 

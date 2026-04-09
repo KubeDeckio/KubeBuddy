@@ -1,0 +1,274 @@
+checks:
+  - id: AKSBP001
+    name: Allowed Container Images Policy Enforcement
+    category: Best Practices
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+      - aks.constraints
+    value:
+      path: properties.kubeData.Constraints.items
+    operator: contains
+    expected: K8sAzureV2ContainerAllowedImages
+    fail_message: Container image restriction policies are not enforced, allowing deployment of images from any registry including public registries, untrusted sources, or images with known vulnerabilities. This significantly increases supply chain attack risks and compliance violations.
+    recommendation: Deploy the Azure Policy initiative 'Kubernetes cluster pod security restricted standards' and configure specific allowed container registries. Use 'az policy assignment create' to assign the policy and set enforcement to 'deny' mode for production environments.
+    url: https://learn.microsoft.com/azure/aks/policy-reference
+
+  - id: AKSBP002
+    name: No Privileged Containers Policy Enforcement
+    category: Best Practices
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+      - aks.constraints
+    value:
+      path: properties.kubeData.Constraints.items
+    operator: contains
+    expected: K8sAzureV2NoPrivilege
+    fail_message: Privileged container policies are not enforced, allowing workloads to run with full root privileges, access host devices, mount host file systems, and potentially escape container boundaries. This creates severe security risks and violates least-privilege principles.
+    recommendation: Enable the 'Do not allow privileged containers' Azure Policy definition in enforce mode. Use Pod Security Standards with 'restricted' profile to block privileged containers and ensure security baseline compliance.
+    url: https://learn.microsoft.com/azure/aks/policy-reference
+
+  - id: AKSBP003
+    name: Multiple Node Pools
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.agentPoolProfiles
+    operator: greater_than
+    expected: 1
+    fail_message: Single node pool configuration limits workload isolation, scaling flexibility, and security boundaries. All workloads share the same VM size, OS configuration, and scaling parameters, making it impossible to optimize for different application requirements or implement proper security zones.
+    recommendation: Create separate node pools for different workload types using 'az aks nodepool add --resource-group <rg> --cluster-name <cluster> --name <pool-name>'. Use system pools for system pods, user pools for applications, and specialized pools (GPU, memory-optimized) for specific workloads.
+    url: https://learn.microsoft.com/azure/aks/use-multiple-node-pools
+
+  - id: AKSBP004
+    name: Azure Linux as Host OS
+    category: Best Practices
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    automatic_relevance: alignment
+    automatic_scope: platform
+    automatic_reason: aks_platform
+    value:
+      count_where:
+        path: properties.agentPoolProfiles
+        where:
+          all:
+            - path: osType
+              operator: equals
+              expected: Linux
+            - path: osSKU
+              operator: not_equals
+              expected: AzureLinux
+    operator: equals
+    expected: 0
+    fail_message: Node pools use Ubuntu instead of Azure Linux. Azure Linux is Microsoft's optimized container host OS with reduced attack surface (smaller package footprint), faster boot times, improved security patching, and better integration with Azure platform services.
+    recommendation: "Migrate to Azure Linux by creating new node pools with 'az aks nodepool add --os-sku AzureLinux', then migrate workloads and delete old pools. Note: In-place OS SKU changes are not supported, requiring node pool replacement."
+    url: https://learn.microsoft.com/azure/aks/use-azure-linux
+
+  - id: AKSBP005
+    name: Ephemeral OS Disks Enabled
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      count_where:
+        path: properties.agentPoolProfiles
+        where:
+          path: osDiskType
+          operator: not_equals
+          expected: Ephemeral
+    operator: equals
+    expected: 0
+    fail_message: Node pools are using managed OS disks instead of ephemeral disks, resulting in higher costs, slower disk performance, increased boot times, and additional complexity in disk management. Managed disks also limit the VM sizes available for use.
+    recommendation: Enable ephemeral OS disks using 'az aks nodepool add --os-disk-type Ephemeral' for new pools or plan node pool replacement. This provides faster disk I/O, lower latency, and reduced costs by using local VM storage instead of managed disks.
+    url: https://learn.microsoft.com/azure/aks/concepts-storage#ephemeral-os-disk
+
+  - id: AKSBP006
+    name: Non-Ephemeral Disks with Adequate Size
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      count_where:
+        path: properties.agentPoolProfiles
+        where:
+          all:
+            - path: osDiskType
+              operator: not_equals
+              expected: Ephemeral
+            - path: osDiskSizeGb
+              operator: less_than
+              expected: 128
+    operator: equals
+    expected: 0
+    fail_message: Managed OS disks are undersized (less than 128GB), which constrains IOPS performance, limits container image caching capacity, causes disk space issues during image pulls, and may impact node performance under heavy workloads with multiple large images.
+    recommendation: Increase OS disk size using 'az aks nodepool update --resource-group <rg> --cluster-name <cluster> --name <nodepool> --os-disk-size-gb 128' or higher. Larger disks provide better IOPS performance and accommodate container image layers and temporary storage needs.
+    url: https://learn.microsoft.com/azure/aks/concepts-storage#managed-os-disks
+
+  - id: AKSBP007
+    name: System Node Pool Taint
+    category: Best Practices
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.agentPoolProfiles
+    operator: contains
+    expected: CriticalAddonsOnly=true:NoSchedule
+    fail_message: System node pool lacks the CriticalAddonsOnly taint, allowing user workloads to be scheduled on system nodes. This can cause resource contention with critical system components (kube-proxy, DNS, CNI), potentially leading to cluster instability and system pod eviction.
+    recommendation: Apply system node pool taint using 'az aks nodepool update --resource-group <rg> --cluster-name <cluster> --name <system-pool> --node-taints CriticalAddonsOnly=true:NoSchedule'. This ensures only critical system pods run on system nodes, improving reliability and resource isolation.
+    url: https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#system-and-user-node-pools
+
+  - id: AKSBP008
+    name: Auto Upgrade Channel Configured
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.autoUpgradeProfile.upgradeChannel
+    operator: not_equals
+    expected: none
+    fail_message: Automatic cluster upgrades are disabled, leaving the cluster vulnerable to security patches, bug fixes, and Kubernetes version support expiration. Manual upgrade management increases operational overhead and delays critical security updates.
+    recommendation: Configure auto upgrade using 'az aks update --resource-group <rg> --name <cluster> --auto-upgrade-channel patch' for security patches or 'stable' for minor version updates. Use maintenance windows to control upgrade timing and minimize disruption.
+    url: https://learn.microsoft.com/azure/aks/auto-upgrade-cluster?tabs=azure-cli
+
+  - id: AKSBP009
+    name: Node OS Upgrade Channel Configured
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.autoUpgradeProfile.nodeOSUpgradeChannel
+    operator: not_equals
+    expected: None
+    fail_message: Node OS automatic updates are disabled, leaving nodes running outdated OS versions with potential security vulnerabilities, missing security patches, and outdated system libraries. This increases the attack surface and compliance risks.
+    recommendation: Enable node OS upgrade using 'az aks update --resource-group <rg> --name <cluster> --node-os-upgrade-channel NodeImage' for automatic OS updates. Use 'SecurityPatch' for security-only updates or configure maintenance windows for controlled updates.
+    url: https://learn.microsoft.com/azure/aks/auto-upgrade-node-os-image?tabs=azure-cli
+
+  - id: AKSBP010
+    name: Customized MC_ Resource Group Name
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.nodeResourceGroup
+    operator: not_matches
+    expected: ^MC_
+    fail_message: Node resource group uses the default auto-generated 'MC_' naming convention, creating confusing resource organization and making it difficult to identify cluster resources, implement proper tagging strategies, or maintain clear cost allocation across multiple clusters.
+    recommendation: Use a custom node resource group name during cluster creation with 'az aks create --node-resource-group <custom-name>'. This cannot be changed after cluster creation, so plan accordingly for better resource organization and management.
+    url: https://learn.microsoft.com/azure/aks/faq#can-i-provide-my-own-name-for-the-aks-node-resource-group-
+
+  - id: AKSBP011
+    name: System Node Pool Has Minimum Two Nodes
+    category: Best Practices
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      count_where:
+        path: properties.agentPoolProfiles
+        where:
+          path: mode
+          operator: equals
+          expected: System
+    operator: greater_than
+    expected: 1
+    fail_message: System node pool has fewer than 2 nodes, creating a single point of failure for critical cluster components (kube-proxy, CoreDNS, CNI). Node failure or maintenance will cause system pod disruption, cluster instability, and workload connectivity issues.
+    recommendation: Scale system node pool to at least 2 nodes using 'az aks nodepool scale --resource-group <rg> --cluster-name <cluster> --name <system-pool> --node-count 2'. Configure cluster autoscaler with --min-count 2 to ensure resiliency against node failures and maintenance events.
+    url: https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#recommendations
+
+  - id: AKSBP012
+    name: Node Pool Version Matches Control Plane
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    native_handler: AKSBP012
+    fail_message: Node pools out of sync with control plane version.
+    recommendation: Upgrade node pools to match control plane version using 'az aks nodepool upgrade --resource-group <rg> --cluster-name <cluster> --name <nodepool> --kubernetes-version <version>'. Plan coordinated upgrades to maintain version consistency and avoid compatibility issues.
+    url: https://learn.microsoft.com/azure/aks/upgrade-cluster#check-the-current-kubernetes-version
+
+  - id: AKSBP013
+    name: No B-Series VMs in Node Pools
+    category: Best Practices
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      count_where:
+        path: properties.agentPoolProfiles
+        where:
+          path: vmSize
+          operator: matches
+          expected: ^Standard_B
+    operator: equals
+    expected: 0
+    fail_message: B-series VMs use burstable CPU performance that can be exhausted under sustained workloads, leading to unpredictable performance degradation, CPU throttling, and application failures. Microsoft explicitly recommends against using B-series VMs for AKS production workloads.
+    recommendation: Replace B-series VMs with consistent performance SKUs like Standard_D2s_v5 or Standard_E2s_v5. Create new node pool with 'az aks nodepool add --vm-size Standard_D2s_v5', migrate workloads using 'kubectl drain', then delete old pool with 'az aks nodepool delete'.
+    url: https://learn.microsoft.com/azure/aks/best-practices-app-cluster-reliability#do-not-use-b-series-vms
+
+  - id: AKSBP014
+    name: Use v5 or Newer SKU VMs for Node Pools
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      count_where:
+        path: properties.agentPoolProfiles
+        where:
+          path: vmSize
+          operator: not_matches
+          expected: _v[5-9][0-9]*$
+    operator: equals
+    expected: 0
+    fail_message: Node pools are using older VM generations (v4 or earlier) that have reduced performance, lack modern security features, don't support ephemeral OS disks by default, and may experience more frequent maintenance events affecting availability and reliability.
+    recommendation: Upgrade to v5 or newer VM SKUs using 'az aks nodepool add --vm-size Standard_D2s_v5' for new node pools. v5 SKUs provide better performance, support ephemeral OS disks by default, and have improved reliability during maintenance events and upgrades.
+    url: https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability#v5-sku-vms
+
+  - id: AKSBP015
+    name: Deployment Safeguards Enabled
+    category: Best Practices
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    automatic_relevance: alignment
+    automatic_scope: cluster
+    automatic_reason: aks_platform
+    value:
+      any:
+        - path: properties.guardrailsProfile.level
+          operator: equals
+          expected: Enforcement
+        - path: properties.guardrailsProfile.level
+          operator: equals
+          expected: Warning
+    operator: equals
+    expected: true
+    fail_message: Deployment Safeguards are disabled, allowing non-compliant workloads to be deployed without validation of Kubernetes best practices. This leads to deployments without resource requests/limits, missing health probes, no anti-affinity rules, and other configuration issues that impact reliability and cost.
+    recommendation: Enable Deployment Safeguards using 'az aks update --resource-group <rg> --name <cluster> --safeguards-level Warning' for alerting or 'Enforcement' to block non-compliant deployments. This enforces best practices including resource requests, readiness/liveness probes, pod anti-affinity, and Pod Security Standards.
+    url: https://learn.microsoft.com/azure/aks/deployment-safeguards
