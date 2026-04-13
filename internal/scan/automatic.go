@@ -114,7 +114,7 @@ func BuildAutomaticReadiness(clusterName string, result Result) *AutomaticReadin
 
 	status := "ready"
 	statusLabel := "Ready"
-	message := "Source cluster is ready for AKS Automatic migration based on current findings."
+	message := "No AKS Automatic blockers were detected in the evaluated shared checks."
 	if len(blockers) > 0 {
 		status = "not_ready"
 		statusLabel = "Not Ready"
@@ -511,10 +511,11 @@ func AutomaticReadinessHTML(readiness *AutomaticReadiness) string {
 	b.WriteString(`<div class="table-container">`)
 	b.WriteString(`<div class="compatibility ` + statusClass + `"><strong>` + htmlEscape(readiness.Summary.StatusLabel) + `</strong> - ` + htmlEscape(readiness.Summary.Message) + `</div>`)
 	b.WriteString(`<div class="hero-metrics">`)
-	b.WriteString(automaticMetricCard("critical", "Blockers", fmt.Sprintf("%d", readiness.Summary.BlockerCount)))
-	b.WriteString(automaticMetricCard("warning", "Warnings", fmt.Sprintf("%d", readiness.Summary.WarningCount)))
-	b.WriteString(automaticMetricCard("normal", "Aligned Checks", fmt.Sprintf("%d", readiness.Summary.AlignmentPassedCount)))
+	b.WriteString(automaticMetricCard("critical", "🚫 Blockers", fmt.Sprintf("%d", readiness.Summary.BlockerCount)))
+	b.WriteString(automaticMetricCard("warning", "⚠️ Warnings", fmt.Sprintf("%d", readiness.Summary.WarningCount)))
+	b.WriteString(automaticMetricCard("normal", "✅ Aligned Checks", fmt.Sprintf("%d", readiness.Summary.AlignmentPassedCount)))
 	b.WriteString(`</div>`)
+	b.WriteString(`<p>This view is derived from existing Kubernetes and AKS shared checks and focuses on readiness for a <strong>new AKS Automatic cluster</strong>.</p>`)
 	if strings.TrimSpace(readiness.Summary.ActionPlanPath) != "" {
 		leaf := readiness.Summary.ActionPlanPath
 		if idx := strings.LastIndexAny(leaf, `/\`); idx >= 0 && idx < len(leaf)-1 {
