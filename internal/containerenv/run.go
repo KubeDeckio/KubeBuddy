@@ -50,7 +50,7 @@ func Load() (compat.RunOptions, error) {
 		RadarAPIBaseURL:              os.Getenv("RADAR_API_BASE_URL"),
 		RadarEnvironment:             os.Getenv("RADAR_ENVIRONMENT"),
 		RadarAPIUserEnv:              os.Getenv("RADAR_API_USER_ENV"),
-		RadarAPISecretEnv:            os.Getenv("RADAR_API_PASSWORD_ENV"),
+		RadarAPISecretEnv:            firstEnv("RADAR_API_SECRET_ENV", "RADAR_API_PASSWORD_ENV"),
 		IncludePrometheus:            envBool("INCLUDE_PROMETHEUS"),
 		PrometheusURL:                os.Getenv("PROMETHEUS_URL"),
 		PrometheusMode:               os.Getenv("PROMETHEUS_MODE"),
@@ -128,4 +128,13 @@ func splitCSVEnv(name string) []string {
 		}
 	}
 	return out
+}
+
+func firstEnv(names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+			return value
+		}
+	}
+	return ""
 }

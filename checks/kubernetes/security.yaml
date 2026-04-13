@@ -370,7 +370,7 @@ checks:
     category: Pod Security
     section: Security
     resource_kind: Pod
-    severity: High
+    severity: Critical
     weight: 3
     description: Flags pods using the default service account, which may have broad permissions.
     fail_message: Pod uses default ServiceAccount
@@ -391,7 +391,7 @@ checks:
     category: Security
     section: Security
     resource_kind: ServiceAccount
-    severity: High
+    severity: Critical
     weight: 3
     description: Flags ServiceAccounts where automounting of API credentials is enabled, affecting associated Pods.
     fail_message: Some ServiceAccounts have automountServiceAccountToken enabled, potentially exposing API credentials to Pods.

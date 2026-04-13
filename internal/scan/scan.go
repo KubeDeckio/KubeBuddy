@@ -77,7 +77,7 @@ type listResponse struct {
 
 func Run(opts Options) (Result, error) {
 	if strings.TrimSpace(opts.ChecksDir) == "" {
-		opts.ChecksDir = "Private/yamlChecks"
+		opts.ChecksDir = "checks/kubernetes"
 	}
 
 	ruleSet, err := checks.LoadCatalog(opts.ChecksDir)
@@ -163,6 +163,14 @@ func Run(opts Options) (Result, error) {
 		} else if ok {
 			result.Items = findings
 			result.Total = len(result.Items)
+			switch check.ID {
+			case "EVENT001":
+				result.LegacyItems = buildLegacyEVENT001Items(items)
+				result.Total = len(result.LegacyItems.([]map[string]any))
+			case "EVENT002":
+				result.LegacyItems = buildLegacyEVENT002Items(items)
+				result.Total = len(result.LegacyItems.([]map[string]any))
+			}
 			if check.ID == "PROM006" || check.ID == "PROM007" {
 				if len(result.Items) == 1 && strings.HasPrefix(result.Items[0].Resource, "prometheus/") && strings.Contains(strings.ToLower(result.Items[0].Message), "insufficient prometheus history") {
 					result.Total = 0
@@ -170,11 +178,19 @@ func Run(opts Options) (Result, error) {
 					if check.ID == "PROM007" {
 						kind = "Pod"
 					}
-					result.SummaryMessage = fmt.Sprintf("Insufficient Prometheus history for sizing. Required: 7 days, available: 0 days.")
+					coverageDays := strings.TrimSpace(result.Items[0].Value)
+					if coverageDays == "" {
+						coverageDays = "0.0"
+					}
+					displayDays := strings.TrimRight(strings.TrimRight(coverageDays, "0"), ".")
+					if displayDays == "" {
+						displayDays = "0"
+					}
+					result.SummaryMessage = fmt.Sprintf("Insufficient Prometheus history for sizing. Required: 7 days, available: %s days.", displayDays)
 					result.LegacyItems = map[string]any{
 						"Status":         "Insufficient Prometheus history",
 						"Required Days":  7,
-						"Available Days": json.RawMessage("0.0"),
+						"Available Days": json.RawMessage(coverageDays),
 						"Message":        fmt.Sprintf("%s sizing recommendations are withheld until at least 7 days of Prometheus history is available.", kind),
 					}
 				}

@@ -41,6 +41,7 @@ checks:
         </ul>
       </div>
     url: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#event-v1-core
+    native_handler: EVENT002
     value:
       path: type
     operator: not_equals

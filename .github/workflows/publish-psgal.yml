@@ -4,10 +4,12 @@ on:
   push:
     tags:
       - 'v*'
-  release:
-    types:
-      - published
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, for example v0.0.4
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -22,6 +24,13 @@ jobs:
 
       - name: Debug Tag
         run: |
+          if ($Env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $resolvedTag = '${{ inputs.tag }}'
+          }
+          else {
+            $resolvedTag = $Env:GITHUB_REF_NAME
+          }
+          Write-Host "RESOLVED_TAG: $resolvedTag"
           Write-Host "GITHUB_REF_NAME: $Env:GITHUB_REF_NAME"
           Write-Host "GITHUB_REF: $Env:GITHUB_REF"
         shell: pwsh
@@ -29,8 +38,10 @@ jobs:
       - name: Set Module Version from Git Tag
         id: set_version
         run: |
-          # If no GITHUB_REF_NAME, parse GITHUB_REF
-          if (-not $Env:GITHUB_REF_NAME) {
+          if ($Env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $tagVersion = '${{ inputs.tag }}' -replace '^v',''
+          }
+          elseif (-not $Env:GITHUB_REF_NAME) {
             $tagVersion = $Env:GITHUB_REF -replace '^refs/tags/v',''
           }
           else {
@@ -44,10 +55,9 @@ jobs:
             -replace '^\s*ModuleVersion\s*=\s*''.*''', "ModuleVersion = '$tagVersion'" |
             Set-Content ./KubeBuddy.psd1
 
-          # Corrected update for kubebuddy.ps1 line: $moduleVersion = "v0.0.4"
           (Get-Content ./Public/kubebuddy.ps1) |
-          ForEach-Object { 
-              $_ -replace '^\s*\$moduleVersion\s*=\s*".*"', "`$moduleVersion = 'v$tagVersion'" 
+          ForEach-Object {
+              $_ -replace '^\s*\$script:KubeBuddyModuleVersion\s*=\s*".*"', "`$script:KubeBuddyModuleVersion = `"v$tagVersion`""
           } |
           Set-Content ./Public/kubebuddy.ps1
 

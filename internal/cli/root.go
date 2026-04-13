@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	reportassets "github.com/KubeDeckio/KubeBuddy/Private/html"
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
 	"github.com/KubeDeckio/KubeBuddy/internal/collector/kubernetes"
 	"github.com/KubeDeckio/KubeBuddy/internal/compat"
 	"github.com/KubeDeckio/KubeBuddy/internal/containerenv"
 	"github.com/KubeDeckio/KubeBuddy/internal/probe"
+	reportassets "github.com/KubeDeckio/KubeBuddy/internal/reports/assets"
 	"github.com/KubeDeckio/KubeBuddy/internal/reports/output"
 	"github.com/KubeDeckio/KubeBuddy/internal/runner"
 	"github.com/KubeDeckio/KubeBuddy/internal/scan"
@@ -117,7 +117,7 @@ func newChecksCommand() *cobra.Command {
 		Short: "Inspect the current check catalog",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(checksDir) == "" {
-				checksDir = "Private/yamlChecks"
+				checksDir = "checks/kubernetes"
 			}
 			ruleSet, err := checks.LoadCatalog(checksDir)
 			if err != nil {
@@ -132,7 +132,7 @@ func newChecksCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&checksDir, "checks-dir", "Private/yamlChecks", "Directory containing check YAML files.")
+	cmd.Flags().StringVar(&checksDir, "checks-dir", "checks/kubernetes", "Directory containing check YAML files.")
 	return cmd
 }
 
@@ -194,7 +194,7 @@ func newScanCommand() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "Private/yamlChecks", "Directory containing check YAML files.")
+	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/kubernetes", "Directory containing check YAML files.")
 	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
 	cmd.Flags().BoolVar(&opts.ExcludeNamespaces, "exclude-namespaces", false, "Exclude configured namespaces.")
 	cmd.Flags().StringSliceVar(&opts.ExcludedNamespaces, "additional-excluded-namespaces", nil, "Additional namespaces to exclude.")

@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/KubeDeckio/KubeBuddy/internal/azure"
 )
 
 type Client struct {
@@ -125,11 +126,7 @@ func authHeaders(mode, bearerTokenEnv string) (map[string]string, error) {
 		headers["Authorization"] = "Bearer " + token
 		return headers, nil
 	case "azure":
-		if token := azureClientCredentialToken(); token != "" {
-			headers["Authorization"] = "Bearer " + token
-			return headers, nil
-		}
-		token, err := azureCLIToken()
+		token, err := azure.PrometheusToken()
 		if err != nil {
 			return nil, err
 		}
@@ -144,43 +141,6 @@ func authHeaders(mode, bearerTokenEnv string) (map[string]string, error) {
 	default:
 		return nil, fmt.Errorf("unsupported prometheus auth mode %q", mode)
 	}
-}
-
-func azureClientCredentialToken() string {
-	clientID := os.Getenv("AZURE_CLIENT_ID")
-	clientSecret := os.Getenv("AZURE_CLIENT_SECRET")
-	tenantID := os.Getenv("AZURE_TENANT_ID")
-	if clientID == "" || clientSecret == "" || tenantID == "" {
-		return ""
-	}
-	form := url.Values{}
-	form.Set("grant_type", "client_credentials")
-	form.Set("client_id", clientID)
-	form.Set("client_secret", clientSecret)
-	form.Set("resource", "https://prometheus.monitor.azure.com/")
-	req, err := http.NewRequest(http.MethodPost, "https://login.microsoftonline.com/"+tenantID+"/oauth2/token", strings.NewReader(form.Encode()))
-	if err != nil {
-		return ""
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-	var payload struct{ AccessToken string `json:"access_token"` }
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return ""
-	}
-	return payload.AccessToken
-}
-
-func azureCLIToken() (string, error) {
-	out, err := exec.Command("az", "account", "get-access-token", "--resource", "https://prometheus.monitor.azure.com", "--query", "accessToken", "-o", "tsv").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 func maxInt(value int, fallback int) int {

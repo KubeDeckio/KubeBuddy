@@ -7,92 +7,118 @@ hide:
   - navigation
 ---
 
-# 🚀 KubeBuddy powered by KubeDeck Release Process
+# Release Process
 
-This page outlines the steps required to release **KubeBuddy powered by KubeDeck** using GitHub Actions to automate publishing to the **PowerShell Gallery**, **Krew plugin repository**, and **documentation updates**.
+KubeBuddy now ships as a **Go-first release**:
 
----
+- native `kubebuddy` binaries for macOS and Linux
+- a hardened container image
+- a backwards-compatible PowerShell Gallery wrapper that forwards to the native binary
 
-## 🔹 Tagging a New Release
+## Release Outputs
 
-Releases are managed through **Git tags** following [Semantic Versioning](https://semver.org/) (e.g., `v1.0.0`).
+Each tagged release should publish:
 
-### **1️⃣ Create and Push a Tag**
+- `kubebuddy_<version>_darwin_amd64.tar.gz`
+- `kubebuddy_<version>_darwin_arm64.tar.gz`
+- `kubebuddy_<version>_linux_amd64.tar.gz`
+- `kubebuddy_<version>_linux_arm64.tar.gz`
+- `kubebuddy-psgallery-v<version>.tar.gz`
+- `checksums.txt`
 
-1. **Create a tag locally** (replace `v1.0.0` with the version number):
+The PowerShell Gallery package remains a wrapper surface. It is not the primary runtime.
+
+## Build Artifacts Locally
+
+From the repo root:
+
+```bash
+./scripts/build-release-artifacts.sh v0.0.4
+```
+
+That writes release artifacts to `./dist`.
+
+## Release Steps
+
+1. Update `CHANGELOG.md`.
+2. Tag the release:
+
    ```bash
-   git tag v1.0.0
+   git tag v0.0.4
+   git push origin v0.0.4
    ```
-2. **Push the tag to GitHub**:
-   ```bash
-   git push origin v1.0.0
-   ```
-3. **GitHub Actions will trigger automatic deployments**.
 
----
+3. GitHub Actions should then:
+   - build native release archives
+   - publish the GitHub release assets
+   - publish the PowerShell Gallery wrapper module
+   - build and push the container image
 
-## 🔹 GitHub Actions Workflows
+If you trigger the release workflows manually, provide the full tag such as `v0.0.4` in the workflow input.
 
-We use GitHub Actions to automate the release process. Below are the workflows that get triggered when a new tag is pushed:
+## Pre-Release Validation
 
-### **1️⃣ Publish to PowerShell Gallery**
-📌 **Workflow:** [Publish Module to PowerShell Gallery](https://github.com/KubeDeckio/KubeBuddy/blob/main/.github/workflows/publish-psgal.yml)  
-This workflow:
-- Packages the PowerShell module.
-- Publishes it to the PowerShell Gallery.
+Before tagging, validate:
 
-### **2️⃣ Publish Plugin to Krew**
-📌 **Workflow:** [Publish Plugin to Krew](https://github.com/KubeDeckio/KubeBuddy/blob/main/.github/workflows/publish-krewplugin.yaml)  
-This workflow:
-- Packages the `kubectl` plugin.
-- Publishes it to Krew and attaches it as a GitHub release asset.
+```bash
+go test ./...
+docker build -t kubebuddy-release-smoke .
+```
 
-### **3️⃣ Deploy Documentation to GitHub Pages**
-📌 **Workflow:** [Deploy Jekyll Site to Pages](https://github.com/KubeDeckio/KubeBuddy/blob/main/.github/workflows/deploy-docs.yml)  
-This workflow:
-- Builds and deploys the documentation to **GitHub Pages** when updates are pushed to the `docs/` folder.
+Recommended smoke tests:
 
-### **4️⃣ Netlify PR Previews**
-- Automatically deploys preview versions of the documentation for **each pull request**.
-- A unique preview URL is posted as a comment for easy review.
+- native binary:
 
-### **5️⃣ Run PSScriptAnalyzer on PRs**
-📌 **Workflow:** [Run PSScriptAnalyzer](https://github.com/KubeDeckio/KubeBuddy/blob/main/.github/workflows/PSScriptAnalyzer.yaml)  
-This workflow:
-- Runs **PSScriptAnalyzer** on every pull request.
-- Scans PowerShell scripts for warnings and errors.
-- Prevents faulty code from being merged.
+  ```bash
+  ./kubebuddy version
+  ./kubebuddy run --html-report --yes --output-path ./reports
+  ```
 
----
+- PowerShell wrapper:
 
-## 🔹 Code Quality and Linting
+  ```powershell
+  $env:KUBEBUDDY_BINARY = "/path/to/kubebuddy"
+  Import-Module ./KubeBuddy.psm1 -Force
+  Invoke-KubeBuddy -HtmlReport -yes -OutputPath ./reports
+  ```
 
-**PSScriptAnalyzer** ensures the PowerShell code is clean before publishing. It:
-✅ Scans PowerShell scripts for best practices.  
-✅ Reports warnings and errors in GitHub Actions.  
-✅ Blocks releases until errors are resolved.
+- container image:
 
----
+  ```bash
+  docker run --rm \
+    -e KUBECONFIG=/app/.kube/config \
+    -e HTML_REPORT=true \
+    -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+    -v $PWD/reports:/app/Reports \
+    kubebuddy-release-smoke
+  ```
 
-## 🔹 GitHub Pages & Documentation Updates
+## Container Notes
 
-The **Deploy Jekyll Site to Pages** workflow automatically updates documentation when changes are made to the `docs/` folder. This prevents unnecessary builds when the documentation hasn’t changed.
+The runtime image is Go-native and hardened. It keeps:
 
-📌 **Trigger Conditions:**
-- A commit affecting `docs/` is pushed to `main`.
-- The workflow is manually triggered via GitHub Actions.
+- `kubebuddy`
+- `kubectl`
+- `kubelogin`
 
-Netlify builds **preview versions** of documentation for PRs. Always **check the Netlify preview URL** before merging documentation changes.
+It no longer depends on the PowerShell runtime.
 
----
+For AKS and Azure-authenticated Prometheus in containers, prefer service principal credentials:
 
-## 🔹 Summary
+- `AZURE_CLIENT_ID`
+- `AZURE_CLIENT_SECRET`
+- `AZURE_TENANT_ID`
 
-These workflows automate the release process, ensuring a smooth deployment across multiple platforms. The **PSScriptAnalyzer checks**, **GitHub Actions automation**, and **Netlify PR previews** ensure high-quality releases.
+## PowerShell Gallery Notes
 
-📌 For full details, see the [workflows folder](https://github.com/KubeDeckio/KubeBuddy/tree/main/.github/workflows) in the repository.
+`Invoke-KubeBuddy` is still the public command, but it now wraps the native CLI.
 
----
+Recommended PowerShell usage:
 
-✅ **Next Steps:** Make sure your release tag is correctly formatted and push it to GitHub to trigger the automated deployment process! 🚀
+```powershell
+$env:KUBEBUDDY_BINARY = "/usr/local/bin/kubebuddy"
+Install-Module KubeBuddy -Scope CurrentUser
+Invoke-KubeBuddy -HtmlReport -yes
+```
 
+If `KUBEBUDDY_BINARY` is not set, the wrapper looks for `kubebuddy` on `PATH`.

@@ -36,7 +36,30 @@ func Execute(opts compat.RunOptions) error {
 	defer cleanup()
 
 	result := scan.Result{}
-	if !(opts.AKS || opts.UseAKSRestAPI) || kubernetesReachable() {
+	var snapshot *kubernetes.ClusterData
+	clusterReachable := kubernetesReachable()
+	if clusterReachable {
+		printPhase("Collector", "Building native cluster snapshot")
+		collected, err := kubernetes.CollectClusterData(kubernetes.ClusterDataOptions{
+			ExcludeNamespaces:        opts.ExcludeNamespaces,
+			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
+			IncludePrometheus:        opts.IncludePrometheus,
+			PrometheusURL:            opts.PrometheusURL,
+			PrometheusMode:           opts.PrometheusMode,
+			PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
+		})
+		if err != nil {
+			fmt.Printf("%s[Collector]%s Snapshot skipped: %v\n", colorGray, colorReset, err)
+		} else {
+			snapshot = &collected
+			if collected.Metrics != nil {
+				fmt.Printf("%s[Collector]%s Metrics snapshot ready for %d nodes\n", colorGreen, colorReset, len(collected.Metrics.Nodes))
+			} else {
+				fmt.Printf("%s[Collector]%s Snapshot ready\n", colorGreen, colorReset)
+			}
+		}
+	}
+	if !(opts.AKS || opts.UseAKSRestAPI) || clusterReachable {
 		printPhase("Kubernetes", "Running Kubernetes checks")
 		if opts.IncludePrometheus && opts.PrometheusURL != "" {
 			fmt.Printf("[Prometheus] enabled via %s (%s)\n", opts.PrometheusURL, firstNonEmpty(opts.PrometheusMode, "default"))
@@ -44,7 +67,7 @@ func Execute(opts compat.RunOptions) error {
 		start := time.Now()
 		var err error
 		result, err = scan.Run(scan.Options{
-			ChecksDir:                "Private/yamlChecks",
+			ChecksDir:                "checks/kubernetes",
 			ConfigPath:               opts.ConfigPath,
 			ExcludeNamespaces:        opts.ExcludeNamespaces,
 			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
@@ -116,21 +139,10 @@ func Execute(opts compat.RunOptions) error {
 		PrometheusMode:           opts.PrometheusMode,
 		PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
 	}
-	if opts.IncludePrometheus && opts.PrometheusURL != "" {
-		printPhase("Collector", "Building native cluster snapshot for report metadata")
-		collected, err := kubernetes.CollectClusterData(kubernetes.ClusterDataOptions{
-			ExcludeNamespaces:        opts.ExcludeNamespaces,
-			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
-			IncludePrometheus:        true,
-			PrometheusURL:            opts.PrometheusURL,
-			PrometheusMode:           opts.PrometheusMode,
-			PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
-		})
-		if err != nil {
-			fmt.Printf("%s[Collector]%s Metadata snapshot skipped: %v\n", colorGray, colorReset, err)
-		} else if collected.Metrics != nil {
-			metadata.Metrics = collected.Metrics
-			fmt.Printf("%s[Collector]%s Metrics snapshot ready for %d nodes\n", colorGreen, colorReset, len(collected.Metrics.Nodes))
+	if snapshot != nil {
+		metadata.Snapshot = snapshot
+		if snapshot.Metrics != nil {
+			metadata.Metrics = snapshot.Metrics
 		}
 	}
 	if opts.AKS || opts.UseAKSRestAPI {

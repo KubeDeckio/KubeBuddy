@@ -82,7 +82,7 @@ Invoke-KubeBuddy `
   -RadarApiSecretEnv "MY_RADAR_PASS_ENV"
 ```
 
-## Docker Entry Point Support (`run.ps1`)
+## Docker Entry Point Support (`kubebuddy run-env`)
 
 When running the container image, configure Radar via env vars:
 
@@ -97,7 +97,7 @@ When running the container image, configure Radar via env vars:
 -e KUBEBUDDY_RADAR_API_PASSWORD="<wordpress-app-password>"
 ```
 
-Rules enforced by `run.ps1`:
+Rules enforced by the Go-native container entrypoint:
 
 - `RADAR_UPLOAD=true` or `RADAR_COMPARE=true` requires `JSON_REPORT=true`
 - `RADAR_FETCH_CONFIG=true` uses the saved Radar cluster profile to populate runtime defaults inside `Invoke-KubeBuddy`

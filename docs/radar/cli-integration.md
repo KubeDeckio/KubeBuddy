@@ -51,7 +51,7 @@ Invoke-KubeBuddy `
   -RadarConfigId "ccfg_12345678-1234-1234-1234-123456789abc"
 ```
 
-## Docker Entrypoint Usage (`run.ps1`)
+## Docker Entrypoint Usage (`kubebuddy run-env`)
 
 Use these env vars:
 

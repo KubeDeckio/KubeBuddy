@@ -2,20 +2,12 @@ package checks
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 )
 
 func LoadCatalog(primaryDir string) (RuleSet, error) {
-	dirs := []string{primaryDir}
-	if isDefaultKubernetesCatalog(primaryDir) {
-		overrideDir := resolveSiblingDir(primaryDir, "checks/kubernetes")
-		if dirExists(overrideDir) {
-			dirs = []string{overrideDir, primaryDir}
-		}
-	}
-	return LoadMergedDirs(dirs...)
+	return LoadMergedDirs(primaryDir)
 }
 
 func LoadMergedDirs(dirs ...string) (RuleSet, error) {
@@ -58,22 +50,4 @@ func dirExists(path string) bool {
 		return false
 	}
 	return info.IsDir()
-}
-
-func isDefaultKubernetesCatalog(path string) bool {
-	normalized := filepath.ToSlash(filepath.Clean(strings.TrimSpace(path)))
-	return normalized == "Private/yamlChecks" || strings.HasSuffix(normalized, "/Private/yamlChecks")
-}
-
-func resolveSiblingDir(primaryDir string, sibling string) string {
-	normalizedPrimary := filepath.Clean(strings.TrimSpace(primaryDir))
-	if normalizedPrimary == "Private/yamlChecks" {
-		return sibling
-	}
-
-	root := filepath.Dir(filepath.Dir(normalizedPrimary))
-	if root == "." || root == string(filepath.Separator) {
-		return sibling
-	}
-	return filepath.Join(root, sibling)
 }

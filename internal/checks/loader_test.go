@@ -8,7 +8,7 @@ import (
 func TestLoadFileSupportsCurrentKubernetesChecks(t *testing.T) {
 	t.Helper()
 
-	path := filepath.Clean(filepath.Join("..", "..", "Private", "yamlChecks", "stg-checks.yaml"))
+	path := filepath.Clean(filepath.Join("..", "..", "checks", "kubernetes", "network-storage.yaml"))
 	ruleSet, err := LoadFile(path)
 	if err != nil {
 		t.Fatalf("load check file: %v", err)
@@ -18,29 +18,17 @@ func TestLoadFileSupportsCurrentKubernetesChecks(t *testing.T) {
 		t.Fatalf("expected checks from %s", path)
 	}
 
-	foundDeclarative := false
-	foundScripted := false
 	for _, check := range ruleSet.Checks {
-		if check.IsDeclarative() {
-			foundDeclarative = true
+		if !check.IsDeclarative() {
+			t.Fatalf("expected only declarative checks in %s, found %s", path, check.ID)
 		}
-		if check.IsScripted() {
-			foundScripted = true
-		}
-	}
-
-	if !foundDeclarative {
-		t.Fatalf("expected at least one declarative check in %s", path)
-	}
-	if !foundScripted {
-		t.Fatalf("expected at least one scripted check in %s", path)
 	}
 }
 
 func TestLoadDirSummarizesCurrentCheckCatalog(t *testing.T) {
 	t.Helper()
 
-	dir := filepath.Clean(filepath.Join("..", "..", "Private", "yamlChecks"))
+	dir := filepath.Clean(filepath.Join("..", "..", "checks", "kubernetes"))
 	ruleSet, err := LoadDir(dir)
 	if err != nil {
 		t.Fatalf("load check dir: %v", err)
@@ -50,8 +38,8 @@ func TestLoadDirSummarizesCurrentCheckCatalog(t *testing.T) {
 	if inv.Total == 0 {
 		t.Fatalf("expected check inventory")
 	}
-	if inv.LegacyScripted == 0 {
-		t.Fatalf("expected scripted checks in current catalog")
+	if inv.LegacyScripted != 0 {
+		t.Fatalf("expected no scripted checks in current catalog")
 	}
 	if inv.Declarative == 0 {
 		t.Fatalf("expected declarative checks in current catalog")

@@ -72,6 +72,8 @@ To install **KubeBuddy** using PowerShell:
 Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
 ```
 
+The PowerShell module is now a compatibility wrapper over the native `kubebuddy` binary. Set `KUBEBUDDY_BINARY` or keep `kubebuddy` on `PATH`.
+
 ### **Platform Support**
 - **Native CLI:** Works anywhere the Go-built binary and your Kubernetes tooling are available.
 - **PowerShell Module:** Works on **Windows**, **macOS**, and **Linux**.
@@ -115,11 +117,13 @@ Run AKS YAML checks against an AKS JSON document:
 ### **PowerShell Command**
 Run **KubeBuddy** in PowerShell:
 ```powershell
+$env:KUBEBUDDY_BINARY = "/path/to/kubebuddy"
 Invoke-KubeBuddy
 ```
 
 Run **KubeBuddy** in PowerShell with the option to do an AKS Health Check:
 ```powershell
+$env:KUBEBUDDY_BINARY = "/path/to/kubebuddy"
 Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
 ```
 

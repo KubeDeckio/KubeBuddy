@@ -106,6 +106,9 @@ func executeNativeHandler(check checks.Check, items []map[string]any, cache map[
 	if name == "EVENT001" {
 		return runEVENT001(check, items), true, nil
 	}
+	if name == "EVENT002" {
+		return runEVENT002(check, items), true, nil
+	}
 
 	handler, ok := nativeHandlers[name]
 	if !ok {
@@ -174,6 +177,100 @@ func runEVENT001(check checks.Check, items []map[string]any) []Finding {
 		})
 	}
 	return findings
+}
+
+func runEVENT002(check checks.Check, items []map[string]any) []Finding {
+	findings := make([]Finding, 0)
+	for _, item := range items {
+		if strings.TrimSpace(stringifyLookup(item, "type")) != "Warning" {
+			continue
+		}
+		namespace := strings.TrimSpace(stringifyLookup(item, "metadata.namespace"))
+		if namespace == "" {
+			namespace = "default"
+		}
+		resource := strings.TrimSpace(stringifyLookup(item, "metadata.name"))
+		if resource != "" {
+			resource = "events/" + resource
+		}
+		findings = append(findings, Finding{
+			Namespace: namespace,
+			Resource:  resource,
+			Value:     "Warning",
+			Message:   check.FailMessage,
+		})
+	}
+	return findings
+}
+
+func buildLegacyEVENT001Items(items []map[string]any) []map[string]any {
+	type groupedEvent struct {
+		reason  string
+		message string
+		source  string
+		count   int
+	}
+	grouped := map[string]*groupedEvent{}
+	for _, item := range items {
+		if strings.TrimSpace(stringifyLookup(item, "type")) != "Warning" {
+			continue
+		}
+		reason := strings.TrimSpace(stringifyLookup(item, "reason"))
+		message := strings.TrimSpace(stringifyLookup(item, "message"))
+		source := strings.TrimSpace(stringifyLookup(item, "source.component"))
+		key := reason + "\x00" + message
+		if grouped[key] == nil {
+			grouped[key] = &groupedEvent{reason: reason, message: message, source: source}
+		}
+		grouped[key].count++
+	}
+	keys := make([]string, 0, len(grouped))
+	for key := range grouped {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		left := grouped[keys[i]]
+		right := grouped[keys[j]]
+		if left.count != right.count {
+			return left.count > right.count
+		}
+		if left.reason != right.reason {
+			return left.reason < right.reason
+		}
+		return left.message < right.message
+	})
+	out := make([]map[string]any, 0, len(keys))
+	for _, key := range keys {
+		entry := grouped[key]
+		out = append(out, map[string]any{
+			"Reason":  entry.reason,
+			"Message": entry.message,
+			"Source":  entry.source,
+			"Count":   entry.count,
+		})
+	}
+	return out
+}
+
+func buildLegacyEVENT002Items(items []map[string]any) []map[string]any {
+	out := make([]map[string]any, 0)
+	for _, item := range items {
+		if strings.TrimSpace(stringifyLookup(item, "type")) != "Warning" {
+			continue
+		}
+		out = append(out, map[string]any{
+			"Timestamp": stringifyLookup(item, "metadata.creationTimestamp"),
+			"Namespace": stringifyLookup(item, "metadata.namespace"),
+			"Object":    strings.TrimSpace(stringifyLookup(item, "involvedObject.kind")) + "/" + strings.TrimSpace(stringifyLookup(item, "involvedObject.name")),
+			"Source":    stringifyLookup(item, "source.component"),
+			"Reason":    stringifyLookup(item, "reason"),
+			"Message":   stringifyLookup(item, "message"),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return fmt.Sprint(out[i]["Timestamp"]) > fmt.Sprint(out[j]["Timestamp"])
+	})
+	return out
 }
 
 func runSEC002(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
@@ -1360,8 +1457,9 @@ func runPROM006(check checks.Check, item map[string]any, cache map[string][]map[
 	}
 	start := now.Add(-7 * 24 * time.Hour)
 	coverage, err := client.QueryRange(`(1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100`, start.Format(time.RFC3339), now.Format(time.RFC3339), "6h", int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
-	if err != nil || maxCoverageDays(coverage) < 6.9 {
-		return []Finding{{Namespace: "(cluster)", Resource: "prometheus/node-sizing", Value: "", Message: "Insufficient Prometheus history for node sizing recommendations"}}, nil
+	coverageDays := maxCoverageDays(coverage)
+	if err != nil || coverageDays < 6.9 {
+		return []Finding{{Namespace: "(cluster)", Resource: "prometheus/node-sizing", Value: fmt.Sprintf("%.2f", coverageDays), Message: "Insufficient Prometheus history for node sizing recommendations"}}, nil
 	}
 	cpuSeries, err := client.Query(`quantile_over_time(0.95, ((1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100)[7d:15m])`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {
@@ -1409,8 +1507,9 @@ func runPROM007(check checks.Check, item map[string]any, cache map[string][]map[
 	}
 	start := now.Add(-7 * 24 * time.Hour)
 	coverage, err := client.QueryRange(`sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) * 1000`, start.Format(time.RFC3339), now.Format(time.RFC3339), "6h", int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
-	if err != nil || maxCoverageDays(coverage) < 6.9 {
-		return []Finding{{Namespace: "(cluster)", Resource: "prometheus/pod-sizing", Value: "", Message: "Insufficient Prometheus history for pod sizing recommendations"}}, nil
+	coverageDays := maxCoverageDays(coverage)
+	if err != nil || coverageDays < 6.9 {
+		return []Finding{{Namespace: "(cluster)", Resource: "prometheus/pod-sizing", Value: fmt.Sprintf("%.2f", coverageDays), Message: "Insufficient Prometheus history for pod sizing recommendations"}}, nil
 	}
 	cpuSeries, err := client.Query(`quantile_over_time(0.95, (sum by(namespace,pod,container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",pod!=""}[5m])) * 1000)[7d:15m])`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {

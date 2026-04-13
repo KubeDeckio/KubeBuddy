@@ -1,15 +1,21 @@
 package scan
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/KubeDeckio/KubeBuddy/internal/azure"
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
 )
 
@@ -332,6 +338,14 @@ func loadAKSDocument(opts AKSOptions) (map[string]any, error) {
 }
 
 func collectLiveAKSDocument(opts AKSOptions) (map[string]any, error) {
+	if azure.HasClientCredentials() {
+		document, err := collectLiveAKSDocumentWithToken(opts)
+		if err == nil {
+			constraints, _ := loadAKSConstraintsWithSPN(opts)
+			ensureAKSConstraints(document, constraints)
+			return document, nil
+		}
+	}
 	uri := fmt.Sprintf(
 		"https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s?api-version=2025-01-01",
 		opts.SubscriptionID,
@@ -359,7 +373,44 @@ func collectLiveAKSDocument(opts AKSOptions) (map[string]any, error) {
 	return document, nil
 }
 
+func collectLiveAKSDocumentWithToken(opts AKSOptions) (map[string]any, error) {
+	token, err := azure.ARMToken()
+	if err != nil {
+		return nil, err
+	}
+	uri := fmt.Sprintf(
+		"https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s?api-version=2025-01-01",
+		opts.SubscriptionID,
+		opts.ResourceGroup,
+		opts.ClusterName,
+	)
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ARM cluster GET returned %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+	var document map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&document); err != nil {
+		return nil, err
+	}
+	return document, nil
+}
+
 func loadAKSConstraints(opts AKSOptions) ([]map[string]any, error) {
+	if azure.HasClientCredentials() {
+		return loadAKSConstraintsWithSPN(opts)
+	}
 	tempDir, err := os.MkdirTemp("", "kubebuddy-aks-kubeconfig-*")
 	if err != nil {
 		return nil, err
@@ -399,6 +450,91 @@ func loadAKSConstraints(opts AKSOptions) ([]map[string]any, error) {
 		return nil, err
 	}
 	return response.Items, nil
+}
+
+func loadAKSConstraintsWithSPN(opts AKSOptions) ([]map[string]any, error) {
+	token, err := azure.ARMToken()
+	if err != nil {
+		return nil, err
+	}
+	tempDir, err := os.MkdirTemp("", "kubebuddy-aks-kubeconfig-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tempDir)
+	kubeconfig := filepath.Join(tempDir, "config")
+
+	uri := fmt.Sprintf(
+		"https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerService/managedClusters/%s/listClusterUserCredential?api-version=2025-01-01",
+		opts.SubscriptionID,
+		opts.ResourceGroup,
+		opts.ClusterName,
+	)
+	req, err := http.NewRequest(http.MethodPost, uri, bytes.NewReader([]byte("{}")))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("listClusterUserCredential returned %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	}
+	var payload struct {
+		Kubeconfigs []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"kubeconfigs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	if len(payload.Kubeconfigs) == 0 || strings.TrimSpace(payload.Kubeconfigs[0].Value) == "" {
+		return nil, fmt.Errorf("listClusterUserCredential returned no kubeconfigs")
+	}
+	decoded, err := decodeBase64String(payload.Kubeconfigs[0].Value)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(kubeconfig, decoded, 0o600); err != nil {
+		return nil, err
+	}
+
+	convert := exec.Command("kubelogin", "convert-kubeconfig", "--kubeconfig", kubeconfig, "-l", "spn")
+	convert.Env = append(os.Environ(),
+		"AZURE_CLIENT_ID="+strings.TrimSpace(os.Getenv("AZURE_CLIENT_ID")),
+		"AZURE_CLIENT_SECRET="+strings.TrimSpace(os.Getenv("AZURE_CLIENT_SECRET")),
+		"AZURE_TENANT_ID="+strings.TrimSpace(os.Getenv("AZURE_TENANT_ID")),
+	)
+	if output, err := convert.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("kubelogin convert-kubeconfig failed: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+
+	kubectl := exec.Command("kubectl", "get", "constraints", "-A", "-o", "json")
+	kubectl.Env = append(os.Environ(), "KUBECONFIG="+kubeconfig)
+	output, err := kubectl.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.Unmarshal(output, &response); err != nil {
+		return nil, err
+	}
+	return response.Items, nil
+}
+
+func decodeBase64String(value string) ([]byte, error) {
+	value = strings.TrimSpace(value)
+	return base64.StdEncoding.DecodeString(value)
 }
 
 func ensureAKSConstraints(document map[string]any, constraints []map[string]any) {

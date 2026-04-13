@@ -7,15 +7,23 @@ layout: default
 
 # PowerShell Usage
 
-If you're using **KubeBuddy powered by KubeDeck** via PowerShell, this guide covers the module-based compatibility path. For the native binary, use [Native CLI Usage](native-cli-usage.md).
+If you're using **KubeBuddy powered by KubeDeck** via PowerShell, this guide covers the module-based compatibility wrapper. For the native binary, use [Native CLI Usage](native-cli-usage.md).
 
 ## 🔧 Prerequisites
 
 Before running KubeBuddy powered by KubeDeck, ensure you:
 - Are **connected to a Kubernetes cluster/context**.
 - Have **kubectl** installed and configured.
-- Have **Azure CLI (az cli)** installed if using AKS features.
-- Are **logged into Azure** and using the correct subscription for AKS monitoring.
+- Have the native `kubebuddy` binary installed and either:
+  - on `PATH`, or
+  - referenced via `$env:KUBEBUDDY_BINARY`
+- Have Azure authentication available for AKS or Azure-authenticated Prometheus when those features are used.
+
+Example:
+
+```powershell
+$env:KUBEBUDDY_BINARY = "/usr/local/bin/kubebuddy"
+```
 
 ### (Optional) Enable AI Recommendations
 
@@ -72,7 +80,7 @@ To run KubeBuddy powered by KubeDeck on your Kubernetes cluster:
 Invoke-KubeBuddy
 ```
 
-This command provides a detailed menu-driven interface that allows you to navigate through various monitoring options. It analyzes node status, resource usage, workloads, and RBAC security settings.
+This invokes the native Go CLI through the PowerShell wrapper while preserving the `Invoke-KubeBuddy` command surface. If you do not specify a report switch, the wrapper defaults to `-HtmlReport`.
 
 ## 2. Running KubeBuddy powered by KubeDeck with an AKS Best Practices Check
 
@@ -215,11 +223,9 @@ Invoke-KubeBuddy -CsvReport -OutputPath ./custom-report.csv
 
 ## 4. Running an AKS Health Check alongside the HTML report
 
-To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure you are logged into Azure and using the correct subscription:
+To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure you are authenticated to Azure and using the correct subscription:
 
 ```powershell
-az login
-az account set --subscription <subscription-id>
 Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
 ![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../images/html-aks-report-sample.png)
@@ -233,8 +239,6 @@ Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup
 To check best practices for an Azure Kubernetes Service (AKS) cluster:
 
 ```powershell
-az login
-az account set --subscription <subscription-id>
 Invoke-KubeBuddy -jsonReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
 
@@ -245,8 +249,6 @@ Invoke-KubeBuddy -jsonReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup
 To check best practices for an Azure Kubernetes Service (AKS) cluster and export results to CSV:
 
 ```powershell
-az login
-az account set --subscription <subscription-id>
 Invoke-KubeBuddy -CsvReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
 

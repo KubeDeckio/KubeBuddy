@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,6 +70,8 @@ type NodeMetrics struct {
 	CPUAvg     float64       `json:"cpuAvg"`
 	MemAvg     float64       `json:"memAvg"`
 	DiskAvg    float64       `json:"diskAvg"`
+	CPUTotal   int           `json:"cpuTotal"`
+	MemTotal   int           `json:"memTotal"`
 	CPUSeries  []MetricPoint `json:"cpuSeries"`
 	MemSeries  []MetricPoint `json:"memSeries"`
 	DiskSeries []MetricPoint `json:"diskSeries"`
@@ -279,6 +282,8 @@ func collectPrometheusMetrics(nodes []map[string]any, opts ClusterDataOptions) (
 			CPUAvg:     averageMetricPoints(cpuSeries),
 			MemAvg:     averageMetricPoints(memSeries),
 			DiskAvg:    averageMetricPoints(diskSeries),
+			CPUTotal:   allocatableMilliCPU(node),
+			MemTotal:   allocatableMiB(node),
 			CPUSeries:  cpuSeries,
 			MemSeries:  memSeries,
 			DiskSeries: diskSeries,
@@ -593,5 +598,39 @@ func stringifyLookup(item map[string]any, path string) string {
 		return v
 	default:
 		return fmt.Sprint(v)
+	}
+}
+
+func allocatableMilliCPU(node map[string]any) int {
+	raw := strings.TrimSpace(stringifyLookup(node, "status.allocatable.cpu"))
+	if raw == "" {
+		return 0
+	}
+	if strings.HasSuffix(raw, "m") {
+		value, _ := strconv.Atoi(strings.TrimSuffix(raw, "m"))
+		return value
+	}
+	value, _ := strconv.Atoi(raw)
+	return value * 1000
+}
+
+func allocatableMiB(node map[string]any) int {
+	raw := strings.TrimSpace(stringifyLookup(node, "status.allocatable.memory"))
+	if raw == "" {
+		return 0
+	}
+	switch {
+	case strings.HasSuffix(raw, "Ki"):
+		value, _ := strconv.Atoi(strings.TrimSuffix(raw, "Ki"))
+		return value / 1024
+	case strings.HasSuffix(raw, "Mi"):
+		value, _ := strconv.Atoi(strings.TrimSuffix(raw, "Mi"))
+		return value
+	case strings.HasSuffix(raw, "Gi"):
+		value, _ := strconv.Atoi(strings.TrimSuffix(raw, "Gi"))
+		return value * 1024
+	default:
+		value, _ := strconv.Atoi(raw)
+		return value
 	}
 }
