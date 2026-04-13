@@ -1,6 +1,10 @@
 package scan
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/KubeDeckio/KubeBuddy/internal/checks"
+)
 
 func TestNormalizedKind(t *testing.T) {
 	t.Helper()
@@ -25,7 +29,7 @@ func TestFilterExcludedItems(t *testing.T) {
 	t.Helper()
 
 	setRuntimeContext(runtimeContext{
-		Excluded: excludedNamespaceSet(true, []string{"custom-ns"}),
+		Excluded: excludedNamespaceSet(true, []string{"kube-system", "kube-public", "kube-node-lease"}, []string{"custom-ns"}),
 	})
 	defer clearRuntimeContext()
 
@@ -45,5 +49,22 @@ func TestFilterExcludedItems(t *testing.T) {
 	}
 	if namespaceOf(filtered[1]) != "(cluster)" {
 		t.Fatalf("expected cluster-scoped item to remain")
+	}
+}
+
+func TestFilterExcludedChecks(t *testing.T) {
+	t.Helper()
+
+	input := []checks.Check{
+		{ID: "SEC014"},
+		{ID: "NS001"},
+		{ID: "AKSSEC001"},
+	}
+	filtered := filterExcludedChecks(input, []string{"sec014", "akssec001"})
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 check after filtering, got %d", len(filtered))
+	}
+	if filtered[0].ID != "NS001" {
+		t.Fatalf("unexpected remaining check: %s", filtered[0].ID)
 	}
 }

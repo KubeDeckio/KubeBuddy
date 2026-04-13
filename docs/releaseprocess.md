@@ -12,8 +12,9 @@ hide:
 KubeBuddy now ships as a **Go-first release**:
 
 - native `kubebuddy` binaries for macOS and Linux
+- native `kubebuddy` binaries for macOS, Linux, and Windows
 - a hardened container image
-- a backwards-compatible PowerShell Gallery wrapper that forwards to the native binary
+- a backwards-compatible PowerShell Gallery wrapper that bundles and forwards to the native binary
 
 ## Release Outputs
 
@@ -23,10 +24,12 @@ Each tagged release should publish:
 - `kubebuddy_<version>_darwin_arm64.tar.gz`
 - `kubebuddy_<version>_linux_amd64.tar.gz`
 - `kubebuddy_<version>_linux_arm64.tar.gz`
+- `kubebuddy_<version>_windows_amd64.tar.gz`
+- `kubebuddy_<version>_windows_arm64.tar.gz`
 - `kubebuddy-psgallery-v<version>.tar.gz`
 - `checksums.txt`
 
-The PowerShell Gallery package remains a wrapper surface. It is not the primary runtime.
+The PowerShell Gallery package remains a wrapper surface, but it now bundles the native binaries for supported platforms so `Invoke-KubeBuddy` works immediately after install.
 
 ## Build Artifacts Locally
 
@@ -78,7 +81,6 @@ Recommended smoke tests:
 - PowerShell wrapper:
 
   ```powershell
-  $env:KUBEBUDDY_BINARY = "/path/to/kubebuddy"
   Import-Module ./KubeBuddy.psm1 -Force
   Invoke-KubeBuddy -HtmlReport -yes -OutputPath ./reports
   ```
@@ -117,9 +119,8 @@ For AKS and Azure-authenticated Prometheus in containers, prefer service princip
 Recommended PowerShell usage:
 
 ```powershell
-$env:KUBEBUDDY_BINARY = "/usr/local/bin/kubebuddy"
 Install-Module KubeBuddy -Scope CurrentUser
 Invoke-KubeBuddy -HtmlReport -yes
 ```
 
-If `KUBEBUDDY_BINARY` is not set, the wrapper looks for `kubebuddy` on `PATH`.
+Use `KUBEBUDDY_BINARY` only if you need to override the bundled binary with a specific path.

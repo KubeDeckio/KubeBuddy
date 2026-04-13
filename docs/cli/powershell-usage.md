@@ -7,19 +7,19 @@ layout: default
 
 # PowerShell Usage
 
-If you're using **KubeBuddy powered by KubeDeck** via PowerShell, this guide covers the module-based compatibility wrapper. For the native binary, use [Native CLI Usage](native-cli-usage.md).
+If you're using KubeBuddy via PowerShell, this guide covers the module-based compatibility wrapper. For the native binary, use [Native CLI Usage](native-cli-usage.md).
 
 ## 🔧 Prerequisites
 
-Before running KubeBuddy powered by KubeDeck, ensure you:
+Before running KubeBuddy via PowerShell, ensure you:
 - Are **connected to a Kubernetes cluster/context**.
 - Have **kubectl** installed and configured.
-- Have the native `kubebuddy` binary installed and either:
-  - on `PATH`, or
-  - referenced via `$env:KUBEBUDDY_BINARY`
+- Are using a supported platform for the bundled native binary, or have a fallback native `kubebuddy` binary available
 - Have Azure authentication available for AKS or Azure-authenticated Prometheus when those features are used.
 
-Example:
+The PowerShell module bundles the native binary and should work immediately after `Install-Module`.
+
+Optional override example:
 
 ```powershell
 $env:KUBEBUDDY_BINARY = "/usr/local/bin/kubebuddy"
@@ -44,11 +44,11 @@ For generic Kubernetes (non-AKS) scans, see [Kubernetes Scan Permissions](kubern
 
 ## Available Commands
 
-The following table provides a quick reference for KubeBuddy powered by KubeDeck commands:
+The following table provides a quick reference for common PowerShell wrapper commands:
 
 | Action | Command Example |
 |---------------------------|----------------|
-| Run KubeBuddy powered by KubeDeck | `Invoke-KubeBuddy` |
+| Run KubeBuddy | `Invoke-KubeBuddy` |
 | Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
 | Generate a JSON report | `Invoke-KubeBuddy -jsonReport` |
 | Generate a text report | `Invoke-KubeBuddy -txtReport` |
@@ -56,7 +56,7 @@ The following table provides a quick reference for KubeBuddy powered by KubeDeck
 | Generate reports with custom path | `Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report` |
 | Use cluster-specific config file | `Invoke-KubeBuddy -HtmlReport -ConfigPath ~/.kube/kubebuddy-config-prod.yaml` |
 | Exclude configured + extra namespaces | `Invoke-KubeBuddy -HtmlReport -ExcludeNamespaces -AdditionalExcludedNamespaces "azure-monitor","istio-system"` |
-| Run a KubeBuddy powered by KubeDeck with an AKS Best Practices Check | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
+| Run AKS best-practice checks | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
 | Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 | Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 | Upload JSON scan to Radar (Pro) | `Invoke-KubeBuddy -jsonReport -RadarUpload -RadarEnvironment prod` |
@@ -72,9 +72,9 @@ $env:KUBEBUDDY_RADAR_API_USER = "<wordpress-username>"
 $env:KUBEBUDDY_RADAR_API_PASSWORD = "<wordpress-app-password>"
 ```
 
-## 1. Running KubeBuddy powered by KubeDeck
+## 1. Running KubeBuddy
 
-To run KubeBuddy powered by KubeDeck on your Kubernetes cluster:
+To run KubeBuddy on your Kubernetes cluster:
 
 ```powershell
 Invoke-KubeBuddy
@@ -82,7 +82,7 @@ Invoke-KubeBuddy
 
 This invokes the native Go CLI through the PowerShell wrapper while preserving the `Invoke-KubeBuddy` command surface. If you do not specify a report switch, the wrapper defaults to `-HtmlReport`.
 
-## 2. Running KubeBuddy powered by KubeDeck with an AKS Best Practices Check
+## 2. Running KubeBuddy with AKS Best Practices
 
 To check best practices for an **Azure Kubernetes Service (AKS)** cluster:
 
@@ -98,7 +98,7 @@ You **must** provide your Azure Subscription ID, the **Resource Group** where yo
 ```powershell
 Invoke-KubeBuddy -HtmlReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck HTML Report](../images/html-report-sample.png)
+![Screenshot of KubeBuddy HTML Report](../images/html-report-sample.png)
 
 <a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
@@ -115,7 +115,7 @@ Invoke-KubeBuddy -jsonReport
 ```powershell
 Invoke-KubeBuddy -txtReport
 ```
-![Screenshot of KubeBuddy powered by KubeDeck Text Report](../images/text-report-sample.png)
+![Screenshot of KubeBuddy Text Report](../images/text-report-sample.png)
 
 <a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample txt Report</a>
 
@@ -228,7 +228,7 @@ To check best practices for an Azure Kubernetes Service (AKS) cluster, ensure yo
 ```powershell
 Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy powered by KubeDeck HTML + AKS Report](../images/html-aks-report-sample.png)
+![Screenshot of KubeBuddy HTML + AKS Report](../images/html-aks-report-sample.png)
 
 <a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/html-report-sample.html" target="_blank" rel="noopener noreferrer">View Sample HTML Report</a>
 
@@ -265,7 +265,7 @@ az login
 az account set --subscription <subscription-id>
 Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName
 ```
-![Screenshot of KubeBuddy powered by KubeDeck Text Report](..//images/text-aks-report-sample.png)
+![Screenshot of KubeBuddy Text + AKS Report](..//images/text-aks-report-sample.png)
 
 <a href="https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/examples/text-report-sample.txt" target="_blank" rel="noopener noreferrer">View Sample text Report</a>
 

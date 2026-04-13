@@ -31,6 +31,68 @@ By pulling time-series data you can detect:
 
 ## 🔐 How to Authenticate
 
+For the native Go CLI, the auth model is:
+
+- `local`: no extra auth inputs
+- `azure`: uses existing Azure auth from the current shell or environment
+- `bearer`: uses `--prometheus-bearer-token-env` to read a bearer token from an environment variable
+- `basic`: reads `PROMETHEUS_USERNAME` and `PROMETHEUS_PASSWORD` from the environment
+
+The PowerShell wrapper maps onto the same runtime, but can also help populate those environment variables for you.
+
+## Native CLI Examples
+
+### Local (no auth)
+
+```bash
+kubebuddy run \
+  --html-report \
+  --include-prometheus \
+  --prometheus-url "http://prometheus.monitoring.svc:9090" \
+  --prometheus-mode local \
+  --yes
+```
+
+### Bearer Token
+
+```bash
+export PROMETHEUS_TOKEN="<your-token>"
+
+kubebuddy run \
+  --include-prometheus \
+  --prometheus-url "https://prom.example.com" \
+  --prometheus-mode bearer \
+  --prometheus-bearer-token-env PROMETHEUS_TOKEN \
+  --yes
+```
+
+### Azure Monitor (AAD)
+
+```bash
+az login
+
+kubebuddy run \
+  --include-prometheus \
+  --prometheus-url "https://<workspace>.prometheus.monitor.azure.com" \
+  --prometheus-mode azure \
+  --yes
+```
+
+### Basic Auth
+
+```bash
+export PROMETHEUS_USERNAME="admin"
+export PROMETHEUS_PASSWORD="s3cr3t"
+
+kubebuddy run \
+  --include-prometheus \
+  --prometheus-url "https://prom.example.com" \
+  --prometheus-mode basic \
+  --yes
+```
+
+## PowerShell Wrapper Examples
+
 ### Local (no auth)
 ```powershell
 Invoke-KubeBuddy `
@@ -43,12 +105,13 @@ Invoke-KubeBuddy `
 ### Basic Auth
 
 ```powershell
+$env:PROMETHEUS_USERNAME = "admin"
+$env:PROMETHEUS_PASSWORD = "s3cr3t"
+
 Invoke-KubeBuddy `
   -IncludePrometheus `
   -PrometheusUrl "https://prom.example.com" `
-  -PrometheusMode basic `
-  -PrometheusUsername "admin" `
-  -PrometheusPassword "s3cr3t"
+  -PrometheusMode basic
 ```
 
 ### Bearer Token
@@ -99,13 +162,14 @@ Use any combination of report outputs:
 
 ```powershell
 # HTML report with Prometheus
+$promCred = Get-Credential
+
 Invoke-KubeBuddy `
   -HtmlReport `
   -IncludePrometheus `
   -PrometheusUrl "https://prometheus.example.com" `
   -PrometheusMode basic `
-  -PrometheusUsername "admin" `
-  -PrometheusPassword "s3cr3t" `
+  -PrometheusCredential $promCred `
   -OutputPath "C:\reports\cluster.html"
 ```
 

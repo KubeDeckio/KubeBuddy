@@ -21,7 +21,13 @@ targets=(
   "darwin arm64"
   "linux amd64"
   "linux arm64"
+  "windows amd64"
+  "windows arm64"
 )
+
+module_stage="${OUT_DIR}/KubeBuddy-psgallery"
+mkdir -p "${module_stage}/Public"
+mkdir -p "${module_stage}/bin"
 
 for target in "${targets[@]}"; do
   read -r goos goarch <<<"${target}"
@@ -29,19 +35,25 @@ for target in "${targets[@]}"; do
   stage="${OUT_DIR}/${artifact}"
   mkdir -p "${stage}"
 
+  binary_name="kubebuddy"
+  if [[ "${goos}" == "windows" ]]; then
+    binary_name="kubebuddy.exe"
+  fi
+
   CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" \
     go build -trimpath -ldflags="-s -w -X github.com/KubeDeckio/KubeBuddy/internal/version.Version=${TAG}" \
-    -o "${stage}/kubebuddy" ./cmd/kubebuddy
+    -o "${stage}/${binary_name}" ./cmd/kubebuddy
 
   cp README.md "${stage}/README.md"
   cp LICENSE "${stage}/LICENSE"
+
+  mkdir -p "${module_stage}/bin/${goos}-${goarch}"
+  cp "${stage}/${binary_name}" "${module_stage}/bin/${goos}-${goarch}/${binary_name}"
 
   tar -C "${OUT_DIR}" -czf "${OUT_DIR}/${artifact}.tar.gz" "${artifact}"
   rm -rf "${stage}"
 done
 
-module_stage="${OUT_DIR}/KubeBuddy-psgallery"
-mkdir -p "${module_stage}/Public"
 cp KubeBuddy.psd1 "${module_stage}/KubeBuddy.psd1"
 cp KubeBuddy.psm1 "${module_stage}/KubeBuddy.psm1"
 cp Public/kubebuddy.ps1 "${module_stage}/Public/kubebuddy.ps1"

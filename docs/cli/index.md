@@ -108,10 +108,16 @@ Use Docker to:
 
 KubeBuddy can enrich findings with AI-generated guidance when you provide an OpenAI API key.
 
-Set:
+PowerShell:
 
 ```powershell
 $env:OpenAIKey = "<your-openai-api-key>"
+```
+
+Bash:
+
+```bash
+export OpenAIKey="<your-openai-api-key>"
 ```
 
 AI guidance can appear in:

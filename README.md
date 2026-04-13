@@ -43,7 +43,7 @@ For complete installation, usage, and advanced configuration instructions, visit
 - **HTML, Text & CSV Reports:** Generates clean reports for analysis and sharing. CSV output includes check ID, name, severity, status, message, recommendation, and URL — ideal for spreadsheets, dashboards, and audit logs.
 - **Native CLI Runtime:** Build or ship a single `kubebuddy` binary for local, CI, and container workflows.
 - **PowerShell Compatibility:** Keep using the PowerShell module flow where needed during the transition.
-- **AKS Best Practices Check:** Checks Azure Kubernetes Service (AKS) clusters for Best Practices. (Currently 34 fully automated tests!)
+- **AKS Best Practices Check:** Runs the native AKS best-practice catalog against live AKS clusters or AKS JSON input.
 - **KubeBuddy Radar Upload (Pro):** Upload JSON scan runs to Radar for trend history, run comparisons, and fleet reporting.
 - **Radar Cluster Config Fetch (Pro):** Pull a saved Radar cluster profile into the CLI and reuse the same settings locally or in Docker.
 
@@ -87,7 +87,7 @@ To install **KubeBuddy** using PowerShell:
 Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
 ```
 
-The PowerShell module is now a compatibility wrapper over the native `kubebuddy` binary. Set `KUBEBUDDY_BINARY` or keep `kubebuddy` on `PATH`.
+The PowerShell module is now a compatibility wrapper over the native `kubebuddy` binary and ships the bundled binary for supported platforms. In normal use, `Invoke-KubeBuddy` should work immediately after install. Set `KUBEBUDDY_BINARY` only if you want to force a specific binary path.
 
 ### **Platform Support**
 - **Native CLI:** Works anywhere the Go-built binary and your Kubernetes tooling are available.
@@ -127,13 +127,11 @@ Run AKS YAML checks against an AKS JSON document:
 ### **PowerShell Command**
 Run **KubeBuddy** in PowerShell:
 ```powershell
-$env:KUBEBUDDY_BINARY = "/path/to/kubebuddy"
 Invoke-KubeBuddy
 ```
 
 Run **KubeBuddy** in PowerShell with the option to do an AKS Health Check:
 ```powershell
-$env:KUBEBUDDY_BINARY = "/path/to/kubebuddy"
 Invoke-KubeBuddy -aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>
 ```
 
@@ -245,7 +243,7 @@ Invoke-KubeBuddy -RadarFetchConfig -RadarConfigId "<cluster-config-id>"
 
 ## Configuration
 
-**KubeBuddy** uses a YAML configuration file (`kubebuddy-config.yaml`) to define thresholds:
+**KubeBuddy** uses a YAML configuration file (`kubebuddy-config.yaml`) to define thresholds, exclusions, trusted registries, and Radar defaults:
 
 ```yaml
 thresholds:
@@ -263,6 +261,16 @@ thresholds:
   event_errors_critical: 20
   event_warnings_warning: 50
   event_warnings_critical: 100
+
+excluded_namespaces:
+  - kube-system
+  - gatekeeper-system
+
+trusted_registries:
+  - mcr.microsoft.com/
+
+excluded_checks:
+  - SEC014
 ```
 
 This file should be placed at:

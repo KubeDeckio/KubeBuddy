@@ -17,10 +17,12 @@ import (
 
 	"github.com/KubeDeckio/KubeBuddy/internal/azure"
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
+	"github.com/KubeDeckio/KubeBuddy/internal/config"
 )
 
 type AKSOptions struct {
 	ChecksDir      string
+	ConfigPath     string
 	InputFile      string
 	SubscriptionID string
 	ResourceGroup  string
@@ -32,11 +34,13 @@ func RunAKS(opts AKSOptions) (Result, error) {
 	if strings.TrimSpace(opts.ChecksDir) == "" {
 		opts.ChecksDir = "checks/aks"
 	}
+	cfg := config.Load(opts.ConfigPath)
 
 	ruleSet, err := checks.LoadDir(opts.ChecksDir)
 	if err != nil {
 		return Result{}, err
 	}
+	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, cfg.ExcludedChecks)
 
 	document, err := loadAKSDocument(opts)
 	if err != nil {

@@ -79,22 +79,25 @@ func Run(opts Options) (Result, error) {
 	if strings.TrimSpace(opts.ChecksDir) == "" {
 		opts.ChecksDir = "checks/kubernetes"
 	}
+	cfg := config.Load(opts.ConfigPath)
 
 	ruleSet, err := checks.LoadCatalog(opts.ChecksDir)
 	if err != nil {
 		return Result{}, err
 	}
+	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, cfg.ExcludedChecks)
 
 	cache := map[string][]map[string]any{}
 	setRuntimeContext(runtimeContext{
-		Thresholds: config.Thresholds(opts.ConfigPath),
+		Thresholds: cfg.Thresholds,
 		Prometheus: prometheusOptions{
 			Enabled:        opts.IncludePrometheus && strings.TrimSpace(opts.PrometheusURL) != "",
 			URL:            opts.PrometheusURL,
 			Mode:           opts.PrometheusMode,
 			BearerTokenEnv: opts.PrometheusBearerTokenEnv,
 		},
-		Excluded: excludedNamespaceSet(opts.ExcludeNamespaces, opts.ExcludedNamespaces),
+		Excluded:          excludedNamespaceSet(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.ExcludedNamespaces),
+		TrustedRegistries: append([]string(nil), cfg.TrustedRegistries...),
 	})
 	defer clearRuntimeContext()
 	var out Result
@@ -357,15 +360,11 @@ func namespaceOf(item map[string]any) string {
 	return "(cluster)"
 }
 
-func excludedNamespaceSet(enabled bool, extra []string) map[string]struct{} {
+func excludedNamespaceSet(enabled bool, configured []string, extra []string) map[string]struct{} {
 	if !enabled {
 		return nil
 	}
-	names := append([]string{
-		"kube-system", "kube-public", "kube-node-lease",
-		"local-path-storage", "kube-flannel",
-		"tigera-operator", "calico-system", "coredns", "aks-istio-system", "gatekeeper-system",
-	}, extra...)
+	names := append(append([]string{}, configured...), extra...)
 	out := map[string]struct{}{}
 	for _, ns := range names {
 		ns = strings.ToLower(strings.TrimSpace(ns))
@@ -374,6 +373,27 @@ func excludedNamespaceSet(enabled bool, extra []string) map[string]struct{} {
 		}
 	}
 	return out
+}
+
+func filterExcludedChecks(checksList []checks.Check, excluded []string) []checks.Check {
+	if len(excluded) == 0 {
+		return checksList
+	}
+	excludedSet := map[string]struct{}{}
+	for _, id := range excluded {
+		trimmed := strings.ToUpper(strings.TrimSpace(id))
+		if trimmed != "" {
+			excludedSet[trimmed] = struct{}{}
+		}
+	}
+	filtered := make([]checks.Check, 0, len(checksList))
+	for _, check := range checksList {
+		if _, ok := excludedSet[strings.ToUpper(strings.TrimSpace(check.ID))]; ok {
+			continue
+		}
+		filtered = append(filtered, check)
+	}
+	return filtered
 }
 
 func filterExcludedItems(items []map[string]any) []map[string]any {

@@ -11,7 +11,7 @@ hide:
 
 # Kubernetes Says Your Cluster is Healthy. It’s Probably Not.
 <div class="hero">
-  <strong>KubeBuddy powered by KubeDeck</strong><br>
+  <strong>KubeBuddy</strong><br>
   Runs complete health, security, and configuration checks on your Kubernetes cluster.<br>
   ✅ No agents. No Helm charts. No guesswork.<br>
   ✅ Native CLI, Docker, and PowerShell workflows from your terminal.

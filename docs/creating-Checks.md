@@ -40,11 +40,56 @@ Use declarative checks when the result can be derived from:
 
 These are the preferred default.
 
+Example:
+
+```yaml
+checks:
+  - id: POD004
+    name: Pending Pods
+    section: Pods
+    category: Workloads
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Detects pods stuck in a Pending state due to scheduling or dependency issues.
+    fail_message: Some pods are stuck in Pending.
+    recommendation: Inspect scheduling constraints, missing dependencies, and cluster capacity.
+    url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
+    value:
+      path: status.phase
+    operator: not_equals
+    expected: Pending
+```
+
 ### Prometheus checks
 
 Use a `prometheus:` block when the check is based on PromQL and threshold comparison.
 
 These are still YAML-defined, but the runtime executes the Prometheus query in Go.
+
+Example:
+
+```yaml
+checks:
+  - id: PROM001
+    name: High CPU Pods (Prometheus)
+    category: Performance
+    section: Pods
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Checks for pods with sustained high CPU usage over the last 24 hours.
+    fail_message: Some pods show high sustained CPU usage.
+    recommendation: Investigate high CPU usage and adjust requests, limits, or scaling.
+    url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
+    prometheus:
+      query: sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)
+      range:
+        step: 5m
+        duration: 24h
+    operator: greater_than
+    expected: cpu_critical
+```
 
 ### Native handler checks
 
@@ -61,6 +106,27 @@ In that model:
 
 - YAML still defines the check id, name, severity, docs, and report content
 - Go implements the handler logic
+
+Example:
+
+```yaml
+checks:
+  - id: NET001
+    name: Services Without Endpoints
+    category: Networking
+    section: Networking
+    resource_kind: Service
+    severity: High
+    weight: 2
+    description: Identifies services that have no backing endpoints.
+    fail_message: Service has no endpoints.
+    recommendation: Check selectors, pod readiness, and EndpointSlice generation.
+    url: https://kubernetes.io/docs/concepts/services-networking/service/
+    native_handler: NET001
+    value:
+      path: metadata.name
+    operator: exists
+```
 
 ## YAML Shape
 
@@ -88,73 +154,7 @@ Common fields:
 | `native_handler` | optional | Use for procedural Go checks |
 | `prometheus` | optional | Use for Prometheus-backed checks |
 
-## Declarative Example
-
-```yaml
-checks:
-  - id: POD004
-    name: Pending Pods
-    section: Pods
-    category: Workloads
-    resource_kind: Pod
-    severity: Warning
-    weight: 3
-    description: Detects pods stuck in a Pending state due to scheduling or dependency issues.
-    fail_message: Some pods are stuck in Pending.
-    recommendation: Inspect scheduling constraints, missing dependencies, and cluster capacity.
-    url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
-    value:
-      path: status.phase
-    operator: not_equals
-    expected: Pending
-```
-
-## Prometheus Example
-
-```yaml
-checks:
-  - id: PROM001
-    name: High CPU Pods (Prometheus)
-    category: Performance
-    section: Pods
-    resource_kind: Pod
-    severity: Warning
-    weight: 3
-    description: Checks for pods with sustained high CPU usage over the last 24 hours.
-    fail_message: Some pods show high sustained CPU usage.
-    recommendation: Investigate high CPU usage and adjust requests, limits, or scaling.
-    url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
-    prometheus:
-      query: sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)
-      range:
-        step: 5m
-        duration: 24h
-    operator: greater_than
-    expected: cpu_critical
-```
-
-## Native Handler Example
-
-```yaml
-checks:
-  - id: NET001
-    name: Services Without Endpoints
-    category: Networking
-    section: Networking
-    resource_kind: Service
-    severity: High
-    weight: 2
-    description: Identifies services that have no backing endpoints.
-    fail_message: Service has no endpoints.
-    recommendation: Check selectors, pod readiness, and EndpointSlice generation.
-    url: https://kubernetes.io/docs/concepts/services-networking/service/
-    native_handler: NET001
-    value:
-      path: metadata.name
-    operator: exists
-```
-
-The YAML keeps the user-facing definition. The runtime resolves `NET001` in Go.
+The YAML keeps the user-facing definition. The runtime resolves the `native_handler` value in Go.
 
 ## Operators
 

@@ -1,11 +1,47 @@
 $script:KubeBuddyModuleVersion = "v0.0.4"
 
+function Get-KubeBuddyRuntimeRid {
+    $os = if ($IsWindows) {
+        "windows"
+    }
+    elseif ($IsMacOS) {
+        "darwin"
+    }
+    elseif ($IsLinux) {
+        "linux"
+    }
+    else {
+        $null
+    }
+
+    $arch = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+        ([System.Runtime.InteropServices.Architecture]::X64) { "amd64" }
+        ([System.Runtime.InteropServices.Architecture]::Arm64) { "arm64" }
+        default { $null }
+    }
+
+    if ($os -and $arch) {
+        return "$os-$arch"
+    }
+
+    return $null
+}
+
 function Resolve-KubeBuddyNativeCommand {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
     $candidates = @()
 
     if ($env:KUBEBUDDY_BINARY) {
         $candidates += $env:KUBEBUDDY_BINARY
+    }
+
+    $rid = Get-KubeBuddyRuntimeRid
+    if ($rid) {
+        $binaryName = if ($IsWindows) { "kubebuddy.exe" } else { "kubebuddy" }
+        $candidates += @(
+            (Join-Path $moduleRoot "bin/$rid/$binaryName"),
+            (Join-Path $moduleRoot "runtimes/$rid/native/$binaryName")
+        )
     }
 
     $candidates += @(
@@ -44,7 +80,7 @@ function Resolve-KubeBuddyNativeCommand {
         }
     }
 
-    throw "Unable to locate the native KubeBuddy CLI. Install the kubebuddy binary, set KUBEBUDDY_BINARY, or run from the repository root with Go installed."
+    throw "Unable to locate the native KubeBuddy CLI. The PowerShell module expects a bundled binary, a kubebuddy binary on PATH, an explicit KUBEBUDDY_BINARY override, or a repository checkout with Go available."
 }
 
 function Invoke-KubeBuddyNativeCommand {

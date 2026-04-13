@@ -6,10 +6,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/collector/kubernetes"
 	"github.com/KubeDeckio/KubeBuddy/internal/compat"
+	"github.com/KubeDeckio/KubeBuddy/internal/config"
 	reporthtml "github.com/KubeDeckio/KubeBuddy/internal/reports/html"
 	"github.com/KubeDeckio/KubeBuddy/internal/reports/output"
 	"github.com/KubeDeckio/KubeBuddy/internal/scan"
@@ -29,11 +31,16 @@ func Execute(opts compat.RunOptions) error {
 		return fmt.Errorf("you must enable at least one report format")
 	}
 	printPhase("Starting", "Preparing native KubeBuddy run")
+	cfg := config.Load(opts.ConfigPath)
 	cleanup, err := maybeFetchRadarConfig(&opts)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
+	if opts.ConfigPath != "" {
+		cfg = config.Load(opts.ConfigPath)
+	}
+	effectiveExcluded := effectiveExcludedNamespaces(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.AdditionalExcludedNamespaces)
 
 	result := scan.Result{}
 	var snapshot *kubernetes.ClusterData
@@ -42,7 +49,7 @@ func Execute(opts compat.RunOptions) error {
 		printPhase("Collector", "Building native cluster snapshot")
 		collected, err := kubernetes.CollectClusterData(kubernetes.ClusterDataOptions{
 			ExcludeNamespaces:        opts.ExcludeNamespaces,
-			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
+			ExcludedNamespaces:       effectiveExcluded,
 			IncludePrometheus:        opts.IncludePrometheus,
 			PrometheusURL:            opts.PrometheusURL,
 			PrometheusMode:           opts.PrometheusMode,
@@ -94,6 +101,7 @@ func Execute(opts compat.RunOptions) error {
 		start := time.Now()
 		aksResult, err := scan.RunAKS(scan.AKSOptions{
 			ChecksDir:      "checks/aks",
+			ConfigPath:     opts.ConfigPath,
 			SubscriptionID: opts.SubscriptionID,
 			ResourceGroup:  opts.ResourceGroup,
 			ClusterName:    opts.ClusterName,
@@ -134,7 +142,7 @@ func Execute(opts compat.RunOptions) error {
 	metadata := output.Metadata{
 		ClusterName:              opts.ClusterName,
 		ExcludeNamespacesEnabled: opts.ExcludeNamespaces,
-		ExcludedNamespaces:       append([]string(nil), opts.AdditionalExcludedNamespaces...),
+		ExcludedNamespaces:       append([]string(nil), effectiveExcluded...),
 		PrometheusURL:            opts.PrometheusURL,
 		PrometheusMode:           opts.PrometheusMode,
 		PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
@@ -196,6 +204,30 @@ func Execute(opts compat.RunOptions) error {
 
 	fmt.Printf("%s[Reports]%s Reports written to %s\n", colorGreen, colorReset, outputPath)
 	return nil
+}
+
+func effectiveExcludedNamespaces(enabled bool, configured []string, extra []string) []string {
+	if !enabled {
+		return nil
+	}
+	set := scanExcludedNamespaceSet(configured, extra)
+	out := make([]string, 0, len(set))
+	for ns := range set {
+		out = append(out, ns)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func scanExcludedNamespaceSet(configured []string, extra []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, ns := range append(append([]string{}, configured...), extra...) {
+		trimmed := strings.ToLower(strings.TrimSpace(ns))
+		if trimmed != "" {
+			out[trimmed] = struct{}{}
+		}
+	}
+	return out
 }
 
 func printPhase(name string, message string) {

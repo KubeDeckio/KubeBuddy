@@ -7,28 +7,31 @@ import (
 	"strings"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/compat"
+	"github.com/KubeDeckio/KubeBuddy/internal/config"
 	"github.com/KubeDeckio/KubeBuddy/internal/radar"
 	"github.com/KubeDeckio/KubeBuddy/internal/scan"
 )
 
-func radarSettings(opts compat.RunOptions) radar.Settings {
+func radarSettings(opts compat.RunOptions, cfg config.Resolved) radar.Settings {
 	return radar.Settings{
-		Enabled:            opts.RadarUpload || opts.RadarCompare || opts.RadarFetchConfig,
+		Enabled:            cfg.Radar.Enabled || opts.RadarUpload || opts.RadarCompare || opts.RadarFetchConfig,
 		UploadEnabled:      opts.RadarUpload,
 		CompareEnabled:     opts.RadarCompare,
 		FetchConfigEnabled: opts.RadarFetchConfig,
 		ConfigID:           opts.RadarConfigID,
-		APIBaseURL:         firstNonEmpty(opts.RadarAPIBaseURL, "https://radar.kubebuddy.io/api/kb-radar/v1"),
-		Environment:        firstNonEmpty(opts.RadarEnvironment, "prod"),
-		APIUserEnv:         firstNonEmpty(opts.RadarAPIUserEnv, "KUBEBUDDY_RADAR_API_USER"),
-		APIPasswordEnv:     firstNonEmpty(opts.RadarAPISecretEnv, "KUBEBUDDY_RADAR_API_PASSWORD"),
-		TimeoutSeconds:     30,
-		Retries:            2,
+		APIBaseURL:         firstNonEmpty(opts.RadarAPIBaseURL, cfg.Radar.APIBaseURL, "https://radar.kubebuddy.io/api/kb-radar/v1"),
+		Environment:        firstNonEmpty(opts.RadarEnvironment, cfg.Radar.Environment, "prod"),
+		APIUser:            cfg.Radar.APIUser,
+		APIPassword:        cfg.Radar.APIPassword,
+		APIUserEnv:         firstNonEmpty(opts.RadarAPIUserEnv, cfg.Radar.APIUserEnv, "KUBEBUDDY_RADAR_API_USER"),
+		APIPasswordEnv:     firstNonEmpty(opts.RadarAPISecretEnv, cfg.Radar.APIPasswordEnv, "KUBEBUDDY_RADAR_API_PASSWORD"),
+		TimeoutSeconds:     maxInt(cfg.Radar.UploadTimeoutSeconds, 30),
+		Retries:            maxInt(cfg.Radar.UploadRetries, 2),
 	}
 }
 
 func maybeFetchRadarConfig(opts *compat.RunOptions) (func(), error) {
-	settings := radarSettings(*opts)
+	settings := radarSettings(*opts, config.Load(opts.ConfigPath))
 	if !settings.FetchConfigEnabled {
 		return func() {}, nil
 	}
@@ -56,7 +59,7 @@ func maybeFetchRadarConfig(opts *compat.RunOptions) (func(), error) {
 }
 
 func maybeUploadRadarReport(opts compat.RunOptions, jsonReportPath string, result scan.Result) error {
-	settings := radarSettings(opts)
+	settings := radarSettings(opts, config.Load(opts.ConfigPath))
 	if !settings.UploadEnabled {
 		return nil
 	}
@@ -133,4 +136,11 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func maxInt(value, fallback int) int {
+	if value > 0 {
+		return value
+	}
+	return fallback
 }

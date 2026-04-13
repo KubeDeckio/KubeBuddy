@@ -116,3 +116,40 @@ func TestExecuteNativeHandlerSEC010(t *testing.T) {
 		t.Fatalf("unexpected finding: %+v", findings[0])
 	}
 }
+
+func TestRunSEC014UsesConfiguredTrustedRegistries(t *testing.T) {
+	t.Helper()
+
+	setRuntimeContext(runtimeContext{
+		TrustedRegistries: []string{"ghcr.io/approved/", "mcr.microsoft.com/"},
+	})
+	defer clearRuntimeContext()
+
+	check := checks.Check{ID: "SEC014", NativeHandler: "SEC014"}
+	pod := map[string]any{
+		"metadata": map[string]any{
+			"name":      "demo",
+			"namespace": "default",
+		},
+		"spec": map[string]any{
+			"containers": []any{
+				map[string]any{"name": "good", "image": "ghcr.io/approved/app:v1"},
+				map[string]any{"name": "bad", "image": "docker.io/library/nginx:latest"},
+			},
+		},
+	}
+
+	findings, ok, err := executeNativeHandler(check, []map[string]any{pod}, map[string][]map[string]any{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected native handler to be registered")
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+	if findings[0].Value != "docker.io/library/nginx:latest" {
+		t.Fatalf("unexpected finding: %+v", findings[0])
+	}
+}

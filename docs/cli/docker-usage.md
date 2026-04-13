@@ -7,7 +7,7 @@ layout: default
 
 # Docker Usage
 
-Run **KubeBuddy powered by KubeDeck** in a Docker container to scan your Kubernetes cluster and generate security, configuration, and best-practice reports with the native `kubebuddy` container entrypoint.
+Run **KubeBuddy** in a Docker container to scan your Kubernetes cluster and generate security, configuration, and best-practice reports with the native `kubebuddy` container entrypoint.
 
 This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compliant Kubernetes cluster.
 

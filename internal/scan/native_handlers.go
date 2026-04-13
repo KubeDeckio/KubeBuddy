@@ -641,7 +641,10 @@ func runSEC011(check checks.Check, item map[string]any, cache map[string][]map[s
 }
 
 func runSEC014(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
-	trusted := []string{"mcr.microsoft.com/"}
+	trusted := append([]string(nil), currentRuntime.TrustedRegistries...)
+	if len(trusted) == 0 {
+		trusted = []string{"mcr.microsoft.com/"}
+	}
 	var findings []Finding
 	for _, container := range containersOnly(item) {
 		image := stringifyLookup(container, "image")

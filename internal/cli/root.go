@@ -2,11 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
 	"github.com/KubeDeckio/KubeBuddy/internal/collector/kubernetes"
 	"github.com/KubeDeckio/KubeBuddy/internal/compat"
+	"github.com/KubeDeckio/KubeBuddy/internal/config"
 	"github.com/KubeDeckio/KubeBuddy/internal/containerenv"
 	"github.com/KubeDeckio/KubeBuddy/internal/probe"
 	reportassets "github.com/KubeDeckio/KubeBuddy/internal/reports/assets"
@@ -187,10 +189,13 @@ func newScanCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cfg := config.Load(opts.ConfigPath)
 			return output.WriteScanResultWithMetadata(cmd.OutOrStdout(), result, output.Mode(outputMode), output.Metadata{
 				PrometheusURL:            opts.PrometheusURL,
 				PrometheusMode:           opts.PrometheusMode,
 				PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
+				ExcludeNamespacesEnabled: opts.ExcludeNamespaces,
+				ExcludedNamespaces:       effectiveExcludedNamespaces(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.ExcludedNamespaces),
 			})
 		},
 	}
@@ -228,12 +233,32 @@ func newAKSScanCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/aks", "Directory containing AKS check YAML files.")
+	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
 	cmd.Flags().StringVar(&opts.InputFile, "input", "", "Path to an AKS cluster JSON document.")
 	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID for live collection.")
 	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group for live collection.")
 	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS cluster name for live collection.")
 	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
 	return cmd
+}
+
+func effectiveExcludedNamespaces(enabled bool, configured []string, extra []string) []string {
+	if !enabled {
+		return nil
+	}
+	set := map[string]struct{}{}
+	for _, ns := range append(append([]string{}, configured...), extra...) {
+		trimmed := strings.ToLower(strings.TrimSpace(ns))
+		if trimmed != "" {
+			set[trimmed] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for ns := range set {
+		out = append(out, ns)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func newRunCommand() *cobra.Command {

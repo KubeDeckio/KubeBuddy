@@ -38,11 +38,10 @@ The native binary is the primary runtime.
 
     ```powershell
     Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
-    $env:KUBEBUDDY_BINARY = "/usr/local/bin/kubebuddy"
     Invoke-KubeBuddy
     ```
 
-    The PowerShell module is a wrapper over the native binary. It is for backwards compatibility, not a separate runtime.
+    The PowerShell module ships the native binary for supported platforms. `Invoke-KubeBuddy` should work immediately after install. Use `$env:KUBEBUDDY_BINARY` only if you need to force a different binary.
 
 ## Requirements
 

@@ -54,12 +54,29 @@ kubebuddy run \
 
 ## 6. Add Prometheus
 
+If you are using Azure Managed Prometheus, make sure Azure auth is already available in your shell first, for example via `az login`.
+
 ```bash
 kubebuddy run \
   --html-report \
   --include-prometheus \
   --prometheus-url <prometheus-url> \
   --prometheus-mode azure \
+  --yes \
+  --output-path ./reports
+```
+
+For bearer-token protected Prometheus:
+
+```bash
+export MY_PROM_TOKEN="<token>"
+
+kubebuddy run \
+  --html-report \
+  --include-prometheus \
+  --prometheus-url <prometheus-url> \
+  --prometheus-mode bearer \
+  --prometheus-bearer-token-env MY_PROM_TOKEN \
   --yes \
   --output-path ./reports
 ```

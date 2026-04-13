@@ -100,3 +100,23 @@ Describe 'Invoke-KubeBuddy wrapper' {
         } | Should -Throw '*exited with code 23*'
     }
 }
+
+Describe 'Resolve-KubeBuddyNativeCommand' {
+    It 'prefers the bundled platform binary when present' {
+        InModuleScope KubeBuddy {
+            Mock -CommandName Test-Path -ModuleName KubeBuddy -MockWith {
+                param($Path)
+                $Path -like '*bin*darwin-arm64*kubebuddy'
+            }
+            Mock -CommandName Resolve-Path -ModuleName KubeBuddy -MockWith {
+                param($Path)
+                [pscustomobject]@{ Path = $Path }
+            }
+            Mock -CommandName Get-Command -ModuleName KubeBuddy -MockWith { $null }
+
+            $resolved = Resolve-KubeBuddyNativeCommand
+
+            $resolved.FilePath | Should -Match 'bin.+darwin-arm64.+kubebuddy$'
+        }
+    }
+}

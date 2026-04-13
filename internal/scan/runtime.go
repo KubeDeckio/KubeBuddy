@@ -3,10 +3,11 @@ package scan
 import "time"
 
 type runtimeContext struct {
-	Thresholds map[string]any
-	Prometheus prometheusOptions
-	Excluded   map[string]struct{}
-	Now        time.Time
+	Thresholds        map[string]any
+	Prometheus        prometheusOptions
+	Excluded          map[string]struct{}
+	TrustedRegistries []string
+	Now               time.Time
 }
 
 type prometheusOptions struct {

@@ -144,7 +144,7 @@ az aks get-credentials \
 
 # AKS Best Practice Checks
 
-KubeBuddy powered by KubeDeck evaluates various aspects of your **Azure Kubernetes Service (AKS)** setup, highlighting potential issues and confirming best practices.
+KubeBuddy evaluates various aspects of your **Azure Kubernetes Service (AKS)** setup, highlighting potential issues and confirming best practices.
 
 ## AKS Automatic Migration Readiness
 

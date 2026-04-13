@@ -59,6 +59,35 @@ Run AKS mode:
   --output-path ./reports
 ```
 
+Add Prometheus in Azure mode:
+
+```bash
+az login
+
+./kubebuddy run \
+  --html-report \
+  --include-prometheus \
+  --prometheus-url "https://<workspace>.prometheus.monitor.azure.com" \
+  --prometheus-mode azure \
+  --yes \
+  --output-path ./reports
+```
+
+For bearer-token mode:
+
+```bash
+export MY_PROM_TOKEN="<token>"
+
+./kubebuddy run \
+  --html-report \
+  --include-prometheus \
+  --prometheus-url "https://prom.example.com" \
+  --prometheus-mode bearer \
+  --prometheus-bearer-token-env MY_PROM_TOKEN \
+  --yes \
+  --output-path ./reports
+```
+
 ### Run the Container-Style Workflow
 
 ```bash
@@ -179,3 +208,7 @@ This confirms the current HTML report CSS and JavaScript are embedded into the r
 - Use `run` when you want full report generation and file outputs.
 - Use `scan` and `scan-aks` when you want direct CLI output.
 - The HTML report keeps the existing CSS, JavaScript, theme, and layout behavior.
+- In native CLI mode, Prometheus credentials are auth-mode specific:
+  - `azure`: uses existing Azure auth
+  - `bearer`: reads the token from the env var named by `--prometheus-bearer-token-env`
+  - `basic`: reads `PROMETHEUS_USERNAME` and `PROMETHEUS_PASSWORD`
