@@ -59,6 +59,8 @@ behavior while the native runtime continues to replace the legacy module path.`)
 	cmd.AddCommand(newChecksCommand())
 	cmd.AddCommand(newProbeCommand())
 	cmd.AddCommand(newSummaryCommand())
+	cmd.AddCommand(newGuidedCommand())
+	cmd.AddCommand(newMenuCommand())
 	cmd.AddCommand(newScanCommand())
 	cmd.AddCommand(newAKSScanCommand())
 	cmd.AddCommand(newRunCommand())
@@ -69,10 +71,10 @@ behavior while the native runtime continues to replace the legacy module path.`)
 
 func printBanner(cmd *cobra.Command) {
 	const (
-		cyan    = "\x1b[36m"
-		magenta = "\x1b[35m"
-		gray    = "\x1b[90m"
-		reset   = "\x1b[0m"
+		brightCyan = "\033[1;38;5;45m"
+		magenta    = "\x1b[35m"
+		gray       = "\x1b[90m"
+		reset      = "\x1b[0m"
 	)
 	banner := strings.Join([]string{
 		"██╗  ██╗██╗   ██║██████╗ ███████╗██████╗ ██╗   ██╗██████╗ ██████╗ ██╗   ██╗",
@@ -83,10 +85,10 @@ func printBanner(cmd *cobra.Command) {
 		"╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝    ╚═╝   ",
 	}, "\n")
 	fmt.Fprintln(cmd.OutOrStdout())
-	fmt.Fprint(cmd.OutOrStdout(), cyan+banner+reset)
+	fmt.Fprint(cmd.OutOrStdout(), brightCyan+banner+reset)
 	fmt.Fprintln(cmd.OutOrStdout(), " "+magenta+version.Version+reset)
 	fmt.Fprintln(cmd.OutOrStdout(), gray+"-------------------------------------------------------------"+reset)
-	fmt.Fprintln(cmd.OutOrStdout(), cyan+"Your Kubernetes Assistant"+reset)
+	fmt.Fprintln(cmd.OutOrStdout(), brightCyan+"Your Kubernetes Assistant"+reset)
 	fmt.Fprintln(cmd.OutOrStdout(), gray+"-------------------------------------------------------------"+reset)
 	fmt.Fprintln(cmd.OutOrStdout())
 }

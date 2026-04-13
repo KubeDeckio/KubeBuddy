@@ -10,6 +10,20 @@ This page covers command usage. It does not repeat install steps from [Install](
 
 ## Core Commands
 
+### Guided Buddy Flow
+
+```bash
+kubebuddy guided
+```
+
+Alias:
+
+```bash
+kubebuddy buddy
+```
+
+Use this when you want the interactive Buddy-style workflow instead of typing the full command yourself.
+
 ### Full Report Workflow
 
 ```bash
@@ -94,11 +108,9 @@ kubebuddy run \
 
 ### Add Prometheus
 
-Azure auth mode:
+Azure auth mode using the active Azure identity in your environment. On developer machines this is often `az login`; in automation it is usually service principal credentials.
 
 ```bash
-az login
-
 kubebuddy run \
   --html-report \
   --include-prometheus \

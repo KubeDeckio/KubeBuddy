@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -9,6 +9,8 @@ import (
 	"time"
 
 	prom "github.com/KubeDeckio/KubeBuddy/internal/collector/prometheus"
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type ClusterDataOptions struct {
@@ -18,39 +20,47 @@ type ClusterDataOptions struct {
 	PrometheusURL            string
 	PrometheusMode           string
 	PrometheusBearerTokenEnv string
+	// Progress is called before each resource kind is fetched.
+	// current = number completed so far, total = total resource kinds, kind = resource about to be fetched.
+	// Called once more at the end with current == total and kind == "".
+	Progress func(current, total int, kind string)
 }
 
 type ClusterData struct {
-	Context               string
-	KubernetesVersion     string
-	Summary               Summary
-	TopNodes              []string
-	Nodes                 []map[string]any
-	Pods                  []map[string]any
-	AllPods               []map[string]any
-	Namespaces            []map[string]any
-	Events                []map[string]any
-	AllEvents             []map[string]any
-	Deployments           []map[string]any
-	DaemonSets            []map[string]any
-	StatefulSets          []map[string]any
-	Jobs                  []map[string]any
-	AllJobs               []map[string]any
-	CronJobs              []map[string]any
-	Services              []map[string]any
-	Ingresses             []map[string]any
-	ConfigMaps            []map[string]any
-	Secrets               []map[string]any
-	PersistentVolumes     []map[string]any
-	PersistentClaims      []map[string]any
-	NetworkPolicies       []map[string]any
-	Roles                 []map[string]any
-	RoleBindings          []map[string]any
-	ClusterRoles          []map[string]any
-	ClusterRoleBindings   []map[string]any
-	ServiceAccounts       []map[string]any
-	CustomResourcesByKind map[string][]map[string]any
-	Metrics               *ClusterMetrics
+	Context                  string
+	KubernetesVersion        string
+	Summary                  Summary
+	TopNodes                 []string
+	Nodes                    []map[string]any
+	Pods                     []map[string]any
+	AllPods                  []map[string]any
+	Namespaces               []map[string]any
+	Events                   []map[string]any
+	AllEvents                []map[string]any
+	Deployments              []map[string]any
+	DaemonSets               []map[string]any
+	StatefulSets             []map[string]any
+	Jobs                     []map[string]any
+	AllJobs                  []map[string]any
+	CronJobs                 []map[string]any
+	Services                 []map[string]any
+	Ingresses                []map[string]any
+	EndpointSlices           []map[string]any
+	ConfigMaps               []map[string]any
+	Secrets                  []map[string]any
+	PersistentVolumes        []map[string]any
+	PersistentClaims         []map[string]any
+	NetworkPolicies          []map[string]any
+	ReplicaSets              []map[string]any
+	PodDisruptionBudgets     []map[string]any
+	HorizontalPodAutoscalers []map[string]any
+	Roles                    []map[string]any
+	RoleBindings             []map[string]any
+	ClusterRoles             []map[string]any
+	ClusterRoleBindings      []map[string]any
+	ServiceAccounts          []map[string]any
+	CustomResourcesByKind    map[string][]map[string]any
+	Metrics                  *ClusterMetrics
 }
 
 type ClusterMetrics struct {
@@ -86,9 +96,15 @@ func CollectClusterData(opts ClusterDataOptions) (ClusterData, error) {
 	out := ClusterData{
 		CustomResourcesByKind: map[string][]map[string]any{},
 	}
-	context, _ := kubectlOutput("config", "current-context")
-	out.Context = strings.TrimSpace(context)
-	out.KubernetesVersion = strings.TrimSpace(clusterKubernetesVersion())
+	client, err := kubeapi.New()
+	if err != nil {
+		return ClusterData{}, err
+	}
+	ctx := context.Background()
+	out.Context = strings.TrimSpace(client.CurrentContext())
+	if version, err := client.ServerVersion(ctx); err == nil {
+		out.KubernetesVersion = strings.TrimSpace(version)
+	}
 
 	cache := map[string][]map[string]any{}
 	loads := []struct {
@@ -106,34 +122,46 @@ func CollectClusterData(opts ClusterDataOptions) (ClusterData, error) {
 		{"cronjobs", &out.CronJobs},
 		{"services", &out.Services},
 		{"ingresses", &out.Ingresses},
+		{"endpointslices", &out.EndpointSlices},
 		{"configmaps", &out.ConfigMaps},
 		{"secrets", &out.Secrets},
 		{"persistentvolumes", &out.PersistentVolumes},
 		{"persistentvolumeclaims", &out.PersistentClaims},
 		{"networkpolicies", &out.NetworkPolicies},
+		{"replicasets", &out.ReplicaSets},
+		{"poddisruptionbudgets", &out.PodDisruptionBudgets},
+		{"horizontalpodautoscalers", &out.HorizontalPodAutoscalers},
 		{"roles", &out.Roles},
 		{"rolebindings", &out.RoleBindings},
 		{"clusterroles", &out.ClusterRoles},
 		{"clusterrolebindings", &out.ClusterRoleBindings},
 		{"serviceaccounts", &out.ServiceAccounts},
 	}
-	for _, load := range loads {
-		items, err := getItems(cache, load.key)
+	for i, load := range loads {
+		if opts.Progress != nil {
+			opts.Progress(i, len(loads), load.key)
+		}
+		items, err := getItemsWithClient(ctx, client, cache, load.key)
 		if err != nil {
-			if load.key == "ingresses" || load.key == "cronjobs" {
+			switch load.key {
+			case "ingresses", "cronjobs", "endpointslices", "horizontalpodautoscalers", "poddisruptionbudgets":
 				continue
 			}
 			return ClusterData{}, fmt.Errorf("collect %s: %w", load.key, err)
 		}
 		*load.dst = append([]map[string]any(nil), items...)
 	}
+	if opts.Progress != nil {
+		opts.Progress(len(loads), len(loads), "")
+	}
 	out.AllPods = append([]map[string]any(nil), out.Pods...)
 	out.AllEvents = append([]map[string]any(nil), out.Events...)
 	out.AllJobs = append([]map[string]any(nil), out.Jobs...)
 
-	topNodesOutput, topNodesErr := kubectlOutput("top", "nodes", "--no-headers")
-	out.TopNodes = parseTopNodesOutput(topNodesOutput, topNodesErr)
-	out.CustomResourcesByKind = collectCRDs()
+	if metrics, err := client.NodeMetrics(ctx); err == nil {
+		out.TopNodes = parseTopNodesMetrics(metrics)
+	}
+	out.CustomResourcesByKind = collectCRDs(ctx, client)
 
 	if opts.ExcludeNamespaces {
 		excluded := excludedNamespaceSet(opts.ExcludedNamespaces)
@@ -164,19 +192,13 @@ func summarizeClusterData(data ClusterData) Summary {
 	}
 }
 
-func collectCRDs() map[string][]map[string]any {
-	output, err := kubectlOutput("get", "crds", "-o", "json")
+func collectCRDs(ctx context.Context, client *kubeapi.Client) map[string][]map[string]any {
+	items, err := client.List(ctx, "customresourcedefinitions", false)
 	if err != nil {
 		return map[string][]map[string]any{}
 	}
-	var payload struct {
-		Items []map[string]any `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		return map[string][]map[string]any{}
-	}
 	out := map[string][]map[string]any{}
-	for _, crd := range payload.Items {
+	for _, crd := range items {
 		kind := stringifyLookup(crd, "spec.names.kind")
 		plural := stringifyLookup(crd, "spec.names.plural")
 		group := stringifyLookup(crd, "spec.group")
@@ -197,43 +219,38 @@ func collectCRDs() map[string][]map[string]any {
 		if kind == "" || plural == "" || group == "" || version == "" {
 			continue
 		}
-		output, err := kubectlOutput("get", plural, "-A", "-o", "json", "--api-version="+group+"/"+version)
+		list, err := client.ListByGVR(ctx, schema.GroupVersionResource{
+			Group:    group,
+			Version:  version,
+			Resource: plural,
+		}, true, true)
 		if err != nil {
 			continue
 		}
-		var list struct {
-			Items []map[string]any `json:"items"`
-		}
-		if err := json.Unmarshal([]byte(output), &list); err != nil {
-			continue
-		}
-		out[kind] = list.Items
+		out[kind] = list
 	}
 	return out
 }
 
 func getItems(cache map[string][]map[string]any, resourceKind string) ([]map[string]any, error) {
+	client, err := kubeapi.New()
+	if err != nil {
+		return nil, err
+	}
+	return getItemsWithClient(context.Background(), client, cache, resourceKind)
+}
+
+func getItemsWithClient(ctx context.Context, client *kubeapi.Client, cache map[string][]map[string]any, resourceKind string) ([]map[string]any, error) {
 	key := normalizedKind(resourceKind)
 	if items, ok := cache[key]; ok {
 		return items, nil
 	}
-	args := []string{"get", key}
-	if !isClusterScoped(key) {
-		args = append(args, "-A")
-	}
-	args = append(args, "-o", "json")
-	output, err := kubectlOutput(args...)
+	items, err := client.List(ctx, key, !isClusterScoped(key))
 	if err != nil {
 		return nil, err
 	}
-	var response struct {
-		Items []map[string]any `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(output), &response); err != nil {
-		return nil, err
-	}
-	cache[key] = response.Items
-	return response.Items, nil
+	cache[key] = items
+	return items, nil
 }
 
 func collectPrometheusMetrics(nodes []map[string]any, opts ClusterDataOptions) (*ClusterMetrics, error) {
@@ -291,22 +308,6 @@ func collectPrometheusMetrics(nodes []map[string]any, opts ClusterDataOptions) (
 	}
 	sort.Slice(nodeMetrics, func(i, j int) bool { return nodeMetrics[i].NodeName < nodeMetrics[j].NodeName })
 	return &ClusterMetrics{Cluster: cluster, Nodes: nodeMetrics}, nil
-}
-
-func clusterKubernetesVersion() string {
-	output, err := kubectlOutput("version", "-o", "json")
-	if err != nil {
-		return ""
-	}
-	var payload struct {
-		ServerVersion struct {
-			GitVersion string `json:"gitVersion"`
-		} `json:"serverVersion"`
-	}
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(payload.ServerVersion.GitVersion)
 }
 
 func averageAcrossSeries(series []prom.Result) float64 {
@@ -418,17 +419,16 @@ func round2(value float64) float64 {
 	return float64(int(value*100+0.5)) / 100
 }
 
-func parseTopNodesOutput(output string, err error) []string {
-	if err != nil {
-		return nil
+func parseTopNodesMetrics(metrics map[string]kubeapi.NodeMetric) []string {
+	var names []string
+	for name := range metrics {
+		names = append(names, name)
 	}
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	out := make([]string, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			out = append(out, line)
-		}
+	sort.Strings(names)
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		row := metrics[name]
+		out = append(out, fmt.Sprintf("%s %dm %dMi", name, row.CPUMilli, int(row.MemBytes/(1024*1024))))
 	}
 	return out
 }

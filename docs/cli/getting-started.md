@@ -31,6 +31,16 @@ kubebuddy run --html-report --json-report --yes --output-path ./reports
 
 That writes reports into `./reports`.
 
+## 3a. Use The Guided Buddy Flow
+
+If you want the old menu-style experience, use the guided command:
+
+```bash
+kubebuddy guided
+```
+
+This walks you through report type, AKS options, Prometheus, exclusions, and output path using the Buddy prompt flow.
+
 ## 4. Use Direct Terminal Output Instead
 
 ```bash
@@ -54,7 +64,7 @@ kubebuddy run \
 
 ## 6. Add Prometheus
 
-If you are using Azure Managed Prometheus, make sure you already have Azure auth available in your shell, for example with `az login`.
+If you are using Azure Managed Prometheus, make sure Azure auth is already available in your environment. Local shells commonly use `az login`; CI and containers commonly use service principal variables.
 
 ```bash
 kubebuddy run \

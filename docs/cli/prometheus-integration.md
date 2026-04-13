@@ -68,9 +68,9 @@ kubebuddy run \
 
 ### Azure Monitor (AAD)
 
-```bash
-az login
+Use the current Azure identity in your environment. Local shells often use `az login`; containers and CI usually use `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID`.
 
+```bash
 kubebuddy run \
   --include-prometheus \
   --prometheus-url "https://<workspace>.prometheus.monitor.azure.com" \

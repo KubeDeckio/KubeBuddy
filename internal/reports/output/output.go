@@ -2,17 +2,18 @@ package output
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/collector/kubernetes"
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
 	reporthtml "github.com/KubeDeckio/KubeBuddy/internal/reports/html"
 	"github.com/KubeDeckio/KubeBuddy/internal/scan"
 )
@@ -156,7 +157,7 @@ func resolveMetadata(metadata Metadata, result scan.Result) Metadata {
 		resolved.GeneratedAt = time.Now().UTC().Format("2006-01-02T15:04:05Z")
 	}
 	if strings.TrimSpace(resolved.ClusterName) == "" {
-		resolved.ClusterName = strings.TrimSpace(kubectlText("config", "current-context"))
+		resolved.ClusterName = strings.TrimSpace(currentContext())
 	}
 	if strings.TrimSpace(resolved.KubernetesVersion) == "" {
 		resolved.KubernetesVersion = strings.TrimSpace(kubernetesVersion())
@@ -488,18 +489,16 @@ func legacySEC007Items(check scan.CheckResult) any {
 }
 
 func clusterNodeNames() []string {
-	output := kubectlText("get", "nodes", "-o", "json")
-	if strings.TrimSpace(output) == "" {
+	client, err := kubeapi.New()
+	if err != nil {
 		return nil
 	}
-	var payload struct {
-		Items []map[string]any `json:"items"`
-	}
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+	items, err := client.List(context.Background(), "nodes", false)
+	if err != nil {
 		return nil
 	}
-	names := make([]string, 0, len(payload.Items))
-	for _, item := range payload.Items {
+	names := make([]string, 0, len(items))
+	for _, item := range items {
 		if name := strings.TrimSpace(fmt.Sprint(mustLookup(item, "metadata", "name"))); name != "" {
 			names = append(names, name)
 		}
@@ -665,28 +664,31 @@ func nilIfEmpty(value string) any {
 }
 
 func kubernetesVersion() string {
-	output := kubectlText("version", "-o", "json")
-	if strings.TrimSpace(output) == "" {
-		return ""
-	}
-	var payload struct {
-		ServerVersion struct {
-			GitVersion string `json:"gitVersion"`
-		} `json:"serverVersion"`
-	}
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		return ""
-	}
-	return strings.TrimSpace(payload.ServerVersion.GitVersion)
-}
-
-func kubectlText(args ...string) string {
-	cmd := exec.Command("kubectl", args...)
-	output, err := cmd.Output()
+	client, err := kubeapi.New()
 	if err != nil {
 		return ""
 	}
-	return string(output)
+	version, err := client.ServerVersion(context.Background())
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(version)
+}
+
+func currentContext() string {
+	client, err := kubeapi.New()
+	if err != nil {
+		return ""
+	}
+	return client.CurrentContext()
+}
+
+func clusterInfoText() string {
+	client, err := kubeapi.New()
+	if err != nil {
+		return ""
+	}
+	return client.ClusterInfoText()
 }
 
 func clusterHealthScore(checks []scan.CheckResult) float64 {
@@ -702,7 +704,7 @@ func clusterHealthScore(checks []scan.CheckResult) float64 {
 	if maxWeight == 0 {
 		return 0
 	}
-	return float64(int(((earned/maxWeight)*100)+0.5))
+	return float64(int(((earned / maxWeight) * 100) + 0.5))
 }
 
 func round2(value float64) float64 {
@@ -900,7 +902,7 @@ func writeClusterSummaryText(w io.Writer, metadata Metadata) error {
 				return err
 			}
 		}
-		if info := normalizeReportBlock(kubectlText("cluster-info")); info != "" {
+		if info := normalizeReportBlock(clusterInfoText()); info != "" {
 			if _, err := fmt.Fprintln(w, info); err != nil {
 				return err
 			}
@@ -936,7 +938,7 @@ func writeClusterSummaryText(w io.Writer, metadata Metadata) error {
 			return err
 		}
 	}
-	if info := normalizeReportBlock(kubectlText("cluster-info")); info != "" {
+	if info := normalizeReportBlock(clusterInfoText()); info != "" {
 		if _, err := fmt.Fprintln(w, info); err != nil {
 			return err
 		}
@@ -1111,9 +1113,14 @@ func latestStableKubernetesVersion() string {
 }
 
 func apiServerHealthText() string {
-	metrics := kubectlText("get", "--raw", "/metrics")
-	livez := kubectlText("get", "--raw", "/livez?verbose")
-	readyz := kubectlText("get", "--raw", "/readyz?verbose")
+	client, err := kubeapi.New()
+	if err != nil {
+		return ""
+	}
+	ctx := context.Background()
+	metrics, _ := rawText(client, ctx, "/metrics")
+	livez, _ := rawText(client, ctx, "/livez?verbose")
+	readyz, _ := rawText(client, ctx, "/readyz?verbose")
 	lines := []string{}
 	if p99, ok := apiServerP99(metrics); ok {
 		lines = append(lines, fmt.Sprintf("API Server Health:\n  p99 GET latency: %s ms", trimFloat(p99)))
@@ -1129,6 +1136,14 @@ func apiServerHealthText() string {
 		lines = append(lines, normalizeReportBlock(readyz))
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func rawText(client *kubeapi.Client, ctx context.Context, path string) (string, error) {
+	data, err := client.Raw(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func apiServerP99(metrics string) (float64, bool) {

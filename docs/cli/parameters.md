@@ -41,6 +41,12 @@ Full report workflow.
 | `--radar-api-user-env` | Env var containing the Radar API user |
 | `--radar-api-secret-env` | Env var containing the Radar API secret |
 
+## `kubebuddy guided`
+
+Interactive Buddy-style workflow for choosing report mode and runtime options from a terminal menu.
+
+No additional flags today.
+
 ## `kubebuddy scan`
 
 Direct Kubernetes scan output.

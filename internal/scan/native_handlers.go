@@ -787,11 +787,10 @@ func runNODE003(check checks.Check, item map[string]any, cache map[string][]map[
 		return nil, err
 	}
 	if len(currentRuntime.Excluded) > 0 {
-		output, err := kubectlOutput("get", "pods", "-A", "-o", "json")
-		if err == nil {
-			var response listResponse
-			if json.Unmarshal([]byte(output), &response) == nil {
-				pods = response.Items
+		if currentRuntime.KubeClient != nil {
+			allPods, err := currentRuntime.KubeClient.List(currentRuntime.KubeContext, "pods", true)
+			if err == nil {
+				pods = allPods
 			}
 		}
 	}
@@ -2302,7 +2301,7 @@ func runRBAC004(check checks.Check, item map[string]any, cache map[string][]map[
 }
 
 func getCachedItems(cache map[string][]map[string]any, kind string) ([]map[string]any, error) {
-	return getItems(cache, kind)
+	return getItems(currentRuntime.KubeContext, currentRuntime.KubeClient, cache, kind)
 }
 
 func usedConfigMaps(cache map[string][]map[string]any) (map[string]bool, error) {
@@ -3240,26 +3239,79 @@ type topNodeRow struct {
 }
 
 func parseTopNodes() (map[string]topNodeRow, error) {
-	output, err := kubectlOutput("top", "nodes", "--no-headers")
+	if currentRuntime.KubeClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+	items, err := currentRuntime.KubeClient.List(currentRuntime.KubeContext, "nodes", false)
+	if err != nil {
+		return nil, err
+	}
+	metrics, err := currentRuntime.KubeClient.NodeMetrics(currentRuntime.KubeContext)
 	if err != nil {
 		return nil, err
 	}
 	rows := map[string]topNodeRow{}
-	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 5 {
+	for _, node := range items {
+		name := stringifyLookup(node, "metadata.name")
+		if name == "" {
+			continue
+		}
+		metric, ok := metrics[name]
+		if !ok {
 			continue
 		}
 		row := topNodeRow{
-			CPUPct: parsePercent(fields[2]),
-			MemPct: parsePercent(fields[4]),
+			CPUPct: percentOf(metric.CPUMilli, milliCPUCapacity(node)),
+			MemPct: percentOf(metric.MemBytes, memoryCapacityBytes(node)),
 		}
-		if len(fields) >= 6 {
-			row.DiskPct = parsePercent(fields[5])
-		}
-		rows[fields[0]] = row
+		rows[name] = row
 	}
 	return rows, nil
+}
+
+func percentOf(used int64, total int64) float64 {
+	if used <= 0 || total <= 0 {
+		return 0
+	}
+	return (float64(used) / float64(total)) * 100
+}
+
+func milliCPUCapacity(node map[string]any) int64 {
+	value := strings.TrimSpace(stringifyLookup(node, "status.capacity.cpu"))
+	if strings.HasSuffix(value, "m") {
+		var out int64
+		fmt.Sscan(strings.TrimSuffix(value, "m"), &out)
+		return out
+	}
+	var out int64
+	fmt.Sscan(value, &out)
+	return out * 1000
+}
+
+func memoryCapacityBytes(node map[string]any) int64 {
+	value := strings.TrimSpace(strings.ToLower(stringifyLookup(node, "status.capacity.memory")))
+	suffixes := []struct {
+		unit string
+		mult int64
+	}{
+		{"ki", 1024},
+		{"mi", 1024 * 1024},
+		{"gi", 1024 * 1024 * 1024},
+		{"ti", 1024 * 1024 * 1024 * 1024},
+		{"k", 1000},
+		{"m", 1000 * 1000},
+		{"g", 1000 * 1000 * 1000},
+	}
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(value, suffix.unit) {
+			var out int64
+			fmt.Sscan(strings.TrimSuffix(value, suffix.unit), &out)
+			return out * suffix.mult
+		}
+	}
+	var out int64
+	fmt.Sscan(value, &out)
+	return out
 }
 
 func parsePercent(value string) float64 {

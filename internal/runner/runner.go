@@ -1,9 +1,9 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -12,6 +12,7 @@ import (
 	"github.com/KubeDeckio/KubeBuddy/internal/collector/kubernetes"
 	"github.com/KubeDeckio/KubeBuddy/internal/compat"
 	"github.com/KubeDeckio/KubeBuddy/internal/config"
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
 	reporthtml "github.com/KubeDeckio/KubeBuddy/internal/reports/html"
 	"github.com/KubeDeckio/KubeBuddy/internal/reports/output"
 	"github.com/KubeDeckio/KubeBuddy/internal/scan"
@@ -54,6 +55,7 @@ func Execute(opts compat.RunOptions) error {
 			PrometheusURL:            opts.PrometheusURL,
 			PrometheusMode:           opts.PrometheusMode,
 			PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
+			Progress:                 collectorProgress,
 		})
 		if err != nil {
 			fmt.Printf("%s[Collector]%s Snapshot skipped: %v\n", colorGray, colorReset, err)
@@ -234,9 +236,29 @@ func printPhase(name string, message string) {
 	fmt.Printf("%s[%s]%s %s\n", colorCyan, name, colorReset, message)
 }
 
+func collectorProgress(current, total int, kind string) {
+	const barWidth = 25
+	filled := 0
+	if total > 0 {
+		filled = (current * barWidth) / total
+	}
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	if kind == "" {
+		// final call — move to next line so subsequent output isn't overwritten
+		fmt.Printf("\r%s[Collector]%s [%s] %d/%d complete                    \n",
+			colorGreen, colorReset, bar, current, total)
+		return
+	}
+	fmt.Printf("\r%s[Collector]%s [%s] %2d/%d  Gathering %-22s",
+		colorCyan, colorReset, bar, current, total, kind)
+}
+
 func kubernetesReachable() bool {
-	cmd := exec.Command("kubectl", "version", "--request-timeout=8s")
-	if err := cmd.Run(); err != nil {
+	client, err := kubeapi.New()
+	if err != nil {
+		return false
+	}
+	if err := client.Ping(context.Background()); err != nil {
 		return false
 	}
 	return true

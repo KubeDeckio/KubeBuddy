@@ -1,15 +1,18 @@
 package azure
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 )
 
 const (
@@ -31,22 +34,14 @@ func ARMToken() (string, error) {
 	if HasClientCredentials() {
 		return clientCredentialToken(armResource)
 	}
-	out, err := exec.Command("az", "account", "get-access-token", "--resource", armResource, "--query", "accessToken", "-o", "tsv").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
+	return defaultCredentialToken(armResource + ".default")
 }
 
 func PrometheusToken() (string, error) {
 	if HasClientCredentials() {
 		return clientCredentialToken(prometheusResource)
 	}
-	out, err := exec.Command("az", "account", "get-access-token", "--resource", strings.TrimSuffix(prometheusResource, "/"), "--query", "accessToken", "-o", "tsv").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
+	return defaultCredentialToken(strings.TrimSuffix(prometheusResource, "/") + "/.default")
 }
 
 func clientCredentialToken(resource string) (string, error) {
@@ -84,4 +79,21 @@ func clientCredentialToken(resource string) (string, error) {
 		return "", fmt.Errorf("azure token response did not include an access token")
 	}
 	return strings.TrimSpace(payload.AccessToken), nil
+}
+
+func defaultCredentialToken(scope string) (string, error) {
+	cred, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	token, err := cred.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{scope}})
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(token.Token) == "" {
+		return "", fmt.Errorf("azure credential chain returned an empty access token")
+	}
+	return strings.TrimSpace(token.Token), nil
 }

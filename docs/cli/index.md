@@ -8,6 +8,8 @@ KubeBuddy has three user-facing runtimes:
 
 The native binary is the primary runtime. The PowerShell module exists for backwards compatibility and the Docker image exists for isolated or CI-driven runs.
 
+If you want the old guided Buddy experience, start with `kubebuddy guided`.
+
 ## Recommended Reading Order
 
 1. [Install](install.md)

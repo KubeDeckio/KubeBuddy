@@ -3037,3 +3037,51 @@ html[data-kb-theme="radar"] .footer {
     justify-content: flex-start;
   }
 }
+
+/* AKS global filter bar */
+.aks-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.aks-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border: 1px solid var(--brand-blue);
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--brand-blue);
+  font-family: 'Roboto', sans-serif;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+.aks-filter-btn:hover {
+  background: var(--brand-blue);
+  color: var(--text-light);
+  box-shadow: var(--shadow-sm);
+}
+
+.aks-filter-btn:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+/* Radar theme overrides — button already inherits --brand-blue from the theme variable reset */
+html[data-kb-theme="radar"] .aks-filter-btn {
+  border-color: var(--brand-blue);
+  color: var(--brand-blue);
+  background: rgba(0, 182, 255, 0.08);
+}
+
+html[data-kb-theme="radar"] .aks-filter-btn:hover {
+  background: var(--brand-blue);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 194, 255, 0.25), 0 6px 16px rgba(0, 194, 255, 0.2);
+}

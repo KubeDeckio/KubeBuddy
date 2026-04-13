@@ -99,6 +99,11 @@ For additional installation methods, refer to the **[KubeBuddy Documentation](ht
 ## Usage
 
 ### **Native CLI Commands**
+Launch the guided Buddy flow:
+```bash
+./kubebuddy guided
+```
+
 Run the full KubeBuddy engine from the native CLI:
 ```bash
 ./kubebuddy run --html-report --yes --output-path ./reports

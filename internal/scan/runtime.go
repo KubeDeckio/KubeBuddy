@@ -1,6 +1,11 @@
 package scan
 
-import "time"
+import (
+	"context"
+	"time"
+
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
+)
 
 type runtimeContext struct {
 	Thresholds        map[string]any
@@ -8,6 +13,8 @@ type runtimeContext struct {
 	Excluded          map[string]struct{}
 	TrustedRegistries []string
 	Now               time.Time
+	KubeClient        *kubeapi.Client
+	KubeContext       context.Context
 }
 
 type prometheusOptions struct {

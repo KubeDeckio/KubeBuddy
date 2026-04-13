@@ -5,11 +5,13 @@ import (
 	"testing"
 )
 
-func TestListResponseDecoding(t *testing.T) {
+func TestListDecoding(t *testing.T) {
 	t.Helper()
 
 	data := []byte(`{"items":[{"metadata":{"name":"a"}},{"metadata":{"name":"b"}}]}`)
-	var response listResponse
+	var response struct {
+		Items []map[string]any `json:"items"`
+	}
 	if err := json.Unmarshal(data, &response); err != nil {
 		t.Fatalf("decode list response: %v", err)
 	}

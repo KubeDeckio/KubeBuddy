@@ -1,11 +1,12 @@
 package probe
 
 import (
-	"bytes"
+	"context"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
 )
 
 type Result struct {
@@ -16,67 +17,39 @@ type Result struct {
 }
 
 func Run() (Result, error) {
-	context, err := kubectlOutput("config", "current-context")
+	client, err := kubeapi.New()
 	if err != nil {
-		return Result{}, fmt.Errorf("resolve current context: %w", err)
+		return Result{}, fmt.Errorf("resolve kubeconfig: %w", err)
 	}
-
-	nodes, err := kubectlOutput("get", "nodes", "--no-headers")
+	ctx := context.Background()
+	nodes, err := client.List(ctx, "nodes", false)
 	if err != nil {
 		return Result{}, fmt.Errorf("list nodes: %w", err)
 	}
-
-	podsCountText, err := kubectlOutput("get", "pods", "-A", "--no-headers")
+	pods, err := client.List(ctx, "pods", true)
 	if err != nil {
 		return Result{}, fmt.Errorf("list pods: %w", err)
 	}
-
-	namespacesText, err := kubectlOutput("get", "ns", "-o", "name")
+	namespaces, err := client.List(ctx, "namespaces", false)
 	if err != nil {
 		return Result{}, fmt.Errorf("list namespaces: %w", err)
 	}
-
 	return Result{
-		Context:    strings.TrimSpace(context),
-		NodeCount:  countNonEmptyLines(nodes),
-		PodCount:   countNonEmptyLines(podsCountText),
-		Namespaces: parseNamespaces(namespacesText),
+		Context:    strings.TrimSpace(client.CurrentContext()),
+		NodeCount:  len(nodes),
+		PodCount:   len(pods),
+		Namespaces: parseNamespaces(namespaces),
 	}, nil
 }
 
-func kubectlOutput(args ...string) (string, error) {
-	cmd := exec.Command("kubectl", args...)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+func parseNamespaces(items []map[string]any) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if metadata, ok := item["metadata"].(map[string]any); ok {
+			if name, ok := metadata["name"].(string); ok && strings.TrimSpace(name) != "" {
+				out = append(out, strings.TrimSpace(name))
+			}
 		}
-		return "", err
-	}
-	return stdout.String(), nil
-}
-
-func countNonEmptyLines(value string) int {
-	count := 0
-	for _, line := range strings.Split(value, "\n") {
-		if strings.TrimSpace(line) != "" {
-			count++
-		}
-	}
-	return count
-}
-
-func parseNamespaces(value string) []string {
-	var out []string
-	for _, line := range strings.Split(value, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		out = append(out, strings.TrimPrefix(line, "namespace/"))
 	}
 	return out
 }

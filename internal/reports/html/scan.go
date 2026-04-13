@@ -1,13 +1,12 @@
 package html
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
 	"net/http"
-	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/collector/kubernetes"
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
 	"github.com/KubeDeckio/KubeBuddy/internal/model"
 	"github.com/KubeDeckio/KubeBuddy/internal/scan"
 )
@@ -645,8 +645,18 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 	b.WriteString(metricCard("default", "🎯 Score", fmt.Sprintf("%.2f%%", aksScore(passed, len(page.Checks)))))
 	b.WriteString(metricCard(ratingClass(rating), "⭐ Rating", rating))
 	b.WriteString(`</div><div class="table-container">`)
+	b.WriteString(`<div class="aks-filter-bar"><button class="aks-filter-btn" id="aksGlobalToggle" data-show-all="false" onclick="toggleAKSAllPassRows(this)">Show All Checks</button></div>`)
 	categories := groupByCategory(page.Checks)
 	for _, category := range categories {
+		// Sort: failed checks first, then alphabetically by ID
+		sort.Slice(category.Checks, func(i, j int) bool {
+			iFailed := category.Checks[i].Total > 0
+			jFailed := category.Checks[j].Total > 0
+			if iFailed != jFailed {
+				return iFailed
+			}
+			return category.Checks[i].ID < category.Checks[j].ID
+		})
 		failures := 0
 		for _, check := range category.Checks {
 			if check.Total > 0 {
@@ -660,13 +670,15 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 			icon := "✅"
 			value := ""
 			failMessage := "No issues detected."
+			rowClass := ` class="aks-pass-row" style="display:none;"`
 			if check.Total > 0 {
 				status = "FAIL"
 				icon = "❌"
 				value = firstFindingValue(check)
 				failMessage = firstFindingMessage(check)
+				rowClass = ""
 			}
-			b.WriteString(`<tr><td>` + esc(check.ID) + `</td><td>` + esc(check.Name) + `</td><td>` + esc(check.Severity) + `</td><td>` + check.Category + `</td><td>` + icon + ` ` + status + `</td><td>` + esc(value) + `</td><td>` + esc(failMessage) + `</td><td>` + esc(check.Recommendation) + `</td><td>`)
+			b.WriteString(`<tr` + rowClass + `><td>` + esc(check.ID) + `</td><td>` + esc(check.Name) + `</td><td>` + esc(check.Severity) + `</td><td>` + check.Category + `</td><td>` + icon + ` ` + status + `</td><td>` + esc(value) + `</td><td>` + esc(failMessage) + `</td><td>` + esc(check.Recommendation) + `</td><td>`)
 			if strings.TrimSpace(check.URL) != "" {
 				b.WriteString(`<a href='` + escAttr(check.URL) + `' target='_blank'>Learn More</a>`)
 			}
@@ -1144,11 +1156,24 @@ func collectSnapshot(opts RenderOptions) reportSnapshot {
 }
 
 func apiHealthHTML() string {
-	metrics := kubectlOutput("get", "--raw=/metrics")
-	live := strings.TrimSpace(kubectlOutput("get", "--raw=/livez?verbose"))
-	ready := strings.TrimSpace(kubectlOutput("get", "--raw=/readyz?verbose"))
+	client, err := kubeapi.New()
+	if err != nil {
+		return ""
+	}
+	ctx := context.Background()
+	metrics, _ := rawClusterPath(client, ctx, "/metrics")
+	live, _ := rawClusterPath(client, ctx, "/livez?verbose")
+	ready, _ := rawClusterPath(client, ctx, "/readyz?verbose")
+	live = strings.TrimSpace(live)
+	ready = strings.TrimSpace(ready)
 	if live == "" && ready == "" && metrics == "" {
 		return ""
+	}
+	if live == "" {
+		live = "API server liveness details unavailable."
+	}
+	if ready == "" {
+		ready = "API server readiness details unavailable."
 	}
 	lastLive := lastNonEmptyLine(live)
 	lastReady := lastNonEmptyLine(ready)
@@ -1159,12 +1184,8 @@ func apiHealthHTML() string {
 	var b strings.Builder
 	b.WriteString(`<div class='health-checks'>`)
 	b.WriteString(latencyLine)
-	if live != "" {
-		b.WriteString(`<details style='width: 100%;'><summary><span class='label'>Liveness:</span> <span class='status'>` + esc(firstNonEmpty(lastLive, "Unavailable")) + `</span> <span class='material-icons'>expand_more</span></summary><pre class='health-output'>` + esc(live) + `</pre></details>`)
-	}
-	if ready != "" {
-		b.WriteString(`<details style='width: 100%;'><summary><span class='label'>Readiness:</span> <span class='status'>` + esc(firstNonEmpty(lastReady, "Unavailable")) + `</span> <span class='material-icons'>expand_more</span></summary><pre class='health-output'>` + esc(ready) + `</pre></details>`)
-	}
+	b.WriteString(`<details style='width: 100%;'><summary><span class='label'>Liveness:</span> <span class='status'>` + esc(firstNonEmpty(lastLive, "Unavailable")) + `</span> <span class='material-icons'>expand_more</span></summary><pre class='health-output'>` + esc(live) + `</pre></details>`)
+	b.WriteString(`<details style='width: 100%;'><summary><span class='label'>Readiness:</span> <span class='status'>` + esc(firstNonEmpty(lastReady, "Unavailable")) + `</span> <span class='material-icons'>expand_more</span></summary><pre class='health-output'>` + esc(ready) + `</pre></details>`)
 	b.WriteString(`</div>`)
 	return b.String()
 }
@@ -1225,29 +1246,23 @@ func apiLatencyP99Ms(metrics string) (float64, bool) {
 }
 
 func kubernetesVersion() string {
-	output := kubectlOutput("version", "-o", "json")
-	if strings.TrimSpace(output) == "" {
+	client, err := kubeapi.New()
+	if err != nil {
 		return ""
 	}
-	var payload struct {
-		ServerVersion struct {
-			GitVersion string `json:"gitVersion"`
-		} `json:"serverVersion"`
-	}
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+	version, err := client.ServerVersion(context.Background())
+	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(payload.ServerVersion.GitVersion)
+	return strings.TrimSpace(version)
 }
 
-func kubectlOutput(args ...string) string {
-	cmd := exec.Command("kubectl", args...)
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	if err := cmd.Run(); err != nil {
-		return ""
+func rawClusterPath(client *kubeapi.Client, ctx context.Context, path string) (string, error) {
+	data, err := client.Raw(ctx, path)
+	if err != nil {
+		return "", err
 	}
-	return stdout.String()
+	return string(data), nil
 }
 
 func groupByCategory(checks []scan.CheckResult) []reportPage {

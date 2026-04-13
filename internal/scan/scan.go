@@ -1,15 +1,15 @@
 package scan
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
 	"github.com/KubeDeckio/KubeBuddy/internal/config"
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
 )
 
 type Options struct {
@@ -88,6 +88,11 @@ func Run(opts Options) (Result, error) {
 	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, cfg.ExcludedChecks)
 
 	cache := map[string][]map[string]any{}
+	client, err := kubeapi.New()
+	if err != nil {
+		return Result{}, err
+	}
+	ctx := context.Background()
 	setRuntimeContext(runtimeContext{
 		Thresholds: cfg.Thresholds,
 		Prometheus: prometheusOptions{
@@ -98,6 +103,8 @@ func Run(opts Options) (Result, error) {
 		},
 		Excluded:          excludedNamespaceSet(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.ExcludedNamespaces),
 		TrustedRegistries: append([]string(nil), cfg.TrustedRegistries...),
+		KubeClient:        client,
+		KubeContext:       ctx,
 	})
 	defer clearRuntimeContext()
 	var out Result
@@ -136,7 +143,7 @@ func Run(opts Options) (Result, error) {
 		items := []map[string]any{{}}
 		if !usesSyntheticInput(check) {
 			var err error
-			items, err = getItems(cache, check.ResourceKind)
+			items, err = getItems(ctx, client, cache, check.ResourceKind)
 			if err != nil {
 				return Result{}, fmt.Errorf("%s: %w", check.ID, err)
 			}
@@ -274,47 +281,22 @@ func usesSyntheticInput(check checks.Check) bool {
 	}
 }
 
-func getItems(cache map[string][]map[string]any, resourceKind string) ([]map[string]any, error) {
+func getItems(ctx context.Context, client *kubeapi.Client, cache map[string][]map[string]any, resourceKind string) ([]map[string]any, error) {
 	key := normalizedKind(resourceKind)
 	if items, ok := cache[key]; ok {
 		return items, nil
 	}
-
-	args := []string{"get", key}
-	if !isClusterScoped(key) {
-		args = append(args, "-A")
-	}
-	args = append(args, "-o", "json")
-
-	output, err := kubectlOutput(args...)
+	items, err := client.List(ctx, key, !isClusterScoped(key))
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			cache[key] = nil
+			return nil, nil
+		}
 		return nil, err
 	}
-
-	var response listResponse
-	if err := json.Unmarshal([]byte(output), &response); err != nil {
-		return nil, err
-	}
-
-	cache[key] = response.Items
-	filtered := filterExcludedItems(response.Items)
+	filtered := filterExcludedItems(items)
 	cache[key] = filtered
 	return filtered, nil
-}
-
-func kubectlOutput(args ...string) (string, error) {
-	cmd := exec.Command("kubectl", args...)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return "", err
-	}
-	return stdout.String(), nil
 }
 
 func normalizedKind(kind string) string {

@@ -1,11 +1,11 @@
 package kubernetes
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"os/exec"
 	"strings"
+
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
 )
 
 type Summary struct {
@@ -20,51 +20,46 @@ type Summary struct {
 	Ingresses    int
 }
 
-type listResponse struct {
-	Items []json.RawMessage `json:"items"`
-}
-
 func CollectSummary() (Summary, error) {
-	context, err := kubectlOutput("config", "current-context")
+	client, err := kubeapi.New()
 	if err != nil {
-		return Summary{}, fmt.Errorf("resolve current context: %w", err)
+		return Summary{}, fmt.Errorf("resolve kubeconfig: %w", err)
 	}
-
-	nodes, err := countKind("nodes")
-	if err != nil {
-		return Summary{}, err
-	}
-	namespaces, err := countKind("namespaces")
+	ctx := context.Background()
+	nodes, err := countKind(ctx, client, "nodes", false)
 	if err != nil {
 		return Summary{}, err
 	}
-	pods, err := countKindAllNamespaces("pods")
+	namespaces, err := countKind(ctx, client, "namespaces", false)
 	if err != nil {
 		return Summary{}, err
 	}
-	deployments, err := countKindAllNamespaces("deployments")
+	pods, err := countKind(ctx, client, "pods", true)
 	if err != nil {
 		return Summary{}, err
 	}
-	statefulSets, err := countKindAllNamespaces("statefulsets")
+	deployments, err := countKind(ctx, client, "deployments", true)
 	if err != nil {
 		return Summary{}, err
 	}
-	daemonSets, err := countKindAllNamespaces("daemonsets")
+	statefulSets, err := countKind(ctx, client, "statefulsets", true)
 	if err != nil {
 		return Summary{}, err
 	}
-	services, err := countKindAllNamespaces("services")
+	daemonSets, err := countKind(ctx, client, "daemonsets", true)
 	if err != nil {
 		return Summary{}, err
 	}
-	ingresses, err := countKindAllNamespaces("ingresses")
+	services, err := countKind(ctx, client, "services", true)
 	if err != nil {
 		return Summary{}, err
 	}
-
+	ingresses, err := countKind(ctx, client, "ingresses", true)
+	if err != nil {
+		return Summary{}, err
+	}
 	return Summary{
-		Context:      strings.TrimSpace(context),
+		Context:      strings.TrimSpace(client.CurrentContext()),
 		Nodes:        nodes,
 		Namespaces:   namespaces,
 		Pods:         pods,
@@ -76,39 +71,10 @@ func CollectSummary() (Summary, error) {
 	}, nil
 }
 
-func countKind(kind string) (int, error) {
-	return countKubectlJSON("get", kind, "-o", "json")
-}
-
-func countKindAllNamespaces(kind string) (int, error) {
-	return countKubectlJSON("get", kind, "-A", "-o", "json")
-}
-
-func countKubectlJSON(args ...string) (int, error) {
-	output, err := kubectlOutput(args...)
+func countKind(ctx context.Context, client *kubeapi.Client, kind string, allNamespaces bool) (int, error) {
+	items, err := client.List(ctx, kind, allNamespaces)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", strings.Join(args, " "), err)
+		return 0, fmt.Errorf("list %s: %w", kind, err)
 	}
-
-	var response listResponse
-	if err := json.Unmarshal([]byte(output), &response); err != nil {
-		return 0, err
-	}
-
-	return len(response.Items), nil
-}
-
-func kubectlOutput(args ...string) (string, error) {
-	cmd := exec.Command("kubectl", args...)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
-		}
-		return "", err
-	}
-	return stdout.String(), nil
+	return len(items), nil
 }

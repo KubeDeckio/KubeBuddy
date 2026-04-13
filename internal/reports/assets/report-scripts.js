@@ -1169,3 +1169,19 @@ function initReportThemePicker() {
         document.body.appendChild(picker);
     }
 }
+
+window.toggleAKSAllPassRows = function(btn) {
+    const showAll = btn.getAttribute('data-show-all') === 'true';
+    const aksTab = document.getElementById('aks');
+    if (!aksTab) return;
+    const passRows = aksTab.querySelectorAll('tr.aks-pass-row');
+    if (showAll) {
+        passRows.forEach(function(row) { row.style.display = 'none'; });
+        btn.setAttribute('data-show-all', 'false');
+        btn.textContent = 'Show All Checks';
+    } else {
+        passRows.forEach(function(row) { row.style.display = ''; });
+        btn.setAttribute('data-show-all', 'true');
+        btn.textContent = 'Show Failed Checks Only';
+    }
+};
