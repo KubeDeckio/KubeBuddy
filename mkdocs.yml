@@ -72,11 +72,11 @@ nav:
       - Install: cli/install.md
       - Getting Started: cli/getting-started.md
       - Native CLI: cli/native-cli-usage.md
-      - Parameters: cli/parameters.md
       - PowerShell: cli/powershell-usage.md
       - Docker: cli/docker-usage.md
-      - Prometheus Integration: cli/prometheus-integration.md
       - Config File: cli/kubebuddy-config.md
+      - Prometheus Integration: cli/prometheus-integration.md
+      - Parameters: cli/parameters.md
       - Checks: cli/checks.md
       - AKS Best Practices: cli/aks-best-practice-checks.md
       - AKS Automatic Migration Readiness: cli/aks-automatic-migration-readiness.md

@@ -5,56 +5,48 @@ layout: default
 
 # Install
 
-KubeBuddy supports three install paths:
+Choose one install method:
 
-- native binary
-- Homebrew
-- PowerShell Gallery wrapper
+- Homebrew if you want the simplest native install
+- PowerShell Gallery if you want `Invoke-KubeBuddy`
+- build from source if you are developing locally
 
-The native binary is the primary runtime.
+## Recommended: Homebrew
 
-## Choose a Method
+```bash
+brew tap KubeDeckio/homebrew-kubebuddy
+brew install kubebuddy
+kubebuddy version
+```
 
-=== "Homebrew"
+Use this on macOS or Linux when you want the native CLI on `PATH`.
 
-    ```bash
-    brew tap KubeDeckio/homebrew-kubebuddy
-    brew install kubebuddy
-    kubebuddy version
-    ```
+## PowerShell Gallery
 
-    Use this when you want the easiest packaged install on macOS or Linux.
+```powershell
+Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
+Invoke-KubeBuddy
+```
 
-=== "Native Binary"
+The PSGallery module bundles the native binary for supported platforms. You do not need to install the Go binary separately for normal use.
 
-    ```bash
-    go build -o kubebuddy ./cmd/kubebuddy
-    ./kubebuddy version
-    ```
+## Build From Source
 
-    Use this when you are building from source or testing local changes.
+```bash
+go build -o kubebuddy ./cmd/kubebuddy
+./kubebuddy version
+```
 
-=== "PowerShell Gallery"
-
-    ```powershell
-    Install-Module -Name KubeBuddy -Repository PSGallery -Scope CurrentUser
-    Invoke-KubeBuddy
-    ```
-
-    The PowerShell module ships the native binary for supported platforms. `Invoke-KubeBuddy` should work immediately after install. Use `$env:KUBEBUDDY_BINARY` only if you need to force a different binary.
+Use this when working from the repo or testing local changes.
 
 ## Requirements
 
 - `kubectl` configured for the cluster you want to scan
-- cluster read access
+- read access to the cluster
 - for AKS:
-  - Azure auth for local runs, or
-  - service principal credentials for containerized runs
+  - Azure auth for local native/PowerShell runs
+  - or service principal credentials for containerized runs
 
-## After Install
+## Next Step
 
-Continue with:
-
-- [Getting Started](getting-started.md)
-- [Native CLI Usage](native-cli-usage.md)
-- [PowerShell Usage](powershell-usage.md)
+Go to [Getting Started](getting-started.md).

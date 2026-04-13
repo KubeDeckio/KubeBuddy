@@ -123,24 +123,24 @@ jobs:
           ./scripts/render-homebrew-formula.sh "${TAG}" homebrew-kubebuddy/Formula/kubebuddy.rb
 
           cat > homebrew-kubebuddy/README.md <<'EOF'
-# Homebrew Tap for KubeBuddy
+          # Homebrew Tap for KubeBuddy
 
-This repository provides the Homebrew tap for the native KubeBuddy CLI.
+          This repository provides the Homebrew tap for the native KubeBuddy CLI.
 
-## Installation
+          ## Installation
 
-```bash
-brew tap KubeDeckio/homebrew-kubebuddy
-brew install kubebuddy
-```
+          ```bash
+          brew tap KubeDeckio/homebrew-kubebuddy
+          brew install kubebuddy
+          ```
 
-## Usage
+          ## Usage
 
-```bash
-kubebuddy version
-kubebuddy run --html-report --yes --output-path ./reports
-```
-EOF
+          ```bash
+          kubebuddy version
+          kubebuddy run --html-report --yes --output-path ./reports
+          ```
+          EOF
 
           cd homebrew-kubebuddy
           git config user.name "github-actions"

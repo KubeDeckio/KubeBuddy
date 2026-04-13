@@ -4,67 +4,102 @@ title: Native CLI Usage
 
 # Native CLI Usage
 
-The native `kubebuddy` binary is the main local runtime for KubeBuddy. Use it directly on your workstation, in CI, or as the container entrypoint.
+Use the native `kubebuddy` binary when you want the primary local runtime for KubeBuddy.
 
-## Build the CLI
+This page covers command usage. It does not repeat install steps from [Install](install.md) or first-run guidance from [Getting Started](getting-started.md).
 
-Build from the repository root:
+## Core Commands
+
+### Full Report Workflow
 
 ```bash
-go build -o kubebuddy ./cmd/kubebuddy
+kubebuddy run --html-report --yes --output-path ./reports
 ```
 
-Check the binary:
+Add other formats as needed:
 
 ```bash
-./kubebuddy version
+kubebuddy run --json-report --csv-report --txt-report --yes --output-path ./reports
 ```
 
-## Install with Homebrew
-
-If you want a packaged install on macOS or Linux, use the KubeBuddy tap:
+### Direct Scan Output
 
 ```bash
-brew tap KubeDeckio/homebrew-kubebuddy
-brew install kubebuddy
-kubebuddy version
+kubebuddy scan --output text
 ```
 
-Homebrew installs the native CLI directly. It does not install the PowerShell wrapper.
-
-## Common Workflows
-
-### Run the Full KubeBuddy Engine
+Structured output:
 
 ```bash
-./kubebuddy run --html-report --yes --output-path ./reports
+kubebuddy scan --output json
+kubebuddy scan --output csv
+kubebuddy scan --output html
 ```
 
-Add JSON, CSV, or text output as needed:
+### AKS Checks
+
+Live AKS:
 
 ```bash
-./kubebuddy run --json-report --csv-report --yes --output-path ./reports
+kubebuddy scan-aks \
+  --subscription-id <subscription-id> \
+  --resource-group <resource-group> \
+  --cluster-name <cluster-name> \
+  --output json
 ```
 
-Run AKS mode:
+From an AKS JSON document:
 
 ```bash
-./kubebuddy run \
+kubebuddy scan-aks --input ./aks-cluster.json --output json
+```
+
+### Cluster Access Checks
+
+```bash
+kubebuddy probe
+kubebuddy summary
+```
+
+### Check Catalog
+
+```bash
+kubebuddy checks
+kubebuddy checks --checks-dir checks/aks
+```
+
+### Container-Style Entry Point
+
+```bash
+kubebuddy run-env
+```
+
+This uses the same env-driven runtime shape as the container image.
+
+## Common Native Workflows
+
+### Run AKS and Kubernetes Together
+
+```bash
+kubebuddy run \
   --aks \
   --subscription-id <subscription-id> \
   --resource-group <resource-group> \
   --cluster-name <cluster-name> \
   --html-report \
+  --json-report \
   --yes \
   --output-path ./reports
 ```
 
-Add Prometheus in Azure mode:
+### Add Prometheus
+
+Azure auth mode:
 
 ```bash
 az login
 
-./kubebuddy run \
+kubebuddy run \
   --html-report \
   --include-prometheus \
   --prometheus-url "https://<workspace>.prometheus.monitor.azure.com" \
@@ -73,12 +108,12 @@ az login
   --output-path ./reports
 ```
 
-For bearer-token mode:
+Bearer token mode:
 
 ```bash
 export MY_PROM_TOKEN="<token>"
 
-./kubebuddy run \
+kubebuddy run \
   --html-report \
   --include-prometheus \
   --prometheus-url "https://prom.example.com" \
@@ -88,127 +123,8 @@ export MY_PROM_TOKEN="<token>"
   --output-path ./reports
 ```
 
-### Run the Container-Style Workflow
+## Related Pages
 
-```bash
-./kubebuddy run-env
-```
-
-This uses the same environment-variable-driven flow as the Docker image, including `HTML_REPORT`, `JSON_REPORT`, `AKS_MODE`, `RADAR_UPLOAD`, and the mounted kubeconfig path.
-
-Example:
-
-```bash
-export KUBECONFIG=/home/kubeuser/.kube/config
-export HTML_REPORT=true
-./kubebuddy run-env
-```
-
-### Probe Cluster Access
-
-Use the native CLI to verify that KubeBuddy can reach your current Kubernetes context:
-
-```bash
-./kubebuddy probe
-```
-
-Example output:
-
-```text
-context: docker-desktop
-nodes: 1
-pods: 10
-namespaces: default, kube-system
-```
-
-### Inspect Check Catalog
-
-```bash
-./kubebuddy checks
-```
-
-This shows the current split between declarative, Prometheus, and compatibility-backed checks.
-
-To inspect the native AKS YAML catalog instead:
-
-```bash
-./kubebuddy checks --checks-dir checks/aks
-```
-
-### Collect a Basic Cluster Summary
-
-```bash
-./kubebuddy summary
-```
-
-This returns a native summary of common Kubernetes resource counts for the current context.
-
-### Run a Cluster Scan
-
-```bash
-./kubebuddy scan
-```
-
-This runs the native Kubernetes scan path directly from the Go CLI.
-
-For structured output:
-
-```bash
-./kubebuddy scan --output json
-```
-
-CSV output:
-
-```bash
-./kubebuddy scan --output csv
-```
-
-HTML output:
-
-```bash
-./kubebuddy scan --output html
-```
-
-### Run Native AKS YAML Checks
-
-```bash
-./kubebuddy scan-aks --input ./aks-cluster.json
-```
-
-This evaluates the AKS YAML check catalog against an AKS cluster JSON document.
-
-For structured output:
-
-```bash
-./kubebuddy scan-aks --input ./aks-cluster.json --output json
-```
-
-CSV output:
-
-```bash
-./kubebuddy scan-aks --input ./aks-cluster.json --output csv
-```
-
-HTML output:
-
-```bash
-./kubebuddy scan-aks --input ./aks-cluster.json --output html
-```
-
-### Inspect Embedded Report Assets
-
-```bash
-./kubebuddy assets
-```
-
-This confirms the current HTML report CSS and JavaScript are embedded into the runtime.
-
-## Notes
-
-- Use `run` when you want full report generation and file outputs.
-- Use `scan` and `scan-aks` when you want direct CLI output.
-- The HTML report keeps the existing CSS, JavaScript, theme, and layout behavior.
-- In native CLI mode, Prometheus credentials are auth-mode specific:
-  - `azure`: uses existing Azure auth
-  - `bearer`: reads the token from the env var named by `--prometheus-bearer-token-env`
-  - `basic`: reads `PROMETHEUS_USERNAME` and `PROMETHEUS_PASSWORD`
+- [Config File](kubebuddy-config.md)
+- [Prometheus Integration](prometheus-integration.md)
+- [Parameters](parameters.md)

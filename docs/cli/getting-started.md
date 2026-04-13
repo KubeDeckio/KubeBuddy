@@ -5,9 +5,9 @@ layout: default
 
 # Getting Started
 
-This is the quickest path from install to first report.
+This is the shortest path from install to a real report.
 
-## 1. Verify Cluster Access
+## 1. Verify Access
 
 ```bash
 kubebuddy probe
@@ -15,31 +15,31 @@ kubebuddy probe
 
 If that succeeds, KubeBuddy can reach your current Kubernetes context.
 
-## 2. Run a Quick Summary
+## 2. Optional: Inspect the Cluster Quickly
 
 ```bash
 kubebuddy summary
 ```
 
-This gives you a fast resource count before a full scan.
+This gives you a fast count of common resources before a full run.
 
-## 3. Run a Full Report
+## 3. Generate Your First Report
 
 ```bash
 kubebuddy run --html-report --json-report --yes --output-path ./reports
 ```
 
-That writes full report files to `./reports`.
+That writes reports into `./reports`.
 
-## 4. Run a Direct CLI Scan
+## 4. Use Direct Terminal Output Instead
 
 ```bash
 kubebuddy scan --output text
 ```
 
-Use this when you want immediate terminal output instead of report files.
+Use `scan` when you want output in the terminal. Use `run` when you want report files.
 
-## 5. Run AKS Checks
+## 5. Add AKS Checks
 
 ```bash
 kubebuddy run \
@@ -54,7 +54,7 @@ kubebuddy run \
 
 ## 6. Add Prometheus
 
-If you are using Azure Managed Prometheus, make sure Azure auth is already available in your shell first, for example via `az login`.
+If you are using Azure Managed Prometheus, make sure you already have Azure auth available in your shell, for example with `az login`.
 
 ```bash
 kubebuddy run \
@@ -66,7 +66,7 @@ kubebuddy run \
   --output-path ./reports
 ```
 
-For bearer-token protected Prometheus:
+For bearer-token mode:
 
 ```bash
 export MY_PROM_TOKEN="<token>"
@@ -81,20 +81,10 @@ kubebuddy run \
   --output-path ./reports
 ```
 
-## Common Entry Points
+## Where To Go Next
 
-- `kubebuddy run`
-  Full report generation workflow.
-- `kubebuddy scan`
-  Direct scan output to terminal/stdout.
-- `kubebuddy scan-aks`
-  AKS-specific check execution.
-- `kubebuddy run-env`
-  Environment-variable-driven flow used by the container image.
-
-## Next Docs
-
-- [Install](install.md)
-- [Parameters](parameters.md)
-- [Docker Usage](docker-usage.md)
-- [Prometheus Integration](prometheus-integration.md)
+- [Native CLI](native-cli-usage.md) for native command usage
+- [PowerShell](powershell-usage.md) for `Invoke-KubeBuddy`
+- [Docker](docker-usage.md) for container runs
+- [Config File](kubebuddy-config.md) for repeatable scan defaults
+- [Parameters](parameters.md) for the full flag reference
