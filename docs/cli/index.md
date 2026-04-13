@@ -2,13 +2,25 @@
 
 <div class="kb-docs-hero">
   <div class="kb-docs-kicker">CLI</div>
-  <p>KubeBuddy CLI is the local scanning tool for Kubernetes and AKS. Run the native binary directly, use the same runtime in Docker, or keep the PowerShell path where you still need it.</p>
+  <p>KubeBuddy CLI is the main way to run KubeBuddy. Install the native binary with Homebrew or from source, run scans locally or in Docker, and keep the PowerShell wrapper only when you need backwards compatibility.</p>
 </div>
 
 <div class="kb-docs-link-grid">
+  <a class="kb-docs-link-card" href="install/">
+    <strong>Install</strong>
+    <span>Choose between Homebrew, native binary builds, and the PowerShell Gallery wrapper.</span>
+  </a>
+  <a class="kb-docs-link-card" href="getting-started/">
+    <strong>Getting Started</strong>
+    <span>Go from install to your first scan and report with the shortest path.</span>
+  </a>
   <a class="kb-docs-link-card" href="native-cli-usage/">
     <strong>Native CLI</strong>
     <span>Use the native <code>kubebuddy</code> binary for probing, summaries, scans, and full report runs.</span>
+  </a>
+  <a class="kb-docs-link-card" href="parameters/">
+    <strong>Parameters</strong>
+    <span>Reference the current CLI flags for <code>run</code>, <code>scan</code>, and AKS workflows.</span>
   </a>
   <a class="kb-docs-link-card" href="powershell-usage/">
     <strong>PowerShell</strong>
@@ -28,6 +40,12 @@
   </a>
 </div>
 
+## Start Here
+
+- [Install](install.md)
+- [Getting Started](getting-started.md)
+- [Parameters](parameters.md)
+
 ## What It Does
 
 - Scans Kubernetes and AKS from outside the cluster
@@ -42,6 +60,8 @@
 
 Use the native binary to:
 
+- install with Homebrew on supported macOS and Linux systems
+- install from source when building locally
 - probe cluster access before a run
 - execute the full KubeBuddy engine from a single CLI
 - generate HTML, JSON, CSV, or text reports
@@ -54,11 +74,9 @@ Use the native binary to:
 
 Use the module to:
 
-- monitor node health and usage
-- detect failing pods, restart loops, and stuck jobs
-- review Kubernetes events by severity
-- inspect RBAC roles and security config
-- generate HTML, JSON, CSV, or text output
+- preserve existing `Invoke-KubeBuddy` workflows
+- keep PSGallery-based installs working
+- use the native runtime behind the same PowerShell command surface
 
 [PowerShell Usage](powershell-usage.md)
 
@@ -66,16 +84,19 @@ Use the module to:
 
 Use Docker to:
 
-- run scans without installing PowerShell locally
+- run scans without installing KubeBuddy directly on the host
 - mount kubeconfig for access to any cluster
-- generate HTML, JSON, or TXT output for automation
+- generate HTML, JSON, CSV, or TXT output for automation
 - run AKS-specific checks with the required credentials
 
 [Docker Usage](docker-usage.md)
 
 ## Related Guides
 
+- [Install](install.md)
+- [Getting Started](getting-started.md)
 - [Native CLI Usage](native-cli-usage.md)
+- [Parameters](parameters.md)
 - [Prometheus Integration](prometheus-integration.md)
 - [Checks](checks.md)
 - [AKS Best Practices](aks-best-practice-checks.md)

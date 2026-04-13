@@ -1,7 +1,5 @@
 ---
 title: Creating Checks
-parent: Documentation
-nav_order: 4
 layout: default
 hide:
   - navigation
@@ -9,172 +7,227 @@ hide:
 
 # Creating Checks
 
-KubeBuddy is a Kubernetes auditing and monitoring tool that helps identify misconfigurations, performance bottlenecks, and potential risks in your cluster.
+KubeBuddy checks are now authored for the native Go runtime.
 
-Checks are defined in YAML and evaluated by the `Invoke-yamlChecks` engine. Results can be rendered in HTML, text, or JSON reports.
+The supported model is:
 
-## 📦 Check Types
+- YAML for check metadata and rule definitions
+- Prometheus blocks for metric-driven checks
+- native Go handlers for checks that need procedural logic
 
-You can author three kinds of checks:
+The old PowerShell `Script:` model is no longer part of the supported runtime.
 
-### 1. Script-Based (PowerShell)
-Use when you need full procedural logic:
+## Check Locations
 
-- Define a `Script:` block in PowerShell.
-- Receive `$KubeData`, plus `$Namespace` and `-ExcludeNamespaces` flags.
-- Return either:
-  - An array of PSCustomObjects, or
-  - A hashtable with `{ Items = <array>; IssueCount = <int> }`.
+Use these directories:
 
-### 2. Declarative
-Field-based checks for simple path/operator/value comparisons:
+- Kubernetes checks: `checks/kubernetes/*.yaml`
+- AKS checks: `checks/aks/*.yaml`
 
-- Specify `Condition`, `Operator`, and `Expected`.
-- No scripting required—ideal for image-tag, label, or simple field checks.
+The CLI defaults already point at those paths.
 
-### 3. Prometheus (NEW!)
-Query Prometheus directly, with built-in threshold support:
+## Supported Check Styles
 
-- Define a `Prometheus:` block with your PromQL.
-- Provide `Operator:` and `Expected:` to compare time-series averages.
-- Honor your global defaults (e.g. `cpu_critical`) via `Get-KubeBuddyThresholds`.
-- Control the look-back window via `Range.Duration` (supports `m`,`h`,`d`).
+### Declarative checks
 
-## 🧾 YAML Field Reference
+Use declarative checks when the result can be derived from:
 
-| Field                          | Type           | Required  | Applies to        | Description                                                                                 |
-|--------------------------------|----------------|-----------|-------------------|---------------------------------------------------------------------------------------------|
-| `ID`                           | String         | ✅        | All               | Unique identifier (e.g. `POD001`, `PROM003`)                                                |
-| `Name`                         | String         | ✅        | All               | Human-readable name                                                                         |
-| `Category`                     | String         | ✅        | All               | Broad grouping (e.g. `Security`, `Performance`)                                             |
-| `Section`                      | String         | ✅        | All               | Sub-group for report navigation (e.g. `Pods`, `Nodes`)                                      |
-| `ResourceKind`                 | String         | ✅        | All               | Kubernetes kind (e.g. `Pod`, `Node`)                                                        |
-| `Severity`                     | String         | ✅        | All               | `Low`, `Medium`, `High`, `Warning`, etc.                                                    |
-| `Weight`                       | Integer        | ✅        | All               | Sorting/priority weight                                                                     |
-| `Description`                  | String         | ✅        | All               | What the check detects                                                                      |
-| `FailMessage`                  | String         | ✅        | All               | Message to show when the check finds issues                                                 |
-| `URL`                          | String         | ✅        | All               | Link to related docs                                                                        |
-| `SpeechBubble`                 | List[String]   | ✅        | All               | CLI-friendly messages                                                                        |
-| **Declarative only**           |                |           |                   |                                                                                             |
-| `Condition`                    | String         | ✅†       | Declarative       | JSON path, supports `[].` arrays (e.g. `spec.containers[].image`)                           |
-| `Operator`                     | String         | ✅†       | Declarative       | `equals`, `contains`, `greater_than`, etc.                                                  |
-| `Expected`                     | String/Number  | ✅†       | Declarative       | Value to compare against                                                                     |
-| **Script-Based only**          |                |           |                   |                                                                                             |
-| `Script`                       | PowerShell     | ✅‡       | Script-Based      | Inline PowerShell script block                                                               |
-| **Prometheus only**            |                |           |                   |                                                                                             |
-| `Prometheus.Query`             | String         | ✅§       | Prometheus        | PromQL query (range or instant)                                                              |
-| `Prometheus.Range.Step`        | String         | ✅§       | Prometheus        | Range-vector step (e.g. `5m`)                                                                 |
-| `Prometheus.Range.Duration`    | String         | ✅§       | Prometheus        | Look-back window (e.g. `30m`, `24h`, `2d`)                                                   |
-| `Operator`                     | String         | ✅§       | Prometheus        | How to compare average (e.g. `greater_than`)                                                 |
-| `Expected`                     | String/Number  | ✅§       | Prometheus        | Threshold value or threshold-name (e.g. `cpu_critical` or `0.8`)                             |
+- resource fields
+- simple comparisons
+- array membership
+- counts
+- existence checks
 
-> † Declarative only  
-> ‡ Script-Based only  
-> § Prometheus only  
+These are the preferred default.
 
+### Prometheus checks
 
-## 🔬 Prometheus Check Example
+Use a `prometheus:` block when the check is based on PromQL and threshold comparison.
 
-```yaml
-checks:
-  - ID: "PROM001"
-    Name: "High CPU Pods (Prometheus)"
-    Category: "Performance"
-    Section: "Pods"
-    ResourceKind: "Pod"
-    Severity: "Warning"
-    Weight: 3
-    Description: "Checks for pods with sustained high CPU usage over the last 24 hours."
-    FailMessage: "Some pods show high sustained CPU usage."
-    URL: "https://kubernetes.io/docs/concepts/cluster-administration/monitoring/"
-    SpeechBubble:
-      - "🤖 High CPU usage detected via Prometheus!"
-      - "⚠️ Might indicate a misbehaving app."
-    Recommendation:
-      text: "Investigate high-CPU pods; adjust limits or optimize workloads."
-      html: |
-        <div class="recommendation-content">
-          <h4>🛠️ Investigate High CPU Pods</h4>
-          <ul>
-            <li>Use <code>kubectl top pod</code> for live CPU stats.</li>
-            <li>Review app code or HPA settings.</li>
-            <li>Consider raising CPU requests/limits or scaling out.</li>
-          </ul>
-        </div>
-    Prometheus:
-      Query:  'sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)'
-      Range:
-        Step:     "5m"
-        Duration: "24h"
-    Operator:   "greater_than"
-    Expected:   "cpu_critical"
-```
+These are still YAML-defined, but the runtime executes the Prometheus query in Go.
 
-## ⚙️ Script-Based Example
+### Native handler checks
+
+Use `native_handler:` when the logic is too complex for a clean declarative rule.
+
+Examples:
+
+- cross-resource correlation
+- workload ownership resolution
+- storage/network consistency checks
+- richer rightsizing or recommendation logic
+
+In that model:
+
+- YAML still defines the check id, name, severity, docs, and report content
+- Go implements the handler logic
+
+## YAML Shape
+
+Current native checks use lower-case field names.
+
+Common fields:
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `id` | yes | Unique check id such as `SEC004` or `AKSSEC001` |
+| `name` | yes | Human-readable check name |
+| `category` | yes | Broad grouping used in reports |
+| `section` | yes | Report/tab grouping |
+| `resource_kind` | yes for Kubernetes checks | Resource type used by the runtime |
+| `severity` | yes | Example values: `Low`, `Warning`, `High` |
+| `weight` | yes | Used in report weighting and ordering |
+| `description` | yes | What the check detects |
+| `fail_message` | yes | Message shown when findings exist |
+| `recommendation` | yes | Plain-text remediation guidance |
+| `recommendation_html` | optional | Rich HTML recommendation block |
+| `url` | yes | Primary docs link |
+| `value` | usually | Path or expression to evaluate |
+| `operator` | usually | Comparison operator |
+| `expected` | usually | Comparison target |
+| `native_handler` | optional | Use for procedural Go checks |
+| `prometheus` | optional | Use for Prometheus-backed checks |
+
+## Declarative Example
 
 ```yaml
 checks:
-  - ID: "POD005"
-    Name: "CrashLoopBackOff Pods"
-    Category: "Workloads"
-    Section: "Pods"
-    ResourceKind: "Pod"
-    Severity: "Error"
-    Weight: 4
-    Description: "Identifies pods stuck in CrashLoopBackOff due to repeated crashes."
-    FailMessage: "Some pods are stuck restarting in CrashLoopBackOff."
-    URL: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy"
-    SpeechBubble:
-      - "💥 Pods in CrashLoopBackOff!"
-      - "🔍 Investigate container errors."
-    Recommendation:
-      text: "Check logs and fix misconfigurations."
-      html: |
-        <div class="recommendation-content">
-          <ul>
-            <li><code>kubectl logs &lt;pod&gt; -n &lt;ns&gt;</code></li>
-            <li><code>kubectl describe pod &lt;pod&gt; -n &lt;ns&gt;</code></li>
-          </ul>
-        </div>
-    Script: |
-      param([object]$KubeData, $Namespace, [switch]$ExcludeNamespaces)
-      $pods = if ($KubeData?.Pods) { $KubeData.Pods.items } else { (kubectl get pods -A -o json | ConvertFrom-Json).items }
-      if ($ExcludeNamespaces) { $pods = Exclude-Namespaces -items $pods }
-      $pods |
-        Where-Object {
-          $_.status.containerStatuses |
-          Where-Object { $_.state.waiting.reason -eq "CrashLoopBackOff" }
-        } |
-        ForEach-Object {
-          [PSCustomObject]@{
-            Namespace = $_.metadata.namespace
-            Pod       = $_.metadata.name
-            Restarts  = ($_.status.containerStatuses | Measure-Object -Property restartCount -Sum).Sum
-          }
-        }
+  - id: POD004
+    name: Pending Pods
+    section: Pods
+    category: Workloads
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Detects pods stuck in a Pending state due to scheduling or dependency issues.
+    fail_message: Some pods are stuck in Pending.
+    recommendation: Inspect scheduling constraints, missing dependencies, and cluster capacity.
+    url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
+    value:
+      path: status.phase
+    operator: not_equals
+    expected: Pending
 ```
 
+## Prometheus Example
 
-## ✅ Best Practices
-
-* **Use meaningful IDs** (`POD001`, `PROM002`, etc.)
-* Scope each check to **one responsibility**
-* For Prometheus, prefer **global threshold names** (e.g. `cpu_critical`) or numeric literals
-* Store your YAML in `yamlChecks/*.yaml`—no embedded JSON in PowerShell
-
-
-## 📂 Folder Layout
-
+```yaml
+checks:
+  - id: PROM001
+    name: High CPU Pods (Prometheus)
+    category: Performance
+    section: Pods
+    resource_kind: Pod
+    severity: Warning
+    weight: 3
+    description: Checks for pods with sustained high CPU usage over the last 24 hours.
+    fail_message: Some pods show high sustained CPU usage.
+    recommendation: Investigate high CPU usage and adjust requests, limits, or scaling.
+    url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
+    prometheus:
+      query: sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)
+      range:
+        step: 5m
+        duration: 24h
+    operator: greater_than
+    expected: cpu_critical
 ```
-yamlChecks/
-├── workloads.yaml
-├── security.yaml
-└── prometheus.yaml
+
+## Native Handler Example
+
+```yaml
+checks:
+  - id: NET001
+    name: Services Without Endpoints
+    category: Networking
+    section: Networking
+    resource_kind: Service
+    severity: High
+    weight: 2
+    description: Identifies services that have no backing endpoints.
+    fail_message: Service has no endpoints.
+    recommendation: Check selectors, pod readiness, and EndpointSlice generation.
+    url: https://kubernetes.io/docs/concepts/services-networking/service/
+    native_handler: NET001
+    value:
+      path: metadata.name
+    operator: exists
 ```
 
+The YAML keeps the user-facing definition. The runtime resolves `NET001` in Go.
 
-## 📚 Resources
+## Operators
 
-* [Prometheus HTTP API](https://prometheus.io/docs/prometheus/latest/querying/api/)
-* [Kubernetes Pod Lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/)
-* [KubeBuddy Configuration](./kubebuddy-config.md)
+The native evaluator supports operators such as:
+
+- `equals`
+- `not_equals`
+- `contains`
+- `not_contains`
+- `exists`
+- `missing`
+- `greater_than`
+- `greater_than_or_equal`
+- `less_than`
+- `less_than_or_equal`
+- `matches`
+- `not_matches`
+
+Complex rules can also use composed values such as:
+
+- `all`
+- `any`
+- `coalesce`
+- `count_where`
+
+For examples, inspect the existing catalog under:
+
+- `checks/kubernetes`
+- `checks/aks`
+
+## When To Use A Native Handler
+
+Use a handler when YAML would become harder to understand than the code.
+
+Good reasons:
+
+- joining multiple resource types
+- resolving owners or related workloads
+- deduplicating compound findings
+- formatting special item payloads
+- complex AKS or Prometheus logic
+
+Do not force every check into a large declarative expression just because it is possible.
+
+## Authoring Rules
+
+- Keep one check focused on one concern.
+- Keep ids stable once published.
+- Prefer declarative YAML first.
+- Use `recommendation_html` only when the richer layout is useful in the HTML report.
+- Keep URLs authoritative and current.
+- Match existing naming and severity patterns in the catalog.
+
+## Validation
+
+Useful validation commands:
+
+```bash
+go run ./cmd/kubebuddy checks
+```
+
+```bash
+go test ./internal/checks ./internal/scan
+```
+
+To inspect the AKS catalog:
+
+```bash
+go run ./cmd/kubebuddy checks --checks-dir checks/aks
+```
+
+## Related Docs
+
+- [Checks](cli/checks.md)
+- [Config File](cli/kubebuddy-config.md)
+- [Native CLI Usage](cli/native-cli-usage.md)

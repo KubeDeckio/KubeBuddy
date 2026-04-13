@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.28] - 2026-04-13
+
+### Added
+
+* **Go-first release packaging**
+  * Added native release packaging for macOS and Linux through the local release build script.
+  * Added GitHub release workflow support for publishing native tarballs, checksums, and the PowerShell wrapper package.
+  * Added a hardened Go-native container image workflow and direct Azure token support for AKS and Azure-authenticated Prometheus flows in containerized runs.
+
+### Changed
+
+* **Native runtime is now the primary product**
+  * The Go CLI is now the main KubeBuddy runtime for local use, container use, and report generation.
+  * The PowerShell Gallery package is now a backwards-compatible wrapper over the native `kubebuddy` binary instead of a separate PowerShell runtime.
+  * All shipped Kubernetes and AKS checks now live in the native `checks/` catalog layout.
+  * Report CSS and JavaScript assets now live under the native Go reports package instead of the old PowerShell-era path.
+
+### Removed
+
+* **Legacy PowerShell runtime**
+  * Removed the old PowerShell scan engine, AKS check runner, report generators, helper modules, and container entrypoint.
+  * Removed the legacy `Private/yamlChecks` catalog after switching the native runtime to `checks/kubernetes`.
+  * Removed migration-only documentation and stale PowerShell-only tests that no longer reflect the supported runtime model.
+
+### Docs
+
+* Updated installation, PowerShell wrapper, Docker, Radar, and release documentation for the Go-first release model.
+
 ## [0.0.27] - 2026-04-09
 
 ### Added

@@ -64,6 +64,21 @@ Run it directly:
 ./kubebuddy version
 ```
 
+### **Homebrew**
+
+Install the native CLI with Homebrew:
+
+```bash
+brew tap KubeDeckio/homebrew-kubebuddy
+brew install kubebuddy
+```
+
+Then verify it:
+
+```bash
+kubebuddy version
+```
+
 ### **PowerShell Gallery**
 
 To install **KubeBuddy** using PowerShell:
@@ -102,11 +117,6 @@ Run a native Kubernetes summary:
 Run the declarative native scan path:
 ```bash
 ./kubebuddy scan --output json
-```
-
-To force the narrower direct-Go declarative engine:
-```bash
-./kubebuddy scan --native-only --output json
 ```
 
 Run AKS YAML checks against an AKS JSON document:

@@ -51,6 +51,7 @@ That writes release artifacts to `./dist`.
 3. GitHub Actions should then:
    - build native release archives
    - publish the GitHub release assets
+   - update the Homebrew tap formula
    - publish the PowerShell Gallery wrapper module
    - build and push the container image
 

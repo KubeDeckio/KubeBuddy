@@ -4,7 +4,7 @@ title: Native CLI Usage
 
 # Native CLI Usage
 
-The native `kubebuddy` binary is the main local runtime for KubeBuddy on this branch. Use it directly on your workstation, in CI, or as the container entrypoint.
+The native `kubebuddy` binary is the main local runtime for KubeBuddy. Use it directly on your workstation, in CI, or as the container entrypoint.
 
 ## Build the CLI
 
@@ -19,6 +19,18 @@ Check the binary:
 ```bash
 ./kubebuddy version
 ```
+
+## Install with Homebrew
+
+If you want a packaged install on macOS or Linux, use the KubeBuddy tap:
+
+```bash
+brew tap KubeDeckio/homebrew-kubebuddy
+brew install kubebuddy
+kubebuddy version
+```
+
+Homebrew installs the native CLI directly. It does not install the PowerShell wrapper.
 
 ## Common Workflows
 
@@ -102,13 +114,13 @@ To inspect the native AKS YAML catalog instead:
 
 This returns a native summary of common Kubernetes resource counts for the current context.
 
-### Run a Native Declarative Scan
+### Run a Cluster Scan
 
 ```bash
 ./kubebuddy scan
 ```
 
-This runs the full KubeBuddy scan path through the Go CLI and preserves the existing report behavior. The default `text`, `json`, `csv`, and `html` outputs come from the full compatibility engine, so the HTML report matches the existing theme and layout.
+This runs the native Kubernetes scan path directly from the Go CLI.
 
 For structured output:
 
@@ -126,12 +138,6 @@ HTML output:
 
 ```bash
 ./kubebuddy scan --output html
-```
-
-If you want the narrower direct-Go declarative engine instead of the full compatibility path, use:
-
-```bash
-./kubebuddy scan --native-only
 ```
 
 ### Run Native AKS YAML Checks
@@ -170,6 +176,6 @@ This confirms the current HTML report CSS and JavaScript are embedded into the r
 
 ## Notes
 
-- Use `run` when you want full report generation and compatibility with the existing engine surface.
-- Use `scan` and `scan-aks` when you want direct native output from the declarative paths.
+- Use `run` when you want full report generation and file outputs.
+- Use `scan` and `scan-aks` when you want direct CLI output.
 - The HTML report keeps the existing CSS, JavaScript, theme, and layout behavior.

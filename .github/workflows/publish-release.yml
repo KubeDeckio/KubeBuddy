@@ -37,6 +37,7 @@ jobs:
       - name: Build release artifacts
         run: |
           chmod +x ./scripts/build-release-artifacts.sh
+          chmod +x ./scripts/render-homebrew-formula.sh
           ./scripts/build-release-artifacts.sh "${TAG}"
 
       - name: Create GitHub release
@@ -60,29 +61,27 @@ jobs:
           repository: ${{ github.repository }}
           excludes: prerelease, draft
 
-  hash:
+  update-formula:
     needs: [build-and-release, check-latest]
     runs-on: ubuntu-latest
     if: needs.check-latest.outputs.is_latest == 'true'
-    outputs:
-      build_hash: ${{ steps.calc.outputs.build_hash }}
     steps:
-      - name: Download linux amd64 tarball
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build release artifacts
+        env:
+          TAG: ${{ needs.build-and-release.outputs.tag }}
         run: |
-          TAG=${{ needs.build-and-release.outputs.tag }}
-          VERSION=${TAG#v}
-          curl -L -o kubebuddy_linux_amd64.tar.gz \
-            https://github.com/${{ github.repository }}/releases/download/${TAG}/kubebuddy_${VERSION}_linux_amd64.tar.gz
+          chmod +x ./scripts/build-release-artifacts.sh
+          chmod +x ./scripts/render-homebrew-formula.sh
+          ./scripts/build-release-artifacts.sh "${TAG}"
 
-      - name: Calculate SHA256
-        id: calc
-        run: echo "build_hash=$(sha256sum kubebuddy_linux_amd64.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-
-  update-formula:
-    needs: [build-and-release, check-latest, hash]
-    runs-on: ubuntu-latest
-    if: needs.check-latest.outputs.is_latest == 'true'
-    steps:
       - name: Checkout homebrew tap
         uses: actions/checkout@v4
         with:
@@ -91,17 +90,34 @@ jobs:
           path: homebrew-kubebuddy
 
       - name: Update formula
-        working-directory: homebrew-kubebuddy
+        env:
+          TAG: ${{ needs.build-and-release.outputs.tag }}
         run: |
-          TAG=${{ needs.build-and-release.outputs.tag }}
-          VERSION=${TAG#v}
-          SHA=${{ needs.hash.outputs.build_hash }}
-          FORMULA=Formula/kubebuddy.rb
+          ./scripts/render-homebrew-formula.sh "${TAG}" homebrew-kubebuddy/Formula/kubebuddy.rb
 
-          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/kubebuddy_${VERSION}_linux_amd64.tar.gz\"|" "$FORMULA"
-          sed -i "s|sha256 \".*\"|sha256 \"$SHA\"|" "$FORMULA"
+          cat > homebrew-kubebuddy/README.md <<'EOF'
+# Homebrew Tap for KubeBuddy
 
+This repository provides the Homebrew tap for the native KubeBuddy CLI.
+
+## Installation
+
+```bash
+brew tap KubeDeckio/homebrew-kubebuddy
+brew install kubebuddy
+```
+
+## Usage
+
+```bash
+kubebuddy version
+kubebuddy run --html-report --yes --output-path ./reports
+```
+EOF
+
+          cd homebrew-kubebuddy
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git commit -am "Bump KubeBuddy formula to ${TAG}"
+          git add Formula/kubebuddy.rb README.md
+          git commit -m "Bump KubeBuddy formula to ${TAG}"
           git push

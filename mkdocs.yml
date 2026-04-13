@@ -69,7 +69,10 @@ nav:
   - Home: index.md
   - CLI: 
       - Overview: cli/index.md
+      - Install: cli/install.md
+      - Getting Started: cli/getting-started.md
       - Native CLI: cli/native-cli-usage.md
+      - Parameters: cli/parameters.md
       - PowerShell: cli/powershell-usage.md
       - Docker: cli/docker-usage.md
       - Prometheus Integration: cli/prometheus-integration.md
