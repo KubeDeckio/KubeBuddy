@@ -104,9 +104,16 @@ Describe 'Invoke-KubeBuddy wrapper' {
 Describe 'Resolve-KubeBuddyNativeCommand' {
     It 'prefers the bundled platform binary when present' {
         InModuleScope KubeBuddy {
+            $binaryName = if ($IsWindows) { 'kubebuddy.exe' } else { 'kubebuddy' }
+            $rid = Get-KubeBuddyRuntimeRid
+
+            if (-not $rid) {
+                throw 'Expected a supported runtime RID during test execution.'
+            }
+
             Mock -CommandName Test-Path -ModuleName KubeBuddy -MockWith {
                 param($Path)
-                $Path -like '*bin*darwin-arm64*kubebuddy'
+                $Path -like "*bin*$rid*$binaryName"
             }
             Mock -CommandName Resolve-Path -ModuleName KubeBuddy -MockWith {
                 param($Path)
@@ -116,7 +123,7 @@ Describe 'Resolve-KubeBuddyNativeCommand' {
 
             $resolved = Resolve-KubeBuddyNativeCommand
 
-            $resolved.FilePath | Should -Match 'bin.+darwin-arm64.+kubebuddy$'
+            $resolved.FilePath | Should -Match ([regex]::Escape("bin/$rid/$binaryName") -replace '/', '[\\/]')
         }
     }
 }

@@ -1,6 +1,6 @@
 # KubeBuddy CLI Integration
 
-This page shows how to connect `Invoke-KubeBuddy` to Radar cluster-reports and cluster-configs endpoints.
+This page shows how to connect both the native `kubebuddy` CLI and the PowerShell wrapper `Invoke-KubeBuddy` to Radar cluster-reports and cluster-configs endpoints.
 
 ## Authentication
 
@@ -14,6 +14,42 @@ Set credentials as env vars for KubeBuddy:
 ```powershell
 $env:KUBEBUDDY_RADAR_API_USER = "<wordpress-username>"
 $env:KUBEBUDDY_RADAR_API_PASSWORD = "<wordpress-app-password>"
+```
+
+## Native CLI Usage
+
+Upload JSON run:
+
+```bash
+kubebuddy run \
+  --json-report \
+  --radar-upload \
+  --radar-environment prod \
+  --yes \
+  --output-path ./reports
+```
+
+Upload + compare:
+
+```bash
+kubebuddy run \
+  --json-report \
+  --radar-upload \
+  --radar-compare \
+  --radar-environment prod \
+  --yes \
+  --output-path ./reports
+```
+
+Fetch a saved Radar cluster config:
+
+```bash
+kubebuddy run \
+  --radar-fetch-config \
+  --radar-config-id "ccfg_12345678-1234-1234-1234-123456789abc" \
+  --html-report \
+  --yes \
+  --output-path ./reports
 ```
 
 ## PowerShell CLI Usage
@@ -69,6 +105,7 @@ Use these env vars:
 Validation rules:
 
 - `RADAR_UPLOAD`/`RADAR_COMPARE` requires `JSON_REPORT=true`
+- `RADAR_FETCH_CONFIG=true` fetches the saved Radar cluster profile and applies it to the native run before checks start
 
 ## Direct API Example (for debugging)
 

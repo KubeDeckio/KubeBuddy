@@ -1,63 +1,24 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="18" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-04-09" time="11:10:28">
-  <environment machine-name="mac.lan" platform="Darwin" nunit-version="2.5.8.0" os-version="25.2.0" cwd="/Users/pixelrobots/Documents/Git/KubeBuddy" clr-version="9.0.8" user="pixelrobots" user-domain="" />
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="7" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-04-13" time="15:36:57">
+  <environment nunit-version="2.5.8.0" user="pixelrobots" user-domain="" cwd="/Users/pixelrobots/Documents/Git/KubeBuddy" os-version="25.2.0" clr-version="9.0.8" machine-name="mac.lan" platform="Darwin" />
   <culture-info current-culture="en-GB" current-uiculture="en-GB" />
-  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="0.7819" asserts="0" description="Pester">
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="0.5664" asserts="0" description="Pester">
     <results>
-      <test-suite type="TestFixture" name="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/AutomaticReadiness.Tests.ps1" executed="True" result="Success" success="True" time="0.4363" asserts="0" description="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/AutomaticReadiness.Tests.ps1">
+      <test-suite type="TestFixture" name="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1" executed="True" result="Success" success="True" time="0.5664" asserts="0" description="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="AKS Automatic readiness aggregation" executed="True" result="Success" success="True" time="0.2156" asserts="0" description="AKS Automatic readiness aggregation">
+          <test-suite type="TestFixture" name="Invoke-KubeBuddy wrapper" executed="True" result="Success" success="True" time="0.369" asserts="0" description="Invoke-KubeBuddy wrapper">
             <results>
-              <test-case description="marks readiness as not_ready when blockers exist" name="AKS Automatic readiness aggregation.marks readiness as not_ready when blockers exist" time="0.0819" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="treats latest image tags as an AKS Automatic blocker with deny behavior" name="AKS Automatic readiness aggregation.treats latest image tags as an AKS Automatic blocker with deny behavior" time="0.0134" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="marks readiness as ready_with_changes when only warnings exist" name="AKS Automatic readiness aggregation.marks readiness as ready_with_changes when only warnings exist" time="0.0089" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="treats missing resource requests as an AKS Automatic blocker" name="AKS Automatic readiness aggregation.treats missing resource requests as an AKS Automatic blocker" time="0.0139" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="surfaces seccomp not configured as a warning" name="AKS Automatic readiness aggregation.surfaces seccomp not configured as a warning" time="0.0127" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="groups spread-constraint failures into an AKS Automatic blocker action" name="AKS Automatic readiness aggregation.groups spread-constraint failures into an AKS Automatic blocker action" time="0.0092" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="groups duplicate service selectors into an AKS Automatic blocker action" name="AKS Automatic readiness aggregation.groups duplicate service selectors into an AKS Automatic blocker action" time="0.0046" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="tracks AKS alignment separately from readiness" name="AKS Automatic readiness aggregation.tracks AKS alignment separately from readiness" time="0.0069" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="resolves pod findings to owning workload and helm metadata" name="AKS Automatic readiness aggregation.resolves pod findings to owning workload and helm metadata" time="0.0187" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="writes an action-plan HTML artifact" name="AKS Automatic readiness aggregation.writes an action-plan HTML artifact" time="0.0245" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="skips readiness when the AKS cluster sku is Automatic" name="AKS Automatic readiness aggregation.skips readiness when the AKS cluster sku is Automatic" time="0.0047" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="forwards report flags to the native CLI" name="Invoke-KubeBuddy wrapper.forwards report flags to the native CLI" time="0.2061" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="defaults to an HTML report when no report flag is provided" name="Invoke-KubeBuddy wrapper.defaults to an HTML report when no report flag is provided" time="0.0204" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="maps AKS and Prometheus options to native flags" name="Invoke-KubeBuddy wrapper.maps AKS and Prometheus options to native flags" time="0.0291" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="maps PrometheusCredential to environment variables for basic auth" name="Invoke-KubeBuddy wrapper.maps PrometheusCredential to environment variables for basic auth" time="0.0261" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="renames generated reports when outputpath targets a file basename" name="Invoke-KubeBuddy wrapper.renames generated reports when outputpath targets a file basename" time="0.0294" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="throws when the native CLI exits with a failure code" name="Invoke-KubeBuddy wrapper.throws when the native CLI exits with a failure code" time="0.0428" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
-        </results>
-      </test-suite>
-      <test-suite type="TestFixture" name="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1" executed="True" result="Success" success="True" time="0.2947" asserts="0" description="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1">
-        <results>
-          <test-suite type="TestFixture" name="Invoke-KubeBuddy" executed="True" result="Success" success="True" time="0.2808" asserts="0" description="Invoke-KubeBuddy">
+          <test-suite type="TestFixture" name="Resolve-KubeBuddyNativeCommand" executed="True" result="Success" success="True" time="0.4026" asserts="0" description="Resolve-KubeBuddyNativeCommand">
             <results>
-              <test-suite type="TestFixture" name="Invoke-KubeBuddy.HTML Report mode" executed="True" result="Success" success="True" time="0.2798" asserts="0" description="Invoke-KubeBuddy.HTML Report mode">
-                <results>
-                  <test-case description="Calls Get-KubeData and Generate-K8sHTMLReport on -HtmlReport" name="Invoke-KubeBuddy.HTML Report mode.Calls Get-KubeData and Generate-K8sHTMLReport on -HtmlReport" time="0.1653" asserts="0" success="True" result="Success" executed="True" />
-                  <test-case description="Writes an error if the HTML file was not created" name="Invoke-KubeBuddy.HTML Report mode.Writes an error if the HTML file was not created" time="0.0348" asserts="0" success="True" result="Success" executed="True" />
-                </results>
-              </test-suite>
-            </results>
-          </test-suite>
-        </results>
-      </test-suite>
-      <test-suite type="TestFixture" name="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/RadarIntegration.Tests.ps1" executed="True" result="Success" success="True" time="0.0384" asserts="0" description="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/RadarIntegration.Tests.ps1">
-        <results>
-          <test-suite type="TestFixture" name="Radar integration parameters" executed="True" result="Success" success="True" time="0.0118" asserts="0" description="Radar integration parameters">
-            <results>
-              <test-case description="Expose Radar flags on Invoke-KubeBuddy" name="Radar integration parameters.Expose Radar flags on Invoke-KubeBuddy" time="0.0107" asserts="0" success="True" result="Success" executed="True" />
-            </results>
-          </test-suite>
-          <test-suite type="TestFixture" name="Radar settings resolver" executed="True" result="Success" success="True" time="0.0223" asserts="0" description="Radar settings resolver">
-            <results>
-              <test-case description="Enables Radar when upload flag is set even if config disabled" name="Radar settings resolver.Enables Radar when upload flag is set even if config disabled" time="0.0093" asserts="0" success="True" result="Success" executed="True" />
-            </results>
-          </test-suite>
-        </results>
-      </test-suite>
-      <test-suite type="TestFixture" name="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/RunScript.Tests.ps1" executed="True" result="Success" success="True" time="0.0125" asserts="0" description="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/RunScript.Tests.ps1">
-        <results>
-          <test-suite type="TestFixture" name="Docker entrypoint report forwarding" executed="True" result="Success" success="True" time="0.0078" asserts="0" description="Docker entrypoint report forwarding">
-            <results>
-              <test-case description="reads CSV_REPORT from the container environment" name="Docker entrypoint report forwarding.reads CSV_REPORT from the container environment" time="0.0036" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="includes CSV_REPORT in the required report-format validation" name="Docker entrypoint report forwarding.includes CSV_REPORT in the required report-format validation" time="0.0011" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="forwards CsvReport to Invoke-KubeBuddy" name="Docker entrypoint report forwarding.forwards CsvReport to Invoke-KubeBuddy" time="0.0011" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prefers the bundled platform binary when present" name="Resolve-KubeBuddyNativeCommand.prefers the bundled platform binary when present" time="0.0309" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
