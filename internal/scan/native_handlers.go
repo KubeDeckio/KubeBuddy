@@ -3360,7 +3360,7 @@ func collectContainers(item map[string]any, includeMissingSlots bool) []map[stri
 		value := mustResolve(item, path)
 		values := asSlice(value)
 		if includeMissingSlots && value == nil {
-			// Match the legacy PowerShell concatenation behavior, which appends a null slot
+			// Match the current report compatibility behavior, which appends a null slot
 			// for missing init/ephemeral container arrays and then counts it as a root-default hit.
 			out = append(out, map[string]any{})
 			continue

@@ -47,7 +47,6 @@ type rawCheck struct {
 	Operator                   string         `yaml:"Operator"`
 	Expected                   any            `yaml:"Expected"`
 	NativeHandler              string         `yaml:"NativeHandler"`
-	Script                     string         `yaml:"Script"`
 	Prometheus                 *PrometheusRef `yaml:"Prometheus"`
 	Recommendation             Recommendation `yaml:"Recommendation"`
 	SpeechBubble               []string       `yaml:"SpeechBubble"`
@@ -77,7 +76,6 @@ func (r rawCheck) normalize() Check {
 		NativeHandler:              strings.TrimSpace(r.NativeHandler),
 		SpeechBubble:               compactStrings(firstNonEmptySlice(r.SpeechBubble, r.Recommendation.SpeechBubble)),
 		Prometheus:                 r.Prometheus,
-		Script:                     strings.TrimSpace(r.Script),
 	}
 
 	if condition := strings.TrimSpace(r.Condition); condition != "" {
@@ -85,9 +83,6 @@ func (r rawCheck) normalize() Check {
 	}
 	if check.FailMessage == "" {
 		check.FailMessage = firstNonEmptyString(check.Description, check.Name)
-	}
-	if check.IsScripted() {
-		check.LegacyScripted = true
 	}
 	hydrateRecommendationVariants(&check)
 
@@ -160,12 +155,11 @@ func LoadDir(dir string) (RuleSet, error) {
 }
 
 type Inventory struct {
-	Total          int
-	Declarative    int
-	Prometheus     int
-	LegacyScripted int
-	ByCategory     map[string]int
-	BySection      map[string]int
+	Total       int
+	Declarative int
+	Prometheus  int
+	ByCategory  map[string]int
+	BySection   map[string]int
 }
 
 func Summarize(ruleSet RuleSet) Inventory {
@@ -181,8 +175,6 @@ func Summarize(ruleSet RuleSet) Inventory {
 			out.Prometheus++
 		case check.IsDeclarative():
 			out.Declarative++
-		case check.IsScripted():
-			out.LegacyScripted++
 		}
 
 		if check.Category != "" {

@@ -39,9 +39,6 @@ func TestLoadDirSummarizesCurrentCheckCatalog(t *testing.T) {
 	if inv.Total == 0 {
 		t.Fatalf("expected check inventory")
 	}
-	if inv.LegacyScripted != 0 {
-		t.Fatalf("expected no scripted checks in current catalog")
-	}
 	if inv.Declarative == 0 {
 		t.Fatalf("expected declarative checks in current catalog")
 	}

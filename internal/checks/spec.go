@@ -63,8 +63,6 @@ type Check struct {
 	SpeechBubble               []string       `yaml:"speech_bubble,omitempty"`
 	Prometheus                 *PrometheusRef `yaml:"prometheus,omitempty"`
 	NativeHandler              string         `yaml:"native_handler,omitempty"`
-	Script                     string         `yaml:"script,omitempty"`
-	LegacyScripted             bool           `yaml:"-"`
 }
 
 type PrometheusRef struct {
@@ -119,8 +117,8 @@ func (c Check) Validate() error {
 	if strings.TrimSpace(c.FailMessage) == "" {
 		return fmt.Errorf("check %s: missing fail_message", c.ID)
 	}
-	if c.Value == nil && c.Prometheus == nil && strings.TrimSpace(c.NativeHandler) == "" && strings.TrimSpace(c.Script) == "" {
-		return fmt.Errorf("check %s: missing value, native_handler, script, or prometheus block", c.ID)
+	if c.Value == nil && c.Prometheus == nil && strings.TrimSpace(c.NativeHandler) == "" {
+		return fmt.Errorf("check %s: missing value, native_handler, or prometheus block", c.ID)
 	}
 	return nil
 }
@@ -132,9 +130,5 @@ func (c Check) IsDeclarative() bool {
 	if strings.TrimSpace(c.NativeHandler) != "" {
 		return true
 	}
-	return c.Value != nil && strings.TrimSpace(c.Script) == ""
-}
-
-func (c Check) IsScripted() bool {
-	return strings.TrimSpace(c.Script) != ""
+	return c.Value != nil
 }

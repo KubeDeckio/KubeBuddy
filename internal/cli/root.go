@@ -32,7 +32,7 @@ func NewRootCommand() *cobra.Command {
 		Long: strings.TrimSpace(`
 KubeBuddy scans Kubernetes and AKS clusters from your terminal, generates
 HTML/JSON/CSV/text output, and preserves the existing report theme and
-behavior while the native runtime continues to replace the legacy module path.`),
+behavior through the native runtime and wrapper surfaces.`),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -133,7 +133,6 @@ func newChecksCommand() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "total: %d\n", inv.Total)
 			fmt.Fprintf(cmd.OutOrStdout(), "declarative: %d\n", inv.Declarative)
 			fmt.Fprintf(cmd.OutOrStdout(), "prometheus: %d\n", inv.Prometheus)
-			fmt.Fprintf(cmd.OutOrStdout(), "legacy_scripted: %d\n", inv.LegacyScripted)
 			return nil
 		},
 	}

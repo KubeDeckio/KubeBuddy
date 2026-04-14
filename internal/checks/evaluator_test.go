@@ -24,7 +24,7 @@ func TestEvaluateItemSupportsSimpleEquality(t *testing.T) {
 	}
 }
 
-func TestEvaluateItemSupportsLegacyNotEqualsList(t *testing.T) {
+func TestEvaluateItemSupportsCompatibilityNotEqualsList(t *testing.T) {
 	t.Helper()
 
 	check := Check{
@@ -42,7 +42,7 @@ func TestEvaluateItemSupportsLegacyNotEqualsList(t *testing.T) {
 		t.Fatalf("evaluate true item: %v", err)
 	}
 	if !got.Failed {
-		t.Fatalf("expected true to be treated as a failing legacy value")
+		t.Fatalf("expected true to be treated as a failing compatibility value")
 	}
 
 	itemFalse := map[string]any{
@@ -53,7 +53,7 @@ func TestEvaluateItemSupportsLegacyNotEqualsList(t *testing.T) {
 		t.Fatalf("evaluate false item: %v", err)
 	}
 	if got.Failed {
-		t.Fatalf("expected false not to be treated as a failing legacy value")
+		t.Fatalf("expected false not to be treated as a failing compatibility value")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestEvaluateItemSupportsStringContainsChecks(t *testing.T) {
 		t.Fatalf("evaluate contains item: %v", err)
 	}
 	if !got.Failed {
-		t.Fatalf("expected legacy not_contains item to fail when substring is present")
+		t.Fatalf("expected compatibility not_contains item to fail when substring is present")
 	}
 }
 
@@ -100,7 +100,7 @@ func TestEvaluateItemSupportsCoalesceAndBooleanPredicates(t *testing.T) {
 		t.Fatalf("evaluate coalesce item: %v", err)
 	}
 	if !got.Failed {
-		t.Fatalf("expected current legacy not_equals semantics to produce a finding")
+		t.Fatalf("expected current compatibility not_equals semantics to produce a finding")
 	}
 }
 
