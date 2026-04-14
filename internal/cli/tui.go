@@ -15,17 +15,27 @@ import (
 // ─── Menu entry ───────────────────────────────────────────────────────────────
 
 type menuItem struct {
-	Label  string
-	Action func(opts tuiOpts) // nil = back/exit
-	IsBack bool
-	IsExit bool
+	Label    string
+	Shortcut string
+	Action   func(opts tuiOpts) // nil = back/exit
+	IsBack   bool
+	IsExit   bool
 }
 
-func (m menuItem) String() string { return m.Label }
+func (m menuItem) String() string {
+	if strings.TrimSpace(m.Shortcut) == "" {
+		return m.Label
+	}
+	return fmt.Sprintf("[%s] %s", m.Shortcut, m.Label)
+}
 
 type tuiOpts struct {
 	ChecksDir         string
 	ExcludeNamespaces bool
+	ConfigPath        string
+	SubscriptionID    string
+	ResourceGroup     string
+	ClusterName       string
 }
 
 // ─── Command ──────────────────────────────────────────────────────────────────
@@ -37,18 +47,77 @@ func newMenuCommand() *cobra.Command {
 		Aliases: []string{"m"},
 		Short:   "Launch the interactive KubeBuddy check browser",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			t := newTUI()
-			t.clear()
-			t.drawHeader()
-			emitBuddyBubble("Welcome to the KubeBuddy interactive check browser. Use arrow keys to navigate.")
-			showMainMenu(t, opts)
-			t.clear()
-			return nil
+			return runInteractiveBrowser(opts)
+		},
+		Hidden: true,
+	}
+	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/kubernetes", "Directory containing check YAML files.")
+	cmd.Flags().BoolVar(&opts.ExcludeNamespaces, "exclude-namespaces", false, "Exclude configured namespaces.")
+	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
+	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID for infrastructure checks.")
+	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group for infrastructure checks.")
+	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS cluster name for infrastructure checks.")
+	return cmd
+}
+
+func newTUICommand() *cobra.Command {
+	opts := tuiOpts{ChecksDir: "checks/kubernetes"}
+	cmd := &cobra.Command{
+		Use:   "tui",
+		Short: "Launch the interactive KubeBuddy terminal UI",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTUIHome(opts)
 		},
 	}
 	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/kubernetes", "Directory containing check YAML files.")
 	cmd.Flags().BoolVar(&opts.ExcludeNamespaces, "exclude-namespaces", false, "Exclude configured namespaces.")
+	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
+	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID for infrastructure checks.")
+	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group for infrastructure checks.")
+	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS cluster name for infrastructure checks.")
 	return cmd
+}
+
+func runTUIHome(opts tuiOpts) error {
+	t := newTUI()
+	for {
+		t.clear()
+		t.drawHeader()
+		emitBuddyBubble("Choose a workflow. Use arrow keys, or type a shortcut and press Enter.")
+
+		items := []menuItem{
+			{Label: "Guided report workflow", Shortcut: "g"},
+			{Label: "Interactive check browser", Shortcut: "c"},
+			{Label: "Exit", Shortcut: "q", IsExit: true},
+		}
+
+		idx, err := runMenu("KubeBuddy TUI", items)
+		if err != nil || items[idx].IsExit {
+			t.clear()
+			return nil
+		}
+
+		switch items[idx].Shortcut {
+		case "g":
+			if err := runGuidedFlow(); err != nil {
+				return err
+			}
+		case "c":
+			if err := runInteractiveBrowser(opts); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func runInteractiveBrowser(opts tuiOpts) error {
+	t := newTUI()
+	t.clear()
+	t.drawHeader()
+	emitBuddyBubble("Welcome to the KubeBuddy interactive check browser. Use arrow keys, or type a shortcut and press Enter.")
+	showMainMenu(t, opts)
+	t.clear()
+	return nil
 }
 
 // ─── Main menu ────────────────────────────────────────────────────────────────
@@ -60,19 +129,19 @@ func showMainMenu(t *tui, opts tuiOpts) {
 		emitBuddyBubble("What would you like to check?")
 
 		items := []menuItem{
-			{Label: "📊  Cluster Summary"},
-			{Label: "🖥️  Node Details"},
-			{Label: "📂  Namespace Management"},
-			{Label: "⚙️  Workload Management"},
-			{Label: "🚀  Pod Management"},
-			{Label: "🏢  Kubernetes Jobs"},
-			{Label: "🌐  Service & Networking"},
-			{Label: "📦  Storage Management"},
-			{Label: "🔐  RBAC & Security"},
-			{Label: "🧹  ConfigMap Hygiene"},
-			{Label: "⚠️  Cluster Warning Events"},
-			{Label: "✅  Infrastructure Best Practices"},
-			{Label: "❌  Exit", IsExit: true},
+			{Label: "📊  Cluster Summary", Shortcut: "1"},
+			{Label: "🖥️  Node Details", Shortcut: "2"},
+			{Label: "📂  Namespace Management", Shortcut: "3"},
+			{Label: "⚙️  Workload Management", Shortcut: "4"},
+			{Label: "🚀  Pod Management", Shortcut: "5"},
+			{Label: "🏢  Kubernetes Jobs", Shortcut: "6"},
+			{Label: "🌐  Service & Networking", Shortcut: "7"},
+			{Label: "📦  Storage Management", Shortcut: "8"},
+			{Label: "🔐  RBAC & Security", Shortcut: "9"},
+			{Label: "🧹  ConfigMap Hygiene", Shortcut: "a"},
+			{Label: "⚠️  Cluster Warning Events", Shortcut: "b"},
+			{Label: "✅  Infrastructure Best Practices", Shortcut: "i"},
+			{Label: "❌  Exit", Shortcut: "q", IsExit: true},
 		}
 
 		idx, err := runMenu("Main Menu", items)
@@ -113,154 +182,149 @@ func showMainMenu(t *tui, opts tuiOpts) {
 
 func showNodeMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "🖥️  Node Details", []checkEntry{
-		{ID: "NODE001", Label: "Node conditions & status"},
-		{ID: "NODE002", Label: "Node resource pressure"},
-		{ID: "NODE003", Label: "Pod density per node"},
+		{ID: "NODE001", Label: "List all nodes and node conditions"},
+		{ID: "NODE002", Label: "Get node resource usage"},
+		{ID: "NODE003", Label: "Check pod density per node 📦"},
 	})
 }
 
 func showNamespaceMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "📂  Namespace Management", []checkEntry{
-		{ID: "NS001", Label: "Empty namespaces"},
-		{ID: "NS002", Label: "ResourceQuotas missing"},
-		{ID: "NS003", Label: "LimitRanges missing"},
-		{ID: "NS004", Label: "Default namespace in use"},
+		{ID: "NS001", Label: "Show empty namespaces"},
+		{ID: "NS002", Label: "Check ResourceQuotas"},
+		{ID: "NS003", Label: "Check LimitRanges"},
 	})
 }
 
 func showWorkloadMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "⚙️  Workload Management", []checkEntry{
-		{ID: "WRK001", Label: "DaemonSet health"},
-		{ID: "WRK002", Label: "Deployment issues"},
-		{ID: "WRK003", Label: "StatefulSet issues"},
-		{ID: "WRK004", Label: "HPA status"},
-		{ID: "WRK005", Label: "Missing resource requests & limits"},
-		{ID: "WRK006", Label: "Missing or weak PodDisruptionBudgets"},
-		{ID: "WRK007", Label: "Containers missing health probes"},
-		{ID: "WRK008", Label: "Deployment selectors with no matching pods"},
-		{ID: "WRK009", Label: "Deployment / Pod / Service label consistency"},
-		{ID: "WRK010", Label: "Deprecated API versions in use"},
-		{ID: "WRK011", Label: "Rollout strategy issues"},
-		{ID: "WRK012", Label: "Replica spread & anti-affinity"},
-		{ID: "WRK013", Label: "Image pull policy issues"},
-		{ID: "WRK014", Label: "Resource limits missing (memory only)"},
-		{ID: "WRK015", Label: "Max unavailable set to 100%"},
+		{ID: "WRK001", Label: "Check DaemonSet Health 🛠️"},
+		{ID: "WRK002", Label: "Check Deployment Issues 🚀"},
+		{ID: "WRK003", Label: "Check StatefulSet Issues 🏗️"},
+		{ID: "WRK004", Label: "Check HPA Status ⚖️"},
+		{ID: "WRK005", Label: "Check Missing Resources & Limits 🛟"},
+		{ID: "WRK006", Label: "Check missing or weak PodDisruptionBudgets 🛡️"},
+		{ID: "WRK007", Label: "Check containers missing health probes 🔎"},
+		{ID: "WRK008", Label: "Check Deployment selectors with no matching pods ❌"},
+		{ID: "WRK009", Label: "Check Deployment/Pod/Service label consistency 🧩"},
 	})
 }
 
 func showPodMenu(t *tui, opts tuiOpts) {
-	showSectionMenu(t, opts, "🚀  Pod Management", []checkEntry{
-		{ID: "POD001", Label: "Pods not running"},
-		{ID: "POD002", Label: "Pods with high restart counts"},
-		{ID: "POD003", Label: "Long-pending pods"},
-		{ID: "POD004", Label: "Pods without owner references"},
-		{ID: "POD005", Label: "Pods stuck in terminating"},
-		{ID: "POD006", Label: "Pods using host network"},
-		{ID: "POD007", Label: "Pods using host PID / IPC"},
-		{ID: "POD008", Label: "Pods with no resource limits"},
+	namespace, ok := choosePodNamespace(t)
+	if !ok {
+		return
+	}
+	showSectionMenuWithNamespace(t, opts, "🚀  Pod Management", namespace, []checkEntry{
+		{ID: "POD001", Label: "Show pods with high restarts"},
+		{ID: "POD002", Label: "Show long-running pods"},
+		{ID: "POD003", Label: "Show failed pods"},
+		{ID: "POD004", Label: "Show pending pods"},
+		{ID: "POD005", Label: "Show CrashLoopBackOff pods"},
+		{ID: "POD006", Label: "Show running debug pods"},
+		{ID: "POD007", Label: "Show pods using ':latest' image tag"},
 	})
 }
 
 func showJobsMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "🏢  Kubernetes Jobs", []checkEntry{
-		{ID: "JOB001", Label: "Failed jobs"},
-		{ID: "JOB002", Label: "Jobs without deadlines"},
+		{ID: "JOB001", Label: "Show stuck Kubernetes jobs"},
+		{ID: "JOB002", Label: "Show failed Kubernetes jobs"},
 	})
 }
 
 func showNetworkingMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "🌐  Service & Networking", []checkEntry{
-		{ID: "NET001", Label: "Services with no endpoints"},
-		{ID: "NET002", Label: "Services with mismatched selectors"},
-		{ID: "NET003", Label: "NodePort services exposed"},
-		{ID: "NET004", Label: "Services without network policies"},
-		{ID: "NET005", Label: "Ingresses with no TLS"},
-		{ID: "NET006", Label: "Ingresses pointing to missing services"},
-		{ID: "NET007", Label: "LoadBalancer services with open access"},
-		{ID: "NET008", Label: "Ingress host conflicts"},
-		{ID: "NET009", Label: "Services with no labels"},
-		{ID: "NET010", Label: "ExternalName services"},
-		{ID: "NET011", Label: "Services with deprecated annotations"},
-		{ID: "NET012", Label: "Ingress missing host"},
-		{ID: "NET013", Label: "Namespaces without network policy"},
-		{ID: "NET014", Label: "Ingress class not set"},
-		{ID: "NET015", Label: "Services with multiple ports missing names"},
-		{ID: "NET016", Label: "Gateway API: Gateway class missing"},
-		{ID: "NET017", Label: "Gateway API: HTTPRoute with no parent"},
-		{ID: "NET018", Label: "Gateway API: Cross-namespace reference grants"},
+		{ID: "NET001", Label: "Show services without Endpoints"},
+		{ID: "NET002", Label: "Show publicly accessible Services"},
+		{ID: "NET003", Label: "Show Ingress configuration issues"},
+		{ID: "NET004", Label: "Show namespaces missing NetworkPolicy 🛡️"},
+		{ID: "NET005", Label: "Check for Ingress host/path conflicts 🚧"},
+		{ID: "NET006", Label: "Check Ingress wildcard host usage 🌐"},
+		{ID: "NET007", Label: "Check Service targetPort mismatch 🔁"},
+		{ID: "NET008", Label: "Check ExternalName services pointing to internal IPs 🌩️"},
+		{ID: "NET009", Label: "Check overly permissive NetworkPolicies ⚠️"},
+		{ID: "NET010", Label: "Check NetworkPolicies using 0.0.0.0/0 🔓"},
+		{ID: "NET011", Label: "Check NetworkPolicies missing policyTypes ❔"},
+		{ID: "NET012", Label: "Check pods using hostNetwork 🌐"},
 	})
 }
 
 func showStorageMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "📦  Storage Management", []checkEntry{
-		{ID: "PV001", Label: "PersistentVolumes not bound"},
-		{ID: "PVC001", Label: "PersistentVolumeClaims pending"},
-		{ID: "PVC002", Label: "PVCs with no storage class"},
-		{ID: "PVC003", Label: "PVCs with no access mode set"},
-		{ID: "PVC004", Label: "PVCs orphaned from workloads"},
-		{ID: "SC001", Label: "StorageClasses with no default"},
-		{ID: "SC002", Label: "StorageClass prevents volume expansion"},
-		{ID: "SC003", Label: "Pods using in-tree storage provisioners"},
+		{ID: "PV001", Label: "Show orphaned PersistentVolumes 🗃️"},
+		{ID: "PVC002", Label: "Show PVCs using default StorageClass 🏷️"},
+		{ID: "PVC003", Label: "Show ReadWriteMany PVCs on incompatible storage 🔒"},
+		{ID: "PVC004", Label: "Show unbound PersistentVolumeClaims ⛔"},
+		{ID: "SC001", Label: "Show deprecated StorageClass provisioners 📉"},
+		{ID: "SC002", Label: "Show StorageClasses that prevent volume expansion 🚫"},
+		{ID: "SC003", Label: "Check high cluster-wide storage usage 📊"},
 	})
 }
 
 func showSecurityMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "🔐  RBAC & Security", []checkEntry{
-		{ID: "RBAC001", Label: "ClusterRoleBindings with wildcards"},
-		{ID: "RBAC002", Label: "RoleBindings with wildcards"},
-		{ID: "RBAC003", Label: "ServiceAccounts with excessive RBAC"},
-		{ID: "RBAC004", Label: "ClusterAdmin role bound to service accounts"},
-		{ID: "SEC001", Label: "Containers running as root"},
-		{ID: "SEC002", Label: "Privileged containers"},
-		{ID: "SEC003", Label: "Containers with privilege escalation"},
-		{ID: "SEC004", Label: "Containers with host path mounts"},
-		{ID: "SEC005", Label: "Pods without seccomp profile"},
-		{ID: "SEC006", Label: "Pods with writable root filesystem"},
-		{ID: "SEC007", Label: "Containers with extra capabilities"},
-		{ID: "SEC008", Label: "Containers with NET_ADMIN capability"},
-		{ID: "SEC009", Label: "Containers with SYS_ADMIN capability"},
-		{ID: "SEC010", Label: "Pods with host ports"},
-		{ID: "SEC011", Label: "Pods sharing host IPC"},
-		{ID: "SEC012", Label: "Pods sharing host PID"},
-		{ID: "SEC013", Label: "Pods sharing host network"},
-		{ID: "SEC014", Label: "Secrets mounted as environment variables"},
-		{ID: "SEC015", Label: "ServiceAccounts set to default with automount"},
-		{ID: "SEC016", Label: "Non-existent secret references"},
-		{ID: "SEC017", Label: "Images from untrusted registries"},
-		{ID: "SEC018", Label: "ServiceAccounts with automount enabled"},
-		{ID: "SEC019", Label: "Unconfined seccomp profiles"},
-		{ID: "SEC020", Label: "Disallowed sysctls"},
+		{ID: "RBAC001", Label: "Check RBAC misconfigurations"},
+		{ID: "RBAC002", Label: "Check RBAC overexposure"},
+		{ID: "RBAC003", Label: "Check orphaned Service Accounts"},
+		{ID: "RBAC004", Label: "Show unused Roles & ClusterRoles"},
+		{ID: "SEC001", Label: "Show orphaned Secrets"},
+		{ID: "SEC003", Label: "Check Pods running as root"},
+		{ID: "SEC004", Label: "Check privileged containers"},
+		{ID: "SEC002", Label: "Check hostPID / hostNetwork usage"},
+		{ID: "SEC005", Label: "Check hostIPC usage"},
+		{ID: "SEC008", Label: "Check secrets exposed via env vars"},
+		{ID: "SEC009", Label: "Check containers missing 'drop ALL' caps"},
+		{ID: "SEC010", Label: "Check use of hostPath volumes"},
+		{ID: "SEC011", Label: "Check UID 0 containers"},
+		{ID: "SEC012", Label: "Check added Linux capabilities"},
+		{ID: "SEC013", Label: "Check use of emptyDir volumes"},
+		{ID: "SEC014", Label: "Check untrusted image registries"},
+		{ID: "SEC015", Label: "Check use of default ServiceAccount"},
+		{ID: "SEC016", Label: "Check references to missing Secrets"},
 	})
 }
 
 func showConfigMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "🧹  ConfigMap Hygiene", []checkEntry{
-		{ID: "CFG001", Label: "Unused ConfigMaps"},
-		{ID: "CFG002", Label: "ConfigMaps with no data"},
-		{ID: "CFG003", Label: "Unused Secrets"},
+		{ID: "CFG001", Label: "Show orphaned ConfigMaps"},
+		{ID: "CFG002", Label: "Check for duplicate ConfigMap names"},
+		{ID: "CFG003", Label: "Check for large ConfigMaps (>1 MiB)"},
 	})
 }
 
 func showEventsMenu(t *tui, opts tuiOpts) {
 	showSectionMenu(t, opts, "⚠️  Cluster Warning Events", []checkEntry{
-		{ID: "EVENT001", Label: "Warning events (grouped by reason)"},
-		{ID: "EVENT002", Label: "All warning events"},
+		{ID: "EVENT001", Label: "Show grouped warning events"},
+		{ID: "EVENT002", Label: "Show full warning event log"},
 	})
 }
 
 func showInfraMenu(t *tui, opts tuiOpts) {
-	showSectionMenu(t, opts, "✅  Infrastructure Best Practices", []checkEntry{
-		{ID: "NODE001", Label: "Node readiness & conditions"},
-		{ID: "NODE002", Label: "Node resource pressure"},
-		{ID: "NODE003", Label: "Pod density per node"},
-		{ID: "WRK005", Label: "Missing resource requests & limits"},
-		{ID: "WRK006", Label: "PodDisruptionBudgets"},
-		{ID: "WRK007", Label: "Missing health probes"},
-		{ID: "NET004", Label: "Missing network policies"},
-		{ID: "SEC001", Label: "Containers running as root"},
-		{ID: "SEC002", Label: "Privileged containers"},
-		{ID: "RBAC001", Label: "RBAC wildcard bindings"},
-	})
+	for {
+		t.clear()
+		t.drawHeader()
+		emitBuddyBubble("Infrastructure Best Practices")
+
+		items := []menuItem{
+			{
+				Label:    "AKS Best Practices Check",
+				Shortcut: "1",
+				Action: func(o tuiOpts) {
+					runAKSBestPractices(t, o)
+				},
+			},
+			{Label: "🔙  Back", Shortcut: "q", IsBack: true},
+		}
+
+		idx, err := runMenu("Infrastructure Best Practices", items)
+		if err != nil || items[idx].IsBack {
+			return
+		}
+		if items[idx].Action != nil {
+			items[idx].Action(opts)
+		}
+	}
 }
 
 // ─── Generic section menu ─────────────────────────────────────────────────────
@@ -271,22 +335,31 @@ type checkEntry struct {
 }
 
 func showSectionMenu(t *tui, opts tuiOpts, title string, entries []checkEntry) {
+	showSectionMenuWithNamespace(t, opts, title, "", entries)
+}
+
+func showSectionMenuWithNamespace(t *tui, opts tuiOpts, title string, namespace string, entries []checkEntry) {
 	for {
 		t.clear()
 		t.drawHeader()
-		emitBuddyBubble(title)
+		message := title
+		if namespace != "" {
+			message += " — namespace: " + namespace
+		}
+		emitBuddyBubble(message)
 
 		items := make([]menuItem, 0, len(entries)+1)
 		for _, e := range entries {
 			e := e
 			items = append(items, menuItem{
-				Label: fmt.Sprintf("%-10s  %s", e.ID, e.Label),
+				Label:    fmt.Sprintf("%-10s  %s", e.ID, e.Label),
+				Shortcut: strings.ToLower(e.ID),
 				Action: func(o tuiOpts) {
-					runSingleCheck(t, o, e.ID, e.Label)
+					runSingleCheck(t, o, e.ID, e.Label, namespace)
 				},
 			})
 		}
-		items = append(items, menuItem{Label: "🔙  Back", IsBack: true})
+		items = append(items, menuItem{Label: "🔙  Back", Shortcut: "q", IsBack: true})
 
 		idx, err := runMenu(title, items)
 		if err != nil || items[idx].IsBack || items[idx].IsExit {
@@ -309,6 +382,7 @@ func showClusterSummary(t *tui, opts tuiOpts) {
 	result, scanErr := scan.Run(scan.Options{
 		ChecksDir:         opts.ChecksDir,
 		ExcludeNamespaces: opts.ExcludeNamespaces,
+		ConfigPath:        opts.ConfigPath,
 	})
 
 	t.clear()
@@ -411,7 +485,7 @@ func showClusterSummary(t *tui, opts tuiOpts) {
 
 const pageSize = 20
 
-func runSingleCheck(t *tui, opts tuiOpts, checkID, label string) {
+func runSingleCheck(t *tui, opts tuiOpts, checkID, label string, namespace string) {
 	t.clear()
 	t.drawHeader()
 	emitBuddyBubble("Running " + checkID + " — " + label + "…")
@@ -419,6 +493,7 @@ func runSingleCheck(t *tui, opts tuiOpts, checkID, label string) {
 	result, err := scan.Run(scan.Options{
 		ChecksDir:         opts.ChecksDir,
 		ExcludeNamespaces: opts.ExcludeNamespaces,
+		ConfigPath:        opts.ConfigPath,
 	})
 	if err != nil {
 		emitBuddyBubble("Error running check: " + err.Error())
@@ -440,7 +515,140 @@ func runSingleCheck(t *tui, opts tuiOpts, checkID, label string) {
 		return
 	}
 
+	if namespace != "" {
+		filtered := *found
+		items := make([]scan.Finding, 0, len(found.Items))
+		for _, item := range found.Items {
+			if strings.EqualFold(strings.TrimSpace(item.Namespace), strings.TrimSpace(namespace)) {
+				items = append(items, item)
+			}
+		}
+		filtered.Items = items
+		filtered.Total = len(items)
+		showCheckResult(t, filtered)
+		return
+	}
+
 	showCheckResult(t, *found)
+}
+
+func runAKSBestPractices(t *tui, opts tuiOpts) {
+	subscriptionID := strings.TrimSpace(opts.SubscriptionID)
+	resourceGroup := strings.TrimSpace(opts.ResourceGroup)
+	clusterName := strings.TrimSpace(opts.ClusterName)
+
+	var err error
+	if subscriptionID == "" {
+		t.step("Enter your Azure Subscription ID.")
+		subscriptionID, err = rawInput("Subscription ID", "")
+		if err != nil {
+			return
+		}
+	}
+	if resourceGroup == "" {
+		t.step("Enter the AKS Resource Group.")
+		resourceGroup, err = rawInput("Resource Group", "")
+		if err != nil {
+			return
+		}
+	}
+	if clusterName == "" {
+		t.step("Enter the AKS Cluster Name.")
+		clusterName, err = rawInput("Cluster Name", "")
+		if err != nil {
+			return
+		}
+	}
+
+	t.clear()
+	t.drawHeader()
+	emitBuddyBubble("Running AKS Best Practices Check…")
+
+	result, err := scan.RunAKS(scan.AKSOptions{
+		ChecksDir:      "checks/aks",
+		ConfigPath:     opts.ConfigPath,
+		SubscriptionID: subscriptionID,
+		ResourceGroup:  resourceGroup,
+		ClusterName:    clusterName,
+	})
+	if err != nil {
+		emitBuddyBubble("Error running AKS checks: " + err.Error())
+		pressEnter()
+		return
+	}
+
+	showAKSResults(t, clusterName, result)
+}
+
+func showAKSResults(t *tui, clusterName string, result scan.Result) {
+	t.clear()
+	t.drawHeader()
+
+	const (
+		cyan   = "\x1b[36m"
+		green  = "\x1b[32m"
+		yellow = "\x1b[33m"
+		red    = "\x1b[31m"
+		gray   = "\x1b[90m"
+		bold   = "\x1b[1m"
+		reset  = "\x1b[0m"
+	)
+
+	passed := 0
+	failed := 0
+	for _, check := range result.Checks {
+		if check.Total == 0 {
+			passed++
+		} else {
+			failed++
+		}
+	}
+
+	fmt.Printf("\n%sAKS Best Practices — %s%s\n", bold, clusterName, reset)
+	fmt.Printf("%s%s%s\n", gray, strings.Repeat("─", 60), reset)
+	fmt.Printf("  %-20s %s%d%s\n", "Total Checks:", bold, len(result.Checks), reset)
+	fmt.Printf("  %-20s %s%d%s\n", "Passed:", green, passed, reset)
+	fmt.Printf("  %-20s %s%d%s\n", "Failed:", red, failed, reset)
+	fmt.Println()
+
+	grouped := map[string][]scan.CheckResult{}
+	var categories []string
+	for _, check := range result.Checks {
+		category := strings.TrimSpace(check.Category)
+		if category == "" {
+			category = "Other"
+		}
+		if _, ok := grouped[category]; !ok {
+			categories = append(categories, category)
+		}
+		grouped[category] = append(grouped[category], check)
+	}
+	sort.Strings(categories)
+
+	for _, category := range categories {
+		checks := grouped[category]
+		categoryFailed := 0
+		for _, check := range checks {
+			if check.Total > 0 {
+				categoryFailed++
+			}
+		}
+		color := green
+		if categoryFailed > 0 {
+			color = yellow
+		}
+		fmt.Printf("%s%s%s — %d/%d failed\n", color, category, reset, categoryFailed, len(checks))
+		for _, check := range checks {
+			status := green + "PASS" + reset
+			if check.Total > 0 {
+				status = red + "FAIL" + reset
+			}
+			fmt.Printf("  %-10s %-4s %s\n", check.ID, status, check.Name)
+		}
+		fmt.Println()
+	}
+
+	pressEnter()
 }
 
 func showCheckResult(t *tui, result scan.CheckResult) {
@@ -540,11 +748,21 @@ func showCheckResult(t *tui, result scan.CheckResult) {
 
 func runMenu(label string, items []menuItem) (int, error) {
 	prompt := promptui.Select{
-		Label:     label,
-		Items:     items,
-		Size:      min(len(items), 15),
-		HideHelp:  true,
-		Templates: selectTemplates(),
+		Label:             label + " (↑/↓ to move, type shortcut then Enter)",
+		Items:             items,
+		Size:              min(len(items), 15),
+		HideHelp:          true,
+		Templates:         selectTemplates(),
+		StartInSearchMode: true,
+		Searcher: func(input string, index int) bool {
+			input = strings.ToLower(strings.TrimSpace(input))
+			if input == "" {
+				return true
+			}
+			item := items[index]
+			return strings.Contains(strings.ToLower(item.Shortcut), input) ||
+				strings.Contains(strings.ToLower(item.Label), input)
+		},
 	}
 	idx, _, err := prompt.Run()
 	return idx, err
@@ -554,6 +772,28 @@ func pressEnter() {
 	fmt.Print("\n  Press Enter to continue...")
 	buf := make([]byte, 1)
 	os.Stdin.Read(buf) //nolint:errcheck
+}
+
+func choosePodNamespace(t *tui) (string, bool) {
+	t.clear()
+	t.drawHeader()
+	emitBuddyBubble("Would you like to check all namespaces or choose a specific namespace?")
+
+	items := []string{"All namespaces 🌍", "Choose a specific namespace", "🔙  Back"}
+	choice, err := rawSelect("Namespace scope", items)
+	if err != nil || choice == "🔙  Back" {
+		return "", false
+	}
+	if choice == "All namespaces 🌍" {
+		return "", true
+	}
+
+	t.step("Enter the namespace you want to inspect.")
+	namespace, err := rawInput("Namespace", "")
+	if err != nil || strings.TrimSpace(namespace) == "" {
+		return "", false
+	}
+	return strings.TrimSpace(namespace), true
 }
 
 func truncate(s string, max int) string {

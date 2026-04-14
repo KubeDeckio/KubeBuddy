@@ -1,24 +1,27 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="7" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-04-13" time="15:36:57">
-  <environment nunit-version="2.5.8.0" user="pixelrobots" user-domain="" cwd="/Users/pixelrobots/Documents/Git/KubeBuddy" os-version="25.2.0" clr-version="9.0.8" machine-name="mac.lan" platform="Darwin" />
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="10" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-04-14" time="13:47:09">
+  <environment os-version="25.2.0" platform="Darwin" nunit-version="2.5.8.0" user="pixelrobots" machine-name="mac.lan" user-domain="" clr-version="9.0.8" cwd="/Users/pixelrobots/Documents/Git/KubeBuddy" />
   <culture-info current-culture="en-GB" current-uiculture="en-GB" />
-  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="0.5664" asserts="0" description="Pester">
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="0.7567" asserts="0" description="Pester">
     <results>
-      <test-suite type="TestFixture" name="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1" executed="True" result="Success" success="True" time="0.5664" asserts="0" description="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1">
+      <test-suite type="TestFixture" name="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1" executed="True" result="Success" success="True" time="0.7567" asserts="0" description="/Users/pixelrobots/Documents/Git/KubeBuddy/Tests/Invoke-KubeBuddy.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="Invoke-KubeBuddy wrapper" executed="True" result="Success" success="True" time="0.369" asserts="0" description="Invoke-KubeBuddy wrapper">
+          <test-suite type="TestFixture" name="Invoke-KubeBuddy wrapper" executed="True" result="Success" success="True" time="0.5269" asserts="0" description="Invoke-KubeBuddy wrapper">
             <results>
-              <test-case description="forwards report flags to the native CLI" name="Invoke-KubeBuddy wrapper.forwards report flags to the native CLI" time="0.2061" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="defaults to an HTML report when no report flag is provided" name="Invoke-KubeBuddy wrapper.defaults to an HTML report when no report flag is provided" time="0.0204" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="maps AKS and Prometheus options to native flags" name="Invoke-KubeBuddy wrapper.maps AKS and Prometheus options to native flags" time="0.0291" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="maps PrometheusCredential to environment variables for basic auth" name="Invoke-KubeBuddy wrapper.maps PrometheusCredential to environment variables for basic auth" time="0.0261" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="renames generated reports when outputpath targets a file basename" name="Invoke-KubeBuddy wrapper.renames generated reports when outputpath targets a file basename" time="0.0294" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="throws when the native CLI exits with a failure code" name="Invoke-KubeBuddy wrapper.throws when the native CLI exits with a failure code" time="0.0428" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="forwards report flags to the native CLI" name="Invoke-KubeBuddy wrapper.forwards report flags to the native CLI" time="0.2008" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="defaults to an HTML report when no report flag is provided" name="Invoke-KubeBuddy wrapper.defaults to an HTML report when no report flag is provided" time="0.0251" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="maps AKS and Prometheus options to native flags" name="Invoke-KubeBuddy wrapper.maps AKS and Prometheus options to native flags" time="0.044" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="maps PrometheusCredential to environment variables for basic auth" name="Invoke-KubeBuddy wrapper.maps PrometheusCredential to environment variables for basic auth" time="0.0619" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="passes through the native tui command" name="Invoke-KubeBuddy wrapper.passes through the native tui command" time="0.0273" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="passes through the native menu command" name="Invoke-KubeBuddy wrapper.passes through the native menu command" time="0.0268" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="renames generated reports when outputpath targets a file basename" name="Invoke-KubeBuddy wrapper.renames generated reports when outputpath targets a file basename" time="0.0458" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="throws when the native CLI exits with a failure code" name="Invoke-KubeBuddy wrapper.throws when the native CLI exits with a failure code" time="0.058" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="rejects multiple interactive mode switches" name="Invoke-KubeBuddy wrapper.rejects multiple interactive mode switches" time="0.0217" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
-          <test-suite type="TestFixture" name="Resolve-KubeBuddyNativeCommand" executed="True" result="Success" success="True" time="0.4026" asserts="0" description="Resolve-KubeBuddyNativeCommand">
+          <test-suite type="TestFixture" name="Resolve-KubeBuddyNativeCommand" executed="True" result="Success" success="True" time="0.5735" asserts="0" description="Resolve-KubeBuddyNativeCommand">
             <results>
-              <test-case description="prefers the bundled platform binary when present" name="Resolve-KubeBuddyNativeCommand.prefers the bundled platform binary when present" time="0.0309" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prefers the bundled platform binary when present" name="Resolve-KubeBuddyNativeCommand.prefers the bundled platform binary when present" time="0.0408" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>

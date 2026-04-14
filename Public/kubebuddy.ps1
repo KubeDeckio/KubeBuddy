@@ -147,6 +147,9 @@ function Move-KubeBuddyGeneratedReports {
 function Invoke-KubeBuddy {
     [CmdletBinding()]
     param (
+        [switch]$Tui,
+        [switch]$Guided,
+        [switch]$Menu,
         [switch]$HtmlReport,
         [switch]$txtReport,
         [switch]$jsonReport,
@@ -175,6 +178,30 @@ function Invoke-KubeBuddy {
         [string]$RadarApiUserEnv,
         [string]$RadarApiSecretEnv
     )
+
+    $interactiveModes = @($Tui, $Guided, $Menu) | Where-Object { $_ }
+    if ($interactiveModes.Count -gt 1) {
+        throw "Use only one interactive mode switch: -Tui, -Guided, or -Menu."
+    }
+
+    if ($Tui -or $Guided -or $Menu) {
+        $interactiveArgs = @()
+        if ($Tui) { $interactiveArgs = @("tui") }
+        elseif ($Guided) { $interactiveArgs = @("guided") }
+        else { $interactiveArgs = @("menu") }
+
+        if ($ConfigPath) { $interactiveArgs += @("--config-path", $ConfigPath) }
+        if ($ExcludeNamespaces) { $interactiveArgs += "--exclude-namespaces" }
+        if ($SubscriptionId) { $interactiveArgs += @("--subscription-id", $SubscriptionId) }
+        if ($ResourceGroup) { $interactiveArgs += @("--resource-group", $ResourceGroup) }
+        if ($ClusterName) { $interactiveArgs += @("--cluster-name", $ClusterName) }
+
+        $exitCode = Invoke-KubeBuddyNativeCommand -Arguments $interactiveArgs -WorkingDirectory (Get-Location).Path
+        if ($exitCode -ne 0) {
+            throw "Native KubeBuddy CLI exited with code $exitCode."
+        }
+        return
+    }
 
     if (-not ($HtmlReport -or $txtReport -or $jsonReport -or $CsvReport)) {
         $HtmlReport = $true

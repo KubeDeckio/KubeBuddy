@@ -48,6 +48,9 @@ The following table provides a quick reference for common PowerShell wrapper com
 
 | Action | Command Example |
 |---------------------------|----------------|
+| Launch the unified TUI | `Invoke-KubeBuddy -Tui` |
+| Launch guided report mode directly | `Invoke-KubeBuddy -Guided` |
+| Launch the interactive check browser directly | `Invoke-KubeBuddy -Menu` |
 | Run KubeBuddy | `Invoke-KubeBuddy` |
 | Generate an HTML report | `Invoke-KubeBuddy -HtmlReport` |
 | Generate a JSON report | `Invoke-KubeBuddy -jsonReport` |
@@ -81,6 +84,21 @@ Invoke-KubeBuddy
 ```
 
 This invokes the native Go CLI through the PowerShell wrapper while preserving the `Invoke-KubeBuddy` command surface. If you do not specify a report switch, the wrapper defaults to `-HtmlReport`.
+
+## Interactive TUI
+
+To launch the native terminal UI from PowerShell:
+
+```powershell
+Invoke-KubeBuddy -Tui
+```
+
+Direct compatibility entrypoints are also available:
+
+```powershell
+Invoke-KubeBuddy -Guided
+Invoke-KubeBuddy -Menu
+```
 
 ## 2. Running KubeBuddy with AKS Best Practices
 

@@ -82,6 +82,32 @@ Describe 'Invoke-KubeBuddy wrapper' {
         }
     }
 
+    It 'passes through the native tui command' {
+        Invoke-KubeBuddy -Tui -ConfigPath "$PWD/test-config.yaml" -ExcludeNamespaces
+
+        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+            $Arguments[0] -eq 'tui' -and
+            $Arguments -contains '--config-path' -and
+            $Arguments -contains "$PWD/test-config.yaml" -and
+            $Arguments -contains '--exclude-namespaces' -and
+            -not ($Arguments -contains 'run')
+        }
+    }
+
+    It 'passes through the native menu command' {
+        Invoke-KubeBuddy -Menu -SubscriptionId 'sub' -ResourceGroup 'rg' -ClusterName 'cluster'
+
+        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+            $Arguments[0] -eq 'menu' -and
+            $Arguments -contains '--subscription-id' -and
+            $Arguments -contains 'sub' -and
+            $Arguments -contains '--resource-group' -and
+            $Arguments -contains 'rg' -and
+            $Arguments -contains '--cluster-name' -and
+            $Arguments -contains 'cluster'
+        }
+    }
+
     It 'renames generated reports when outputpath targets a file basename' {
         Invoke-KubeBuddy -HtmlReport -jsonReport -outputpath (Join-Path $PWD 'custom-report.html')
 
@@ -98,6 +124,12 @@ Describe 'Invoke-KubeBuddy wrapper' {
         {
             Invoke-KubeBuddy -HtmlReport -outputpath $PWD
         } | Should -Throw '*exited with code 23*'
+    }
+
+    It 'rejects multiple interactive mode switches' {
+        {
+            Invoke-KubeBuddy -Tui -Guided
+        } | Should -Throw '*Use only one interactive mode switch*'
     }
 }
 

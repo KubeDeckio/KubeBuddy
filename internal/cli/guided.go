@@ -149,44 +149,49 @@ func newGuidedCommand() *cobra.Command {
 		Aliases: []string{"buddy"},
 		Short:   "Launch the guided Buddy workflow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			t := newTUI()
-			t.clear()
-			t.drawHeader()
-			emitBuddyBubble("Welcome! I'll guide you through setting up and running a KubeBuddy report.")
-
-			choice, err := rawSelect("What would you like KubeBuddy to do?", []guidedChoice{
-				{
-					Label: "Generate a Kubernetes report",
-					Run: func() error {
-						opts, err := buildGuidedRunOptions(t, false)
-						if err != nil {
-							return err
-						}
-						return runner.Execute(opts)
-					},
-				},
-				{
-					Label: "Generate an AKS report",
-					Run: func() error {
-						opts, err := buildGuidedRunOptions(t, true)
-						if err != nil {
-							return err
-						}
-						return runner.Execute(opts)
-					},
-				},
-				{Label: "Exit"},
-			})
-			if err != nil {
-				return err
-			}
-			if choice.Run == nil {
-				t.clear()
-				return nil
-			}
-			return choice.Run()
+			return runGuidedFlow()
 		},
+		Hidden: true,
 	}
+}
+
+func runGuidedFlow() error {
+	t := newTUI()
+	t.clear()
+	t.drawHeader()
+	emitBuddyBubble("Welcome! I'll guide you through setting up and running a KubeBuddy report.")
+
+	choice, err := rawSelect("What would you like KubeBuddy to do?", []guidedChoice{
+		{
+			Label: "Generate a Kubernetes report",
+			Run: func() error {
+				opts, err := buildGuidedRunOptions(t, false)
+				if err != nil {
+					return err
+				}
+				return runner.Execute(opts)
+			},
+		},
+		{
+			Label: "Generate an AKS report",
+			Run: func() error {
+				opts, err := buildGuidedRunOptions(t, true)
+				if err != nil {
+					return err
+				}
+				return runner.Execute(opts)
+			},
+		},
+		{Label: "Exit"},
+	})
+	if err != nil {
+		return err
+	}
+	if choice.Run == nil {
+		t.clear()
+		return nil
+	}
+	return choice.Run()
 }
 
 // ─── Guided flow ──────────────────────────────────────────────────────────────
