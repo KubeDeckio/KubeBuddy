@@ -160,10 +160,10 @@ func restConfigFromRawWithBearerToken(rawConfig *clientcmdapi.Config, token stri
 		Host:        strings.TrimSpace(cluster.Server),
 		BearerToken: strings.TrimSpace(token),
 		TLSClientConfig: rest.TLSClientConfig{
-			Insecure: cluster.InsecureSkipTLSVerify,
+			Insecure:   cluster.InsecureSkipTLSVerify,
 			ServerName: strings.TrimSpace(cluster.TLSServerName),
-			CAData:    append([]byte(nil), cluster.CertificateAuthorityData...),
-			CAFile:    strings.TrimSpace(cluster.CertificateAuthority),
+			CAData:     append([]byte(nil), cluster.CertificateAuthorityData...),
+			CAFile:     strings.TrimSpace(cluster.CertificateAuthority),
 		},
 	}
 	if strings.TrimSpace(cfg.Host) == "" {
@@ -235,7 +235,14 @@ func (c *Client) ClusterInfoText() string {
 	if err != nil {
 		return "Kubernetes control plane is running at " + host
 	}
-	return "Kubernetes control plane is running at " + parsed.String()
+	base := parsed.String()
+	return strings.Join([]string{
+		"Kubernetes control plane is running at " + base,
+		"CoreDNS is running at " + base + "/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy",
+		"Metrics-server is running at " + base + "/api/v1/namespaces/kube-system/services/https:metrics-server:/proxy",
+		"",
+		"To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.",
+	}, "\n")
 }
 
 func (c *Client) ServerVersion(ctx context.Context) (string, error) {

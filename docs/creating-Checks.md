@@ -54,6 +54,17 @@ checks:
     description: Detects pods stuck in a Pending state due to scheduling or dependency issues.
     fail_message: Some pods are stuck in Pending.
     recommendation: Inspect scheduling constraints, missing dependencies, and cluster capacity.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <ul>
+          <li>Run <code>kubectl describe pod &lt;pod&gt; -n &lt;namespace&gt;</code> to inspect scheduling events.</li>
+          <li>Check node resources, taints, tolerations, and affinity rules.</li>
+          <li>Verify required PVCs, Secrets, and ConfigMaps exist and are bound.</li>
+        </ul>
+      </div>
+    speech_bubble:
+      - Some pods are stuck in Pending.
+      - Check scheduling events, cluster capacity, and missing dependencies.
     url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
     value:
       path: status.phase
@@ -81,6 +92,17 @@ checks:
     description: Checks for pods with sustained high CPU usage over the last 24 hours.
     fail_message: Some pods show high sustained CPU usage.
     recommendation: Investigate high CPU usage and adjust requests, limits, or scaling.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <ul>
+          <li>Confirm whether the CPU profile is expected for the workload.</li>
+          <li>Review container requests and limits.</li>
+          <li>Consider autoscaling or workload tuning if CPU remains persistently high.</li>
+        </ul>
+      </div>
+    speech_bubble:
+      - Some pods are showing sustained high CPU usage.
+      - Check requests, limits, scaling, and workload behavior.
     url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
     prometheus:
       query: sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)
@@ -121,6 +143,17 @@ checks:
     description: Identifies services that have no backing endpoints.
     fail_message: Service has no endpoints.
     recommendation: Check selectors, pod readiness, and EndpointSlice generation.
+    recommendation_html: |
+      <div class="recommendation-content">
+        <ul>
+          <li>Verify the Service selector matches live pod labels.</li>
+          <li>Check pod readiness and EndpointSlice generation.</li>
+          <li>Confirm the backing workload is healthy before sending traffic.</li>
+        </ul>
+      </div>
+    speech_bubble:
+      - This service has no endpoints.
+      - Check selectors, pod readiness, and EndpointSlices.
     url: https://kubernetes.io/docs/concepts/services-networking/service/
     native_handler: NET001
     value:
@@ -146,7 +179,8 @@ Common fields:
 | `description` | yes | What the check detects |
 | `fail_message` | yes | Message shown when findings exist |
 | `recommendation` | yes | Plain-text remediation guidance |
-| `recommendation_html` | optional | Rich HTML recommendation block |
+| `recommendation_html` | expected | Rich HTML recommendation block for report parity |
+| `speech_bubble` | expected | Short Buddy/TUI recommendation text |
 | `url` | yes | Primary docs link |
 | `value` | usually | Path or expression to evaluate |
 | `operator` | usually | Comparison operator |
@@ -155,6 +189,26 @@ Common fields:
 | `prometheus` | optional | Use for Prometheus-backed checks |
 
 The YAML keeps the user-facing definition. The runtime resolves the `native_handler` value in Go.
+
+## Recommendation Variants
+
+Every check should be authored for three output surfaces:
+
+- `recommendation`
+  - plain text for TXT, CSV, and JSON consumers
+- `recommendation_html`
+  - richer HTML for the report
+- `speech_bubble`
+  - short TUI/Buddy wording
+
+The loader can synthesize `recommendation_html` and `speech_bubble` when only `recommendation` is present, but that is now a fallback only.
+
+Preferred standard:
+
+- new checks should define all three explicitly
+- existing checks should keep or restore richer variants where possible
+- commands and flags in `recommendation_html` should use inline `<code>`
+- `speech_bubble` should be shorter than `recommendation`, not just copied verbatim
 
 ## Operators
 
@@ -204,7 +258,9 @@ Do not force every check into a large declarative expression just because it is 
 - Keep one check focused on one concern.
 - Keep ids stable once published.
 - Prefer declarative YAML first.
-- Use `recommendation_html` only when the richer layout is useful in the HTML report.
+- Author `recommendation_html` and `speech_bubble` explicitly for new checks.
+- Keep `recommendation_html` readable in the dark report theme.
+- Keep `speech_bubble` direct and brief.
 - Keep URLs authoritative and current.
 - Match existing naming and severity patterns in the catalog.
 

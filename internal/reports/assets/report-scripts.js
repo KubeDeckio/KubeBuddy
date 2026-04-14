@@ -2,6 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded, initializing charts');
     initReportThemePicker();
+    initializeAKSFilter();
 
     let lightbox = document.querySelector('.chart-lightbox');
     if (!lightbox) {
@@ -1170,18 +1171,39 @@ function initReportThemePicker() {
     }
 }
 
-window.toggleAKSAllPassRows = function(btn) {
-    const showAll = btn.getAttribute('data-show-all') === 'true';
+function applyAKSFilter(mode) {
     const aksTab = document.getElementById('aks');
     if (!aksTab) return;
     const passRows = aksTab.querySelectorAll('tr.aks-pass-row');
-    if (showAll) {
-        passRows.forEach(function(row) { row.style.display = 'none'; });
-        btn.setAttribute('data-show-all', 'false');
-        btn.textContent = 'Show All Checks';
-    } else {
-        passRows.forEach(function(row) { row.style.display = ''; });
-        btn.setAttribute('data-show-all', 'true');
-        btn.textContent = 'Show Failed Checks Only';
+    const showAll = mode === 'all';
+    passRows.forEach(function(row) {
+        row.style.display = showAll ? '' : 'none';
+    });
+
+    const failedBtn = document.getElementById('aksFilterFailed');
+    const allBtn = document.getElementById('aksFilterAll');
+    if (failedBtn) {
+        const active = mode === 'failed';
+        failedBtn.classList.toggle('is-active', active);
+        failedBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
+    if (allBtn) {
+        const active = mode === 'all';
+        allBtn.classList.toggle('is-active', active);
+        allBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+    if (aksTab) {
+        aksTab.setAttribute('data-aks-filter', mode);
+    }
+}
+
+function initializeAKSFilter() {
+    const aksTab = document.getElementById('aks');
+    if (!aksTab) return;
+    const initialMode = aksTab.getAttribute('data-aks-filter') || 'failed';
+    applyAKSFilter(initialMode);
+}
+
+window.setAKSFilter = function(mode) {
+    applyAKSFilter(mode === 'all' ? 'all' : 'failed');
 };

@@ -21,6 +21,11 @@ import (
 
 type ScanRenderer struct{}
 
+var (
+	inlineBacktickPattern   = regexp.MustCompile("`([^`]+)`")
+	inlineQuotedCodePattern = regexp.MustCompile(`'([^']+)'`)
+)
+
 type RenderOptions struct {
 	ExcludeNamespaces        bool
 	ExcludedNamespaces       []string
@@ -66,12 +71,12 @@ type reportSnapshot struct {
 func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	clusterName := reportClusterName(title, result)
 	snapshot := collectSnapshot(opts)
-	htmlChecks := legacyHTMLChecks(result.Checks)
+	htmlChecks := compatHTMLChecks(result.Checks)
 	pages, aksPage := buildPages(scan.Result{Checks: htmlChecks, AutomaticReadiness: result.AutomaticReadiness})
 	overviewChecks := overviewChecks(htmlChecks)
 	totalChecks := len(overviewChecks)
 	passedChecks := passedChecks(overviewChecks)
-	clusterScore := score(result.Checks)
+	clusterScore := score(htmlChecks)
 
 	var body strings.Builder
 	body.WriteString(`<div class="wrapper">`)
@@ -315,15 +320,15 @@ func renderNodesPage(page reportPage, snapshot reportSnapshot) string {
 
 func renderLegacyNodeSection(check scan.CheckResult, snapshot reportSnapshot) string {
 	var b strings.Builder
-	b.WriteString(`<div class='table-container'><h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(legacyNodeHeading(check)) + ` ` + headingTooltip(check) + `</h2>`)
-	b.WriteString(`<p>` + legacyNodeStatusLine(check) + `</p>`)
+	b.WriteString(`<div class='table-container'><h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatNodeHeading(check)) + ` ` + headingTooltip(check) + `</h2>`)
+	b.WriteString(`<p>` + compatNodeStatusLine(check) + `</p>`)
 	if check.ID == "PROM006" && strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient") {
 		b.WriteString(`<p>📅 ` + esc(check.SummaryMessage) + `</p>`)
 	}
 	if check.ID == "NODE003" || check.ID == "PROM006" {
 		b.WriteString(renderRecommendationDetails(check))
 	}
-	if legacyNodeTableNeeded(check, snapshot) {
+	if compatNodeTableNeeded(check, snapshot) {
 		b.WriteString(`<div class="collapsible-container"><details id='` + escAttr(check.ID) + `' style='margin:10px 0;'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show Findings</summary><div style='padding-top: 15px;'>`)
 		b.WriteString(renderLegacyNodeTable(check, snapshot))
 		b.WriteString(`</div></details></div>`)
@@ -344,7 +349,7 @@ func renderRecommendationDetails(check scan.CheckResult) string {
 		b.WriteString(`<div class="recommendation-content"><ul><li>` + esc(check.Recommendation) + `</li></ul></div>`)
 	}
 	if strings.TrimSpace(check.URL) != "" {
-		b.WriteString(`<div class="recommendation-content"><ul><li><strong>Docs:</strong> <a href='` + escAttr(check.URL) + `' target='_blank'>` + esc(legacyDocLabel(check.ID)) + `</a></li></ul></div>`)
+		b.WriteString(`<div class="recommendation-content"><ul><li><strong>Docs:</strong> <a href='` + escAttr(check.URL) + `' target='_blank'>` + esc(compatDocLabel(check.ID)) + `</a></li></ul></div>`)
 	}
 	b.WriteString(`</div><div style='height: 15px;'></div></div></details></div>`)
 	return b.String()
@@ -378,9 +383,9 @@ func renderLegacyNodeTable(check scan.CheckResult, snapshot reportSnapshot) stri
 			b.WriteString(`<tr><td>` + esc(resource) + `</td><td>` + esc(fmt.Sprintf("%d", count)) + `</td><td>` + esc(fmt.Sprintf("%d", capacity)) + `</td><td>` + esc(strings.TrimSpace(item.Value)) + `</td><td>80%</td><td>` + esc(item.Message) + `</td></tr>`)
 		}
 	case "PROM006":
-		if legacy, ok := check.LegacyItems.(map[string]any); ok {
+		if compat, ok := check.CompatItems.(map[string]any); ok {
 			b.WriteString(`<table><tr><th>Status</th><th>Required Days</th><th>Available Days</th><th>Message</th></tr>`)
-			b.WriteString(`<tr><td>` + esc(fmt.Sprint(legacy["Status"])) + `</td><td>` + esc(fmt.Sprint(legacy["Required Days"])) + `</td><td>` + esc(formatLegacyAvailableDays(legacy["Available Days"])) + `</td><td>` + esc(fmt.Sprint(legacy["Message"])) + `</td></tr>`)
+			b.WriteString(`<tr><td>` + esc(fmt.Sprint(compat["Status"])) + `</td><td>` + esc(fmt.Sprint(compat["Required Days"])) + `</td><td>` + esc(formatCompatAvailableDays(compat["Available Days"])) + `</td><td>` + esc(fmt.Sprint(compat["Message"])) + `</td></tr>`)
 			break
 		}
 		fallthrough
@@ -394,7 +399,7 @@ func renderLegacyNodeTable(check scan.CheckResult, snapshot reportSnapshot) stri
 	return b.String()
 }
 
-func legacyNodeTableNeeded(check scan.CheckResult, snapshot reportSnapshot) bool {
+func compatNodeTableNeeded(check scan.CheckResult, snapshot reportSnapshot) bool {
 	switch check.ID {
 	case "NODE001":
 		return len(snapshot.NodeObjects) > 0
@@ -405,7 +410,7 @@ func legacyNodeTableNeeded(check scan.CheckResult, snapshot reportSnapshot) bool
 	}
 }
 
-func legacyNodeHeading(check scan.CheckResult) string {
+func compatNodeHeading(check scan.CheckResult) string {
 	switch check.ID {
 	case "NODE002":
 		return check.Name + " (Last 24h)"
@@ -414,7 +419,7 @@ func legacyNodeHeading(check scan.CheckResult) string {
 	}
 }
 
-func legacyNodeStatusLine(check scan.CheckResult) string {
+func compatNodeStatusLine(check scan.CheckResult) string {
 	switch check.ID {
 	case "NODE003":
 		if check.Total > 0 {
@@ -452,7 +457,7 @@ func headingTooltip(check scan.CheckResult) string {
 	return `<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>` + text + `</span></span>`
 }
 
-func legacyDocLabel(id string) string {
+func compatDocLabel(id string) string {
 	switch id {
 	case "NODE003":
 		return "Kubernetes Nodes"
@@ -463,7 +468,7 @@ func legacyDocLabel(id string) string {
 	}
 }
 
-func legacyAKSCategoryID(name string) string {
+func compatAKSCategoryID(name string) string {
 	value := strings.TrimSpace(name)
 	if value == "" {
 		return "Unknown"
@@ -507,16 +512,16 @@ func buildNodePressureRows(snapshot reportSnapshot) []nodePressureRow {
 		memUsed := int(float64(memAlloc) * metrics.MemAvg / 100)
 		rows = append(rows, nodePressureRow{
 			Node:       metrics.NodeName,
-			CPUStatus:  legacyPressureStatus(metrics.CPUAvg, 50, 75),
+			CPUStatus:  compatPressureStatus(metrics.CPUAvg, 50, 75),
 			CPUPct:     fmt.Sprintf("%.2f%%", metrics.CPUAvg),
 			CPUUsed:    fmt.Sprintf("%d mC", cpuUsed),
 			CPUTotal:   fmt.Sprintf("%d mC", cpuAlloc),
-			MemStatus:  legacyPressureStatus(metrics.MemAvg, 50, 75),
+			MemStatus:  compatPressureStatus(metrics.MemAvg, 50, 75),
 			MemPct:     fmt.Sprintf("%.1f%%", metrics.MemAvg),
 			MemUsed:    fmt.Sprintf("%d Mi", memUsed),
 			MemTotal:   fmt.Sprintf("%d Mi", memAlloc),
 			DiskPct:    fmt.Sprintf("%.2f%%", metrics.DiskAvg),
-			DiskStatus: legacyPressureStatus(metrics.DiskAvg, 60, 80),
+			DiskStatus: compatPressureStatus(metrics.DiskAvg, 60, 80),
 		})
 	}
 	return rows
@@ -545,7 +550,7 @@ func allocatableMiB(node map[string]any) int {
 	return int(float64(value) / 1024)
 }
 
-func legacyPressureStatus(value float64, warning, critical float64) string {
+func compatPressureStatus(value float64, warning, critical float64) string {
 	switch {
 	case value > critical:
 		return "🔴 Critical"
@@ -645,7 +650,10 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 	b.WriteString(metricCard("default", "🎯 Score", fmt.Sprintf("%.2f%%", aksScore(passed, len(page.Checks)))))
 	b.WriteString(metricCard(ratingClass(rating), "⭐ Rating", rating))
 	b.WriteString(`</div><div class="table-container">`)
-	b.WriteString(`<div class="aks-filter-bar"><button class="aks-filter-btn" id="aksGlobalToggle" data-show-all="false" onclick="toggleAKSAllPassRows(this)">Show All Checks</button></div>`)
+	b.WriteString(`<div class="aks-filter-bar" role="group" aria-label="AKS check filter">`)
+	b.WriteString(`<button type="button" class="aks-filter-btn is-active" id="aksFilterFailed" data-filter-mode="failed" aria-pressed="true" onclick="setAKSFilter('failed')">Failed Checks Only</button>`)
+	b.WriteString(`<button type="button" class="aks-filter-btn" id="aksFilterAll" data-filter-mode="all" aria-pressed="false" onclick="setAKSFilter('all')">All Checks</button>`)
+	b.WriteString(`</div>`)
 	categories := groupByCategory(page.Checks)
 	for _, category := range categories {
 		// Sort: failed checks first, then alphabetically by ID
@@ -663,7 +671,7 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 				failures++
 			}
 		}
-		b.WriteString(`<div class="collapsible-container"><details id='aksCategory_` + escAttr(legacyAKSCategoryID(category.Name)) + `'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show ` + category.Name + ` (` + esc(fmt.Sprintf("%d/%d failed", failures, len(category.Checks))) + `)</summary><div style='padding-top: 15px;'>`)
+		b.WriteString(`<div class="collapsible-container"><details id='aksCategory_` + escAttr(compatAKSCategoryID(category.Name)) + `'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show ` + category.Name + ` (` + esc(fmt.Sprintf("%d/%d failed", failures, len(category.Checks))) + `)</summary><div style='padding-top: 15px;'>`)
 		b.WriteString(`<table><thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Observed Value</th><th>Fail Message</th><th>Recommendation</th><th>URL</th></tr></thead><tbody>`)
 		for _, check := range category.Checks {
 			status := "PASS"
@@ -678,7 +686,7 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 				failMessage = firstFindingMessage(check)
 				rowClass = ""
 			}
-			b.WriteString(`<tr` + rowClass + `><td>` + esc(check.ID) + `</td><td>` + esc(check.Name) + `</td><td>` + esc(check.Severity) + `</td><td>` + check.Category + `</td><td>` + icon + ` ` + status + `</td><td>` + esc(value) + `</td><td>` + esc(failMessage) + `</td><td>` + esc(check.Recommendation) + `</td><td>`)
+			b.WriteString(`<tr` + rowClass + `><td>` + esc(check.ID) + `</td><td>` + esc(check.Name) + `</td><td>` + esc(check.Severity) + `</td><td>` + check.Category + `</td><td>` + icon + ` ` + status + `</td><td>` + formatAKSCellText(value) + `</td><td>` + formatAKSCellText(failMessage) + `</td><td>` + renderAKSRecommendationCell(check) + `</td><td>`)
 			if strings.TrimSpace(check.URL) != "" {
 				b.WriteString(`<a href='` + escAttr(check.URL) + `' target='_blank'>Learn More</a>`)
 			}
@@ -747,6 +755,13 @@ func renderRightsizingAtGlance(result scan.Result, snapshot reportSnapshot) stri
 	return b.String()
 }
 
+func renderAKSRecommendationCell(check scan.CheckResult) string {
+	if strings.TrimSpace(check.RecommendationHTML) != "" {
+		return check.RecommendationHTML
+	}
+	return formatAKSCellText(check.Recommendation)
+}
+
 func renderCheckDetails(check scan.CheckResult) string {
 	var b strings.Builder
 	summaryText := fmt.Sprintf("Show %s - %s", check.ID, check.Name)
@@ -792,8 +807,8 @@ func renderCheckDetails(check scan.CheckResult) string {
 
 func renderLegacyStandardSection(check scan.CheckResult) string {
 	var b strings.Builder
-	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(legacyStandardHeading(check)) + ` ` + standardHeadingTooltip(check) + `</h2>`)
-	b.WriteString(`<p>` + legacyStandardStatusLine(check) + `</p>`)
+	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatStandardHeading(check)) + ` ` + standardHeadingTooltip(check) + `</h2>`)
+	b.WriteString(`<p>` + compatStandardStatusLine(check) + `</p>`)
 	if strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient prometheus history") {
 		b.WriteString(`<p>📅 ` + esc(check.SummaryMessage) + `</p>`)
 	}
@@ -801,7 +816,7 @@ func renderLegacyStandardSection(check scan.CheckResult) string {
 	if strings.TrimSpace(check.Recommendation) != "" || strings.TrimSpace(check.RecommendationHTML) != "" || strings.TrimSpace(check.URL) != "" {
 		b.WriteString(renderRecommendationDetails(check))
 	}
-	if legacyStandardHasFindings(check) {
+	if compatStandardHasFindings(check) {
 		b.WriteString(`<div class="collapsible-container"><details id='` + escAttr(check.ID) + `' style='margin:10px 0;'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show Findings</summary><div style='padding-top: 15px;'>`)
 		b.WriteString(renderLegacyStandardFindingsTable(check))
 		b.WriteString(`</div></details></div>`)
@@ -810,7 +825,7 @@ func renderLegacyStandardSection(check scan.CheckResult) string {
 	return b.String()
 }
 
-func legacyStandardHeading(check scan.CheckResult) string {
+func compatStandardHeading(check scan.CheckResult) string {
 	switch check.ID {
 	case "PROM004", "SC003":
 		if strings.Contains(check.Name, "(Prometheus)") {
@@ -822,13 +837,13 @@ func legacyStandardHeading(check scan.CheckResult) string {
 	}
 }
 
-func legacyStandardHasFindings(check scan.CheckResult) bool {
+func compatStandardHasFindings(check scan.CheckResult) bool {
 	if check.Total > 0 {
 		return true
 	}
 	switch check.ID {
 	case "PROM007":
-		return check.LegacyItems != nil
+		return check.CompatItems != nil
 	default:
 		return false
 	}
@@ -842,7 +857,7 @@ func standardHeadingTooltip(check scan.CheckResult) string {
 	return `<span class='tooltip'><span class='info-icon'>i</span><span class='tooltip-text'>` + esc(text) + `</span></span>`
 }
 
-func legacyStandardStatusLine(check scan.CheckResult) string {
+func compatStandardStatusLine(check scan.CheckResult) string {
 	label := statusSubject(check)
 	if check.Total == 0 {
 		return `✅ All ` + esc(label) + ` are healthy.`
@@ -933,9 +948,9 @@ func renderLegacyStandardFindingsTable(check scan.CheckResult) string {
 		b.WriteString(`</table>`)
 		return b.String()
 	case "PROM007":
-		if legacy, ok := check.LegacyItems.(map[string]any); ok {
+		if compat, ok := check.CompatItems.(map[string]any); ok {
 			b.WriteString(`<table><tr><th>Status</th><th>Required Days</th><th>Available Days</th><th>Message</th></tr>`)
-			b.WriteString(`<tr><td>` + esc(fmt.Sprint(legacy["Status"])) + `</td><td>` + esc(fmt.Sprint(legacy["Required Days"])) + `</td><td>` + esc(formatLegacyAvailableDays(legacy["Available Days"])) + `</td><td>` + esc(fmt.Sprint(legacy["Message"])) + `</td></tr>`)
+			b.WriteString(`<tr><td>` + esc(fmt.Sprint(compat["Status"])) + `</td><td>` + esc(fmt.Sprint(compat["Required Days"])) + `</td><td>` + esc(formatCompatAvailableDays(compat["Available Days"])) + `</td><td>` + esc(fmt.Sprint(compat["Message"])) + `</td></tr>`)
 			b.WriteString(`</table>`)
 			return b.String()
 		}
@@ -998,7 +1013,7 @@ func formatWithCommas(value float64) string {
 	return sign + intPart + frac
 }
 
-func formatLegacyAvailableDays(value any) string {
+func formatCompatAvailableDays(value any) string {
 	switch raw := value.(type) {
 	case float64:
 		return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", raw), "0"), ".")
@@ -1329,8 +1344,8 @@ func topImprovements(checks []scan.CheckResult, limit int) []improvement {
 		if improvements[i].GainPoints != improvements[j].GainPoints {
 			return improvements[i].GainPoints > improvements[j].GainPoints
 		}
-		leftSection := legacySectionRank(improvements[i].Check.Section)
-		rightSection := legacySectionRank(improvements[j].Check.Section)
+		leftSection := compatSectionRank(improvements[i].Check.Section)
+		rightSection := compatSectionRank(improvements[j].Check.Section)
 		if leftSection != rightSection {
 			return leftSection < rightSection
 		}
@@ -1348,7 +1363,7 @@ func topImprovements(checks []scan.CheckResult, limit int) []improvement {
 	return improvements
 }
 
-func legacySectionRank(section string) int {
+func compatSectionRank(section string) int {
 	switch strings.TrimSpace(section) {
 	case "Workloads":
 		return 1
@@ -1386,15 +1401,15 @@ func overviewChecks(checks []scan.CheckResult) []scan.CheckResult {
 	return filtered
 }
 
-type legacyHTMLOverride struct {
+type compatHTMLOverride struct {
 	Name     string
 	Severity string
 	Weight   int
 	Total    *int
 }
 
-func legacyHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {
-	baseOverrides := map[string]legacyHTMLOverride{
+func compatHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {
+	baseOverrides := map[string]compatHTMLOverride{
 		"NET004":  {Severity: "warning", Weight: 3},
 		"NET005":  {Severity: "critical", Weight: 5},
 		"NET007":  {Severity: "critical", Weight: 4},
@@ -1414,7 +1429,7 @@ func legacyHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {
 		"WRK010":  {Severity: "warning", Weight: 3},
 		"WRK015":  {Severity: "warning", Weight: 3},
 	}
-	duplicateOverrides := map[string]legacyHTMLOverride{
+	duplicateOverrides := map[string]compatHTMLOverride{
 		"SC002":  {Name: "StorageClass Prevents Volume Expansion", Severity: "critical", Weight: 4, Total: intPtr(0)},
 		"SEC015": {Name: "Host Ports in Pod Specs", Severity: "critical", Weight: 4, Total: intPtr(0)},
 		"SEC016": {Name: "Unconfined Seccomp Profiles", Severity: "critical", Weight: 4, Total: intPtr(0)},
@@ -1425,17 +1440,17 @@ func legacyHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {
 	for _, check := range checks {
 		current := check
 		if override, ok := baseOverrides[current.ID]; ok {
-			current = applyLegacyHTMLOverride(current, override)
+			current = applyCompatHTMLOverride(current, override)
 		}
 		out = append(out, current)
 		if override, ok := duplicateOverrides[current.ID]; ok {
-			out = append(out, applyLegacyHTMLOverride(current, override))
+			out = append(out, applyCompatHTMLOverride(current, override))
 		}
 	}
 	return out
 }
 
-func applyLegacyHTMLOverride(check scan.CheckResult, override legacyHTMLOverride) scan.CheckResult {
+func applyCompatHTMLOverride(check scan.CheckResult, override compatHTMLOverride) scan.CheckResult {
 	out := check
 	if strings.TrimSpace(override.Name) != "" {
 		out.Name = override.Name
@@ -1968,6 +1983,77 @@ func slug(value string) string {
 	value = strings.ReplaceAll(value, "&", "and")
 	value = strings.ReplaceAll(value, " ", "-")
 	return value
+}
+
+func formatAKSCellText(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	type span struct {
+		start int
+		end   int
+		code  string
+	}
+	spans := make([]span, 0)
+	for _, match := range inlineBacktickPattern.FindAllStringSubmatchIndex(value, -1) {
+		if len(match) < 4 {
+			continue
+		}
+		spans = append(spans, span{
+			start: match[0],
+			end:   match[1],
+			code:  value[match[2]:match[3]],
+		})
+	}
+	for _, match := range inlineQuotedCodePattern.FindAllStringSubmatchIndex(value, -1) {
+		if len(match) < 4 {
+			continue
+		}
+		code := value[match[2]:match[3]]
+		if !looksLikeCode(code) {
+			continue
+		}
+		spans = append(spans, span{
+			start: match[0],
+			end:   match[1],
+			code:  code,
+		})
+	}
+	if len(spans) == 0 {
+		return esc(value)
+	}
+	sort.Slice(spans, func(i, j int) bool { return spans[i].start < spans[j].start })
+	var b strings.Builder
+	cursor := 0
+	for _, sp := range spans {
+		if sp.start < cursor {
+			continue
+		}
+		b.WriteString(esc(value[cursor:sp.start]))
+		b.WriteString(`<code class="aks-inline-code">` + esc(sp.code) + `</code>`)
+		cursor = sp.end
+	}
+	if cursor < len(value) {
+		b.WriteString(esc(value[cursor:]))
+	}
+	return b.String()
+}
+
+func looksLikeCode(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	return strings.Contains(value, "--") ||
+		strings.Contains(value, "<") ||
+		strings.Contains(value, ">") ||
+		strings.Contains(value, "_") ||
+		strings.HasPrefix(value, "az ") ||
+		strings.HasPrefix(value, "kubectl ") ||
+		strings.HasPrefix(value, "helm ") ||
+		strings.HasPrefix(value, "terraform ") ||
+		strings.HasPrefix(value, "/")
 }
 
 func esc(value string) string {

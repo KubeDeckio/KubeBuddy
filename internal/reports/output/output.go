@@ -126,7 +126,7 @@ func buildJSONEnvelope(result scan.Result, metadata Metadata) jsonEnvelope {
 	resolved := resolveMetadata(metadata, result)
 	checks := make(map[string]jsonCheckResult, len(result.Checks))
 	for _, check := range orderedReportChecks(result.Checks) {
-		checks[check.ID] = buildLegacyCheckResult(check, resolved.Metrics)
+		checks[check.ID] = buildCompatCheckResult(check, resolved.Metrics)
 	}
 
 	envelope := jsonEnvelope{
@@ -182,17 +182,17 @@ func resolveMetadata(metadata Metadata, result scan.Result) Metadata {
 	return resolved
 }
 
-func buildLegacyCheckResult(check scan.CheckResult, metrics any) jsonCheckResult {
+func buildCompatCheckResult(check scan.CheckResult, metrics any) jsonCheckResult {
 	total := check.Total
-	if check.ID == "NODE002" && total == 0 {
-		total = legacyNODE002IssueCount(metrics)
+	if check.ID == "NODE002" {
+		total = compatNode002IssueCount(metrics)
 	}
 	out := jsonCheckResult{
 		ID:                         check.ID,
 		Name:                       check.Name,
 		Category:                   check.Category,
 		Section:                    check.Section,
-		Severity:                   legacySeverity(check),
+		Severity:                   compatSeverity(check),
 		Weight:                     check.Weight,
 		Description:                check.Description,
 		Recommendation:             recommendationPayload(check),
@@ -204,7 +204,7 @@ func buildLegacyCheckResult(check scan.CheckResult, metrics any) jsonCheckResult
 		AutomaticAdmissionBehavior: nilIfEmpty(check.AutomaticAdmissionBehavior),
 		AutomaticMutationOutcome:   nilIfEmpty(check.AutomaticMutationOutcome),
 		Total:                      total,
-		Items:                      legacyItems(check, metrics),
+		Items:                      compatItems(check, metrics),
 	}
 	if strings.HasPrefix(check.ID, "AKS") {
 		out.ResourceKind = ""
@@ -234,41 +234,42 @@ func buildLegacyCheckResult(check scan.CheckResult, metrics any) jsonCheckResult
 }
 
 func recommendationPayload(check scan.CheckResult) any {
-	if strings.TrimSpace(check.Recommendation) == "" && strings.TrimSpace(check.RecommendationHTML) == "" {
+	if strings.TrimSpace(check.Recommendation) == "" && strings.TrimSpace(check.RecommendationHTML) == "" && len(check.SpeechBubble) == 0 {
 		return nil
 	}
 	if strings.HasPrefix(check.ID, "AKS") {
 		return strings.TrimSpace(check.Recommendation)
 	}
 	return &jsonRecommendation{
-		Text: strings.TrimSpace(check.Recommendation),
-		HTML: strings.TrimSpace(check.RecommendationHTML),
+		Text:         strings.TrimSpace(check.Recommendation),
+		HTML:         strings.TrimSpace(check.RecommendationHTML),
+		SpeechBubble: append([]string(nil), check.SpeechBubble...),
 	}
 }
 
-func legacyItems(check scan.CheckResult, metrics any) any {
-	if check.LegacyItems != nil {
-		return check.LegacyItems
+func compatItems(check scan.CheckResult, metrics any) any {
+	if check.CompatItems != nil {
+		return check.CompatItems
 	}
 	switch check.ID {
 	case "NODE001":
-		return legacyNODE001Items(check)
+		return compatNode001Items(check)
 	case "NODE002":
-		return legacyNODE002Items(metrics)
+		return compatNode002Items(metrics)
 	case "NODE003":
-		return legacyNODE003Items(check)
+		return compatNode003Items(check)
 	case "PROM003":
-		return legacyPROM003Items(check)
+		return compatPROM003Items(check)
 	case "NS001":
-		return legacyNS001Items(check)
+		return compatNS001Items(check)
 	case "NS002":
-		return legacySimpleNamespaceIssueItems(check)
+		return compatSimpleNamespaceIssueItems(check)
 	case "NS003":
-		return legacySimpleNamespaceIssueItems(check)
+		return compatSimpleNamespaceIssueItems(check)
 	case "RBAC002":
-		return legacyRBACItems(check)
+		return compatRBACItems(check)
 	case "SEC007":
-		return legacySEC007Items(check)
+		return compatSEC007Items(check)
 	}
 	if len(check.Items) == 0 {
 		if strings.HasPrefix(check.ID, "AKS") {
@@ -325,7 +326,7 @@ func stringPtr(value string) *string {
 	return &value
 }
 
-func legacyPROM003Items(check scan.CheckResult) any {
+func compatPROM003Items(check scan.CheckResult) any {
 	items := make([]map[string]any, 0, len(check.Items))
 	for _, item := range check.Items {
 		name := strings.TrimPrefix(item.Resource, "pod/")
@@ -338,7 +339,7 @@ func legacyPROM003Items(check scan.CheckResult) any {
 	return items
 }
 
-func legacyNODE001Items(check scan.CheckResult) any {
+func compatNode001Items(check scan.CheckResult) any {
 	names := clusterNodeNames()
 	items := make([]map[string]any, 0, len(names))
 	for _, name := range names {
@@ -364,7 +365,7 @@ func legacyNODE001Items(check scan.CheckResult) any {
 	return items
 }
 
-func legacyNODE002Items(metrics any) any {
+func compatNode002Items(metrics any) any {
 	items := make([]map[string]any, 0)
 	for _, metric := range extractNodeMetrics(metrics) {
 		cpuAvg := nodeMetricFloat(metric["cpuAvg"])
@@ -376,42 +377,36 @@ func legacyNODE002Items(metrics any) any {
 		memUsed := int(float64(memTotal) * memAvg / 100)
 		items = append(items, map[string]any{
 			"Node":           metric["nodeName"],
-			"CPU Status":     legacyPressureStatus(cpuAvg, 50, 75),
+			"CPU Status":     compatPressureStatus(cpuAvg, 50, 75),
 			"CPU %":          fmt.Sprintf("%.2f%%", cpuAvg),
 			"CPU Used":       fmt.Sprintf("%d mC", cpuUsed),
 			"CPU Total":      fmt.Sprintf("%d mC", cpuTotal),
-			"Mem Status":     legacyPressureStatus(memAvg, 50, 75),
+			"Mem Status":     compatPressureStatus(memAvg, 50, 75),
 			"Mem %":          fmt.Sprintf("%.2f%%", memAvg),
 			"Mem Used":       fmt.Sprintf("%d Mi", memUsed),
 			"Mem Total":      fmt.Sprintf("%d Mi", memTotal),
 			"Disk %":         fmt.Sprintf("%.2f%%", diskAvg),
-			"Disk Status":    legacyPressureStatus(diskAvg, 60, 80),
+			"Disk Status":    compatPressureStatus(diskAvg, 60, 80),
 			"UsedPrometheus": true,
 		})
 	}
 	return items
 }
 
-func legacyNODE002IssueCount(metrics any) int {
+func compatNode002IssueCount(metrics any) int {
 	count := 0
 	for _, metric := range extractNodeMetrics(metrics) {
 		cpuAvg := nodeMetricFloat(metric["cpuAvg"])
 		memAvg := nodeMetricFloat(metric["memAvg"])
 		diskAvg := nodeMetricFloat(metric["diskAvg"])
-		if cpuAvg > 50 {
-			count++
-		}
-		if memAvg > 50 {
-			count++
-		}
-		if diskAvg > 60 {
+		if cpuAvg > 50 || memAvg > 50 || diskAvg > 60 {
 			count++
 		}
 	}
 	return count
 }
 
-func legacyPressureStatus(value, warn, crit float64) string {
+func compatPressureStatus(value, warn, crit float64) string {
 	switch {
 	case value > crit:
 		return "🔴 Critical"
@@ -422,7 +417,7 @@ func legacyPressureStatus(value, warn, crit float64) string {
 	}
 }
 
-func legacyNODE003Items(check scan.CheckResult) any {
+func compatNode003Items(check scan.CheckResult) any {
 	items := make([]map[string]any, 0, len(check.Items))
 	for _, item := range check.Items {
 		items = append(items, map[string]any{
@@ -435,7 +430,7 @@ func legacyNODE003Items(check scan.CheckResult) any {
 	return items
 }
 
-func legacyNS001Items(check scan.CheckResult) any {
+func compatNS001Items(check scan.CheckResult) any {
 	items := make([]map[string]any, 0, len(check.Items))
 	for _, item := range check.Items {
 		items = append(items, map[string]any{
@@ -447,7 +442,7 @@ func legacyNS001Items(check scan.CheckResult) any {
 	return items
 }
 
-func legacySimpleNamespaceIssueItems(check scan.CheckResult) any {
+func compatSimpleNamespaceIssueItems(check scan.CheckResult) any {
 	items := make([]map[string]any, 0, len(check.Items))
 	for _, item := range check.Items {
 		items = append(items, map[string]any{
@@ -458,7 +453,7 @@ func legacySimpleNamespaceIssueItems(check scan.CheckResult) any {
 	return items
 }
 
-func legacyRBACItems(check scan.CheckResult) any {
+func compatRBACItems(check scan.CheckResult) any {
 	items := make([]map[string]any, 0, len(check.Items))
 	for _, item := range check.Items {
 		resource := item.Resource
@@ -475,7 +470,7 @@ func legacyRBACItems(check scan.CheckResult) any {
 	return items
 }
 
-func legacySEC007Items(check scan.CheckResult) any {
+func compatSEC007Items(check scan.CheckResult) any {
 	if len(check.Items) == 0 {
 		return nil
 	}
@@ -613,7 +608,7 @@ func formatWithCommas(value float64) string {
 	return sign + intPart + frac
 }
 
-func legacySeverity(check scan.CheckResult) string {
+func compatSeverity(check scan.CheckResult) string {
 	if strings.HasPrefix(check.ID, "AKS") {
 		return check.Severity
 	}
@@ -760,51 +755,68 @@ func writeText(w io.Writer, result scan.Result, metadata Metadata) error {
 	if err := writeClusterSummaryText(w, resolved); err != nil {
 		return err
 	}
+	if err := writeLine(""); err != nil {
+		return err
+	}
+	issues := issueSummary(result.Checks)
+	if err := writeLine("=== Issue Summary ==="); err != nil {
+		return err
+	}
+	if err := writeLine("Critical issues: %d", issues.Critical); err != nil {
+		return err
+	}
+	if err := writeLine("Warning issues:  %d", issues.Warning); err != nil {
+		return err
+	}
+	if err := writeLine("Info issues:     %d", issues.Info); err != nil {
+		return err
+	}
+	if err := writeLine(""); err != nil {
+		return err
+	}
+	if err := writeLine("=== Check Results ==="); err != nil {
+		return err
+	}
 
 	for _, check := range orderedReportChecks(result.Checks) {
-		legacy := buildLegacyCheckResult(check, resolved.Metrics)
+		compat := buildCompatCheckResult(check, resolved.Metrics)
 		if err := writeLine(""); err != nil {
 			return err
 		}
-		if err := writeLine("[%s - %s]", legacy.ID, legacy.Name); err != nil {
+		if err := writeLine("%s - %s", compat.ID, compat.Name); err != nil {
 			return err
 		}
-		if strings.TrimSpace(legacy.Section) != "" {
-			if err := writeLine("Section: %s", legacy.Section); err != nil {
+		if err := writeLine("⚠️ Total Issues: %d", compat.Total); err != nil {
+			return err
+		}
+		if compat.Total == 0 {
+			if err := writeLine("✅ No issues detected for %s.", compat.Name); err != nil {
+				return err
+			}
+		} else {
+			for _, line := range compatTextLines(compat) {
+				if err := writeLine("- %s", line); err != nil {
+					return err
+				}
+			}
+		}
+		if strings.TrimSpace(compat.Category) != "" {
+			if err := writeLine("Category: %s", compat.Category); err != nil {
 				return err
 			}
 		}
-		if strings.TrimSpace(legacy.Category) != "" {
-			if err := writeLine("Category: %s", legacy.Category); err != nil {
+		if strings.TrimSpace(compat.Severity) != "" {
+			if err := writeLine("Severity: %s", compat.Severity); err != nil {
 				return err
 			}
 		}
-		if strings.TrimSpace(legacy.Severity) != "" {
-			if err := writeLine("Severity: %s", legacy.Severity); err != nil {
-				return err
-			}
-		}
-		if recommendation := legacyRecommendationText(legacy.Recommendation); recommendation != "" {
+		if recommendation := compatRecommendationText(compat.Recommendation); recommendation != "" {
 			if err := writeLine("Recommendation: %s", recommendation); err != nil {
 				return err
 			}
 		}
-		if strings.TrimSpace(legacy.URL) != "" {
-			if err := writeLine("URL: %s", legacy.URL); err != nil {
-				return err
-			}
-		}
-		if legacy.Total == 0 {
-			if err := writeLine("✅ No issues detected for %s.", legacy.Name); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := writeLine("⚠️ Total Issues: %d", legacy.Total); err != nil {
-			return err
-		}
-		for _, line := range legacyTextLines(legacy) {
-			if err := writeLine("- %s", line); err != nil {
+		if strings.TrimSpace(compat.URL) != "" {
+			if err := writeLine("URL: %s", compat.URL); err != nil {
 				return err
 			}
 		}
@@ -846,21 +858,21 @@ func writeCSV(w io.Writer, result scan.Result, metadata Metadata) error {
 		return err
 	}
 	for _, check := range orderedReportChecks(result.Checks) {
-		legacy := buildLegacyCheckResult(check, resolved.Metrics)
+		compat := buildCompatCheckResult(check, resolved.Metrics)
 		status := "PASS"
-		if legacy.Total > 0 {
+		if compat.Total > 0 {
 			status = "FAIL"
 		}
-		recommendation := legacyRecommendationText(legacy.Recommendation)
-		url := strings.TrimSpace(legacy.URL)
-		if legacy.Total == 0 {
-			if _, err := io.WriteString(w, csvLine([]string{legacy.ID, legacy.Name, legacy.Category, legacy.Severity, status, textSanitize(firstNonEmpty(legacy.Message, checkMessage(check))), recommendation, url})); err != nil {
+		recommendation := compatRecommendationText(compat.Recommendation)
+		url := strings.TrimSpace(compat.URL)
+		if compat.Total == 0 {
+			if _, err := io.WriteString(w, csvLine([]string{compat.ID, compat.Name, compat.Category, compat.Severity, status, textSanitize(firstNonEmpty(compat.Message, checkMessage(check))), recommendation, url})); err != nil {
 				return err
 			}
 			continue
 		}
-		for _, line := range legacyCSVLines(legacy) {
-			if _, err := io.WriteString(w, csvLine([]string{legacy.ID, legacy.Name, legacy.Category, legacy.Severity, status, line, recommendation, url})); err != nil {
+		for _, line := range compatCSVLines(compat) {
+			if _, err := io.WriteString(w, csvLine([]string{compat.ID, compat.Name, compat.Category, compat.Severity, status, line, recommendation, url})); err != nil {
 				return err
 			}
 		}
@@ -918,7 +930,7 @@ func writeClusterSummaryText(w io.Writer, metadata Metadata) error {
 			}
 		}
 		if metricsSummary := clusterMetricsSummaryText(metadata.Snapshot); metricsSummary != "" {
-			if _, err := fmt.Fprintf(w, "\nMetrics: %s\n", metricsSummary); err != nil {
+			if _, err := fmt.Fprintf(w, "\nMetrics: \n%s\n", metricsSummary); err != nil {
 				return err
 			}
 		}
@@ -956,6 +968,30 @@ func writeClusterSummaryText(w io.Writer, metadata Metadata) error {
 	return nil
 }
 
+type textIssueSummary struct {
+	Critical int
+	Warning  int
+	Info     int
+}
+
+func issueSummary(checks []scan.CheckResult) textIssueSummary {
+	var out textIssueSummary
+	for _, check := range checks {
+		if check.Total == 0 {
+			continue
+		}
+		switch compatSeverity(check) {
+		case "critical":
+			out.Critical++
+		case "warning":
+			out.Warning++
+		default:
+			out.Info++
+		}
+	}
+	return out
+}
+
 func textTimestamp(raw string) string {
 	if strings.TrimSpace(raw) == "" {
 		return time.Now().Format("01/02/2006 15:04:05")
@@ -967,8 +1003,8 @@ func textTimestamp(raw string) string {
 }
 
 func textItemLines(check scan.CheckResult) []string {
-	if check.LegacyItems != nil {
-		return flattenLegacyItems(check.LegacyItems)
+	if check.CompatItems != nil {
+		return flattenCompatItems(check.CompatItems)
 	}
 	lines := make([]string, 0, len(check.Items))
 	for _, item := range check.Items {
@@ -994,8 +1030,8 @@ func csvMessages(check scan.CheckResult) []string {
 	if check.Total == 0 {
 		return []string{textSanitize(checkMessage(check))}
 	}
-	if check.LegacyItems != nil {
-		return flattenLegacyItems(check.LegacyItems)
+	if check.CompatItems != nil {
+		return flattenCompatItems(check.CompatItems)
 	}
 	messages := make([]string, 0, len(check.Items))
 	for _, item := range check.Items {
@@ -1020,7 +1056,7 @@ func csvMessages(check scan.CheckResult) []string {
 	return messages
 }
 
-func legacyRecommendationText(value any) string {
+func compatRecommendationText(value any) string {
 	switch v := value.(type) {
 	case nil:
 		return ""
@@ -1035,11 +1071,11 @@ func legacyRecommendationText(value any) string {
 	}
 }
 
-func legacyTextLines(check jsonCheckResult) []string {
-	return flattenLegacyItems(check.Items)
+func compatTextLines(check jsonCheckResult) []string {
+	return flattenCompatItems(check.Items)
 }
 
-func legacyCSVLines(check jsonCheckResult) []string {
+func compatCSVLines(check jsonCheckResult) []string {
 	switch check.ID {
 	case "EVENT001":
 		lines := make([]string, 0)
@@ -1066,7 +1102,7 @@ func legacyCSVLines(check jsonCheckResult) []string {
 			return lines
 		}
 	}
-	return flattenLegacyItems(check.Items)
+	return flattenCompatItems(check.Items)
 }
 
 func flattenLegacyMaps(value any) []map[string]any {
@@ -1230,7 +1266,26 @@ func clusterMetricsSummaryText(snapshot *kubernetes.ClusterData) string {
 	if snapshot == nil || snapshot.Metrics == nil {
 		return ""
 	}
-	return fmt.Sprintf("Avg CPU Usage: %.2f%% | Avg Memory Usage: %.2f%%", snapshot.Metrics.Cluster.AvgCPUPercent, snapshot.Metrics.Cluster.AvgMemPercent)
+	stats := computeTextSummaryStats(snapshot)
+	var b strings.Builder
+	line := strings.Repeat("-", 90)
+	b.WriteString("📊 Cluster Metrics Summary\n")
+	b.WriteString(line + "\n")
+	b.WriteString(fmt.Sprintf("🚀 Nodes:%20d   🟩 Healthy:%15d   🟥 Issues:%19d\n", len(snapshot.Nodes), stats.HealthyNodes, stats.IssueNodes))
+	b.WriteString(fmt.Sprintf("📦 Pods:%21d   🟩 Running:%15d   🟥 Failed:%19d\n", len(stats.Pods), stats.RunningPods, stats.FailedPods))
+	b.WriteString(fmt.Sprintf("🔄 Restarts:%17d   🟨 Warnings:%15d   🟥 Critical:%16d\n", stats.TotalRestarts, stats.WarningRestarts, stats.CriticalRestarts))
+	b.WriteString(fmt.Sprintf("⏳ Pending Pods:%14d   🟡 Waiting:%15d\n", stats.PendingPods, stats.PendingPods))
+	b.WriteString(fmt.Sprintf("⚠️ Stuck Pods:%16d   ❌ Stuck:%17d\n", stats.StuckPods, stats.StuckPods))
+	b.WriteString(fmt.Sprintf("📉 Job Failures:%12d   🔴 Failed:%17d\n", stats.FailedJobs, stats.FailedJobs))
+	b.WriteString(line + "\n\n")
+	b.WriteString(fmt.Sprintf("📊 Pod Distribution: Avg: %d | Max: %d | Min: %d | Total Nodes: %d\n\n", int(stats.AvgPods+0.5), stats.MaxPods, stats.MinPods, maxInt(1, len(stats.NodePodCounts))))
+	b.WriteString("\n💾 Resource Usage\n")
+	b.WriteString(line + "\n")
+	b.WriteString(fmt.Sprintf("🕒 Resource usage snapshot at: %s\n\n", time.Now().UTC().Format("2006-01-02 15:04 UTC")))
+	b.WriteString(fmt.Sprintf("🖥  CPU Usage:%16s        %s\n", fmt.Sprintf("%.2f%%", snapshot.Metrics.Cluster.AvgCPUPercent), pressureBadge(snapshot.Metrics.Cluster.AvgCPUPercent, 50, 75)))
+	b.WriteString(fmt.Sprintf("💾 Memory Usage:%13s        %s\n", fmt.Sprintf("%.1f%%", snapshot.Metrics.Cluster.AvgMemPercent), pressureBadge(snapshot.Metrics.Cluster.AvgMemPercent, 50, 75)))
+	b.WriteString(line)
+	return strings.TrimRight(b.String(), "\n")
 }
 
 func eventCounts(snapshot *kubernetes.ClusterData) (int, int) {
@@ -1250,6 +1305,151 @@ func eventCounts(snapshot *kubernetes.ClusterData) (int, int) {
 		}
 	}
 	return errorCount, warningCount
+}
+
+type textSummaryStats struct {
+	HealthyNodes     int
+	IssueNodes       int
+	Pods             []map[string]any
+	RunningPods      int
+	FailedPods       int
+	TotalRestarts    int
+	WarningRestarts  int
+	CriticalRestarts int
+	PendingPods      int
+	StuckPods        int
+	FailedJobs       int
+	AvgPods          float64
+	MaxPods          int
+	MinPods          int
+	NodePodCounts    map[string]int
+}
+
+func computeTextSummaryStats(snapshot *kubernetes.ClusterData) textSummaryStats {
+	stats := textSummaryStats{MinPods: -1, NodePodCounts: map[string]int{}}
+	pods := snapshot.AllPods
+	if len(pods) == 0 {
+		pods = snapshot.Pods
+	}
+	stats.Pods = pods
+	jobs := snapshot.AllJobs
+	if len(jobs) == 0 {
+		jobs = snapshot.Jobs
+	}
+	for _, node := range snapshot.Nodes {
+		if textNodeReady(node) {
+			stats.HealthyNodes++
+		}
+	}
+	stats.IssueNodes = len(snapshot.Nodes) - stats.HealthyNodes
+	for _, pod := range pods {
+		phase := lookupValueString(pod, "status.phase")
+		switch phase {
+		case "Running":
+			stats.RunningPods++
+		case "Failed":
+			stats.FailedPods++
+		case "Pending":
+			stats.PendingPods++
+		}
+		restarts := textPodRestartCounts(pod)
+		stats.TotalRestarts += restarts
+		if restarts >= 3 {
+			stats.WarningRestarts++
+		}
+		if restarts >= 5 {
+			stats.CriticalRestarts++
+		}
+		if textPodIsStuck(pod) {
+			stats.StuckPods++
+		}
+		nodeName := lookupValueString(pod, "spec.nodeName")
+		if nodeName != "" {
+			stats.NodePodCounts[nodeName]++
+		}
+	}
+	totalPods := 0
+	for _, count := range stats.NodePodCounts {
+		totalPods += count
+		if count > stats.MaxPods {
+			stats.MaxPods = count
+		}
+		if stats.MinPods == -1 || count < stats.MinPods {
+			stats.MinPods = count
+		}
+	}
+	if len(stats.NodePodCounts) > 0 {
+		stats.AvgPods = float64(totalPods) / float64(len(stats.NodePodCounts))
+	}
+	if stats.MinPods < 0 {
+		stats.MinPods = 0
+	}
+	for _, job := range jobs {
+		if nodeMetricInt(resolveValue(job, "status.failed")) > 0 {
+			stats.FailedJobs++
+		}
+	}
+	return stats
+}
+
+func lookupValueString(item map[string]any, path string) string {
+	return strings.TrimSpace(fmt.Sprint(resolveValue(item, path)))
+}
+
+func textNodeReady(node map[string]any) bool {
+	conditions, _ := resolveValue(node, "status.conditions").([]any)
+	for _, raw := range conditions {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if lookupValueString(item, "type") == "Ready" && lookupValueString(item, "status") == "True" {
+			return true
+		}
+	}
+	return false
+}
+
+func textPodRestartCounts(pod map[string]any) int {
+	statuses, _ := resolveValue(pod, "status.containerStatuses").([]any)
+	total := 0
+	for _, raw := range statuses {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		total += nodeMetricInt(item["restartCount"])
+	}
+	return total
+}
+
+func textPodIsStuck(pod map[string]any) bool {
+	if lookupValueString(pod, "status.phase") == "Pending" {
+		return true
+	}
+	statuses, _ := resolveValue(pod, "status.containerStatuses").([]any)
+	for _, raw := range statuses {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		reason := lookupValueString(item, "state.waiting.reason")
+		if strings.Contains(reason, "CrashLoopBackOff") || strings.Contains(reason, "ImagePullBackOff") || strings.Contains(reason, "ContainersNotReady") || strings.Contains(reason, "PodInitializing") {
+			return true
+		}
+	}
+	return false
+}
+
+func pressureBadge(value, warn, crit float64) string {
+	switch {
+	case value >= crit:
+		return "🟥 Critical"
+	case value >= warn:
+		return "🟨 Warning"
+	default:
+		return "🟩 Normal"
+	}
 }
 
 func resolveValue(item map[string]any, path string) any {
@@ -1299,7 +1499,7 @@ func trimFloat(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
-func flattenLegacyItems(value any) []string {
+func flattenCompatItems(value any) []string {
 	switch items := value.(type) {
 	case []map[string]any:
 		out := make([]string, 0, len(items))

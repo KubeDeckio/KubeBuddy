@@ -1,189 +1,149 @@
 checks:
-  - id: PROM001
-    name: High CPU Pods (Prometheus)
-    category: Performance
-    section: Pods
-    resource_kind: Pod
-    severity: Warning
-    weight: 3
-    description: Checks for pods with sustained high CPU usage over the last 24 hours using Prometheus metrics.
-    fail_message: Some pods show high sustained CPU usage.
-    recommendation: Investigate high CPU usage pods. Adjust limits or optimize workloads.
-    recommendation_html: |
-      <div class="recommendation-content">
-        <h4>🛠️ Investigate High CPU Pods</h4>
-        <ul>
-          <li>Use <code>kubectl top pod</code> to see real-time CPU usage.</li>
-          <li>Review app code or HPA settings for misbehaving containers.</li>
-          <li>Consider raising CPU requests/limits or scaling out.</li>
-        </ul>
-      </div>
-    url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
-    prometheus:
-      query: sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)
-      range:
-        step: 5m
-        duration: 24h
-    operator: greater_than
-    expected: cpu_critical
-
-  - id: PROM002
-    name: High Memory Usage Pods (Prometheus)
-    category: Performance
-    section: Pods
-    resource_kind: Pod
-    severity: Warning
-    weight: 3
-    description: Detects pods with high memory usage over the last 24 hours based on Prometheus metrics.
-    fail_message: Some pods are consistently using high memory.
-    recommendation: Review memory usage and consider tuning container memory limits.
-    recommendation_html: |
-      <div class="recommendation-content">
-        <h4>🛠️ Investigate High Memory Pods</h4>
-        <ul>
-          <li>Use <code>kubectl top pod</code> to review memory usage.</li>
-          <li>Adjust <code>resources.limits.memory</code> appropriately.</li>
-        </ul>
-      </div>
-    url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-    prometheus:
-      query: sum(container_memory_usage_bytes{container!="",pod!=""}) by (pod)
-      range:
-        step: 5m
-        duration: 24h
-    operator: greater_than
-    expected: 5e+08
-
-  - id: PROM003
-    name: High Network Receive Rate (Prometheus)
-    category: Networking
-    section: Pods
-    resource_kind: Pod
-    severity: Warning
-    weight: 2
-    description: Detects pods receiving large amounts of network traffic over the last 24 hours.
-    fail_message: Some pods show high network RX throughput.
-    recommendation: Check for possible DDoS, misrouted traffic, or excessive ingress.
-    recommendation_html: |
-      <div class="recommendation-content">
-        <h4>🛠️ Investigate Network Receive Rate</h4>
-        <ul>
-          <li>Use <code>kubectl top pod</code> or Prometheus UI.</li>
-          <li>Inspect service ingress patterns.</li>
-        </ul>
-      </div>
-    url: https://kubernetes.io/docs/concepts/cluster-administration/networking/
-    prometheus:
-      query: sum(rate(container_network_receive_bytes_total{pod!=""}[5m])) by (pod)
-      range:
-        step: 5m
-        duration: 24h
-    operator: greater_than
-    expected: 1e+06
-
-  - id: PROM004
-    name: API Server High Latency
-    category: Control Plane
-    section: Configuration
-    resource_kind: Pod
-    severity: High
-    weight: 5
-    description: Detects high latency in Kubernetes API server requests over the last 24 hours.
-    fail_message: API server latency exceeds healthy thresholds.
-    recommendation: Investigate API server load, networking issues, or control plane bottlenecks.
-    recommendation_html: |
-      <div class="recommendation-content">
-        <h4>🛠️ Investigate API Server Latency</h4>
-        <ul>
-          <li>Check <code>kube-apiserver</code> logs.</li>
-          <li>Review <code>etcd</code> performance.</li>
-        </ul>
-      </div>
-    url: https://kubernetes.io/docs/concepts/overview/components/
-    prometheus:
-      query: histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le))
-      range:
-        step: 5m
-        duration: 24h
-    operator: greater_than
-    expected: 0.5
-
-  - id: PROM005
-    name: Overcommitted CPU (Prometheus)
-    category: Capacity
-    section: Nodes
-    resource_kind: Node
-    severity: Low
-    weight: 2
-    description: Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours.
-    fail_message: Node CPU is overcommitted by requests.
-    recommendation: Consider rescheduling pods or adjusting requests.
-    recommendation_html: |
-      <div class="recommendation-content">
-        <h4>🛠️ Investigate CPU Overcommitment</h4>
-        <ul>
-          <li>Check node resource allocation.</li>
-          <li>Balance workloads more evenly.</li>
-        </ul>
-      </div>
-    url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-    prometheus:
-      query: sum(kube_pod_resource_request_cpu_cores) by (node) / sum(kube_node_status_allocatable_cpu_cores) by (node)
-      range:
-        step: 5m
-        duration: 24h
-    operator: greater_than
-    expected: 1.0
-
-  - id: PROM006
-    name: Node Sizing Insights (Prometheus)
-    category: Capacity
-    section: Nodes
-    resource_kind: Node
-    severity: Low
-    weight: 3
-    description: Uses Prometheus p95 CPU and memory usage over a fixed 7-day window to highlight underutilized or saturated nodes and suggest sizing actions.
-    fail_message: Node sizing opportunities detected.
-    recommendation: Use p95 CPU and memory trends to right-size node pools. Downsize sustained low-use nodes and scale up when saturation is sustained.
-    recommendation_html: |
-      <div class="recommendation-content">
-        <h4>Node Sizing Guidance</h4>
-        <ul>
-          <li>Focus on sustained p95 trends, not short spikes.</li>
-          <li>Sizing window is fixed to 7 days for stable, lower-cost query execution.</li>
-          <li>Nodes flagged as underutilized are candidates for smaller SKUs or scale-in.</li>
-          <li>Nodes flagged as saturated likely need larger SKUs, scale-out, or workload rebalancing.</li>
-          <li>Validate with workload requests/limits and HPA/VPA behavior before applying changes.</li>
-        </ul>
-      </div>
-    url: https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/
-    native_handler: PROM006
-    value:
-      path: metadata.name
-    operator: exists
-
-  - id: PROM007
-    name: Pod Sizing Insights (Prometheus)
-    category: Capacity
-    section: Pods
-    resource_kind: Pod
-    severity: Low
-    weight: 4
-    description: Generates per-container CPU and memory sizing recommendations from fixed 7-day p95 Prometheus usage.
-    fail_message: Pod/container sizing opportunities detected.
-    recommendation: Tune requests to p95 usage with headroom. CPU limit recommendation defaults to none; memory limits should stay set to cap OOM blast radius.
-    recommendation_html: |
-      <div class="recommendation-content">
-        <h4>Pod Sizing Guidance</h4>
-        <ul>
-          <li>Set CPU and memory <code>requests</code> from p95 usage with safety headroom.</li>
-          <li>Default CPU <code>limits</code> recommendation is <code>none</code> to avoid unnecessary CPU throttling and latency spikes.</li>
-          <li>Keep memory <code>limits</code> set above memory request to control OOM blast radius.</li>
-          <li>Validate against SLOs and roll out gradually.</li>
-        </ul>
-      </div>
-    url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-    native_handler: PROM007
-    value:
-      path: metadata.name
-    operator: exists
+- id: PROM001
+  name: High CPU Pods (Prometheus)
+  category: Performance
+  section: Pods
+  resource_kind: Pod
+  severity: Warning
+  weight: 3
+  description: Checks for pods with sustained high CPU usage over the last 24 hours using Prometheus metrics.
+  fail_message: Some pods show high sustained CPU usage.
+  recommendation: Investigate high CPU usage pods. Adjust limits or optimize workloads.
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High CPU Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to see real-time CPU usage.</li>\n    <li>Review app code or HPA settings for misbehaving containers.</li>\n    <li>Consider raising CPU requests/limits or scaling out.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
+  prometheus:
+    query: sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) by (pod)
+    range:
+      step: 5m
+      duration: 24h
+  operator: greater_than
+  expected: cpu_critical
+  speech_bubble:
+  - "\U0001F916 Prometheus shows high CPU usage for some pods!"
+  - "\u26A0\uFE0F Might indicate a misbehaving app."
+- id: PROM002
+  name: High Memory Usage Pods (Prometheus)
+  category: Performance
+  section: Pods
+  resource_kind: Pod
+  severity: Warning
+  weight: 3
+  description: Detects pods with high memory usage over the last 24 hours based on Prometheus metrics.
+  fail_message: Some pods are consistently using high memory.
+  recommendation: Review memory usage and consider tuning container memory limits.
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High Memory Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to review memory usage.</li>\n    <li>Adjust <code>resources.limits.memory</code> appropriately.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  prometheus:
+    query: sum(container_memory_usage_bytes{container!="",pod!=""}) by (pod)
+    range:
+      step: 5m
+      duration: 24h
+  operator: greater_than
+  expected: 5e+08
+  speech_bubble:
+  - "\U0001F9E0 Prometheus indicates memory-heavy pods!"
+  - "\U0001F4C9 Consider resource tuning."
+- id: PROM003
+  name: High Network Receive Rate (Prometheus)
+  category: Networking
+  section: Pods
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Detects pods receiving large amounts of network traffic over the last 24 hours.
+  fail_message: Some pods show high network RX throughput.
+  recommendation: Check for possible DDoS, misrouted traffic, or excessive ingress.
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate Network Receive Rate</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> or Prometheus UI.</li>\n    <li>Inspect service ingress patterns.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/cluster-administration/networking/
+  prometheus:
+    query: sum(rate(container_network_receive_bytes_total{pod!=""}[5m])) by (pod)
+    range:
+      step: 5m
+      duration: 24h
+  operator: greater_than
+  expected: 1e+06
+  speech_bubble:
+  - "\U0001F310 Network RX surge detected on some pods!"
+  - "\U0001F4E1 Investigate ingress traffic sources."
+- id: PROM004
+  name: API Server High Latency
+  category: Control Plane
+  section: Configuration
+  resource_kind: Pod
+  severity: High
+  weight: 5
+  description: Detects high latency in Kubernetes API server requests over the last 24 hours.
+  fail_message: API server latency exceeds healthy thresholds.
+  recommendation: Investigate API server load, networking issues, or control plane bottlenecks.
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate API Server Latency</h4>\n  <ul>\n    <li>Check <code>kube-apiserver</code> logs.</li>\n    <li>Review <code>etcd</code> performance.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/overview/components/
+  prometheus:
+    query: histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le))
+    range:
+      step: 5m
+      duration: 24h
+  operator: greater_than
+  expected: 0.5
+  speech_bubble:
+  - "\u26A0\uFE0F API server is responding slowly!"
+  - "\u23F1\uFE0F Check for pressure on control plane."
+- id: PROM005
+  name: Overcommitted CPU (Prometheus)
+  category: Capacity
+  section: Nodes
+  resource_kind: Node
+  severity: Low
+  weight: 2
+  description: Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours.
+  fail_message: Node CPU is overcommitted by requests.
+  recommendation: Consider rescheduling pods or adjusting requests.
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate CPU Overcommitment</h4>\n  <ul>\n    <li>Check node resource allocation.</li>\n    <li>Balance workloads more evenly.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  prometheus:
+    query: sum(kube_pod_resource_request_cpu_cores) by (node) / sum(kube_node_status_allocatable_cpu_cores) by (node)
+    range:
+      step: 5m
+      duration: 24h
+  operator: greater_than
+  expected: 1.0
+  speech_bubble:
+  - "\U0001F9EE Nodes are overcommitted on CPU!"
+  - "\U0001F6E0\uFE0F Potential resource contention ahead."
+- id: PROM006
+  name: Node Sizing Insights (Prometheus)
+  category: Capacity
+  section: Nodes
+  resource_kind: Node
+  severity: Low
+  weight: 3
+  description: Uses Prometheus p95 CPU and memory usage over a fixed 7-day window to highlight underutilized or saturated nodes and suggest sizing actions.
+  fail_message: Node sizing opportunities detected.
+  recommendation: Use p95 CPU and memory trends to right-size node pools. Downsize sustained low-use nodes and scale up when saturation is sustained.
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Node Sizing Guidance</h4>\n  <ul>\n    <li>Focus on sustained p95 trends, not short spikes.</li>\n    <li>Sizing window is fixed to 7 days for stable, lower-cost query execution.</li>\n    <li>Nodes flagged as underutilized are candidates for smaller SKUs or scale-in.</li>\n    <li>Nodes flagged as saturated likely need larger SKUs, scale-out, or workload rebalancing.</li>\n    <li>Validate with workload requests/limits and HPA/VPA behavior before applying changes.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/
+  native_handler: PROM006
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Node sizing insights are ready from Prometheus data.
+  - Review underutilized and saturated nodes before changing pools.
+- id: PROM007
+  name: Pod Sizing Insights (Prometheus)
+  category: Capacity
+  section: Pods
+  resource_kind: Pod
+  severity: Low
+  weight: 4
+  description: Generates per-container CPU and memory sizing recommendations from fixed 7-day p95 Prometheus usage.
+  fail_message: Pod/container sizing opportunities detected.
+  recommendation: Tune requests to p95 usage with headroom. CPU limit recommendation defaults to none; memory limits should stay set to cap OOM blast radius.
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Pod Sizing Guidance</h4>\n  <ul>\n    <li>Set CPU and memory <code>requests</code> from p95 usage with safety headroom.</li>\n    <li>Default CPU <code>limits</code> recommendation is <code>none</code> to avoid unnecessary CPU throttling and latency spikes.</li>\n    <li>Keep memory <code>limits</code> set above memory request to control OOM blast radius.</li>\n    <li>Validate against SLOs and roll out gradually.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  native_handler: PROM007
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Pod sizing insights are ready from Prometheus usage trends.
+  - CPU limits default to none unless you need strict tenant caps.

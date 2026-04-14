@@ -688,8 +688,10 @@ func showCheckResult(t *tui, result scan.CheckResult) {
 		return
 	}
 
-	// Speech bubble with recommendation
-	if strings.TrimSpace(result.Recommendation) != "" {
+	// Prefer the shorter Buddy variant when available.
+	if len(result.SpeechBubble) > 0 {
+		emitBuddyBubble(strings.Join(result.SpeechBubble, "\n"))
+	} else if strings.TrimSpace(result.Recommendation) != "" {
 		emitBuddyBubble("Recommendation: " + result.Recommendation)
 	}
 

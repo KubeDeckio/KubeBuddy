@@ -52,12 +52,13 @@ func TestScanRenderer(t *testing.T) {
 				},
 			},
 			{
-				ID:       "AKSSEC001",
-				Name:     "Private Cluster",
-				Category: "Security",
-				Section:  "AKS",
-				Severity: "High",
-				Total:    1,
+				ID:                 "AKSSEC001",
+				Name:               "Private Cluster",
+				Category:           "Security",
+				Section:            "AKS",
+				Severity:           "High",
+				Total:              1,
+				RecommendationHTML: `<div class="recommendation-content"><ul><li>Use <code>az aks update --enable-private-cluster</code>.</li></ul></div>`,
 				Items: []scan.Finding{
 					{Resource: "aks-test", Value: "false", Message: "Private cluster is disabled."},
 				},
@@ -153,6 +154,9 @@ func TestScanRenderer(t *testing.T) {
 	}
 	if !strings.Contains(out, "Cluster Summary") {
 		t.Fatalf("expected snapshot-backed summary section in output")
+	}
+	if !strings.Contains(out, "<code>az aks update --enable-private-cluster</code>") {
+		t.Fatalf("expected AKS recommendation html in output")
 	}
 }
 

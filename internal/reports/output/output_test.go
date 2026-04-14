@@ -56,11 +56,17 @@ func TestWriteScanResultText(t *testing.T) {
 	if !strings.Contains(buf.String(), "--- Kubernetes Cluster Report ---") {
 		t.Fatalf("expected report banner, got %s", buf.String())
 	}
-	if !strings.Contains(buf.String(), "[X001 - Check]") {
+	if !strings.Contains(buf.String(), "=== Issue Summary ===") {
+		t.Fatalf("expected issue summary block, got %s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "=== Check Results ===") {
+		t.Fatalf("expected check results block, got %s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "X001 - Check") {
 		t.Fatalf("expected powershell-style check header, got %s", buf.String())
 	}
-	if !strings.Contains(buf.String(), "Section: Security") {
-		t.Fatalf("expected section line, got %s", buf.String())
+	if !strings.Contains(buf.String(), "Category: Cat") {
+		t.Fatalf("expected category line, got %s", buf.String())
 	}
 	if !strings.Contains(buf.String(), "⚠️ Total Issues: 1") {
 		t.Fatalf("expected issue count line, got %s", buf.String())

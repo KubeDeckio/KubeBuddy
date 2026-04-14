@@ -82,6 +82,7 @@ func RunAKS(opts AKSOptions) (Result, error) {
 			Description:                check.Description,
 			Recommendation:             check.Recommendation,
 			RecommendationHTML:         check.RecommendationHTML,
+			SpeechBubble:               append([]string(nil), check.SpeechBubble...),
 			URL:                        check.URL,
 			ResourceKind:               check.ResourceKind,
 			AutomaticRelevance:         check.AutomaticRelevance,

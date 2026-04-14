@@ -39,6 +39,7 @@ type CheckResult struct {
 	Description                string
 	Recommendation             string
 	RecommendationHTML         string
+	SpeechBubble               []string
 	RecommendationSource       string
 	URL                        string
 	ResourceKind               string
@@ -50,7 +51,7 @@ type CheckResult struct {
 	ObservedValue              string
 	FailMessageText            string
 	SummaryMessage             string
-	LegacyItems                any
+	CompatItems                any
 	Total                      int
 	Items                      []Finding
 }
@@ -159,6 +160,7 @@ func Run(opts Options) (Result, error) {
 			Description:                check.Description,
 			Recommendation:             check.Recommendation,
 			RecommendationHTML:         check.RecommendationHTML,
+			SpeechBubble:               append([]string(nil), check.SpeechBubble...),
 			URL:                        check.URL,
 			ResourceKind:               check.ResourceKind,
 			AutomaticRelevance:         check.AutomaticRelevance,
@@ -175,11 +177,11 @@ func Run(opts Options) (Result, error) {
 			result.Total = len(result.Items)
 			switch check.ID {
 			case "EVENT001":
-				result.LegacyItems = buildLegacyEVENT001Items(items)
-				result.Total = len(result.LegacyItems.([]map[string]any))
+				result.CompatItems = buildCompatEVENT001Items(items)
+				result.Total = len(result.CompatItems.([]map[string]any))
 			case "EVENT002":
-				result.LegacyItems = buildLegacyEVENT002Items(items)
-				result.Total = len(result.LegacyItems.([]map[string]any))
+				result.CompatItems = buildCompatEVENT002Items(items)
+				result.Total = len(result.CompatItems.([]map[string]any))
 			}
 			if check.ID == "PROM006" || check.ID == "PROM007" {
 				if len(result.Items) == 1 && strings.HasPrefix(result.Items[0].Resource, "prometheus/") && strings.Contains(strings.ToLower(result.Items[0].Message), "insufficient prometheus history") {
@@ -197,7 +199,7 @@ func Run(opts Options) (Result, error) {
 						displayDays = "0"
 					}
 					result.SummaryMessage = fmt.Sprintf("Insufficient Prometheus history for sizing. Required: 7 days, available: %s days.", displayDays)
-					result.LegacyItems = map[string]any{
+					result.CompatItems = map[string]any{
 						"Status":         "Insufficient Prometheus history",
 						"Required Days":  7,
 						"Available Days": json.RawMessage(coverageDays),

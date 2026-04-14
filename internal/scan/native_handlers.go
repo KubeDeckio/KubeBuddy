@@ -203,7 +203,7 @@ func runEVENT002(check checks.Check, items []map[string]any) []Finding {
 	return findings
 }
 
-func buildLegacyEVENT001Items(items []map[string]any) []map[string]any {
+func buildCompatEVENT001Items(items []map[string]any) []map[string]any {
 	type groupedEvent struct {
 		reason  string
 		message string
@@ -252,7 +252,7 @@ func buildLegacyEVENT001Items(items []map[string]any) []map[string]any {
 	return out
 }
 
-func buildLegacyEVENT002Items(items []map[string]any) []map[string]any {
+func buildCompatEVENT002Items(items []map[string]any) []map[string]any {
 	out := make([]map[string]any, 0)
 	for _, item := range items {
 		if strings.TrimSpace(stringifyLookup(item, "type")) != "Warning" {

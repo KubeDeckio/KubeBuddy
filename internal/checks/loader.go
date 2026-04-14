@@ -2,12 +2,19 @@ package checks
 
 import (
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+)
+
+var (
+	recommendationBacktickPattern = regexp.MustCompile("`([^`]+)`")
+	recommendationQuotedPattern   = regexp.MustCompile(`'([^']+)'`)
 )
 
 type Recommendation struct {
@@ -82,6 +89,7 @@ func (r rawCheck) normalize() Check {
 	if check.IsScripted() {
 		check.LegacyScripted = true
 	}
+	hydrateRecommendationVariants(&check)
 
 	return check
 }
@@ -96,6 +104,7 @@ func LoadFile(path string) (RuleSet, error) {
 	if err := yaml.Unmarshal(data, &direct); err == nil && looksLikeModernRuleSet(direct) {
 		for i := range direct.Checks {
 			direct.Checks[i].ID = strings.TrimSpace(direct.Checks[i].ID)
+			hydrateRecommendationVariants(&direct.Checks[i])
 			if err := direct.Checks[i].Validate(); err != nil {
 				return RuleSet{}, fmt.Errorf("%s: %w", path, err)
 			}
@@ -216,6 +225,106 @@ func firstNonEmptySlice(values ...[]string) []string {
 		}
 	}
 	return nil
+}
+
+func hydrateRecommendationVariants(check *Check) {
+	if check == nil {
+		return
+	}
+	check.Recommendation = strings.TrimSpace(check.Recommendation)
+	check.RecommendationHTML = strings.TrimSpace(check.RecommendationHTML)
+	check.SpeechBubble = compactStrings(check.SpeechBubble)
+	if check.RecommendationHTML == "" && check.Recommendation != "" {
+		check.RecommendationHTML = synthesizeRecommendationHTML(check.Recommendation)
+	}
+	if len(check.SpeechBubble) == 0 && check.Recommendation != "" {
+		check.SpeechBubble = synthesizeSpeechBubble(check.Recommendation)
+	}
+}
+
+func synthesizeRecommendationHTML(text string) string {
+	clauses := splitRecommendationClauses(text)
+	if len(clauses) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(`<div class="recommendation-content"><ul>`)
+	for _, clause := range clauses {
+		b.WriteString(`<li>` + inlineRecommendationHTML(clause) + `</li>`)
+	}
+	b.WriteString(`</ul></div>`)
+	return b.String()
+}
+
+func synthesizeSpeechBubble(text string) []string {
+	clauses := splitRecommendationClauses(text)
+	if len(clauses) == 0 {
+		return nil
+	}
+	first := strings.TrimSpace(clauses[0])
+	if len(first) > 140 {
+		first = strings.TrimSpace(first[:137]) + "..."
+	}
+	return []string{first}
+}
+
+func splitRecommendationClauses(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	raw := strings.FieldsFunc(text, func(r rune) bool {
+		return r == '\n' || r == ';'
+	})
+	var clauses []string
+	for _, item := range raw {
+		for _, part := range strings.Split(item, ". ") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			part = strings.TrimSpace(strings.TrimSuffix(part, "."))
+			if part == "" {
+				continue
+			}
+			clauses = append(clauses, part)
+		}
+	}
+	return clauses
+}
+
+func inlineRecommendationHTML(text string) string {
+	text = html.EscapeString(strings.TrimSpace(text))
+	text = recommendationBacktickPattern.ReplaceAllString(text, `<code>$1</code>`)
+	text = recommendationQuotedPattern.ReplaceAllStringFunc(text, func(match string) string {
+		if len(match) < 3 {
+			return match
+		}
+		content := match[1 : len(match)-1]
+		if !looksLikeRecommendationCode(content) {
+			return match
+		}
+		return `<code>` + html.EscapeString(content) + `</code>`
+	})
+	return text
+}
+
+func looksLikeRecommendationCode(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	return strings.Contains(value, "--") ||
+		strings.Contains(value, "<") ||
+		strings.Contains(value, ">") ||
+		strings.Contains(value, "_") ||
+		strings.HasPrefix(value, "az ") ||
+		strings.HasPrefix(value, "kubectl ") ||
+		strings.HasPrefix(value, "helm ") ||
+		strings.HasPrefix(value, "terraform ") ||
+		strings.HasPrefix(value, "/")
 }
 
 func normalizeSeverity(value string) string {

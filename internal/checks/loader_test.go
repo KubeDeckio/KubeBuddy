@@ -1,6 +1,7 @@
 package checks
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -64,5 +65,40 @@ func TestLoadFileSupportsModernAKSYAMLChecks(t *testing.T) {
 
 	if ruleSet.Checks[0].ID != "AKSSEC001" {
 		t.Fatalf("unexpected first check id: %s", ruleSet.Checks[0].ID)
+	}
+}
+
+func TestLoadFileSynthesizesRecommendationVariants(t *testing.T) {
+	t.Helper()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "checks.yaml")
+	content := []byte(`checks:
+  - id: TEST001
+    name: Test Check
+    category: Test
+    section: Test
+    severity: Warning
+    fail_message: broken
+    recommendation: "Run 'kubectl rollout restart deployment/app'; then verify probes."
+    native_handler: test_handler
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("write temp check file: %v", err)
+	}
+
+	ruleSet, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("load temp check file: %v", err)
+	}
+	if len(ruleSet.Checks) != 1 {
+		t.Fatalf("expected 1 check, got %d", len(ruleSet.Checks))
+	}
+	check := ruleSet.Checks[0]
+	if check.RecommendationHTML == "" {
+		t.Fatalf("expected synthesized recommendation_html")
+	}
+	if len(check.SpeechBubble) == 0 {
+		t.Fatalf("expected synthesized speech bubble")
 	}
 }
