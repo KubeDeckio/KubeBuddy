@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.28] - 2026-04-13
+## [0.0.28] - 2026-04-15
 
 ### Added
 
@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * Added native release packaging for macOS and Linux through the local release build script.
   * Added GitHub release workflow support for publishing native tarballs, checksums, and the PowerShell wrapper package.
   * Added a hardened Go-native container image workflow and direct Azure token support for AKS and Azure-authenticated Prometheus flows in containerized runs.
+  * Added Windows native release artifacts and bundled native binaries in the PowerShell Gallery package.
+
+* **Native interactive terminal UI**
+  * Added a unified `kubebuddy tui` entrypoint for guided report generation and interactive check browsing.
+  * Added PowerShell wrapper support for `-Tui`, `-Guided`, and `-Menu` so the compatibility module can launch the native terminal UI directly.
 
 ### Changed
 
@@ -20,6 +25,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * The PowerShell Gallery package is now a backwards-compatible wrapper over the native `kubebuddy` binary instead of a separate PowerShell runtime.
   * All shipped Kubernetes and AKS checks now live in the native `checks/` catalog layout.
   * Report CSS and JavaScript assets now live under the native Go reports package instead of the old PowerShell-era path.
+  * AKS live collection and container AKS auth now use native Go Azure token handling and bearer-token kubeconfig wiring instead of depending on `az` or `kubelogin`.
+  * The container image is now intentionally non-interactive and supports the native `run-env` flow only.
 
 ### Removed
 

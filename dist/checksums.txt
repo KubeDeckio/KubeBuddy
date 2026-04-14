@@ -1,7 +1,7 @@
-2519a81c935919b6b3c7a14ece2fd7dbee94102915da88d16f2897f83cf70489  ./kubebuddy-psgallery-v0.0.4.tar.gz
-27369533b25b0058edc266cffc0a24ae6c8c3ee124879a21c92f6ae241a01340  ./kubebuddy_0.0.4_darwin_amd64.tar.gz
-38f985632be10ff6771bf8845ea1325eb35d5cbef26823d417d758486000f51d  ./kubebuddy_0.0.4_darwin_arm64.tar.gz
-cbc2aececf708894e43c0680ab3d6bfea637062db65b30d69fd35dee54930c96  ./kubebuddy_0.0.4_linux_amd64.tar.gz
-cc54399c9c51df6782b804910bbccc4c454fe1213c4ef95e8292635836c1dfea  ./kubebuddy_0.0.4_linux_arm64.tar.gz
-e56a3ce06fa8074e0bb41e4d0ca10f7af5999f5d2c37c4415d7ff9e30a1d5421  ./kubebuddy_0.0.4_windows_amd64.tar.gz
-ed312dfe9fd76148d07c52a16a82787ef695fb249c35ead46ee47f46abaf7e68  ./kubebuddy_0.0.4_windows_arm64.tar.gz
+19f2980f040f578c512b41c472ce3dba760ed16d510b31c840b5d7c0fdd50c0e  ./kubebuddy-psgallery-v0.0.28.tar.gz
+c2c5c38cf1dfb47bc5ef16aa31954d16b171f7e9485ce934186dc5e6c2ede483  ./kubebuddy_0.0.28_darwin_amd64.tar.gz
+52341514cc5acd411eefb40fa7967552e9898849a10f3b8d7e2e4868e78cc4c9  ./kubebuddy_0.0.28_darwin_arm64.tar.gz
+14b13516fbc2b142646013f07e419fdd1596f2471b8dc86524e6118174151637  ./kubebuddy_0.0.28_linux_amd64.tar.gz
+9029dbbd22bd249099f77b8fc6be097c364d00b0b812c57f2157e8e7e302a38b  ./kubebuddy_0.0.28_linux_arm64.tar.gz
+d0b81c4141462981dc64c821e2a27d8988e3bc06dd773f5eb2bfd5c2e1c7c8ae  ./kubebuddy_0.0.28_windows_amd64.tar.gz
+f13d2f61ae1f20611e1a8b931656e44b04601c95496cf01903fdd03ab6363ca9  ./kubebuddy_0.0.28_windows_arm64.tar.gz

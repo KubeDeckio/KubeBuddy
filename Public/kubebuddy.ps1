@@ -1,4 +1,4 @@
-$script:KubeBuddyModuleVersion = "v0.0.4"
+$script:KubeBuddyModuleVersion = "v0.0.28"
 
 function Get-KubeBuddyRuntimeRid {
     $os = if ($IsWindows) {

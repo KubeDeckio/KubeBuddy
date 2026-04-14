@@ -413,7 +413,7 @@ func showClusterSummary(t *tui, opts tuiOpts) {
 	if scanErr != nil {
 		fmt.Printf("\n  %s⚠️  Could not run checks: %s%s\n", yellow, scanErr.Error(), reset)
 		fmt.Println()
-		pressEnter()
+		waitForEnter()
 		return
 	}
 
@@ -478,7 +478,7 @@ func showClusterSummary(t *tui, opts tuiOpts) {
 	}
 
 	fmt.Println()
-	pressEnter()
+	waitForEnter()
 }
 
 // ─── Single-check runner ──────────────────────────────────────────────────────
@@ -497,7 +497,7 @@ func runSingleCheck(t *tui, opts tuiOpts, checkID, label string, namespace strin
 	})
 	if err != nil {
 		emitBuddyBubble("Error running check: " + err.Error())
-		pressEnter()
+		waitForEnter()
 		return
 	}
 
@@ -511,7 +511,7 @@ func runSingleCheck(t *tui, opts tuiOpts, checkID, label string, namespace strin
 
 	if found == nil {
 		emitBuddyBubble("Check " + checkID + " not found in the catalog.")
-		pressEnter()
+		waitForEnter()
 		return
 	}
 
@@ -573,7 +573,7 @@ func runAKSBestPractices(t *tui, opts tuiOpts) {
 	})
 	if err != nil {
 		emitBuddyBubble("Error running AKS checks: " + err.Error())
-		pressEnter()
+		waitForEnter()
 		return
 	}
 
@@ -648,7 +648,7 @@ func showAKSResults(t *tui, clusterName string, result scan.Result) {
 		fmt.Println()
 	}
 
-	pressEnter()
+	waitForEnter()
 }
 
 func showCheckResult(t *tui, result scan.CheckResult) {
@@ -684,7 +684,7 @@ func showCheckResult(t *tui, result scan.CheckResult) {
 
 	if result.Total == 0 {
 		emitBuddyBubble("No issues found for " + result.ID + ". Great work!")
-		pressEnter()
+		waitForEnter()
 		return
 	}
 
@@ -768,7 +768,7 @@ func runMenu(label string, items []menuItem) (int, error) {
 	return idx, err
 }
 
-func pressEnter() {
+func waitForEnter() {
 	fmt.Print("\n  Press Enter to continue...")
 	buf := make([]byte, 1)
 	os.Stdin.Read(buf) //nolint:errcheck
