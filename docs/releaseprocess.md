@@ -102,7 +102,6 @@ The runtime image is Go-native and hardened. It keeps:
 
 - `kubebuddy`
 - `kubectl`
-- `kubelogin`
 
 It no longer depends on the PowerShell runtime.
 

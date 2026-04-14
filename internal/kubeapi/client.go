@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 type Client struct {
@@ -50,6 +51,18 @@ func NewFromPath(path string) (*Client, error) {
 	loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: path}
 	overrides := &clientcmd.ConfigOverrides{}
 	return newWithLoader(clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides))
+}
+
+func NewFromPathWithBearerToken(path string, token string) (*Client, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	rawConfig, err := clientcmd.Load(data)
+	if err != nil {
+		return nil, err
+	}
+	return newFromRawConfigWithBearerToken(rawConfig, strings.TrimSpace(token))
 }
 
 func NewFromBase64(value string) (*Client, error) {
@@ -101,6 +114,108 @@ func newWithLoader(loader clientcmd.ClientConfig) (*Client, error) {
 		currentCtx:  rawConfig.CurrentContext,
 		clusterHost: cfg.Host,
 	}, nil
+}
+
+func newFromRawConfigWithBearerToken(rawConfig *clientcmdapi.Config, token string) (*Client, error) {
+	cfg, err := restConfigFromRawWithBearerToken(rawConfig, token)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Timeout = 30 * time.Second
+	cfg.WarningHandler = rest.NoWarnings{}
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	dyn, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{
+		config:      cfg,
+		clientset:   clientset,
+		dynamic:     dyn,
+		discovery:   clientset.Discovery(),
+		currentCtx:  rawConfig.CurrentContext,
+		clusterHost: cfg.Host,
+	}, nil
+}
+
+func restConfigFromRawWithBearerToken(rawConfig *clientcmdapi.Config, token string) (*rest.Config, error) {
+	if rawConfig == nil {
+		return nil, fmt.Errorf("kubeconfig is nil")
+	}
+	if strings.TrimSpace(rawConfig.CurrentContext) == "" {
+		return nil, fmt.Errorf("kubeconfig missing current-context")
+	}
+	ctx, ok := rawConfig.Contexts[rawConfig.CurrentContext]
+	if !ok || ctx == nil {
+		return nil, fmt.Errorf("kubeconfig missing context %q", rawConfig.CurrentContext)
+	}
+	cluster, ok := rawConfig.Clusters[ctx.Cluster]
+	if !ok || cluster == nil {
+		return nil, fmt.Errorf("kubeconfig missing cluster %q", ctx.Cluster)
+	}
+	cfg := &rest.Config{
+		Host:        strings.TrimSpace(cluster.Server),
+		BearerToken: strings.TrimSpace(token),
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: cluster.InsecureSkipTLSVerify,
+			ServerName: strings.TrimSpace(cluster.TLSServerName),
+			CAData:    append([]byte(nil), cluster.CertificateAuthorityData...),
+			CAFile:    strings.TrimSpace(cluster.CertificateAuthority),
+		},
+	}
+	if strings.TrimSpace(cfg.Host) == "" {
+		return nil, fmt.Errorf("kubeconfig cluster %q missing server", ctx.Cluster)
+	}
+	if strings.TrimSpace(cfg.BearerToken) == "" {
+		return nil, fmt.Errorf("missing bearer token for kubeconfig auth")
+	}
+	return cfg, nil
+}
+
+func RewriteKubeconfigWithBearerToken(path string, token string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	rawConfig, err := clientcmd.Load(data)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(rawConfig.CurrentContext) == "" {
+		return fmt.Errorf("kubeconfig missing current-context")
+	}
+	ctx, ok := rawConfig.Contexts[rawConfig.CurrentContext]
+	if !ok || ctx == nil {
+		return fmt.Errorf("kubeconfig missing context %q", rawConfig.CurrentContext)
+	}
+	userName := strings.TrimSpace(ctx.AuthInfo)
+	if userName == "" {
+		userName = "kubebuddy-token-user"
+		ctx.AuthInfo = userName
+	}
+	authInfo, ok := rawConfig.AuthInfos[userName]
+	if !ok || authInfo == nil {
+		authInfo = clientcmdapi.NewAuthInfo()
+		rawConfig.AuthInfos[userName] = authInfo
+	}
+	authInfo.Token = strings.TrimSpace(token)
+	authInfo.TokenFile = ""
+	authInfo.Exec = nil
+	authInfo.AuthProvider = nil
+	authInfo.ClientCertificate = ""
+	authInfo.ClientCertificateData = nil
+	authInfo.ClientKey = ""
+	authInfo.ClientKeyData = nil
+	authInfo.Username = ""
+	authInfo.Password = ""
+	out, err := clientcmd.Write(*rawConfig)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, out, 0o600)
 }
 
 func (c *Client) CurrentContext() string {

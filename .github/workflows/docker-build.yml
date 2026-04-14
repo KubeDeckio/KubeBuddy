@@ -14,7 +14,6 @@ on:
 env:
   IMAGE_NAME: ghcr.io/kubedeckio/kubebuddy
   KUBECTL_VERSION: v1.35.1
-  KUBELOGIN_VERSION: v0.2.15
 
 jobs:
   docker-build:
@@ -63,7 +62,6 @@ jobs:
             -f dockerfile \
             --platform linux/amd64,linux/arm64 \
             --build-arg KUBECTL_VERSION=${{ env.KUBECTL_VERSION }} \
-            --build-arg KUBELOGIN_VERSION=${{ env.KUBELOGIN_VERSION }} \
             --tag $IMAGE_NAME:${{ steps.meta.outputs.TAG }} \
             --push \
             .
@@ -72,17 +70,16 @@ jobs:
         run: |
           docker pull $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
 
-      - name: Show embedded kubectl/kubelogin versions
+      - name: Show embedded kubectl version
         run: |
           docker run --rm --entrypoint /usr/local/bin/kubectl $IMAGE_NAME:${{ steps.meta.outputs.TAG }} version --client=true --output=yaml
-          docker run --rm --entrypoint /usr/local/bin/kubelogin $IMAGE_NAME:${{ steps.meta.outputs.TAG }} --version
 
       - name: Scan image for vulnerabilities (block on CRITICAL)
         uses: aquasecurity/trivy-action@master
         env:
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
           TRIVY_DISABLE_VEX_NOTICE: "true"
-          TRIVY_SKIP_FILES: "/usr/local/bin/kubectl,/usr/local/bin/kubelogin"
+          TRIVY_SKIP_FILES: "/usr/local/bin/kubectl"
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
           format: table

@@ -3,11 +3,12 @@ package containerenv
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/KubeDeckio/KubeBuddy/internal/azure"
 	"github.com/KubeDeckio/KubeBuddy/internal/compat"
+	"github.com/KubeDeckio/KubeBuddy/internal/kubeapi"
 	"github.com/KubeDeckio/KubeBuddy/internal/runner"
 )
 
@@ -97,17 +98,14 @@ func prepareKubeconfig() error {
 }
 
 func prepareAKSLogin() error {
-	clientID := os.Getenv("AZURE_CLIENT_ID")
-	clientSecret := os.Getenv("AZURE_CLIENT_SECRET")
-	tenantID := os.Getenv("AZURE_TENANT_ID")
-	if clientID == "" || clientSecret == "" || tenantID == "" {
+	if !azure.HasClientCredentials() {
 		return fmt.Errorf("AKS mode is enabled but missing SPN credentials: AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID")
 	}
-
-	cmd := exec.Command("kubelogin", "convert-kubeconfig", "-l", "spn", "--client-id", clientID, "--client-secret", clientSecret, "--tenant-id", tenantID)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	token, err := azure.AKSToken()
+	if err != nil {
+		return err
+	}
+	return kubeapi.RewriteKubeconfigWithBearerToken(os.Getenv("KUBECONFIG"), token)
 }
 
 func envBool(name string) bool {

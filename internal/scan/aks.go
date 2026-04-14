@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -403,49 +402,11 @@ func loadAKSConstraints(opts AKSOptions) ([]map[string]any, error) {
 	if err := writeClusterUserKubeconfig(opts, kubeconfig); err != nil {
 		return nil, err
 	}
-
-	loginMode := "azurecli"
-	if azure.HasClientCredentials() {
-		loginMode = "spn"
-	}
-	convert := exec.Command("kubelogin", "convert-kubeconfig", "--kubeconfig", kubeconfig, "-l", loginMode)
-	if loginMode == "spn" {
-		convert.Env = append(os.Environ(),
-			"AZURE_CLIENT_ID="+strings.TrimSpace(os.Getenv("AZURE_CLIENT_ID")),
-			"AZURE_CLIENT_SECRET="+strings.TrimSpace(os.Getenv("AZURE_CLIENT_SECRET")),
-			"AZURE_TENANT_ID="+strings.TrimSpace(os.Getenv("AZURE_TENANT_ID")),
-		)
-	}
-	if output, err := convert.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("kubelogin convert-kubeconfig failed: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	client, err := kubeapi.NewFromPath(kubeconfig)
+	token, err := azure.AKSToken()
 	if err != nil {
 		return nil, err
 	}
-	return client.GatekeeperConstraints(context.Background())
-}
-
-func loadAKSConstraintsWithSPN(opts AKSOptions) ([]map[string]any, error) {
-	tempDir, err := os.MkdirTemp("", "kubebuddy-aks-kubeconfig-*")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tempDir)
-	kubeconfig := filepath.Join(tempDir, "config")
-	if err := writeClusterUserKubeconfig(opts, kubeconfig); err != nil {
-		return nil, err
-	}
-	convert := exec.Command("kubelogin", "convert-kubeconfig", "--kubeconfig", kubeconfig, "-l", "spn")
-	convert.Env = append(os.Environ(),
-		"AZURE_CLIENT_ID="+strings.TrimSpace(os.Getenv("AZURE_CLIENT_ID")),
-		"AZURE_CLIENT_SECRET="+strings.TrimSpace(os.Getenv("AZURE_CLIENT_SECRET")),
-		"AZURE_TENANT_ID="+strings.TrimSpace(os.Getenv("AZURE_TENANT_ID")),
-	)
-	if output, err := convert.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("kubelogin convert-kubeconfig failed: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	client, err := kubeapi.NewFromPath(kubeconfig)
+	client, err := kubeapi.NewFromPathWithBearerToken(kubeconfig, token)
 	if err != nil {
 		return nil, err
 	}

@@ -18,6 +18,7 @@ import (
 const (
 	armResource        = "https://management.azure.com/"
 	prometheusResource = "https://prometheus.monitor.azure.com/"
+	aksServerAppID     = "6dae42f8-4368-4678-94ff-3960e28e3630"
 )
 
 type tokenResponse struct {
@@ -42,6 +43,13 @@ func PrometheusToken() (string, error) {
 		return clientCredentialToken(prometheusResource)
 	}
 	return defaultCredentialToken(strings.TrimSuffix(prometheusResource, "/") + "/.default")
+}
+
+func AKSToken() (string, error) {
+	if HasClientCredentials() {
+		return clientCredentialToken(aksServerAppID)
+	}
+	return defaultCredentialToken(aksServerAppID + "/.default")
 }
 
 func clientCredentialToken(resource string) (string, error) {

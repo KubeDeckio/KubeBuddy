@@ -2,7 +2,6 @@ ARG GO_IMAGE=golang:1.24.2-bookworm
 ARG TOOL_IMAGE=debian:bookworm-slim
 ARG RUNTIME_IMAGE=gcr.io/distroless/base-debian12:nonroot
 ARG KUBECTL_VERSION=v1.35.1
-ARG KUBELOGIN_VERSION=v0.2.15
 
 FROM ${GO_IMAGE} AS builder
 
@@ -21,7 +20,6 @@ FROM ${TOOL_IMAGE} AS tools
 
 ARG TARGETARCH
 ARG KUBECTL_VERSION
-ARG KUBELOGIN_VERSION
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl unzip && \
@@ -30,11 +28,7 @@ RUN apt-get update && \
 RUN mkdir -p /out
 
 RUN curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" -o /out/kubectl && \
-    chmod 0755 /out/kubectl && \
-    curl -fsSL "https://github.com/Azure/kubelogin/releases/download/${KUBELOGIN_VERSION}/kubelogin-linux-${TARGETARCH}.zip" -o /tmp/kubelogin.zip && \
-    unzip /tmp/kubelogin.zip -d /tmp/kubelogin && \
-    install -m 0755 "/tmp/kubelogin/bin/linux_${TARGETARCH}/kubelogin" /out/kubelogin && \
-    rm -rf /tmp/kubelogin /tmp/kubelogin.zip
+    chmod 0755 /out/kubectl
 
 FROM ${RUNTIME_IMAGE}
 
@@ -46,7 +40,6 @@ ENV TERM=xterm
 
 COPY --from=builder /out/kubebuddy /usr/local/bin/kubebuddy
 COPY --from=tools /out/kubectl /usr/local/bin/kubectl
-COPY --from=tools /out/kubelogin /usr/local/bin/kubelogin
 COPY --chown=nonroot:nonroot checks /app/checks
 COPY --chown=nonroot:nonroot Private /app/Private
 COPY --from=tools /etc/ssl/certs /etc/ssl/certs
