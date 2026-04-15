@@ -1,0 +1,45 @@
+checks:
+  - id: EKSMON001
+    name: Control Plane Logging Fully Enabled
+    category: Monitoring
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: logging.clusterLogging
+    operator: not_equals
+    expected: null
+    fail_message: EKS control plane logging is not fully enabled. The EKS control plane supports five log types (api, audit, authenticator, controllerManager, scheduler). Without all log types enabled, security investigations lack audit trails, debugging misses scheduler decisions, and compliance audits cannot verify API access patterns.
+    recommendation: Enable all control plane log types using 'aws eks update-cluster-config --name <cluster> --logging clusterLogging=[{types=[api,audit,authenticator,controllerManager,scheduler],enabled=true}]'. Logs are sent to CloudWatch Logs. Configure log retention policies and create metric filters for critical events like failed authentication attempts.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html
+
+  - id: EKSMON002
+    name: All Five Control Plane Log Types Enabled
+    category: Monitoring
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: logging.clusterLogging
+    operator: not_equals
+    expected: null
+    fail_message: Not all five control plane log types are enabled (api, audit, authenticator, controllerManager, scheduler). Partial logging creates blind spots — missing audit logs prevents security forensics, missing scheduler logs hides pod placement issues, and missing authenticator logs prevents detection of unauthorized access attempts.
+    recommendation: Enable all five log types using 'aws eks update-cluster-config --name <cluster> --logging clusterLogging=[{types=[api,audit,authenticator,controllerManager,scheduler],enabled=true}]'. Use CloudWatch Logs Insights to query across log types for comprehensive cluster observability.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html
+
+  - id: EKSMON003
+    name: CloudWatch Container Insights Configured
+    category: Monitoring
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: _hasCloudWatchObservability
+    operator: equals
+    expected: true
+    fail_message: Amazon CloudWatch Container Insights is not configured. Without Container Insights, there is no centralized visibility into container-level CPU, memory, disk, and network metrics. This prevents proactive capacity planning, SLO tracking, and timely alerting on infrastructure issues across nodes, pods, and services.
+    recommendation: Install the Amazon CloudWatch Observability add-on using 'aws eks create-addon --cluster-name <cluster> --addon-name amazon-cloudwatch-observability'. This deploys the CloudWatch agent and Fluent Bit for automated metric collection, log forwarding, and Container Insights dashboards in the CloudWatch console.
+    url: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-setup-EKS-addon.html
