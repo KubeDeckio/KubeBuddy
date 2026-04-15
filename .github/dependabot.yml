@@ -4,11 +4,16 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "github-actions"
     commit-message:
       prefix: "chore"
+    rebase-strategy: "auto"
 
   - package-ecosystem: "gomod"
     directory: "/"
