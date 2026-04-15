@@ -1,0 +1,105 @@
+checks:
+  - id: EKSSEC001
+    name: Private Cluster Endpoint Enabled
+    category: Security
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: resourcesVpcConfig.endpointPrivateAccess
+    operator: equals
+    expected: true
+    fail_message: Private endpoint access is not enabled for the EKS API server. Without it, all kubectl and API traffic must traverse the public internet, increasing exposure to man-in-the-middle attacks, credential interception, and unauthorized access attempts against the Kubernetes API server.
+    recommendation: Enable private endpoint access using 'aws eks update-cluster-config --name <cluster> --resources-vpc-config endpointPrivateAccess=true'. For maximum security, also disable public access with 'endpointPublicAccess=false'. Ensure VPC connectivity (VPN, Direct Connect, or VPC peering) is configured before disabling public access.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html
+
+  - id: EKSSEC002
+    name: Public Endpoint Access Restricted
+    category: Security
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: resourcesVpcConfig.endpointPublicAccess
+    operator: equals
+    expected: false
+    fail_message: The EKS API server public endpoint is enabled, exposing the Kubernetes API to the internet. Even with authentication, this increases the attack surface and allows brute-force attempts, credential stuffing, and exploitation of potential Kubernetes API vulnerabilities from any IP address worldwide.
+    recommendation: Disable public endpoint access using 'aws eks update-cluster-config --name <cluster> --resources-vpc-config endpointPublicAccess=false,endpointPrivateAccess=true'. If public access is required, restrict it to known CIDR blocks using 'publicAccessCidrs=[\"10.0.0.0/8\"]' to limit exposure.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html
+
+  - id: EKSSEC003
+    name: Public Access CIDR Restricted
+    category: Security
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: resourcesVpcConfig.publicAccessCidrs
+    operator: not_equals
+    expected: null
+    fail_message: Public access CIDR blocks are not restricted or are set to 0.0.0.0/0, allowing the EKS API server to be accessed from any IP address on the internet. This enables brute-force attacks, credential stuffing, and API exploitation from untrusted networks worldwide.
+    recommendation: Restrict public access CIDRs using 'aws eks update-cluster-config --name <cluster> --resources-vpc-config publicAccessCidrs=[\"<corporate-cidr>\",\"<vpn-cidr>\"]'. Only include IP ranges for your corporate network, VPN endpoints, and CI/CD infrastructure. Never use 0.0.0.0/0 in production.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html
+
+  - id: EKSSEC004
+    name: Envelope Encryption for Secrets Enabled
+    category: Security
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: encryptionConfig
+    operator: not_equals
+    expected: null
+    fail_message: Envelope encryption for Kubernetes secrets is not enabled. Without a customer-managed KMS key, secrets are only encrypted with the default AWS-managed key, which may not satisfy compliance requirements (PCI-DSS, HIPAA, SOC2) that mandate customer-controlled key management and key rotation policies.
+    recommendation: Enable envelope encryption using 'aws eks associate-encryption-config --cluster-name <cluster> --encryption-config resources=[secrets],provider={keyArn=arn:aws:kms:<region>:<account>:key/<key-id>}'. First create a KMS key with automatic key rotation enabled, then associate it with the cluster.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/enable-kms.html
+
+  - id: EKSSEC005
+    name: Security Groups Properly Scoped
+    category: Security
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: resourcesVpcConfig.securityGroupIds
+    operator: not_equals
+    expected: null
+    fail_message: No additional security groups are associated with the EKS cluster beyond the cluster-managed security group. Custom security groups allow fine-grained control over network access between the control plane and worker nodes, and can restrict traffic to specific ports and protocols required by your workloads.
+    recommendation: Create and attach additional security groups using 'aws eks update-cluster-config --name <cluster> --resources-vpc-config securityGroupIds=[\"sg-xxx\"]'. Define rules that restrict ingress/egress to only required ports (443 for API, 10250 for kubelet) and trusted CIDR ranges.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html
+
+  - id: EKSSEC006
+    name: EKS Pod Identity Agent Installed
+    category: Security
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: _hasPodIdentityAgent
+    operator: equals
+    expected: true
+    fail_message: The EKS Pod Identity Agent add-on is not installed. EKS Pod Identity is the next-generation replacement for IRSA that simplifies IAM role assignment to pods, supports cross-account access without OIDC provider configuration, and provides a more secure credential delivery mechanism.
+    recommendation: Install the EKS Pod Identity Agent add-on using 'aws eks create-addon --cluster-name <cluster> --addon-name eks-pod-identity-agent'. Then create pod identity associations using 'aws eks create-pod-identity-association --cluster-name <cluster> --namespace <ns> --service-account <sa> --role-arn <role-arn>'.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html
+
+  - id: EKSSEC007
+    name: Cluster Service Role Has Minimum Permissions
+    category: Security
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: roleArn
+    operator: not_equals
+    expected: null
+    fail_message: The cluster service role ARN could not be verified. The EKS cluster service role should follow the principle of least privilege, using only the AmazonEKSClusterPolicy managed policy. Overly permissive roles increase the blast radius if the cluster control plane is compromised.
+    recommendation: Verify the cluster IAM role only has the 'AmazonEKSClusterPolicy' attached using 'aws iam list-attached-role-policies --role-name <role-name>'. Remove any additional policies that are not required for cluster operation. Create a dedicated IAM role per cluster rather than sharing roles across clusters.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html
