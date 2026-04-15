@@ -207,7 +207,7 @@ func TestActionPlanRenderer(t *testing.T) {
 	if !strings.Contains(out, "AKS Automatic Action Plan") {
 		t.Fatalf("expected action plan title in output")
 	}
-	if !strings.Contains(out, "Target Cluster Build Notes") {
-		t.Fatalf("expected target cluster build notes section in output")
+	if strings.Contains(out, "Target Cluster Build Notes") {
+		t.Fatalf("did not expect target cluster build notes section in output")
 	}
 }

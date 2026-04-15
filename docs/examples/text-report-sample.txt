@@ -1,5 +1,5 @@
 --- Kubernetes Cluster Report ---
-Timestamp: 04/15/2026 10:28:18
+Timestamp: 04/15/2026 11:21:10
 ---------------------------------
 
 [🌐 Cluster Summary]
@@ -93,29 +93,29 @@ Metrics:
 📊 Cluster Metrics Summary
 ------------------------------------------------------------------------------------------
 🚀 Nodes:                   3   🟩 Healthy:              3   🟥 Issues:                  0
-📦 Pods:                   63   🟩 Running:             63   🟥 Failed:                  0
+📦 Pods:                   67   🟩 Running:             63   🟥 Failed:                  0
 🔄 Restarts:               22   🟨 Warnings:              5   🟥 Critical:               0
-⏳ Pending Pods:             0   🟡 Waiting:              0
-⚠️ Stuck Pods:               0   ❌ Stuck:                0
+⏳ Pending Pods:             4   🟡 Waiting:              4
+⚠️ Stuck Pods:               4   ❌ Stuck:                4
 📉 Job Failures:           0   🔴 Failed:                0
 ------------------------------------------------------------------------------------------
 
-📊 Pod Distribution: Avg: 21 | Max: 42 | Min: 10 | Total Nodes: 3
+📊 Pod Distribution: Avg: 17 | Max: 42 | Min: 4 | Total Nodes: 4
 
 
 💾 Resource Usage
 ------------------------------------------------------------------------------------------
-🕒 Resource usage snapshot at: 2026-04-15 09:28 UTC
+🕒 Resource usage snapshot at: 2026-04-15 10:21 UTC
 
-🖥  CPU Usage:           5.27%        🟩 Normal
-💾 Memory Usage:        19.5%        🟩 Normal
+🖥  CPU Usage:           5.23%        🟩 Normal
+💾 Memory Usage:        19.6%        🟩 Normal
 ------------------------------------------------------------------------------------------
 
-❌ Errors: 0   ⚠️ Warnings: 0
+❌ Errors: 4   ⚠️ Warnings: 4
 
 === Issue Summary ===
-Critical issues: 1
-Warning issues:  5
+Critical issues: 7
+Warning issues:  18
 Info issues:     16
 
 === Check Results ===
@@ -129,8 +129,9 @@ Recommendation: Delete unused ConfigMaps to clean up the cluster and reduce conf
 URL: https://kubernetes.io/docs/concepts/configuration/configmap/
 
 CFG002 - Duplicate ConfigMap Names
-Total Issues: 0
-✅ No issues detected for Duplicate ConfigMap Names.
+Total Issues: 2
+- Namespace: - | Resource: configmap/kube-root-ca.crt | Message: Found in namespaces: azure-store, default | Value: -
+- Namespace: - | Resource: configmap/kube-root-ca.crt | Message: Found in namespaces: azure-store, default | Value: -
 Category: Best Practices
 Severity: warning
 Recommendation: Avoid using the same ConfigMap name across namespaces to reduce confusion and misconfiguration risk.
@@ -145,16 +146,19 @@ Recommendation: Avoid storing large data in ConfigMaps. Consider using Persisten
 URL: https://kubernetes.io/docs/concepts/configuration/configmap/
 
 EVENT001 - Grouped Warning Events
-Total Issues: 0
-✅ No issues detected for Grouped Warning Events.
+Total Issues: 1
+- Reason: FailedScheduling | Message: 0/3 nodes are available: 3 node(s) had untolerated taint {CriticalAddonsOnly: true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling. | Count: 4 | Source: default-scheduler
 Category: Events
 Severity: warning
 Recommendation: Check for recurring issues. Investigate sources using `kubectl describe` or logs.
 URL: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#event-v1-core
 
 EVENT002 - Full Warning Event Log
-Total Issues: 0
-✅ No issues detected for Full Warning Event Log.
+Total Issues: 4
+- Namespace: azure-store | Object: Pod/order-service-65cc8855c-ghk9m | Reason: FailedScheduling | Message: 0/3 nodes are available: 3 node(s) had untolerated taint {CriticalAddonsOnly: true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling. | Source: default-scheduler | Timestamp: 2026-04-15T09:40:41Z
+- Namespace: azure-store | Object: Pod/product-service-77ff9f6fd6-rzcxj | Reason: FailedScheduling | Message: 0/3 nodes are available: 3 node(s) had untolerated taint {CriticalAddonsOnly: true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling. | Source: default-scheduler | Timestamp: 2026-04-15T09:40:41Z
+- Namespace: azure-store | Object: Pod/rabbitmq-5dcdf9484-kvgw7 | Reason: FailedScheduling | Message: 0/3 nodes are available: 3 node(s) had untolerated taint {CriticalAddonsOnly: true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling. | Source: default-scheduler | Timestamp: 2026-04-15T09:40:41Z
+- Namespace: azure-store | Object: Pod/store-front-698cc8c565-f5hp5 | Reason: FailedScheduling | Message: 0/3 nodes are available: 3 node(s) had untolerated taint {CriticalAddonsOnly: true}. preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling. | Source: default-scheduler | Timestamp: 2026-04-15T09:40:41Z
 Category: Events
 Severity: warning
 Recommendation: Review recent warnings. Correlate events with impacted resources.
@@ -177,16 +181,19 @@ Recommendation: Review job logs and resource constraints to identify cause of fa
 URL: https://kubernetes.io/docs/concepts/workloads/controllers/job/#handling-pod-and-container-failures
 
 NET001 - Services Without Endpoints
-Total Issues: 0
-✅ No issues detected for Services Without Endpoints.
+Total Issues: 4
+- Namespace: azure-store | Resource: service/order-service | Message: No endpoints or endpoint slices
+- Namespace: azure-store | Resource: service/product-service | Message: No endpoints or endpoint slices
+- Namespace: azure-store | Resource: service/rabbitmq | Message: No endpoints or endpoint slices
+- Namespace: azure-store | Resource: service/store-front | Message: No endpoints or endpoint slices
 Category: Networking
 Severity: critical
 Recommendation: Check if the service selector matches any pods. Ensure the backing pods are running and ready.
 URL: https://kubernetes.io/docs/concepts/services-networking/service/
 
 NET002 - Publicly Accessible Services
-Total Issues: 0
-✅ No issues detected for Publicly Accessible Services.
+Total Issues: 1
+- Namespace: azure-store | Resource: service/store-front | Message: Exposed via external IP: 131.145.120.106 | Value: LoadBalancer
 Category: Networking
 Severity: critical
 Recommendation: Audit services of type LoadBalancer or NodePort. Limit exposure with firewalls or internal IP ranges.
@@ -201,8 +208,8 @@ Recommendation: Fix invalid ingress definitions including missing TLS secrets, b
 URL: https://kubernetes.io/docs/concepts/services-networking/ingress/
 
 NET004 - Namespace Missing Network Policy
-Total Issues: 0
-✅ No issues detected for Namespace Missing Network Policy.
+Total Issues: 1
+- Namespace: azure-store | Resource: namespace/azure-store | Message: No NetworkPolicy in active namespace
 Category: Security
 Severity: warning
 Recommendation: Apply a default deny-all ingress/egress NetworkPolicy in each namespace that hosts workloads, then selectively allow traffic as needed.
@@ -365,20 +372,22 @@ Recommendation: These may be stale or unused and safe to delete after verifying 
 URL: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
 
 NS002 - Missing or Weak ResourceQuotas
-Total Issues: 1
-Namespace Issue           
---------- ----------------
-default   No ResourceQuota
+Total Issues: 2
+Namespace   Issue           
+----------- ----------------
+azure-store No ResourceQuota
+default     No ResourceQuota
 Category: Namespaces
 Severity: warning
 Recommendation: Apply CPU, memory, and pod quotas to enforce fair resource usage.
 URL: https://kubernetes.io/docs/concepts/policy/resource-quotas/
 
 NS003 - Missing LimitRanges
-Total Issues: 1
-Namespace Issue        
---------- -------------
-default   No LimitRange
+Total Issues: 2
+Namespace   Issue        
+----------- -------------
+azure-store No LimitRange
+default     No LimitRange
 Category: Namespaces
 Severity: warning
 Recommendation: Define default CPU and memory limits to avoid unbounded pod usage.
@@ -417,8 +426,11 @@ Recommendation: Investigate failed pods for common issues like image errors, res
 URL: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
 
 POD004 - Pending Pods
-Total Issues: 0
-✅ No issues detected for Pending Pods.
+Total Issues: 4
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions. | Value: Pending
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions. | Value: Pending
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions. | Value: Pending
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions. | Value: Pending
 Category: Workloads
 Severity: warning
 Recommendation: Inspect scheduling constraints, resource availability, and missing dependencies.
@@ -441,16 +453,22 @@ Recommendation: Delete any leftover debug pods and review your debugging practic
 URL: https://kubernetes.io/docs/tasks/debug/debug-cluster/debug-running-pod/
 
 POD007 - Container images do not use latest tag
-Total Issues: 0
-✅ No issues detected for Container images do not use latest tag.
+Total Issues: 4
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container order-service: Image uses latest tag | Value: ghcr.io/azure-samples/aks-store-demo/order-service:latest
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container wait-for-rabbitmq: Image omits explicit tag | Value: busybox
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container product-service: Image uses latest tag | Value: ghcr.io/azure-samples/aks-store-demo/product-service:latest
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container store-front: Image uses latest tag | Value: ghcr.io/azure-samples/aks-store-demo/store-front:latest
 Category: Resource Management
 Severity: critical
 Recommendation: Specify an explicit image tag (e.g., ':v1.2.3') on every container and initContainer to ensure consistent deployments.
 URL: https://kubernetes.io/docs/concepts/containers/images/#image-tags
 
 POD008 - Automounting API Credentials Enabled in Pods
-Total Issues: 0
-✅ No issues detected for Automounting API Credentials Enabled in Pods.
+Total Issues: 4
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Pod automounts API credentials
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Pod automounts API credentials
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Pod automounts API credentials
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Pod automounts API credentials
 Category: Security
 Severity: warning
 Recommendation: Set automountServiceAccountToken to false in Pod specs unless API access is required.
@@ -625,6 +643,14 @@ Severity: warning
 Recommendation: Identify large volumes or inefficient applications, and consider scaling up storage or cleaning up old data.
 URL: https://kubernetes.io/docs/concepts/storage/volumes/
 
+SC004 - StorageClass Prevents Volume Expansion
+Total Issues: 1
+- Namespace: (cluster) | Resource: storageclass/default | Message: StorageClass does not allow volume expansion. | Value: true
+Category: StorageClasses
+Severity: warning
+Recommendation: If dynamic volume resizing is desired, modify the StorageClass to set allowVolumeExpansion: true. Note: some underlying storage systems may not support this feature.
+URL: https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion
+
 SEC001 - Orphaned Secrets
 Total Issues: 0
 ✅ No issues detected for Orphaned Secrets.
@@ -642,8 +668,19 @@ Recommendation: Avoid using hostPID or hostNetwork unless strictly required. The
 URL: https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline
 
 SEC003 - Pods Running as Root
-Total Issues: 0
-✅ No issues detected for Pods Running as Root.
+Total Issues: 12
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container order-service runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container wait-for-rabbitmq runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container product-service runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Container rabbitmq runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Container runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Container runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container store-front runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container runs as root or has no runAsUser set | Value: Not Set (Defaults to root)
 Category: Pod Security
 Severity: critical
 Recommendation: Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext.
@@ -666,16 +703,19 @@ Recommendation: Avoid using hostIPC in pods unless absolutely required for speci
 URL: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 
 SEC006 - Pods Missing Secure Defaults
-Total Issues: 0
-✅ No issues detected for Pods Missing Secure Defaults.
+Total Issues: 4
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container order-service has no securityContext defined | Value: Missing securityContext
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container product-service has no securityContext defined | Value: Missing securityContext
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Container rabbitmq has no securityContext defined | Value: Missing securityContext
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container store-front has no securityContext defined | Value: Missing securityContext
 Category: Pod Security
 Severity: warning
 Recommendation: Set runAsNonRoot=true, readOnlyRootFilesystem=true, and allowPrivilegeEscalation=false for all pods and containers.
 URL: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 
 SEC007 - Missing Pod Security Admission Labels
-Total Issues: 1
-- Namespace: default | Issue: No pod security labels | Audit: N/A | Warn: N/A
+Total Issues: 2
+- Namespace: azure-store | Issue: No pod security labels | Audit: N/A | Warn: N/A
 Category: Pod Security
 Severity: info
 Recommendation: Add 'pod-security.kubernetes.io/enforce' labels to your namespaces to enforce Pod Security standards. Use values like 'baseline' or 'restricted'.
@@ -690,8 +730,11 @@ Recommendation: Avoid exposing secrets in environment variables. Mount secrets a
 URL: https://kubernetes.io/docs/concepts/configuration/secret/
 
 SEC009 - Missing Capabilities Drop
-Total Issues: 0
-✅ No issues detected for Missing Capabilities Drop.
+Total Issues: 4
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container order-service does not drop ALL capabilities
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container product-service does not drop ALL capabilities
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Container rabbitmq does not drop ALL capabilities
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container store-front does not drop ALL capabilities
 Category: Pod Security
 Severity: warning
 Recommendation: Explicitly drop all Linux capabilities unless specific ones are needed.
@@ -706,8 +749,11 @@ Recommendation: Avoid using hostPath unless absolutely necessary. Use persistent
 URL: https://kubernetes.io/docs/concepts/storage/volumes/#hostpath
 
 SEC011 - Containers Running as UID 0
-Total Issues: 0
-✅ No issues detected for Containers Running as UID 0.
+Total Issues: 4
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container order-service runs as UID 0 | Value: 0
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container product-service runs as UID 0 | Value: 0
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Container rabbitmq runs as UID 0 | Value: 0
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container store-front runs as UID 0 | Value: 0
 Category: Pod Security
 Severity: critical
 Recommendation: Avoid setting runAsUser to 0. Use non-root UIDs for better isolation.
@@ -730,16 +776,21 @@ Recommendation: Use persistent volumes or configMaps instead of EmptyDir when pe
 URL: https://kubernetes.io/docs/concepts/storage/volumes/#emptydir
 
 SEC014 - Untrusted Image Registries
-Total Issues: 0
-✅ No issues detected for Untrusted Image Registries.
+Total Issues: 3
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Image from untrusted registry in container order-service | Value: ghcr.io/azure-samples/aks-store-demo/order-service:latest
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Image from untrusted registry in container product-service | Value: ghcr.io/azure-samples/aks-store-demo/product-service:latest
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Image from untrusted registry in container store-front | Value: ghcr.io/azure-samples/aks-store-demo/store-front:latest
 Category: Pod Security
 Severity: critical
 Recommendation: Use only trusted registries. Restrict deployment sources via policy.
 URL: https://kubernetes.io/docs/concepts/containers/images/
 
 SEC015 - Pods Using Default ServiceAccount
-Total Issues: 0
-✅ No issues detected for Pods Using Default ServiceAccount.
+Total Issues: 4
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Pod uses default ServiceAccount | Value: default
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Pod uses default ServiceAccount | Value: default
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Pod uses default ServiceAccount | Value: default
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Pod uses default ServiceAccount | Value: default
 Category: Pod Security
 Severity: warning
 Recommendation: Assign a dedicated ServiceAccount to each workload with least-privilege permissions.
@@ -778,8 +829,12 @@ Recommendation: Use RuntimeDefault or Localhost AppArmor profiles, or remove cus
 URL: https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline
 
 SEC020 - Seccomp Profile Not Configured
-Total Issues: 0
-✅ No issues detected for Seccomp Profile Not Configured.
+Total Issues: 5
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container order-service has no explicit seccomp profile
+- Namespace: azure-store | Resource: pod/order-service-65cc8855c-ghk9m | Message: Container wait-for-rabbitmq has no explicit seccomp profile
+- Namespace: azure-store | Resource: pod/product-service-77ff9f6fd6-rzcxj | Message: Container product-service has no explicit seccomp profile
+- Namespace: azure-store | Resource: pod/rabbitmq-5dcdf9484-kvgw7 | Message: Container rabbitmq has no explicit seccomp profile
+- Namespace: azure-store | Resource: pod/store-front-698cc8c565-f5hp5 | Message: Container store-front has no explicit seccomp profile
 Category: Pod Security
 Severity: warning
 Recommendation: Set seccompProfile.type to RuntimeDefault or Localhost at the pod or container level.
@@ -818,8 +873,11 @@ Recommendation: Investigate DaemonSets not fully running. Common causes include 
 URL: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
 
 WRK002 - Deployment Missing Replicas
-Total Issues: 0
-✅ No issues detected for Deployment Missing Replicas.
+Total Issues: 4
+- Namespace: azure-store | Resource: deployment/order-service | Message: Deployment has fewer available replicas than desired. | Value: 0/1
+- Namespace: azure-store | Resource: deployment/product-service | Message: Deployment has fewer available replicas than desired. | Value: 0/1
+- Namespace: azure-store | Resource: deployment/rabbitmq | Message: Deployment has fewer available replicas than desired. | Value: 0/1
+- Namespace: azure-store | Resource: deployment/store-front | Message: Deployment has fewer available replicas than desired. | Value: 0/1
 Category: Workloads
 Severity: warning
 Recommendation: Check Deployments that are not meeting their replica count. This may indicate rollout issues or failed pods.
@@ -858,8 +916,11 @@ Recommendation: Workloads should have a valid PDB to prevent availability issues
 URL: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
 
 WRK007 - Missing Readiness and Liveness Probes
-Total Issues: 0
-✅ No issues detected for Missing Readiness and Liveness Probes.
+Total Issues: 4
+- Namespace: azure-store | Resource: deployment/order-service | Message: readiness, liveness missing | Value: order-service
+- Namespace: azure-store | Resource: deployment/product-service | Message: readiness, liveness missing | Value: product-service
+- Namespace: azure-store | Resource: deployment/rabbitmq | Message: readiness, liveness missing | Value: rabbitmq
+- Namespace: azure-store | Resource: deployment/store-front | Message: readiness, liveness missing | Value: store-front
 Category: Probes
 Severity: warning
 Recommendation: Add readiness and liveness probes to all containers to improve availability and fault detection.
@@ -1274,9 +1335,9 @@ Recommendation: Configure Pod Security Admission by setting pod security standar
 URL: https://learn.microsoft.com/azure/aks/use-psa
 
 [AKS Automatic Migration Readiness]
-Status: Ready
-Message: No AKS Automatic blockers were detected in the evaluated shared checks.
-Blockers: 0
-Warnings: 0
+Status: Not Ready
+Message: Fix blocker findings before migrating workloads to a new AKS Automatic cluster.
+Blockers: 1
+Warnings: 3
 
-🩺 Cluster Health Score: 94 / 100
+🩺 Cluster Health Score: 80 / 100

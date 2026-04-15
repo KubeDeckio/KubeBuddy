@@ -29,6 +29,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 4
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: host_namespace
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: workloads using hostPID or hostNetwork can be denied by baseline admission policy."
   description: Flags pods that share the host PID or network namespace, which can compromise isolation and node security.
   fail_message: Pod uses hostPID or hostNetwork
   recommendation: "Avoid using hostPID or hostNetwork unless strictly required. These settings reduce isolation and can expose the host."
@@ -53,6 +58,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 5
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: privileged
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: privileged containers can be denied at admission."
   description: Detects containers running with privileged mode enabled.
   fail_message: Privileged container found
   recommendation: "Avoid using privileged containers unless absolutely necessary, as they grant broad access to host resources."
@@ -74,6 +84,9 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 5
+  automatic_relevance: warning
+  automatic_scope: workload
+  automatic_reason: aks_security
   description: Detects pods running with UID 0 or no explicit runAsUser setting, which defaults to root in many images.
   fail_message: Pod runs as root user or has no runAsUser set
   recommendation: "Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext."
@@ -98,6 +111,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: host_path
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: workloads using hostPath volumes can be denied at admission."
   description: Flags pods that use hostPath volumes, which mount parts of the host filesystem and bypass isolation.
   fail_message: HostPath volume present in pod
   recommendation: "Avoid using hostPath unless absolutely necessary. Use persistent volumes instead."
@@ -139,6 +157,11 @@ checks:
   resource_kind: Pod
   severity: Warning
   weight: 2
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: capabilities
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: workloads that add unsupported Linux capabilities such as SYS_ADMIN can be denied at admission."
   description: Flags containers that add extra Linux capabilities using securityContext.capabilities.add.
   fail_message: Linux capabilities added
   recommendation: "Avoid adding capabilities unless necessary. Most apps don\u2019t need them."
@@ -159,6 +182,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 2
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: apparmor
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: unsupported AppArmor values can be denied at admission."
   description: Detects AppArmor annotations or profile types that are not permitted by baseline Pod Security Standards.
   fail_message: Pod specifies unsupported AppArmor values
   recommendation: "Use RuntimeDefault or Localhost AppArmor profiles, or remove custom unsupported AppArmor values."
@@ -178,6 +206,11 @@ checks:
   resource_kind: Pod
   severity: Warning
   weight: 2
+  automatic_relevance: warning
+  automatic_scope: workload
+  automatic_reason: seccomp
+  automatic_admission_behavior: warns_only
+  automatic_mutation_outcome: "Observed on AKS Automatic: workloads without an explicit seccomp profile can generate a warning requiring RuntimeDefault or Localhost."
   description: Detects pods and containers that do not explicitly configure a seccomp profile.
   fail_message: Seccomp profile is not configured.
   recommendation: "Set seccompProfile.type to RuntimeDefault or Localhost at the pod or container level."
@@ -217,6 +250,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: host_namespace
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: workloads using hostIPC can be denied by baseline admission policy."
   description: Detects pods that enable hostIPC.
   fail_message: hostIPC is enabled.
   recommendation: "Avoid using hostIPC in pods unless absolutely required for specific functionality."
@@ -312,6 +350,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: seccomp
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: seccomp profiles explicitly set to Unconfined can be denied at admission."
   description: Detects pods or containers explicitly using the Unconfined seccomp profile.
   fail_message: Unconfined seccomp profile detected.
   recommendation: "Use RuntimeDefault or Localhost seccomp profiles instead of Unconfined."
@@ -330,6 +373,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 2
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: proc_mount
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: non-default procMount values can be denied at admission."
   description: Flags containers that set procMount to a non-default value.
   fail_message: Container uses a non-default procMount.
   recommendation: "Remove procMount overrides or set them to Default."

@@ -249,6 +249,9 @@ checks:
   resource_kind: Ingress
   severity: Warning
   weight: 2
+  automatic_relevance: warning
+  automatic_scope: workload
+  automatic_reason: gateway_api
   description: Detects clusters still using Ingress without any Gateway API resources.
   fail_message: Ingress is in use without Gateway API adoption.
   recommendation: "Plan migration from Ingress to Gateway API. Start by defining GatewayClass/Gateway and incrementally moving routes to HTTPRoute."
@@ -344,6 +347,11 @@ checks:
   resource_kind: Service
   severity: Warning
   weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: service_selector
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: creating multiple Services with the same selector can be denied at admission."
   description: Detects multiple Services in the same namespace with identical selectors.
   fail_message: Multiple Services share the same selector.
   recommendation: "Use unique selectors per Service so AKS Automatic admission does not reject overlapping service ownership."
@@ -489,17 +497,42 @@ checks:
   resource_kind: StorageClass
   severity: High
   weight: 4
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: storage_csi
   description: Detects Azure in-tree storage provisioners that are not AKS Automatic compatible.
   fail_message: StorageClass uses an Azure in-tree provisioner.
   recommendation: "Migrate Azure storage classes to CSI drivers. Use disk.csi.azure.com or file.csi.azure.com instead of kubernetes.io/azure-disk and kubernetes.io/azure-file."
   url: https://learn.microsoft.com/azure/aks/csi-storage-drivers
   native_handler: SC002_AKS
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "AKS Automatic deployment safeguards reject Azure in-tree storage provisioners."
   value:
     path: provisioner
   operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F504 Migrate Azure StorageClasses to CSI</h4>\n  <ul>\n    <li>Create replacement StorageClasses that use <code>disk.csi.azure.com</code> or <code>file.csi.azure.com</code>.</li>\n    <li>Move PVCs and workloads off the in-tree StorageClass before migrating to AKS Automatic.</li>\n    <li>Validate reclaim policies, SKU, and mount options during the migration.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Azure in-tree storage classes are not AKS Automatic compatible.
+  - Move to disk.csi.azure.com or file.csi.azure.com before migration.
+  - Plan the PVC and workload migration path early.
+- id: SC004
+  name: StorageClass Prevents Volume Expansion
+  category: StorageClasses
+  section: Storage
+  resource_kind: StorageClass
+  severity: Medium
+  weight: 2
+  description: Identifies StorageClasses that do not permit volume expansion, which can limit dynamic scaling of stateful applications.
+  fail_message: StorageClass does not allow volume expansion.
+  recommendation: "If dynamic volume resizing is desired, modify the StorageClass to set allowVolumeExpansion: true. Note: some underlying storage systems may not support this feature."
+  url: https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion
+  value:
+    path: allowVolumeExpansion
+  operator: not_equals
+  expected: true
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4C8 Enable Volume Expansion</h4>\n  <ul>\n    <li><strong>Assess:</strong> Determine if your applications need dynamic volume resizing.</li>\n    <li><strong>Configure:</strong> Add or set <code>allowVolumeExpansion: true</code> in the StorageClass definition.</li>\n    <li><strong>Backend Check:</strong> Ensure your storage backend supports online volume expansion.</li>\n  </ul>\n</div>"
   speech_bubble:
   - Need more storage? Sometimes volumes can grow.
   - But your StorageClass might prevent it.
-  - Check 'allowVolumeExpansion'.
-  - Ensures dynamic resizing is possible.
+  - Check allowVolumeExpansion.
+  - This keeps dynamic resizing possible.

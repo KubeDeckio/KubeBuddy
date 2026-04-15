@@ -524,16 +524,16 @@ func AutomaticReadinessHTML(readiness *AutomaticReadiness) string {
 		b.WriteString(`<p><a href='` + htmlEscape(leaf) + `' target='_blank'>Open detailed AKS Automatic action plan</a></p>`)
 	}
 	b.WriteString(`<h3>Fix Before Migration</h3>`)
-	b.WriteString(renderAutomaticTable(readiness.Blockers))
+	b.WriteString(renderAutomaticTable("automaticBlockersTable", readiness.Blockers))
 	b.WriteString(`<h3>Warnings</h3>`)
-	b.WriteString(renderAutomaticTable(readiness.Warnings))
+	b.WriteString(renderAutomaticTable("automaticWarningsTable", readiness.Warnings))
 	b.WriteString(`</div></details></div>`)
 	return b.String()
 }
 
-func renderAutomaticTable(items []AutomaticFinding) string {
+func renderAutomaticTable(id string, items []AutomaticFinding) string {
 	var b strings.Builder
-	b.WriteString(`<div class="table-container"><table><thead><tr><th>ID</th><th>Check</th><th>Affected</th><th>Recommendation</th><th>Examples</th></tr></thead><tbody>`)
+	b.WriteString(`<div class="table-container automatic-readiness-table" id="` + htmlEscape(id) + `"><table><thead><tr><th>ID</th><th>Check</th><th>Affected</th><th>Recommendation</th><th>Examples</th></tr></thead><tbody>`)
 	if len(items) == 0 {
 		b.WriteString(`<tr><td colspan="5">None</td></tr>`)
 	} else {
@@ -542,7 +542,7 @@ func renderAutomaticTable(items []AutomaticFinding) string {
 			b.WriteString(fmt.Sprintf("%d", item.Total) + `</td><td>` + htmlEscape(item.Recommendation) + `</td><td>` + htmlEscape(strings.Join(item.Samples, ", ")) + `</td></tr>`)
 		}
 	}
-	b.WriteString(`</tbody></table></div>`)
+	b.WriteString(`</tbody></table><div class="table-pagination automatic-readiness-pagination"></div></div>`)
 	return b.String()
 }
 

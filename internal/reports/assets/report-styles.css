@@ -774,6 +774,15 @@ table a:hover {
   word-break: break-word;
 }
 
+.aks-recommendation-text,
+.aks-recommendation-lines {
+  line-height: 1.7;
+}
+
+.aks-recommendation-line + .aks-recommendation-line {
+  margin-top: 10px;
+}
+
 /* Hero Metrics Cards */
 .hero-metrics {
   display: flex;
@@ -954,13 +963,15 @@ table a:hover {
 }
 
 .status-pill.warning {
-  background: rgba(255, 160, 0, 0.16);
-  color: #8a4b00;
+  background: #6b4908;
+  color: #fff1cf;
+  border: 1px solid rgba(255, 193, 77, 0.28);
 }
 
 .status-pill.critical {
-  background: rgba(183, 28, 28, 0.16);
-  color: #7f1d1d;
+  background: #6e2230;
+  color: #ffe7eb;
+  border: 1px solid rgba(255, 107, 129, 0.28);
 }
 
 .status-pill.unknown,
@@ -3112,4 +3123,12 @@ html[data-kb-theme="radar"] .aks-filter-btn.is-active {
   background: var(--brand-blue);
   color: #fff;
   box-shadow: 0 0 0 1px rgba(0, 194, 255, 0.25), 0 6px 16px rgba(0, 194, 255, 0.2);
+}
+
+#aks[data-aks-filter="failed"] tr.aks-pass-row {
+  display: none !important;
+}
+
+#aks[data-aks-filter="all"] tr.aks-pass-row {
+  display: table-row !important;
 }

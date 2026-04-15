@@ -678,7 +678,7 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 			icon := "✅"
 			value := ""
 			failMessage := "No issues detected."
-			rowClass := ` class="aks-pass-row" style="display:none;"`
+			rowClass := ` class="aks-pass-row"`
 			if check.Total > 0 {
 				status = "FAIL"
 				icon = "❌"
@@ -756,10 +756,26 @@ func renderRightsizingAtGlance(result scan.Result, snapshot reportSnapshot) stri
 }
 
 func renderAKSRecommendationCell(check scan.CheckResult) string {
-	if strings.TrimSpace(check.RecommendationHTML) != "" {
-		return check.RecommendationHTML
+	if strings.TrimSpace(check.Recommendation) == "" {
+		if strings.TrimSpace(check.RecommendationHTML) != "" {
+			return check.RecommendationHTML
+		}
+		return ""
 	}
-	return formatAKSCellText(check.Recommendation)
+	items := splitRecommendationItems(check.Recommendation)
+	if len(items) == 0 {
+		return formatAKSCellText(check.Recommendation)
+	}
+	if len(items) == 1 {
+		return `<div class="aks-recommendation-text">` + formatAKSCellText(items[0]) + `</div>`
+	}
+	var b strings.Builder
+	b.WriteString(`<div class="aks-recommendation-lines">`)
+	for _, item := range items {
+		b.WriteString(`<div class="aks-recommendation-line">` + formatAKSCellText(item) + `</div>`)
+	}
+	b.WriteString(`</div>`)
+	return b.String()
 }
 
 func renderCheckDetails(check scan.CheckResult) string {
@@ -2029,6 +2045,34 @@ func formatAKSCellText(value string) string {
 		b.WriteString(esc(value[cursor:]))
 	}
 	return b.String()
+}
+
+func splitRecommendationItems(value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	rawItems := make([]string, 0)
+	for _, line := range strings.Split(value, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		line = strings.TrimLeft(line, "-*• ")
+		line = strings.TrimLeft(line, "✓✔ ")
+		parts := strings.Split(line, ". ")
+		for i, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			if i < len(parts)-1 && !strings.HasSuffix(part, ".") {
+				part += "."
+			}
+			rawItems = append(rawItems, part)
+		}
+	}
+	return rawItems
 }
 
 func looksLikeCode(value string) bool {

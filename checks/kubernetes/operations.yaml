@@ -248,6 +248,11 @@ checks:
   resource_kind: Pod
   severity: High
   weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: image_tag
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "AKS Deployment Safeguards can deny workloads that use the latest tag or omit an explicit version tag."
   description: Flags containers using latest or no explicit tag.
   fail_message: Container image uses latest or omits an explicit tag.
   recommendation: "Specify an explicit image tag (e.g., ':v1.2.3') on every container and initContainer to ensure consistent deployments."
@@ -439,6 +444,11 @@ checks:
   resource_kind: Pod
   severity: Warning
   weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: resource_requests
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: workloads with missing resource requests can be denied at admission. Some safeguard versions also document request mutation/defaulting behavior."
   description: Checks that every container has explicit CPU and memory requests.
   fail_message: Container is missing CPU or memory requests.
   recommendation: "Define cpu and memory requests on all containers."
@@ -479,6 +489,9 @@ checks:
   resource_kind: Deployment
   severity: Warning
   weight: 4
+  automatic_relevance: warning
+  automatic_scope: workload
+  automatic_reason: health_probes
   description: Detects containers without readiness or liveness probes.
   fail_message: Missing readiness or liveness probes.
   recommendation: "Add readiness and liveness probes to all containers to improve availability and fault detection."
@@ -576,6 +589,11 @@ checks:
   resource_kind: Deployment
   severity: Warning
   weight: 2
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: pod_spread
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: replicated workloads without pod anti-affinity or topology spread constraints can be denied at admission."
   description: Detects replicated workloads that define neither anti-affinity nor topology spread constraints.
   fail_message: Replicated workload lacks spread constraints.
   recommendation: "Add pod anti-affinity or topology spread constraints to replicated workloads."

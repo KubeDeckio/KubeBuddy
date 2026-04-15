@@ -490,6 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         document.querySelectorAll('.collapsible-container').forEach(c => {
+            if (c.classList.contains('aks-automatic-readiness')) return;
             const d = c.querySelector('details');
             if (d.open) paginateTable(c);
         });
@@ -512,6 +513,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // COLLAPSIBLE + PAGINATION + SORTING SETUP
     document.querySelectorAll('.collapsible-container > details').forEach(detail => {
         const container = detail.parentElement;
+        if (container.classList.contains('aks-automatic-readiness')) {
+            return;
+        }
         const summary = detail.querySelector('summary');
         // stash the full HTML (with your badges) so we can swap only the word
         const origHTML = summary.innerHTML;
@@ -801,6 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initPodSizingProfileSelector();
+    initAutomaticReadinessTables();
 
     function buildCompactPageList(total, current, edgeCount = 1, aroundCount = 1) {
         const pages = new Set();
@@ -1017,6 +1022,112 @@ document.addEventListener('DOMContentLoaded', () => {
         update();
     }
 
+    function initAutomaticReadinessTables() {
+        document.querySelectorAll('.automatic-readiness-table').forEach(container => {
+            paginateStandaloneTable(container);
+        });
+    }
+
+    function paginateStandaloneTable(container) {
+        if (!container) return;
+        const table = container.querySelector('table');
+        const pager = container.querySelector('.automatic-readiness-pagination');
+        if (!table || !pager) return;
+
+        const allRows = Array.from(table.querySelectorAll('tbody tr'));
+        let currentPage = 1;
+        let pageSize = 5;
+
+        function syncPagerVisibility() {
+            if (allRows.length <= pageSize) {
+                pager.innerHTML = '';
+                pager.style.display = 'none';
+                allRows.forEach(row => {
+                    row.style.display = '';
+                });
+                return false;
+            }
+            pager.style.display = '';
+            return true;
+        }
+
+        const totalPages = () => Math.max(1, Math.ceil(allRows.length / pageSize));
+
+        function showPage() {
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            allRows.forEach((row, idx) => {
+                row.style.display = (idx >= start && idx < end) ? '' : 'none';
+            });
+        }
+
+        function updateControls() {
+            pager.innerHTML = '';
+
+            const prev = document.createElement('button');
+            prev.textContent = '←';
+            prev.disabled = currentPage === 1;
+            prev.addEventListener('click', () => {
+                currentPage = Math.max(1, currentPage - 1);
+                update();
+            });
+            pager.appendChild(prev);
+
+            const pages = totalPages();
+            const pageSequence = buildCompactPageList(pages, currentPage, 1, 1);
+            pageSequence.forEach(token => {
+                if (token === '...') {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.className = 'pager-ellipsis';
+                    ellipsis.textContent = '...';
+                    pager.appendChild(ellipsis);
+                    return;
+                }
+                const btn = document.createElement('button');
+                btn.textContent = token;
+                if (token === currentPage) btn.classList.add('active');
+                btn.addEventListener('click', () => {
+                    currentPage = token;
+                    update();
+                });
+                pager.appendChild(btn);
+            });
+
+            const next = document.createElement('button');
+            next.textContent = '→';
+            next.disabled = currentPage === pages;
+            next.addEventListener('click', () => {
+                currentPage = Math.min(pages, currentPage + 1);
+                update();
+            });
+            pager.appendChild(next);
+
+            const sel = document.createElement('select');
+            [5, 10, 25, 50].forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = `${n} per page`;
+                if (n === pageSize) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            sel.addEventListener('change', () => {
+                pageSize = +sel.value;
+                currentPage = 1;
+                update();
+            });
+            pager.appendChild(sel);
+        }
+
+        function update() {
+            if (!syncPagerVisibility()) return;
+            if (currentPage > totalPages()) currentPage = totalPages();
+            showPage();
+            updateControls();
+        }
+
+        update();
+    }
+
     // ──────────────────────────────────────────────────────────
     window.toggleExpand = function (panelId) {
         // find the panel
@@ -1174,11 +1285,6 @@ function initReportThemePicker() {
 function applyAKSFilter(mode) {
     const aksTab = document.getElementById('aks');
     if (!aksTab) return;
-    const passRows = aksTab.querySelectorAll('tr.aks-pass-row');
-    const showAll = mode === 'all';
-    passRows.forEach(function(row) {
-        row.style.display = showAll ? '' : 'none';
-    });
 
     const failedBtn = document.getElementById('aksFilterFailed');
     const allBtn = document.getElementById('aksFilterAll');
@@ -1202,6 +1308,13 @@ function initializeAKSFilter() {
     if (!aksTab) return;
     const initialMode = aksTab.getAttribute('data-aks-filter') || 'failed';
     applyAKSFilter(initialMode);
+
+    aksTab.querySelectorAll('details').forEach(function(details) {
+        details.addEventListener('toggle', function() {
+            const currentMode = aksTab.getAttribute('data-aks-filter') || 'failed';
+            applyAKSFilter(currentMode);
+        });
+    });
 }
 
 window.setAKSFilter = function(mode) {
