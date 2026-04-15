@@ -22,7 +22,7 @@ jobs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Resolve tag
         id: meta
@@ -66,7 +66,7 @@ jobs:
           ./scripts/build-release-artifacts.sh "${TAG}"
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           files: |
@@ -94,7 +94,7 @@ jobs:
     if: needs.build-and-release.result == 'success' && needs.check-latest.outputs.is_latest == 'true'
     steps:
       - name: Checkout source
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
@@ -110,7 +110,7 @@ jobs:
           ./scripts/build-release-artifacts.sh "${TAG}"
 
       - name: Checkout homebrew tap
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: KubeDeckio/homebrew-kubebuddy
           token: ${{ secrets.BREW_BUMP_TOKEN }}
