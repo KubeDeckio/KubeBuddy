@@ -1,4 +1,4 @@
-ARG GO_IMAGE=golang:1.24.2-bookworm
+ARG GO_IMAGE=golang:1.25.0-bookworm
 ARG TOOL_IMAGE=debian:bookworm-slim
 ARG RUNTIME_IMAGE=gcr.io/distroless/base-debian12:nonroot
 ARG KUBECTL_VERSION=v1.35.1
