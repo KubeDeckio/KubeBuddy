@@ -1,0 +1,150 @@
+checks:
+  - id: GKEBP001
+    name: Workload Identity Enabled
+    category: Best Practices
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: workloadIdentityConfig.workloadPool
+    operator: not_equals
+    expected: null
+    fail_message: Workload Identity is not enabled on this GKE cluster. Without Workload Identity, applications must use less secure authentication methods such as node service accounts or exported JSON keys, which are difficult to rotate, easy to leak, and violate the principle of least privilege.
+    recommendation: Enable Workload Identity using 'gcloud container clusters update <cluster> --workload-pool=<project-id>.svc.id.goog'. Then configure Kubernetes service accounts to impersonate IAM service accounts. This provides fine-grained, per-pod identity without managing secrets.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity
+
+  - id: GKEBP002
+    name: Shielded GKE Nodes Enabled
+    category: Best Practices
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: shieldedNodes.enabled
+    operator: equals
+    expected: true
+    fail_message: Shielded GKE Nodes are not enabled. Without Shielded Nodes, the cluster is vulnerable to rootkit and bootkit attacks that can persist across reboots, tamper with the OS kernel, or exfiltrate data before security software loads. This weakens the overall integrity of the node boot process.
+    recommendation: Enable Shielded Nodes using 'gcloud container clusters update <cluster> --enable-shielded-nodes'. This enables Secure Boot, vTPM-based measured boot, and integrity monitoring on all cluster nodes, protecting against boot-level and kernel-level tampering.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/shielded-gke-nodes
+
+  - id: GKEBP003
+    name: Node Auto-Upgrade Enabled
+    category: Best Practices
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: nodePools
+    operator: greater_than
+    expected: 0
+    fail_message: Node auto-upgrade is not enabled for one or more node pools. Disabling auto-upgrade leaves nodes running outdated Kubernetes versions with known CVEs, missing security patches, and potential API incompatibilities with the control plane. This increases both the security risk and operational maintenance burden.
+    recommendation: Enable node auto-upgrade using 'gcloud container node-pools update <pool> --cluster=<cluster> --enable-autoupgrade'. Configure maintenance windows using 'gcloud container clusters update <cluster> --maintenance-window-start=<time>' to control when upgrades occur and minimize disruption to workloads.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/node-auto-upgrades
+
+  - id: GKEBP004
+    name: Node Auto-Repair Enabled
+    category: Best Practices
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: nodePools
+    operator: greater_than
+    expected: 0
+    fail_message: Node auto-repair is not enabled. Without auto-repair, unhealthy nodes (failed health checks, unresponsive kubelet, disk pressure, or kernel panics) will remain in the cluster indefinitely, causing pod scheduling failures, degraded application performance, and potential cascading failures across workloads.
+    recommendation: Enable node auto-repair using 'gcloud container node-pools update <pool> --cluster=<cluster> --enable-autorepair'. GKE will automatically detect unhealthy nodes via health checks (kubelet status, disk pressure, kernel panics) and drain and recreate them to restore cluster health.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/node-auto-repair
+
+  - id: GKEBP005
+    name: Cloud Logging Agent Enabled
+    category: Best Practices
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: loggingService
+    operator: not_equals
+    expected: none
+    fail_message: Cloud Logging is disabled for this cluster. Without centralized logging, container stdout/stderr logs, Kubernetes audit logs, and system component logs are not collected, making it impossible to debug application issues, investigate security incidents, or meet compliance audit requirements.
+    recommendation: Enable Cloud Logging using 'gcloud container clusters update <cluster> --logging=SYSTEM,WORKLOAD'. For granular control, configure specific log types with '--logging=SYSTEM,WORKLOAD,API_SERVER,SCHEDULER,CONTROLLER_MANAGER'. Ensure Cloud Logging API is enabled in the project.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/logging
+
+  - id: GKEBP006
+    name: Cloud Monitoring Agent Enabled
+    category: Best Practices
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: monitoringService
+    operator: not_equals
+    expected: none
+    fail_message: Cloud Monitoring is disabled for this cluster. Without monitoring, there is no visibility into node CPU/memory utilization, pod health, container resource consumption, or Kubernetes control plane metrics. This prevents proactive capacity planning, SLO tracking, and timely alerting on infrastructure issues.
+    recommendation: Enable Cloud Monitoring using 'gcloud container clusters update <cluster> --monitoring=SYSTEM,WORKLOAD'. Configure Google Cloud Managed Service for Prometheus for custom application metrics using '--enable-managed-prometheus'. Set up alerting policies in Cloud Monitoring for critical cluster events.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/monitoring
+
+  - id: GKEBP007
+    name: VPC-Native Cluster (Alias IP) Enabled
+    category: Best Practices
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: ipAllocationPolicy.useIpAliases
+    operator: equals
+    expected: true
+    fail_message: Cluster is using routes-based networking instead of VPC-native (alias IP) mode. Routes-based clusters have limited scalability, cannot use GKE network policies natively, do not support Pod-level firewall rules, and are incompatible with several GKE features like private Google Access for pods and GKE Dataplane V2.
+    recommendation: VPC-native mode must be set at cluster creation time with 'gcloud container clusters create <cluster> --enable-ip-alias'. For existing routes-based clusters, create a new VPC-native cluster and migrate workloads. Use '--cluster-ipv4-cidr' and '--services-ipv4-cidr' to configure pod and service CIDR ranges.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/alias-ips
+
+  - id: GKEBP008
+    name: Release Channel Configured
+    category: Best Practices
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: releaseChannel.channel
+    operator: not_equals
+    expected: UNSPECIFIED
+    fail_message: Cluster is not enrolled in a GKE release channel (Rapid, Regular, or Stable). Without a release channel, the cluster does not receive automatic control plane upgrades, security patches, or bug fixes. This increases operational burden and leaves the cluster vulnerable to known Kubernetes CVEs.
+    recommendation: Enroll the cluster in a release channel using 'gcloud container clusters update <cluster> --release-channel=regular'. Use 'rapid' for early access to new features, 'regular' (recommended) for balanced stability, or 'stable' for maximum reliability. Release channels automate control plane versioning and patching.
+    url: https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels
+
+  - id: GKEBP009
+    name: Cluster Autoscaler Configured
+    category: Best Practices
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: nodePools
+    operator: greater_than
+    expected: 0
+    fail_message: Cluster autoscaling is not enabled for one or more node pools, resulting in either over-provisioned resources (wasted cost) or under-provisioned capacity (pod scheduling failures during peak demand). Manual node scaling is slow, error-prone, and cannot respond to sudden traffic spikes.
+    recommendation: Enable cluster autoscaler using 'gcloud container clusters update <cluster> --enable-autoscaling --min-nodes=<min> --max-nodes=<max> --node-pool=<pool>'. Configure appropriate min/max node counts based on baseline and peak workloads. Consider using Node Auto-Provisioning (NAP) for automatic node pool creation.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-autoscaler
+
+  - id: GKEBP010
+    name: Binary Authorization Enabled
+    category: Best Practices
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: binaryAuthorization.evaluationMode
+    operator: not_equals
+    expected: DISABLED
+    fail_message: Binary Authorization is not enabled. Without it, any container image from any registry can be deployed to the cluster, including images with known vulnerabilities, unsigned images, or images from untrusted sources. This creates significant supply chain security risks and violates software provenance best practices.
+    recommendation: Enable Binary Authorization using 'gcloud container clusters update <cluster> --binauthz-evaluation-mode=PROJECT_SINGLETON_POLICY_ENFORCE'. Create attestation policies that require images to be signed by trusted authorities before deployment. Integrate with Cloud Build for automated signing during CI/CD pipelines.
+    url: https://cloud.google.com/binary-authorization/docs/overview
