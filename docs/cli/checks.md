@@ -15,7 +15,7 @@ Each check targets a specific part of your cluster—nodes, pods, workloads, sec
 
 ## Section Mapping: YAML to Report Tabs
 
-Each check includes a `Section` value in its YAML. This table shows how those values map to the tabs in the HTML report:
+Each check includes a `section` value in its YAML. This table shows how those values map to the tabs in the HTML report:
 
 | YAML Section Value  | Report Tab Name       |
 | ------------------- | --------------------- |
@@ -75,24 +75,24 @@ Each table includes:
 
 | ID | Name | Description | Severity | Weight |
 |---|---|---|---|---|
-| NET001 | Services Without Endpoints | Identifies services that have no backing endpoints, which means no pods are matched. | critical | 2 |
-| NET002 | Publicly Accessible Services | Detects services of type LoadBalancer or NodePort that are potentially exposed to the internet. | critical | 4 |
-| NET003 | Ingress Health Validation | Validates ingress definitions for missing classes, invalid backends, missing TLS secrets, duplicate host/path entries, and incorrect path types. | critical | 3 |
-| NET004 | Namespace Missing Network Policy | Detects namespaces that have running pods but no associated NetworkPolicy resources. This could allow unrestricted pod-to-pod communication. | warning | 3 |
-| NET005 | Ingress Host/Path Conflicts | Identifies Ingress resources that define conflicting host and path combinations, leading to unpredictable routing. | critical | 5 |
-| NET006 | Ingress Using Wildcard Hosts | Identifies Ingress resources that utilize wildcard hosts (e.g., '\*https://www.google.com/search?q=.example.com'), which may offer broader exposure than intended. | medium | 2 |
-| NET007 | Service TargetPort Mismatch | Identifies services whose 'targetPort' does not match any 'containerPort' in the backing pods, preventing traffic delivery. | critical | 4 |
-| NET008 | ExternalName Service to Internal IP | Identifies 'ExternalName' type services pointing to private IP ranges, which might indicate a misconfiguration or an unusual routing pattern. | medium | 2 |
-| NET009 | Overly Permissive Network Policy | Identifies NetworkPolicies that define 'policyTypes' but have no rules, effectively allowing all traffic for that type, or containing overly broad 'ipBlock' rules. | high | 4 |
-| NET010 | Network Policy Overly Permissive IPBlock | Flags NetworkPolicies that include '0.0.0.0/0' in their 'ipBlock' rules, effectively allowing traffic to/from all IPs for that rule, which can be a security risk. | high | 5 |
-| NET011 | Network Policy Missing PolicyTypes | Detects NetworkPolicies that do not explicitly define 'policyTypes'. While defaulting to Ingress in some older versions, explicit definition improves clarity and future compatibility across different CNI plugins and Kubernetes versions. | low | 1 |
-| NET012 | Pod HostNetwork Usage | Identifies pods configured to use 'hostNetwork: true', which allows direct access to the node's network interfaces, bypassing Kubernetes networking. | high | 4 |
-| NET013 | Ingress Present Without Gateway API Adoption | Detects Ingress usage where Gateway API resources are not yet adopted, helping teams plan migration to Gateway API-based ingress. | warning | 2 |
-| NET014 | HTTPRoute Missing or Unaccepted Parent | Detects HTTPRoutes with no parentRefs or routes not Accepted by any parent Gateway. | critical | 3 |
-| NET015 | Gateways Without Attached HTTPRoutes | Detects Gateway resources that currently have no HTTPRoutes attached via parentRefs. | warning | 2 |
-| NET016 | Gateway API Readiness Conditions | Detects GatewayClass/Gateway resources that are not Accepted or Programmed and may not route traffic. | critical | 3 |
-| NET017 | Gateway TLS Secret and Cross-Namespace ReferenceGrant Validation | Validates Gateway listener certificateRefs and required ReferenceGrants for cross-namespace Secret usage. | critical | 3 |
-| NET018 | Duplicate Service Selectors | Detects multiple Services in the same namespace using the same selector set. | warning | 3 |
+| NET001 | Services Without Endpoints | Identifies services that have no backing endpoints. | High | 2 |
+| NET002 | Publicly Accessible Services | Detects services of type LoadBalancer or NodePort that may be publicly exposed. | High | 4 |
+| NET003 | Ingress Health Validation | Validates ingress classes, TLS secrets, and backend service references. | High | 3 |
+| NET004 | Namespace Missing Network Policy | Flags namespaces that do not define any NetworkPolicy. | Warning | 2 |
+| NET005 | Ingress Host/Path Conflicts | Detects duplicate host/path combinations across ingresses in the same namespace. | High | 2 |
+| NET006 | Ingress Using Wildcard Hosts | Detects ingress rules that use wildcard hosts. | Warning | 2 |
+| NET007 | Service TargetPort Mismatch | Detects services whose `targetPort` does not exist on backing pods. | High | 2 |
+| NET008 | ExternalName Service to Internal IP | Identifies `ExternalName` services that point to internal IP addresses. | Warning | 2 |
+| NET009 | Overly Permissive Network Policy | Identifies NetworkPolicies with empty rules or broad all-IP blocks. | High | 4 |
+| NET010 | Network Policy Overly Permissive IPBlock | Flags NetworkPolicies that allow `0.0.0.0/0` through `ipBlock` rules. | High | 5 |
+| NET011 | Network Policy Missing PolicyTypes | Detects NetworkPolicies that do not explicitly define `policyTypes`. | Low | 1 |
+| NET012 | Pod HostNetwork Usage | Identifies pods configured with `hostNetwork: true`. | High | 2 |
+| NET013 | Ingress Present Without Gateway API Adoption | Detects clusters still using Ingress without any Gateway API resources. | Warning | 2 |
+| NET014 | HTTPRoute Missing or Unaccepted Parent | Detects HTTPRoutes with missing `parentRefs` or no accepted parent Gateway. | High | 3 |
+| NET015 | Gateways Without Attached HTTPRoutes | Detects Gateway resources that have no attached HTTPRoutes. | Warning | 2 |
+| NET016 | Gateway API Readiness Conditions | Detects Gateway resources that are not accepted or programmed. | High | 3 |
+| NET017 | Gateway TLS Secret and Cross-Namespace ReferenceGrant Validation | Validates Gateway `certificateRefs` against existing Secrets and ReferenceGrants. | High | 3 |
+| NET018 | Duplicate Service Selectors | Detects multiple Services in the same namespace with identical selectors. | Warning | 3 |
 | PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours. | Medium | 2 |
 
 ### Nodes
@@ -107,7 +107,7 @@ Each table includes:
 
 | ID      | Name                    | Description                                                      | Severity | Weight |
 | ------- | ----------------------- | ---------------------------------------------------------------- | -------- | ------ |
-| PROM004 | API Server High Latency | Detects high latency in Kubernetes API server requests over 24h. | High     | 5      |
+| PROM004 | API Server High Latency (Prometheus) | Detects high latency in Kubernetes API server requests over 24 hours. | High | 5 |
 
 ### Capacity
 
@@ -164,25 +164,28 @@ Each table includes:
 | SEC012 | Added Linux Capabilities              | Use of extra Linux capabilities via `securityContext.capabilities.add`. | Medium   | 2      |
 | SEC013 | EmptyDir Volume Usage                 | `emptyDir` volumes are non-persistent and cleared on restart.           | Low      | 1      |
 | SEC014 | Untrusted Image Registries            | Pulling from unapproved registries.                                     | High     | 3      |
-| SEC015 | Host Ports in Pod Specs               | Detects containers that bind host ports directly on the node.           | High     | 4      |
-| SEC016 | Unconfined Seccomp Profiles           | Detects pod or container seccomp profiles explicitly set to `Unconfined`. | High   | 4      |
+| SEC015 | Pods Using Default ServiceAccount     | Flags pods using the default service account, which may have broad permissions. | Warning | 3      |
+| SEC016 | Unconfined Seccomp Profiles           | Detects pod or container seccomp profiles explicitly set to `Unconfined`. | High   | 3      |
 | SEC017 | Non-Default ProcMount                 | Detects containers that set a `procMount` value other than `Default`.   | High     | 3      |
-| SEC018 | Disallowed Sysctls                    | Detects sysctls outside the Kubernetes baseline allowlist.              | High     | 3      |
+| SEC018 | Automounting API Credentials Enabled in ServiceAccounts | Flags ServiceAccounts where API token automounting is enabled. | Warning | 3      |
 | SEC019 | Unsupported AppArmor Values           | Detects unsupported AppArmor annotations or structured profile types.   | High     | 2      |
 | SEC020 | Seccomp Profile Not Configured        | Detects pods and containers without an explicit seccomp profile.        | Warning  | 2      |
+| SEC021 | Host Ports in Pod Specs               | Detects containers that bind host ports directly on the node.           | Critical | 4      |
+| SEC022 | Non-Existent Secret References        | Flags pods referencing Secrets that do not exist.                       | Critical | 4      |
+| SEC023 | Disallowed Sysctls                    | Detects sysctls outside the Kubernetes baseline allowlist.              | Critical | 3      |
 
 ### Storage
 
 | ID     | Name                                       | Description                                                                                                                                                         | Severity | Weight |
 | ------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------ |
-| PVC001 | Unused PVCs                                | Not mounted or bound; can be deleted.                                                                                                                               | Medium   | 2      |
 | PV001  | Orphaned Persistent Volumes                | Detects Persistent Volumes that are not bound to any Persistent Volume Claim.                                                                                       | Warning  | 3      |
 | PVC001 | Unused Persistent Volume Claims            | Detects PVCs not attached to any pod.                                                                                                                               | Warning  | 2      |
 | PVC002 | PVCs Using Default StorageClass            | Detects PVCs that do not explicitly specify a storageClassName.                                                                                                     | Low      | 1      |
 | PVC003 | ReadWriteMany PVCs on Incompatible Storage | Detects PVCs requesting ReadWriteMany access mode where the underlying storage is typically block-based and does not support concurrent writes from multiple nodes. | High     | 5      |
 | PVC004 | Unbound Persistent Volume Claims           | Detects Persistent Volume Claims that are in a Pending phase and have not been bound to a Persistent Volume.                                                        | High     | 3      |
 | SC001  | Deprecated StorageClass Provisioners       | Detects StorageClasses using deprecated or legacy in-tree provisioners, which should be migrated to CSI drivers.                                                    | High     | 4      |
-| SC002  | StorageClass Prevents Volume Expansion     | Identifies StorageClasses that do not permit volume expansion, which can limit dynamic scaling of stateful applications.                                            | Medium   | 2      |
+| SC002  | AKS Azure In-Tree Storage Provisioners     | Detects Azure in-tree storage provisioners that are not AKS Automatic compatible.                                                                                   | High     | 4      |
+| SC004  | StorageClass Prevents Volume Expansion     | Identifies StorageClasses that do not permit volume expansion, which can limit dynamic scaling of stateful applications.                                           | Medium   | 2      |
 | SC003  | High Cluster Storage Usage                 | Monitors the overall percentage of used storage across the cluster.                                                                                                 | Warning  | 4      |
 
 ### Workloads
@@ -201,9 +204,9 @@ Each table includes:
 | WRK010 | HPA Metrics Without Matching Resource Requests | HPAs scale on CPU/memory while target containers miss matching requests.   | Warning  | 3      |
 | WRK011 | VPA Update Mode and Declarative Resource Conflict Risk | Flags VPA Auto/Recreate targets likely to conflict with declarative ownership or HPA. | Warning | 2 |
 | WRK012 | PodDisruptionBudget Adequacy for Replicated Workloads | Detects missing/overly strict/overly permissive PDB settings on 2+ replica workloads. | Warning | 2 |
-| WRK013 | CrashLoopBackOff and OOMKilled Guardrail | Highlights unstable pods to guard against unsafe right-sizing decisions.    | Critical | 3      |
+| WRK013 | CrashLoopBackOff and OOMKilled Guardrail | Highlights unstable pods to guard against unsafe right-sizing decisions.    | High | 3      |
 | WRK014 | Missing Memory Limits | Detects workloads whose containers do not define a memory limit. | Warning | 2 |
-| WRK015 | Replicated Workloads Missing Spread Constraints | Detects Deployments or StatefulSets with 2+ replicas that define neither anti-affinity nor topology spread constraints. | Warning | 3 |
+| WRK015 | Replicated Workloads Missing Spread Constraints | Detects Deployments or StatefulSets with 2+ replicas that define neither anti-affinity nor topology spread constraints. | Warning | 2 |
 
 
 ## Usage Notes

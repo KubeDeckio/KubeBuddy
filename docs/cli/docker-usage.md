@@ -7,7 +7,7 @@ layout: default
 
 # Docker Usage
 
-Run **KubeBuddy powered by KubeDeck** in a Docker container to scan your Kubernetes cluster and generate security, configuration, and best-practice reports — no local installation required.
+Run **KubeBuddy** in a Docker container to scan your Kubernetes cluster and generate security, configuration, and best-practice reports with the native `kubebuddy` container entrypoint.
 
 This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compliant Kubernetes cluster.
 
@@ -21,7 +21,7 @@ This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compli
 === "Bash"
 
     ```bash
-    export tagId="v0.0.23"  # Replace with the desired version
+    export tagId="v0.0.4"  # Replace with the desired version
 
     docker run -it --rm \
       -e KUBECONFIG="/home/kubeuser/.kube/config" \
@@ -34,7 +34,7 @@ This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compli
 === "PowerShell"
 
     ```powershell
-    $tagId = "v0.0.23"
+    $tagId = "v0.0.4"
 
     docker run -it --rm `
       -e KUBECONFIG="/home/kubeuser/.kube/config" `
@@ -68,13 +68,6 @@ This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compli
   ```
 
 ### For AKS Users
-
-* Azure CLI installed and logged in:
-
-  ```bash
-  az login
-  az --version
-  ```
 
 * A Service Principal (SPN) with **Cluster Admin** or **KubeBuddy Reader** role
 
@@ -145,6 +138,14 @@ Set these to control behavior inside the container:
 | `KUBECONFIG`                                   | Path to the kubeconfig inside the container |
 | One of the report flags (below) must be `true` |                                             |
 
+The container entrypoint runs:
+
+```bash
+kubebuddy run-env
+```
+
+inside the image and maps the environment variables below onto the same runtime.
+
 ### 📄 Report Format Flags (One or More Required)
 
 | Variable      | Description               |
@@ -163,7 +164,8 @@ Set these to control behavior inside the container:
 | `RADAR_API_BASE_URL`     | Radar API base URL (default: `https://radar.kubebuddy.io/api/kb-radar/v1`) |
 | `RADAR_ENVIRONMENT`      | Environment label (for example `prod`, `staging`, `dev`)                   |
 | `RADAR_API_USER_ENV`     | Env-var name containing Radar username (default: `KUBEBUDDY_RADAR_API_USER`) |
-| `RADAR_API_PASSWORD_ENV` | Env-var name containing Radar app password (default: `KUBEBUDDY_RADAR_API_PASSWORD`) |
+| `RADAR_API_SECRET_ENV`   | Env-var name containing Radar app password (default: `KUBEBUDDY_RADAR_API_PASSWORD`) |
+| `RADAR_API_PASSWORD_ENV` | Legacy alias for `RADAR_API_SECRET_ENV` |
 
 > ⚠️ When `RADAR_UPLOAD` or `RADAR_COMPARE` is enabled in Docker mode, set `JSON_REPORT="true"`.
 > Radar uploads are always JSON payloads.
@@ -172,9 +174,9 @@ Set these to control behavior inside the container:
 
 | Variable    | Description                                                                   |
 | ----------- | ----------------------------------------------------------------------------- |
-| `OpenAIKey` | Your OpenAI API key. Sets `$env:OpenAIKey` inside the container for PSAI use. |
+| `OpenAIKey` | Your OpenAI API key. Enables native AI enrichment for failing checks. |
 
-> ✅ If `OpenAIKey` is provided, KubeBuddy uses GPT (via [PSAI](https://www.powershellgallery.com/packages/PSAI)) to generate AI-powered recommendations for failing checks:
+> ✅ If `OpenAIKey` is provided, KubeBuddy uses the native AI client to generate AI-powered recommendations for failing checks:
 >     • **Short text summary** (shown in the plain-text report)
 >     • **Rich HTML block** (included in the HTML report)
 >
@@ -207,6 +209,8 @@ docker run -it --rm \
 | `AZURE_TENANT_ID`     | Azure tenant ID                 |
 | `USE_AKS_REST_API`    | `"true"` to use Azure REST APIs |
 
+The container image is Go-native and does not require the PowerShell runtime. For AKS collection and `PROMETHEUS_MODE=azure`, prefer the service principal variables above.
+
 ### 📈 Prometheus Integration (Optional)
 
 | Variable                       | Description                                                                       |
@@ -225,7 +229,7 @@ docker run -it --rm \
 >   -e MY_PROM_TOKEN="<token>" \
 >   -e PROMETHEUS_BEARER_TOKEN_ENV="MY_PROM_TOKEN"
 >   ```  
->   so that `Get-PrometheusHeaders` can read `$Env:MY_PROM_TOKEN`.  
+>   so that the native CLI can read the token from `$MY_PROM_TOKEN`.  
 
 
 ### 🔧 Optional
@@ -241,7 +245,7 @@ docker run -it --rm \
 === "Bash"
 
     ```bash
-    export tagId="v0.0.23"
+    export tagId="v0.0.4"
 
     docker run -it --rm \
       -e KUBECONFIG="/home/kubeuser/.kube/config" \
@@ -256,7 +260,7 @@ docker run -it --rm \
 === "Bash"
 
     ```bash
-    export tagId="v0.0.23"
+    export tagId="v0.0.4"
 
     docker run -it --rm \
       -e KUBECONFIG="/home/kubeuser/.kube/config" \
@@ -269,7 +273,7 @@ docker run -it --rm \
 === "PowerShell"
 
     ```powershell
-    $tagId = "v0.0.23"
+    $tagId = "v0.0.4"
 
     docker run -it --rm `
       -e KUBECONFIG="/home/kubeuser/.kube/config" `
@@ -284,7 +288,7 @@ docker run -it --rm \
 === "Bash"
 
     ```bash
-    export tagId="v0.0.23"
+    export tagId="v0.0.4"
 
     docker run -it --rm \
       -e KUBECONFIG="/home/kubeuser/.kube/config" \
@@ -302,7 +306,7 @@ docker run -it --rm \
 === "PowerShell"
 
     ```powershell
-    $tagId = "v0.0.23"
+    $tagId = "v0.0.4"
 
     docker run -it --rm `
       -e KUBECONFIG="/home/kubeuser/.kube/config" `
@@ -323,7 +327,7 @@ docker run -it --rm \
 === "Bash"
 
     ```bash
-    export tagId="v0.0.23"
+    export tagId="v0.0.4"
 
     docker run -it --rm \
       -e KUBECONFIG="/home/kubeuser/.kube/config" \
@@ -344,7 +348,7 @@ docker run -it --rm \
 === "PowerShell"
 
     ```powershell
-    $tagId = "v0.0.23"
+    $tagId = "v0.0.4"
 
     docker run -it --rm `
       -e KUBECONFIG="/home/kubeuser/.kube/config" `

@@ -1,0 +1,538 @@
+checks:
+- id: NET001
+  name: Services Without Endpoints
+  category: Networking
+  section: Networking
+  resource_kind: Service
+  severity: High
+  weight: 2
+  description: Identifies services that have no backing endpoints.
+  fail_message: Service has no endpoints.
+  recommendation: "Check if the service selector matches any pods. Ensure the backing pods are running and ready."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/
+  native_handler: NET001
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F50D Services Without Endpoints</h4>\n  <ul>\n    <li>Verify that your service has a valid selector.</li>\n    <li>Check if pods exist and are ready in the same namespace.</li>\n    <li>Use <code>kubectl describe svc &lt;name&gt;</code> and <code>kubectl get endpointslices -n &lt;namespace&gt; -l kubernetes.io/service-name=&lt;name&gt;</code>.</li>\n    <li>Restart affected pods or fix labels as needed.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for services without endpoints."
+  - "\U0001F4CC This means the service isn't routing to any pods."
+  - "\u26A0\uFE0F Often caused by label mismatches or no pods running."
+- id: NET002
+  name: Publicly Accessible Services
+  category: Networking
+  section: Networking
+  resource_kind: Service
+  severity: High
+  weight: 4
+  description: Detects services of type LoadBalancer or NodePort that may be publicly exposed.
+  fail_message: Publicly accessible services found.
+  recommendation: "Audit services of type LoadBalancer or NodePort. Limit exposure with firewalls or internal IP ranges."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services
+  native_handler: NET002
+  value:
+    path: spec.type
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F310 Secure Exposed Services</h4>\n  <ul>\n    <li>Use internal IP ranges or private LoadBalancers where possible.</li>\n    <li>Restrict NodePort usage or protect with firewall rules.</li>\n    <li>Disable external exposure for internal-only services.</li>\n    <li>Consider network policies or service mesh for access control.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for services exposed to the internet."
+  - "\U0001F4CC Flags LoadBalancer and NodePort types with external IPs."
+  - "\u26A0\uFE0F Public exposure may allow untrusted access."
+- id: NET003
+  name: Ingress Health Validation
+  category: Networking
+  section: Networking
+  resource_kind: Ingress
+  severity: High
+  weight: 3
+  description: Validates ingress classes, TLS secrets, and backend service references.
+  fail_message: Ingress health validation failed.
+  recommendation: "Fix invalid ingress definitions including missing TLS secrets, backend services, and path issues."
+  url: https://kubernetes.io/docs/concepts/services-networking/ingress/
+  native_handler: NET003
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F310 Ingress Health Remediation</h4>\n  <ul>\n    <li>Add <code>spec.ingressClassName</code> or annotations if missing.</li>\n    <li>Validate all backend services and ports exist.</li>\n    <li>Fix missing TLS secrets or use valid ones.</li>\n    <li>Avoid duplicate host/path combinations.</li>\n    <li>Use only valid pathTypes: Exact, Prefix, or ImplementationSpecific.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking Ingress definitions for configuration issues."
+  - "\U0001F4CC This includes:"
+  - '- missing ingress class or TLS secrets'
+  - '- backend services or ports not found'
+  - '- duplicate paths or invalid pathTypes'
+  - "\u26A0\uFE0F These issues can break routing or expose services incorrectly."
+- id: NET004
+  name: Namespace Missing Network Policy
+  category: Security
+  section: Networking
+  resource_kind: Namespace
+  severity: Warning
+  weight: 2
+  description: Flags namespaces that do not define any NetworkPolicy.
+  fail_message: Namespace has no NetworkPolicy.
+  recommendation: "Apply a default deny-all ingress/egress NetworkPolicy in each namespace that hosts workloads, then selectively allow traffic as needed.\n"
+
+  url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  native_handler: NET004
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<ul>\n  <li>Apply a default <code>deny-all</code> NetworkPolicy for ingress and egress.</li>\n  <li>Use additional policies to allow traffic between required pods/services.</li>\n</ul>"
+  speech_bubble:
+  - Some namespaces have pods but no NetworkPolicy.
+  - Unrestricted traffic between pods could be a security risk.
+- id: NET005
+  name: Ingress Host/Path Conflicts
+  category: Networking
+  section: Networking
+  resource_kind: Ingress
+  severity: High
+  weight: 2
+  description: Detects duplicate host/path combinations across ingresses in the same namespace.
+  fail_message: Duplicate ingress host/path combination found.
+  recommendation: "Resolve conflicting host and path combinations across Ingress resources to ensure predictable routing. Each host/path pair should be unique."
+  url: https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-ingresses
+  native_handler: NET005
+  value:
+    path: spec.rules
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6AB Resolve Ingress Conflicts</h4>\n  <ul>\n    <li>Ensure that each unique host and path combination is defined in only one Ingress resource.</li>\n    <li>Use specific hostnames instead of broad wildcards where possible to prevent unintended conflicts.</li>\n    <li>Review your Ingress definitions for overlapping rules and consolidate or adjust as necessary.</li>\n    <li>Test routing after making changes to confirm correct behavior.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for Ingress resources with overlapping host/path rules."
+  - "\U0001F4CC Conflicts can lead to unexpected routing of traffic."
+  - "\u26A0\uFE0F Ensure each host/path combination is unique across ingresses."
+- id: NET006
+  name: Ingress Using Wildcard Hosts
+  category: Networking
+  section: Networking
+  resource_kind: Ingress
+  severity: Warning
+  weight: 2
+  description: Detects ingress rules that use wildcard hosts.
+  fail_message: Ingress uses wildcard hosts.
+  recommendation: "Review Ingress resources using wildcard hosts. Prefer explicit hostnames for tighter security and clearer routing intent where possible."
+  url: https://kubernetes.io/docs/concepts/services-networking/ingress/#hostname-wildcards
+  native_handler: NET006
+  value:
+    path: spec.rules
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\u2B50 Review Wildcard Ingresses</h4>\n  <ul>\n    <li>Evaluate if a wildcard host is truly necessary for the application's routing requirements.</li>\n    <li>Where possible, replace wildcards with specific hostnames to limit unintentional exposure.</li>\n    <li>Ensure that security policies and firewalls are in place to control access to wildcard-enabled Ingresses.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for Ingresses with wildcard hostnames."
+  - "\U0001F4CC Wildcards can sometimes be overly broad."
+  - "\u26A0\uFE0F Consider using explicit hostnames for tighter security."
+- id: NET007
+  name: Service TargetPort Mismatch
+  category: Networking
+  section: Networking
+  resource_kind: Service
+  severity: High
+  weight: 2
+  description: Detects services whose targetPort does not exist on backing pods.
+  fail_message: Service targetPort does not match any backing pod port.
+  recommendation: "Ensure that all 'targetPort' definitions in services correctly match a 'containerPort' (by number or name) defined in the pods selected by the service."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service
+  native_handler: NET007
+  value:
+    path: spec.ports
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F3AF Fix Service TargetPort Mismatches</h4>\n  <ul>\n    <li>Verify the <code>targetPort</code> in your Service definition. It should either be a numerical port or a named port.</li>\n    <li>Check the <code>containerPorts</code> in the Pods selected by the Service.</li>\n    <li>Ensure the `targetPort` (by number) or `name` (for named ports) in the Pod's `containerPort` matches the Service's `targetPort`.</li>\n    <li>A common fix is to ensure consistent naming conventions or directly use port numbers.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking if service 'targetPort' matches a pod's 'containerPort'."
+  - "\U0001F4CC A mismatch means the service can't route traffic to the pods."
+  - "\u26A0\uFE0F This is a common cause of service connectivity issues."
+- id: NET008
+  name: ExternalName Service to Internal IP
+  category: Networking
+  section: Networking
+  resource_kind: Service
+  severity: Warning
+  weight: 2
+  description: Identifies ExternalName services that point to internal IP addresses.
+  fail_message: ExternalName service points to an internal IP.
+  recommendation: "Review 'ExternalName' services pointing to internal IPs. Consider using a regular Service with an EndpointSlice for internal traffic, or clarify intent if valid."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/#externalname
+  native_handler: NET008
+  value:
+    path: spec.externalName
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F504 Review ExternalName to Internal IP</h4>\n  <ul>\n    <li><code>ExternalName</code> services are primarily for CNAME-like redirection to external DNS names.</li>\n    <li>If routing to an internal IP address, consider if a standard `Service` with manually created `EndpointSlice` or a `Service` with `type: ClusterIP` backed by pods is more appropriate.</li>\n    <li>Ensure this configuration is intentional and does not bypass intended network segmentation or security policies.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking ExternalName services for internal IP targets."
+  - "\U0001F4CC ExternalName services are for external DNS."
+  - "\u26A0\uFE0F Pointing to internal IPs can be unusual or a misconfig."
+- id: NET009
+  name: Overly Permissive Network Policy
+  category: Networking
+  section: Networking
+  resource_kind: NetworkPolicy
+  severity: High
+  weight: 4
+  description: Identifies NetworkPolicies with empty rules or broad all-IP blocks.
+  fail_message: Overly permissive NetworkPolicy found.
+  recommendation: "Review NetworkPolicies with empty rules or broad IP blocks. Ensure policies enforce the principle of least privilege, explicitly defining allowed traffic."
+  url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  native_handler: NET009
+  value:
+    path: spec.policyTypes
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F510 Restrict Overly Permissive Network Policies</h4>\n  <ul>\n    <li>Ensure `policyTypes` are paired with explicit `ingress` and `egress` rules that define allowed traffic.</li>\n    <li>Avoid empty `ingress` or `egress` sections if the `policyTypes` are defined, as this defaults to allowing all traffic for that type.</li>\n    <li>Limit the use of `ipBlock: 0.0.0.0/0`. Instead, define specific CIDR ranges for necessary external communication.</li>\n    <li>Adopt a \"deny-by-default\" approach and explicitly allow only required communication.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking NetworkPolicies for overly permissive rules."
+  - "\U0001F4CC Empty rules or '0.0.0.0/0' can open up your network."
+  - "\u26A0\uFE0F Ensure policies only allow explicitly needed traffic."
+- id: NET010
+  name: Network Policy Overly Permissive IPBlock
+  category: Networking
+  section: Networking
+  resource_kind: NetworkPolicy
+  severity: High
+  weight: 5
+  description: Flags NetworkPolicies that allow 0.0.0.0/0 through ipBlock rules.
+  fail_message: NetworkPolicy uses 0.0.0.0/0 in ipBlock.
+  recommendation: "Replace '0.0.0.0/0' ipBlock in NetworkPolicies with specific CIDR ranges to enforce the principle of least privilege. Only allow traffic to/from necessary IPs."
+  url: https://kubernetes.io/docs/concepts/services-networking/network-policies/#the-ipblock-specifier
+  native_handler: NET010
+  value:
+    path: spec
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6AB Restrict '0.0.0.0/0' in Network Policies</h4>\n  <ul>\n    <li>Avoid using `ipBlock: 0.0.0.0/0` in NetworkPolicies unless absolutely required for specific, well-understood use cases (e.g., public internet access).</li>\n    <li>Identify the precise CIDR ranges or specific IP addresses that need to be allowed.</li>\n    <li>For egress, if public internet access is needed, consider egress gateways or more restrictive network policies to control outbound traffic.</li>\n    <li>This is a critical security vulnerability if unintended.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Looking for NetworkPolicies that allow all IPs."
+  - "\U0001F4CC '0.0.0.0/0' is an open door."
+  - "\u26A0\uFE0F This is a security risk. Be specific with IPs!"
+- id: NET011
+  name: Network Policy Missing PolicyTypes
+  category: Networking
+  section: Networking
+  resource_kind: NetworkPolicy
+  severity: Low
+  weight: 1
+  description: Detects NetworkPolicies that do not explicitly define policyTypes.
+  fail_message: NetworkPolicy does not explicitly define policyTypes.
+  recommendation: "Explicitly define 'policyTypes' (e.g., [Ingress, Egress]) in NetworkPolicies for clarity and to prevent unexpected behavior with future Kubernetes versions or different CNI plugins."
+  url: https://kubernetes.io/docs/concepts/services-networking/network-policies/#policy-types
+  native_handler: NET011
+  value:
+    path: spec
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4DD Define Network PolicyTypes</h4>\n  <ul>\n    <li>Always explicitly define `policyTypes` in your NetworkPolicy, such as `policyTypes: [Ingress]` or `policyTypes: [Ingress, Egress]`.</li>\n    <li>This clearly indicates whether the policy applies to inbound, outbound, or both types of traffic.</li>\n    <li>It prevents reliance on default behaviors, which can vary or change between Kubernetes versions or CNI implementations.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking NetworkPolicies for missing 'policyTypes'."
+  - "\U0001F4CC It defaults to Ingress, but explicit is better."
+  - "\u26A0\uFE0F Define them for clarity and future compatibility."
+- id: NET012
+  name: Pod HostNetwork Usage
+  category: Networking
+  section: Networking
+  resource_kind: Pod
+  severity: High
+  weight: 2
+  description: Identifies pods configured with hostNetwork true.
+  fail_message: Pod uses hostNetwork.
+  recommendation: "Avoid 'hostNetwork: true' unless absolutely necessary. For most cases, Kubernetes' built-in networking (e.g., Services, Ingress, NetworkPolicies) provides better isolation and security."
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/#host-networking
+  native_handler: NET012
+  value:
+    path: spec.hostNetwork
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\u26A0\uFE0F Avoid HostNetwork Usage</h4>\n  <ul>\n    <li>Using `hostNetwork: true` is a security risk as it grants the pod direct access to the node's network stack.</li>\n    <li>This bypasses many Kubernetes network security features and network policies.</li>\n    <li>Only use `hostNetwork` for specific, highly privileged use cases (e.g., CNI plugins, network observability tools) and limit access via RBAC and Pod Security Standards.</li>\n    <li>For typical applications, rely on ClusterIP, NodePort, or LoadBalancer services for exposure.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Looking for pods using 'hostNetwork: true'."
+  - "\U0001F4CC This bypasses Kubernetes' network isolation."
+  - "\u26A0\uFE0F High security risk. Avoid unless critical."
+- id: NET013
+  name: Ingress Present Without Gateway API Adoption
+  category: Networking
+  section: Networking
+  resource_kind: Ingress
+  severity: Warning
+  weight: 2
+  automatic_relevance: warning
+  automatic_scope: workload
+  automatic_reason: gateway_api
+  description: Detects clusters still using Ingress without any Gateway API resources.
+  fail_message: Ingress is in use without Gateway API adoption.
+  recommendation: "Plan migration from Ingress to Gateway API. Start by defining GatewayClass/Gateway and incrementally moving routes to HTTPRoute."
+  url: https://gateway-api.sigs.k8s.io/
+  native_handler: NET013
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6A6 Begin Gateway API Migration</h4>\n  <ul>\n    <li>Create or select a <code>GatewayClass</code> supported by your controller.</li>\n    <li>Define one or more <code>Gateway</code> resources for north-south traffic entry.</li>\n    <li>Migrate Ingress rules incrementally to <code>HTTPRoute</code> and validate behavior.</li>\n    <li>Run both models in parallel during transition where supported.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Ingress resources are present, but Gateway API is not yet in use."
+  - "\U0001F4CC Consider phased adoption to stay aligned with modern networking APIs."
+- id: NET014
+  name: HTTPRoute Missing or Unaccepted Parent
+  category: Networking
+  section: Networking
+  resource_kind: httproutes.gateway.networking.k8s.io
+  severity: High
+  weight: 3
+  description: Detects HTTPRoutes with missing parentRefs or no accepted parent Gateway.
+  fail_message: HTTPRoute has no valid accepted parent.
+  recommendation: "Ensure each HTTPRoute has valid parentRefs and that the referenced Gateway accepts the route."
+  url: https://gateway-api.sigs.k8s.io/api-types/httproute/
+  native_handler: NET014
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F9ED Fix HTTPRoute Parent Binding</h4>\n  <ul>\n    <li>Set <code>spec.parentRefs</code> to an existing Gateway.</li>\n    <li>Check route status conditions and Gateway listener compatibility.</li>\n    <li>Verify namespace permissions and allowedRoutes policy.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some HTTPRoutes are not attached to an accepted parent Gateway."
+  - "\u26A0\uFE0F These routes may never receive traffic."
+- id: NET015
+  name: Gateways Without Attached HTTPRoutes
+  category: Networking
+  section: Networking
+  resource_kind: gateways.gateway.networking.k8s.io
+  severity: Warning
+  weight: 2
+  description: Detects Gateway resources that have no attached HTTPRoutes.
+  fail_message: Gateway has no attached HTTPRoutes.
+  recommendation: "Attach HTTPRoutes to active Gateways or remove unused Gateways to reduce configuration drift."
+  url: https://gateway-api.sigs.k8s.io/api-types/gateway/
+  native_handler: NET015
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F9F9 Clean Up or Attach Routes</h4>\n  <ul>\n    <li>Attach one or more <code>HTTPRoute</code> resources to each active Gateway.</li>\n    <li>Delete unused Gateways to avoid confusion and stale entry points.</li>\n    <li>Confirm listener and route host/path alignment.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some Gateways do not have any attached HTTPRoutes."
+  - "\U0001F4CC This may indicate incomplete migration or stale configuration."
+- id: NET016
+  name: Gateway API Readiness Conditions
+  category: Networking
+  section: Networking
+  resource_kind: gateways.gateway.networking.k8s.io
+  severity: High
+  weight: 3
+  description: Detects Gateway resources that are not accepted or programmed.
+  fail_message: Gateway API resources are not accepted or programmed.
+  recommendation: "Review GatewayClass and Gateway status conditions and controller health before migrating traffic."
+  url: https://gateway-api.sigs.k8s.io/guides/
+  native_handler: NET016
+  value:
+    path: status.conditions
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6A6 Validate Gateway Readiness</h4>\n  <ul>\n    <li>Check GatewayClass and Gateway <code>status.conditions</code> for <code>Accepted</code> and <code>Programmed</code>.</li>\n    <li>Verify the Gateway controller deployment is healthy and watching the relevant classes.</li>\n    <li>Fix listener, address, or controller configuration issues before cutover.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some Gateway API resources are not accepted/programmed."
+  - "\u26A0\uFE0F Traffic may not be routed until these conditions are healthy."
+- id: NET017
+  name: Gateway TLS Secret and Cross-Namespace ReferenceGrant Validation
+  category: Networking
+  section: Networking
+  resource_kind: gateways.gateway.networking.k8s.io
+  severity: High
+  weight: 3
+  description: Validates Gateway certificateRefs against existing Secrets and ReferenceGrants.
+  fail_message: Gateway TLS references are invalid or missing required grants.
+  recommendation: "Ensure listener certificateRefs point to existing Secrets and add ReferenceGrants for cross-namespace Secret usage."
+  url: https://gateway-api.sigs.k8s.io/api-types/referencegrant/
+  native_handler: NET017
+  value:
+    path: spec.listeners
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F510 Fix Gateway TLS References</h4>\n  <ul>\n    <li>Verify each <code>certificateRef</code> points to an existing Secret.</li>\n    <li>For cross-namespace refs, create a <code>ReferenceGrant</code> in the Secret namespace.</li>\n    <li>Re-check Gateway listener status after grant/secret updates.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Gateway TLS references need attention."
+  - "\u26A0\uFE0F Missing secrets or grants can break HTTPS listeners."
+- id: NET018
+  name: Duplicate Service Selectors
+  category: Networking
+  section: Networking
+  resource_kind: Service
+  severity: Warning
+  weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: service_selector
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: creating multiple Services with the same selector can be denied at admission."
+  description: Detects multiple Services in the same namespace with identical selectors.
+  fail_message: Multiple Services share the same selector.
+  recommendation: "Use unique selectors per Service so AKS Automatic admission does not reject overlapping service ownership."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/
+  native_handler: NET018
+  value:
+    path: spec.selector
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F3AF Use Unique Service Selectors</h4>\n  <ul>\n    <li>Review Services in the same namespace that select the exact same pod label set.</li>\n    <li>Split selectors so each Service represents a distinct routing contract, or consolidate duplicate Services where appropriate.</li>\n    <li>Update the source manifest or Helm chart so the selector change persists across releases.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Multiple Services are targeting the same exact selector."
+  - "\U0001F4CC AKS Automatic can reject that pattern during admission."
+  - "\u26A0\uFE0F Give each Service a distinct selector or consolidate duplicates."
+- id: PV001
+  name: Orphaned Persistent Volumes
+  category: Volumes
+  section: Storage
+  resource_kind: PersistentVolume
+  severity: Warning
+  weight: 3
+  description: Detects PersistentVolumes that are not bound to any PVC.
+  fail_message: Persistent Volume is not bound to any PVC.
+  recommendation: "Review and delete orphaned Persistent Volumes to reclaim storage."
+  url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  native_handler: PV001
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F5D1\uFE0F Clean Up Orphaned PVs</h4>\n  <ul>\n    <li><strong>Audit:</strong> Verify the PV is truly unneeded using <code>kubectl describe pv &lt;name&gt;</code>.</li>\n    <li><strong>Delete:</strong> Remove unneeded PVs with <code>kubectl delete pv &lt;name&gt;</code>.</li>\n    <li><strong>Caution:</strong> Ensure no future PVC will bind to it before deletion.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Persistent Volumes are the actual storage.
+  - These are NOT claimed by any PVC.
+  - They might be leftovers.
+  - Double check before deleting.
+- id: PVC001
+  name: Unused Persistent Volume Claims
+  category: Volumes
+  section: Storage
+  resource_kind: PersistentVolumeClaim
+  severity: Warning
+  weight: 2
+  description: Detects PVCs not attached to any pod.
+  fail_message: PVC is not used by any running pod.
+  recommendation: "Review and delete unused PVCs to reclaim storage."
+  url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  native_handler: PVC001
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4BE Clean Up Unused PVCs</h4>\n  <ul>\n    <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n <namespace></code>.</li>\n    <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc <name></code>.</li>\n    <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - PVCs reserve storage in your cluster.
+  - These are NOT in use by any pod.
+  - Check before deleting.
+- id: PVC003
+  name: ReadWriteMany PVCs on Incompatible Storage
+  category: Volumes
+  section: Storage
+  resource_kind: PersistentVolumeClaim
+  severity: High
+  weight: 5
+  description: Detects ReadWriteMany PVCs backed by likely block-storage provisioners.
+  fail_message: PVC requests ReadWriteMany on likely incompatible storage.
+  recommendation: "Change access mode to ReadWriteOnce if only one pod needs access, or use a shared file system (e.g., NFS, GlusterFS, CephFS) for ReadWriteMany."
+  url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+  native_handler: PVC003
+  value:
+    path: spec.accessModes
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\u26A0\uFE0F Review ReadWriteMany PVCs</h4>\n  <ul>\n    <li><strong>Verify:</strong> Confirm if the storage backend truly supports concurrent writes.</li>\n    <li><strong>Adjust:</strong> If not, change PVC access mode to <code>ReadWriteOnce</code>.</li>\n    <li><strong>Migrate:</strong> For shared data, use appropriate shared file storage solutions.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - ReadWriteMany allows multiple pods to write.
+  - Block storage (like EBS) usually can't do this.
+  - This can lead to data corruption!
+  - Ensure your storage supports RWX for this PVC.
+- id: PVC002
+  name: PVCs Using Default StorageClass
+  category: Volumes
+  section: Storage
+  resource_kind: PersistentVolumeClaim
+  severity: Low
+  weight: 1
+  description: Detects PVCs that do not explicitly specify storageClassName.
+  fail_message: PVC does not explicitly define a storageClassName.
+  recommendation: "Explicitly specify storageClassName in PVCs for clarity and portability, reducing reliance on default configurations."
+  url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  value:
+    path: spec.storageClassName
+  operator: equals
+  expected: null
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\u270D\uFE0F Specify StorageClass for PVCs</h4>\n  <ul>\n    <li><strong>Edit:</strong> Add <code>storageClassName: &lt;your-storage-class-name&gt;</code> to the PVC spec.</li>\n    <li><strong>Consistency:</strong> Ensure consistent storage provisioning across environments.</li>\n    <li><strong>Awareness:</strong> Understand which StorageClass is truly being used.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - PVCs can rely on a default StorageClass.
+  - But explicit is often better.
+  - Define storageClassName for clarity.
+  - Avoid surprises if the default changes.
+- id: PVC004
+  name: Unbound Persistent Volume Claims
+  category: Volumes
+  section: Storage
+  resource_kind: PersistentVolumeClaim
+  severity: High
+  weight: 3
+  description: Detects PersistentVolumeClaims that remain Pending.
+  fail_message: PVC is in Pending state and not bound to a PV.
+  recommendation: "Investigate why the PVC is stuck in Pending. This often indicates issues with the StorageClass, available PVs, or the underlying storage provisioner."
+  url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  value:
+    path: status.phase
+  operator: equals
+  expected: Pending
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6AB Troubleshoot Unbound PVCs</h4>\n  <ul>\n    <li><strong>Describe PVC:</strong> Use <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> to see events and reasons for Pending.</li>\n    <li><strong>Check StorageClass:</strong> Ensure the specified StorageClass exists and is correctly configured.</li>\n    <li><strong>Review Provisioner:</strong> Verify the storage provisioner is running and healthy.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - This PVC is waiting for storage.
+  - But it's stuck in 'Pending'.
+  - Check StorageClass, PVs, or your provisioner.
+  - It needs help to get bound!
+- id: SC001
+  name: Deprecated StorageClass Provisioners
+  category: StorageClasses
+  section: Storage
+  resource_kind: StorageClass
+  severity: High
+  weight: 4
+  description: Detects StorageClasses still using in-tree provisioners.
+  fail_message: StorageClass uses a deprecated or in-tree provisioner.
+  recommendation: "Migrate to a CSI-compliant StorageClass. This typically involves creating a new CSI-based StorageClass and then migrating existing PVCs."
+  url: https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner
+  value:
+    path: provisioner
+  operator: not_contains
+  expected: kubernetes.io/
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F504 Migrate Deprecated StorageClasses</h4>\n  <ul>\n    <li><strong>Identify:</strong> Pinpoint PVCs using the deprecated StorageClass.</li>\n    <li><strong>Create:</strong> Define a new StorageClass with the appropriate CSI driver.</li>\n    <li><strong>Migrate:</strong> Follow the migration path for your specific storage provider to move data.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Older storage provisioners are being removed.
+  - Switch to CSI drivers for future compatibility.
+  - This is a key long-term maintenance item.
+  - Plan your migration now!
+- id: SC002
+  name: AKS Azure In-Tree Storage Provisioners
+  category: StorageClasses
+  section: Storage
+  resource_kind: StorageClass
+  severity: High
+  weight: 4
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: storage_csi
+  description: Detects Azure in-tree storage provisioners that are not AKS Automatic compatible.
+  fail_message: StorageClass uses an Azure in-tree provisioner.
+  recommendation: "Migrate Azure storage classes to CSI drivers. Use disk.csi.azure.com or file.csi.azure.com instead of kubernetes.io/azure-disk and kubernetes.io/azure-file."
+  url: https://learn.microsoft.com/azure/aks/csi-storage-drivers
+  native_handler: SC002_AKS
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "AKS Automatic deployment safeguards reject Azure in-tree storage provisioners."
+  value:
+    path: provisioner
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F504 Migrate Azure StorageClasses to CSI</h4>\n  <ul>\n    <li>Create replacement StorageClasses that use <code>disk.csi.azure.com</code> or <code>file.csi.azure.com</code>.</li>\n    <li>Move PVCs and workloads off the in-tree StorageClass before migrating to AKS Automatic.</li>\n    <li>Validate reclaim policies, SKU, and mount options during the migration.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Azure in-tree storage classes are not AKS Automatic compatible.
+  - Move to disk.csi.azure.com or file.csi.azure.com before migration.
+  - Plan the PVC and workload migration path early.
+- id: SC004
+  name: StorageClass Prevents Volume Expansion
+  category: StorageClasses
+  section: Storage
+  resource_kind: StorageClass
+  severity: Medium
+  weight: 2
+  description: Identifies StorageClasses that do not permit volume expansion, which can limit dynamic scaling of stateful applications.
+  fail_message: StorageClass does not allow volume expansion.
+  recommendation: "If dynamic volume resizing is desired, modify the StorageClass to set allowVolumeExpansion: true. Note: some underlying storage systems may not support this feature."
+  url: https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion
+  value:
+    path: allowVolumeExpansion
+  operator: not_equals
+  expected: true
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4C8 Enable Volume Expansion</h4>\n  <ul>\n    <li><strong>Assess:</strong> Determine if your applications need dynamic volume resizing.</li>\n    <li><strong>Configure:</strong> Add or set <code>allowVolumeExpansion: true</code> in the StorageClass definition.</li>\n    <li><strong>Backend Check:</strong> Ensure your storage backend supports online volume expansion.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Need more storage? Sometimes volumes can grow.
+  - But your StorageClass might prevent it.
+  - Check allowVolumeExpansion.
+  - This keeps dynamic resizing possible.

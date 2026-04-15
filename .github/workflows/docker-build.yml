@@ -5,12 +5,15 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, for example v0.0.4
+        required: true
+        type: string
 
 env:
   IMAGE_NAME: ghcr.io/kubedeckio/kubebuddy
-  POWERSHELL_IMAGE: mcr.microsoft.com/powershell:7.5-debian-12
   KUBECTL_VERSION: v1.35.1
-  KUBELOGIN_VERSION: v0.2.15
 
 jobs:
   docker-build:
@@ -27,7 +30,13 @@ jobs:
 
       - name: Set tag version
         id: meta
-        run: echo "TAG=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF##*/}"
+          fi
+          echo "TAG=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -36,19 +45,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update PowerShell module version for Docker
-        run: |
-          TAG_VERSION=${GITHUB_REF##*/}  # like v0.0.19
-          CLEAN_VERSION=${TAG_VERSION#v} # like 0.0.19
-
-          # Update PSD1
-          sed -i "s/^\s*ModuleVersion\s*=.*/ModuleVersion = '$CLEAN_VERSION'/" KubeBuddy.psd1
-
-          # Update PS1
-          sed -i "s/^\s*\$moduleVersion\s*=.*/\$moduleVersion = 'v$CLEAN_VERSION'/" Public/kubebuddy.ps1
-
-          echo "Updated module version to v$CLEAN_VERSION for Docker build."
-
       - name: Set up QEMU (for arm64 emulation)
         uses: docker/setup-qemu-action@v3
         with:
@@ -56,8 +52,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          install: true
 
       - name: Verify Buildx platforms
         run: docker buildx inspect --bootstrap
@@ -67,9 +61,7 @@ jobs:
           docker buildx build \
             -f dockerfile \
             --platform linux/amd64,linux/arm64 \
-            --build-arg POWERSHELL_IMAGE=${{ env.POWERSHELL_IMAGE }} \
             --build-arg KUBECTL_VERSION=${{ env.KUBECTL_VERSION }} \
-            --build-arg KUBELOGIN_VERSION=${{ env.KUBELOGIN_VERSION }} \
             --tag $IMAGE_NAME:${{ steps.meta.outputs.TAG }} \
             --push \
             .
@@ -78,17 +70,16 @@ jobs:
         run: |
           docker pull $IMAGE_NAME:${{ steps.meta.outputs.TAG }}
 
-      - name: Show embedded kubectl/kubelogin versions
+      - name: Show embedded kubectl version
         run: |
           docker run --rm --entrypoint /usr/local/bin/kubectl $IMAGE_NAME:${{ steps.meta.outputs.TAG }} version --client=true --output=yaml
-          docker run --rm --entrypoint /usr/local/bin/kubelogin $IMAGE_NAME:${{ steps.meta.outputs.TAG }} --version
 
       - name: Scan image for vulnerabilities (block on CRITICAL)
         uses: aquasecurity/trivy-action@master
         env:
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
           TRIVY_DISABLE_VEX_NOTICE: "true"
-          TRIVY_SKIP_FILES: "/usr/local/bin/kubectl,/usr/local/bin/kubelogin"
+          TRIVY_SKIP_FILES: "/usr/local/bin/kubectl"
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.TAG }}
           format: table

@@ -1,0 +1,108 @@
+checks:
+  - id: AKSIAM001
+    name: RBAC Enabled
+    category: Identity & Access
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.enableRbac
+    operator: equals
+    expected: true
+    fail_message: Kubernetes RBAC is disabled, meaning all authenticated users have full cluster admin privileges with unrestricted access to all resources, secrets, and namespaces. This violates the principle of least privilege and creates significant security and compliance risks.
+    recommendation: Enable RBAC during cluster creation using '--enable-rbac' or for existing clusters via Azure Portal. Create RoleBindings and ClusterRoleBindings to assign appropriate permissions to users and service accounts based on the principle of least privilege.
+    url: https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli
+
+  - id: AKSIAM002
+    name: Managed Identity
+    category: Identity & Access
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: identity.type
+    operator: equals
+    expected: UserAssigned
+    fail_message: Cluster is using system-assigned managed identity or service principal instead of user-assigned managed identity. This limits control over identity lifecycle, makes cross-resource permissions harder to manage, and creates dependency on cluster lifecycle for identity management.
+    recommendation: Create a user-assigned managed identity using 'az identity create --resource-group <rg> --name <identity-name>' and associate it during cluster creation with '--assign-identity <identity-resource-id>'. This eliminates the need to manage service principal credentials and provides better security.
+    url: https://learn.microsoft.com/azure/aks/use-managed-identity
+
+  - id: AKSIAM003
+    name: Workload Identity Enabled
+    category: Identity & Access
+    severity: Medium
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    automatic_relevance: alignment
+    automatic_scope: cluster
+    automatic_reason: aks_security
+    value:
+      path: properties.securityProfile.workloadIdentity.enabled
+    operator: equals
+    expected: true
+    fail_message: Workload Identity is disabled, forcing applications to use less secure authentication methods like storing Azure service principal secrets in Kubernetes, using pod identity (deprecated), or instance metadata. This increases credential exposure risk and limits fine-grained access control.
+    recommendation: Enable Workload Identity using 'az aks update --resource-group <rg> --name <cluster> --enable-workload-identity' (requires OIDC issuer). Create Kubernetes service accounts and federate them with Azure managed identities for secure, token-based authentication to Azure services.
+    url: https://learn.microsoft.com/azure/aks/workload-identity-overview
+
+  - id: AKSIAM004
+    name: Managed Identity Used
+    category: Identity & Access
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: identity.type
+    operator: equals
+    expected: UserAssigned
+    fail_message: Cluster is using Azure AD Service Principal with client secrets that require manual rotation, have expiration dates, and pose security risks if compromised. Service principals lack the automatic credential management and enhanced security features of managed identities.
+    recommendation: Migrate from Service Principal to User-Assigned Managed Identity using 'az aks update --resource-group <rg> --name <cluster> --assign-identity <identity-resource-id>'. This provides automatic credential rotation and eliminates the need to manage client secrets.
+    url: https://learn.microsoft.com/azure/aks/use-managed-identity
+
+  - id: AKSIAM005
+    name: AAD RBAC Authorization Integrated
+    category: Identity & Access
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.aadProfile.enableAzureRBAC
+    operator: equals
+    expected: true
+    fail_message: Azure RBAC for Kubernetes is disabled, requiring manual management of Kubernetes native RoleBindings and ClusterRoleBindings. This creates inconsistent access control between Azure and Kubernetes, limits centralized identity management, and complicates compliance auditing.
+    recommendation: Enable Azure RBAC for Kubernetes authorization using 'az aks update --resource-group <rg> --name <cluster> --enable-azure-rbac'. Assign built-in roles like 'Azure Kubernetes Service RBAC Reader/Writer/Admin' to users and groups for centralized access management through Azure AD.
+    url: https://learn.microsoft.com/azure/aks/enable-authentication-microsoft-entra-id
+
+  - id: AKSIAM006
+    name: AAD Managed Authentication Enabled
+    category: Identity & Access
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.aadProfile.managed
+    operator: equals
+    expected: true
+    fail_message: Azure AD integration is not properly configured, potentially using legacy AAD integration or client/server app registrations that require manual maintenance. This limits the ability to leverage modern Azure AD features like conditional access policies and centralized user management.
+    recommendation: Enable Azure AD integration during cluster creation with '--enable-aad --aad-admin-group-object-ids <group-id>' or update existing cluster using 'az aks update --resource-group <rg> --name <cluster> --enable-aad'. Configure admin groups and integrate with conditional access policies.
+    url: https://learn.microsoft.com/azure/aks/manage-azure-rbac?tabs=azure-cli
+
+  - id: AKSIAM007
+    name: Local Accounts Disabled
+    category: Identity & Access
+    severity: High
+    resource_kind: aksCluster
+    sources:
+      - aks.cluster
+    value:
+      path: properties.disableLocalAccounts
+    operator: equals
+    expected: true
+    fail_message: Local cluster admin certificates are enabled, providing a backdoor authentication method that bypasses Azure AD, cannot be audited through Azure AD logs, and creates permanent admin access that doesn't respect conditional access policies or MFA requirements.
+    recommendation: Disable local accounts using 'az aks update --resource-group <rg> --name <cluster> --disable-local-accounts'. This enforces authentication exclusively through Azure AD, eliminating certificate-based admin access and improving audit capabilities.
+    url: https://learn.microsoft.com/azure/aks/manage-local-accounts-managed-azure-ad

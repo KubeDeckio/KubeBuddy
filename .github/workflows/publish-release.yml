@@ -3,170 +3,148 @@ name: Publish KubeBuddy Release
 on:
   push:
     tags:
-      - 'v*'  # Trigger on any tag like v1.2.3
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, for example v0.0.4
+        required: true
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build-and-release:
-    runs-on: windows-latest
-    env:
-      TAG: ${{ github.ref_name }}
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Debug Tag
-        run: |
-          Write-Host "GITHUB_REF_NAME: $Env:GITHUB_REF_NAME"
-          Write-Host "GITHUB_REF: $Env:GITHUB_REF"
-        shell: pwsh
-
-      - name: Set Module Version from Git Tag
-        id: set_version
-        run: |
-          # If no GITHUB_REF_NAME, parse GITHUB_REF
-          if (-not $Env:GITHUB_REF_NAME) {
-            $tagVersion = $Env:GITHUB_REF -replace '^refs/tags/v',''
-          }
-          else {
-            $tagVersion = $Env:GITHUB_REF_NAME -replace '^v',''
-          }
-
-          Write-Host "Setting module version to $tagVersion"
-
-          # Update the PSD1 line: ModuleVersion = '0.0.4'
-          (Get-Content ./KubeBuddy.psd1) `
-            -replace '^\s*ModuleVersion\s*=\s*''.*''', "ModuleVersion = '$tagVersion'" |
-            Set-Content ./KubeBuddy.psd1
-
-          # Corrected update for kubebuddy.ps1 line: $moduleVersion = "v0.0.4"
-          (Get-Content ./Public/kubebuddy.ps1) |
-          ForEach-Object { 
-              $_ -replace '^\s*\$moduleVersion\s*=\s*".*"', "`$moduleVersion = 'v$tagVersion'" 
-          } |
-          Set-Content ./Public/kubebuddy.ps1
-
-          Write-Host "Updated KubeBuddy.psd1 contents:"
-          Get-Content ./KubeBuddy.psd1
-
-          Write-Host "Updated kubebuddy.ps1 contents:"
-          Get-Content ./Public/kubebuddy.ps1
-        shell: pwsh
-
-      - name: Create tar.gz package
-        shell: pwsh
-        run: |
-          $tag     = '${{ env.TAG }}'
-          $archive = "kubebuddy-$tag.tar.gz"
-
-          tar.exe -czvf $archive `
-            .\KubeBuddy.psd1 `
-            .\KubeBuddy.psm1 `
-            .\Public `
-            .\Private
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ env.TAG }}
-          release_name: KubeBuddy ${{ env.TAG }}
-          draft: false
-          prerelease: false
+      - name: Resolve tag
+        id: meta
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload module tarball
-        uses: softprops/action-gh-release@v1
-        with:
-          files: kubebuddy-${{ env.TAG }}.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update Release Notes
-        shell: pwsh  # Use PowerShell
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $gitVersion = "${{ github.ref_name }}"
-          $version = $gitVersion -replace 'v',''
-          $changelogPath = "CHANGELOG.md"
-        
-          # Read the entire CHANGELOG.md content
-          $changelogContent = Get-Content -Path $changelogPath -Raw
-        
-          # Extract the section for the specific version
-          if ($changelogContent -match "(?s)## \[$version\].*?(?=## \[|$)") {
-              $changelog = $matches[0]
-          } else {
-              Write-Host "No changelog found for version $version."
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="$REF_NAME"
+          fi
+
+          if [ -z "$TAG" ]; then
+            echo "Unable to resolve release tag." >&2
+            exit 1
+          fi
+
+          case "$TAG" in
+            v*) ;;
+            *)
+              echo "Release tag must start with 'v'. Got: $TAG" >&2
               exit 1
-          }
-        
-          # Save the changelog to a file
-          $changelog | Out-File -FilePath "release_notes.md" -Encoding utf8
-          Write-Host "Release notes saved to release_notes.md."
-        
-          # Check if the file was created successfully
-          if (-Not (Test-Path "release_notes.md")) {
-              Write-Host "Failed to create release_notes.md."
-              exit 1
-          }
-        
-          # Use the GitHub CLI to update the release with the notes
-          gh release edit $gitVersion -F release_notes.md  # Use -F to read release notes from the file
+              ;;
+          esac
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build release artifacts
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          chmod +x ./scripts/build-release-artifacts.sh
+          chmod +x ./scripts/render-homebrew-formula.sh
+          ./scripts/build-release-artifacts.sh "${TAG}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          generate_release_notes: true
 
   check-latest:
     needs: build-and-release
-    runs-on: ubuntu-22.04
+    if: needs.build-and-release.result == 'success'
+    runs-on: ubuntu-latest
     outputs:
-      IS_LATEST:  ${{ steps.check-latest.outputs.release == github.ref_name }}
+      is_latest: ${{ steps.check.outputs.release == needs.build-and-release.outputs.tag }}
     steps:
       - id: check
-        uses: pozetroninc/github-action-get-latest-release@v0.7.0
+        uses: pozetroninc/github-action-get-latest-release@v0.8.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
           excludes: prerelease, draft
 
-  hash:
-    needs: check-latest
-    runs-on: ubuntu-latest
-    if: needs.check-latest.outputs.IS_LATEST
-    outputs:
-      BUILD_HASH: ${{ steps.calc.outputs.BUILD_HASH }}
-    steps:
-      - name: Download tarball
-        run: |
-          curl -L -o kubebuddy.tar.gz https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/kubebuddy-${{ github.ref_name }}.tar.gz
-      - name: Calculate SHA256
-        id: calc
-        run: |
-          echo "::set-output name=BUILD_HASH::$(sha256sum kubebuddy.tar.gz | awk '{print $1}')"
-
   update-formula:
-    needs: [check-latest, hash]
+    needs: [build-and-release, check-latest]
     runs-on: ubuntu-latest
-    if: needs.check-latest.outputs.IS_LATEST
+    if: needs.build-and-release.result == 'success' && needs.check-latest.outputs.is_latest == 'true'
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build release artifacts
+        env:
+          TAG: ${{ needs.build-and-release.outputs.tag }}
+        run: |
+          chmod +x ./scripts/build-release-artifacts.sh
+          chmod +x ./scripts/render-homebrew-formula.sh
+          ./scripts/build-release-artifacts.sh "${TAG}"
+
       - name: Checkout homebrew tap
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: KubeDeckio/homebrew-kubebuddy
           token: ${{ secrets.BREW_BUMP_TOKEN }}
           path: homebrew-kubebuddy
 
       - name: Update formula
-        working-directory: homebrew-kubebuddy
+        env:
+          TAG: ${{ needs.build-and-release.outputs.tag }}
         run: |
-          TAG=${{ github.ref_name }}
-          SHA=${{ needs.hash.outputs.BUILD_HASH }}
-          FORMULA=Formula/kubebuddy.rb
+          ./scripts/render-homebrew-formula.sh "${TAG}" homebrew-kubebuddy/Formula/kubebuddy.rb
 
-          sed -i "s|url \".*\"|url \"https://github.com/${{ github.repository }}/releases/download/${TAG}/kubebuddy-${TAG}.tar.gz\"|" $FORMULA
-          sed -i "s|sha256 \".*\"|sha256 \"$SHA\"|" $FORMULA
+          cat > homebrew-kubebuddy/README.md <<'EOF'
+          # Homebrew Tap for KubeBuddy
 
+          This repository provides the Homebrew tap for the native KubeBuddy CLI.
+
+          ## Installation
+
+          ```bash
+          brew tap KubeDeckio/homebrew-kubebuddy
+          brew install kubebuddy
+          ```
+
+          ## Usage
+
+          ```bash
+          kubebuddy version
+          kubebuddy run --html-report --yes --output-path ./reports
+          ```
+          EOF
+
+          cd homebrew-kubebuddy
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git commit -am "Bump KubeBuddy formula to ${TAG}"
+          git add Formula/kubebuddy.rb README.md
+          git commit -m "Bump KubeBuddy formula to ${TAG}"
           git push

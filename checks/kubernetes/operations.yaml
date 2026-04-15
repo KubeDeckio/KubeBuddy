@@ -1,0 +1,750 @@
+checks:
+- id: CFG001
+  name: Orphaned ConfigMaps
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: ConfigMap
+  severity: Warning
+  weight: 1
+  description: Detects ConfigMaps that are not referenced by workloads or related resources.
+  fail_message: ConfigMap is not referenced by any workloads or services.
+  recommendation: "Delete unused ConfigMaps to clean up the cluster and reduce confusion."
+  url: https://kubernetes.io/docs/concepts/configuration/configmap/
+  native_handler: CFG001
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Clean Up Orphaned ConfigMaps</h4>\n  <ul>\n    <li><strong>Verify:</strong> Check usage (<code>kubectl describe cm <name></code>).</li>\n    <li><strong>Delete:</strong> <code>kubectl delete cm <name></code> if unused.</li>\n    <li><strong>Automation:</strong> Schedule periodic scans.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some ConfigMaps are not used anywhere."
+  - "\U0001F4CC This includes Pods, Deployments, Services, Ingresses, and CRDs."
+  - "\u26A0\uFE0F Review and delete unused ones to keep your cluster tidy."
+- id: CFG002
+  name: Duplicate ConfigMap Names
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: ConfigMap
+  severity: Warning
+  weight: 1
+  description: Detects ConfigMaps with identical names across multiple namespaces.
+  fail_message: ConfigMap name reused in multiple namespaces.
+  recommendation: "Avoid using the same ConfigMap name across namespaces to reduce confusion and misconfiguration risk."
+  url: https://kubernetes.io/docs/concepts/configuration/configmap/
+  native_handler: CFG002
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Fix Duplicate ConfigMap Names</h4>\n  <ul>\n    <li><strong>Standardize:</strong> Use unique names or a naming convention that includes the environment or team name.</li>\n    <li><strong>Audit:</strong> Periodically review ConfigMaps across namespaces for duplication.</li>\n    <li><strong>Automation:</strong> Use policies or linting tools to catch duplicates pre-deploy.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some ConfigMaps share the same name across multiple namespaces."
+  - "\U0001F4CC This can cause confusion or deployment errors in shared tooling."
+  - "\u26A0\uFE0F Consider using a naming convention that avoids conflicts."
+- id: CFG003
+  name: Large ConfigMaps
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: ConfigMap
+  severity: Warning
+  weight: 2
+  description: Finds ConfigMaps larger than 1 MiB.
+  fail_message: ConfigMap exceeds 1 MiB in size.
+  recommendation: "Avoid storing large data in ConfigMaps. Consider using PersistentVolumes or Secrets instead."
+  url: https://kubernetes.io/docs/concepts/configuration/configmap/
+  native_handler: CFG003
+  value:
+    path: data
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Reduce ConfigMap Size</h4>\n  <ul>\n    <li><strong>Refactor:</strong> Move large files or data to PersistentVolumes.</li>\n    <li><strong>Split:</strong> Break up oversized ConfigMaps into smaller ones by function.</li>\n    <li><strong>Review:</strong> Check for secrets or binary blobs mistakenly stored in ConfigMaps.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some ConfigMaps are larger than 1 MiB."
+  - "\U0001F4CC This can lead to performance issues or hit platform limits."
+  - "\u26A0\uFE0F Avoid putting big data or binaries in ConfigMaps."
+- id: NS001
+  name: Empty Namespaces
+  category: Namespaces
+  section: Namespaces
+  resource_kind: Namespace
+  severity: Low
+  weight: 1
+  description: Finds namespaces with no running pods.
+  fail_message: Namespace has no pods.
+  recommendation: "These may be stale or unused and safe to delete after verifying they contain no critical resources."
+  url: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+  native_handler: NS001
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Check if any other resources (PVCs, Secrets) exist before deleting.</li>\n    <li>Use <code>kubectl get all -n <namespace></code> to inspect.</li>\n    <li>Clean up empty namespaces to reduce clutter.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for empty namespaces."
+  - "\U0001F4CC This check finds namespaces that have no running pods."
+  - "\u26A0\uFE0F These might be stale or unused but check for other resources like Secrets or PVCs before deleting."
+- id: NS002
+  name: Missing or Weak ResourceQuotas
+  category: Namespaces
+  section: Namespaces
+  resource_kind: Namespace
+  severity: Warning
+  weight: 3
+  description: Detects namespaces with missing or incomplete ResourceQuota definitions.
+  fail_message: ResourceQuota is missing or incomplete.
+  recommendation: "Apply CPU, memory, and pod quotas to enforce fair resource usage."
+  url: https://kubernetes.io/docs/concepts/policy/resource-quotas/
+  native_handler: NS002
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Define limits using <code>ResourceQuota</code> for pods, memory, and CPU.</li>\n    <li>Helps avoid over-provisioning and noisy neighbor issues.</li>\n    <li>Review quotas using <code>kubectl describe quota -n <namespace></code>.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for missing or incomplete ResourceQuotas."
+  - "\U0001F4CC This check flags namespaces that lack ResourceQuota settings or are missing limits for:"
+  - '- CPU'
+  - '- Memory'
+  - '- Pods'
+  - "\u26A0\uFE0F Incomplete quotas can lead to resource abuse and noisy neighbors."
+- id: NS003
+  name: Missing LimitRanges
+  category: Namespaces
+  section: Namespaces
+  resource_kind: Namespace
+  severity: Warning
+  weight: 2
+  description: Detects namespaces without a defined LimitRange.
+  fail_message: Namespace has no LimitRange.
+  recommendation: "Define default CPU and memory limits to avoid unbounded pod usage."
+  url: https://kubernetes.io/docs/concepts/policy/limit-range/
+  native_handler: NS003
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>LimitRanges define default and max values for CPU/memory.</li>\n    <li>Prevents pods from using unlimited resources.</li>\n    <li>Use <code>kubectl create limitrange ...</code> or <code>kubectl describe limitrange -n <namespace></code>.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for namespaces missing LimitRanges."
+  - "\U0001F4CC LimitRanges define default and maximum CPU/memory for pods and containers."
+  - "\u26A0\uFE0F Without them, workloads may consume unbounded resources."
+- id: NS004
+  name: Pods in Default Namespace
+  category: Namespaces
+  section: Namespaces
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Flags pods running in the default namespace.
+  fail_message: Pod is running in the default namespace.
+  recommendation: "Create and deploy into dedicated namespaces instead of `default`."
+  url: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+  native_handler: NS004
+  value:
+    path: metadata.namespace
+  operator: exists
+  recommendation_html: "<ul>\n  <li>Use <code>kubectl get pods -n default</code> to list them.</li>\n  <li>Re-deploy your workloads into a custom namespace:</li>\n  <pre><code>kubectl create namespace my-app kubectl -n my-app apply -f your-manifests.yaml</code></pre>\n</ul>"
+  speech_bubble:
+  - "\U0001F916 Pods detected in the default namespace!"
+  - "\U0001F6A7 Move workloads into their own namespace."
+- id: JOB001
+  name: Stuck Kubernetes Jobs
+  category: Jobs
+  section: Jobs
+  resource_kind: jobs
+  severity: Warning
+  weight: 2
+  description: Finds Jobs that have started but not completed within the threshold.
+  fail_message: Job appears stuck.
+  recommendation: "Jobs that haven't completed may be stuck due to node issues, misconfiguration, or missing pods."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
+  native_handler: JOB001
+  value:
+    path: status.startTime
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Check pod status for the job using <code>kubectl describe job <name></code>.</li>\n    <li>Verify resources and restart policies.</li>\n    <li>Check logs with <code>kubectl logs job/<name></code>.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for stuck Kubernetes Jobs."
+  - "\U0001F4CC These jobs started but didn\u2019t complete within $($thresholds.stuck_job_hours) hours."
+  - "\u26A0\uFE0F They may be stuck due to crashes, backoff, or resource limits."
+- id: JOB002
+  name: Failed Kubernetes Jobs
+  category: Jobs
+  section: Jobs
+  resource_kind: jobs
+  severity: High
+  weight: 3
+  description: Detects jobs with failures and no successful completions.
+  fail_message: Job failed with no successful completions.
+  recommendation: "Review job logs and resource constraints to identify cause of failure."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/job/#handling-pod-and-container-failures
+  native_handler: JOB002
+  value:
+    path: status.failed
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Inspect job with <code>kubectl describe job <name></code>.</li>\n    <li>Check logs for errors using <code>kubectl logs job/<name></code>.</li>\n    <li>Review pod events and resource limits.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for failed Kubernetes Jobs."
+  - "\U0001F4CC These jobs failed with no successful completions."
+  - "\u26A0\uFE0F Review logs, resource limits, and pod status to investigate."
+- id: POD001
+  name: Pods with High Restarts
+  category: Workloads
+  section: Pods
+  resource_kind: Pod
+  severity: Warning
+  weight: 3
+  description: Detects pods that have restarted more than the configured thresholds.
+  fail_message: Pod has restarted excessively.
+  recommendation: "Review logs and events for frequently restarting pods and address root causes such as crashes, missing configs, or failing probes."
+  url: https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#application-crashes
+  native_handler: POD001
+  value:
+    path: status.containerStatuses
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Use <code>kubectl logs <pod> -n <namespace></code> to view logs and identify crash causes.</li>\n    <li>Run <code>kubectl describe pod <pod> -n <namespace></code> to check events and probe failures.</li>\n    <li>Verify readiness and liveness probes are configured properly.</li>\n    <li>Check for missing config, secrets, or volume mounts.</li>\n    <li>Adjust resource requests/limits to avoid OOM kills.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some pods are restarting too often."
+  - "\U0001F4CC This may be due to crashes, failing probes, or missing dependencies."
+  - "\u26A0\uFE0F Investigate logs and events to find the root cause."
+- id: POD002
+  name: Long Running Pods
+  category: Workloads
+  section: Pods
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Flags pods that have been running longer than configured thresholds.
+  fail_message: Pod has been running longer than expected.
+  recommendation: "Review long-running pods and determine if they should be restarted or replaced by updated deployments."
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
+  native_handler: POD002
+  value:
+    path: status.startTime
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Pods with extended uptime may indicate skipped rolling updates.</li>\n    <li>Use <code>kubectl rollout status</code> to inspect deployment progress.</li>\n    <li>Restart pods when config changes are missed or memory use drifts.</li>\n    <li>Check if the workload is intended to be static or ephemeral.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some pods have been running longer than expected."
+  - "\U0001F4CC These may be skipped during rolling updates or unmanaged workloads."
+  - "\u26A0\uFE0F Review if they still reflect your intended state."
+- id: POD006
+  name: Leftover Debug Pods
+  category: Workloads
+  section: Pods
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Detects pods created by kubectl debug that have not been cleaned up.
+  fail_message: Leftover debug pod found.
+  recommendation: "Delete any leftover debug pods and review your debugging practices."
+  url: https://kubernetes.io/docs/tasks/debug/debug-cluster/debug-running-pod/
+  native_handler: POD006
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl delete pod <pod-name> -n <namespace></code> to remove them</li>\n    <li>Ensure automation or users clean up after using <code>kubectl debug</code></li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Found some debug pods left behind."
+  - "\U0001F4CC These are usually created with 'kubectl debug'."
+  - "\u26A0\uFE0F Clean them up if no longer needed."
+- id: POD007
+  name: Container images do not use latest tag
+  category: Resource Management
+  section: Pods
+  resource_kind: Pod
+  severity: High
+  weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: image_tag
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "AKS Deployment Safeguards can deny workloads that use the latest tag or omit an explicit version tag."
+  description: Flags containers using latest or no explicit tag.
+  fail_message: Container image uses latest or omits an explicit tag.
+  recommendation: "Specify an explicit image tag (e.g., ':v1.2.3') on every container and initContainer to ensure consistent deployments."
+  url: https://kubernetes.io/docs/concepts/containers/images/#image-tags
+  native_handler: POD007
+  value:
+    path: spec.containers
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Use Specific Image Tags</h4>\n  <ul>\n    <li><strong>Don't use</strong> the <code>:latest</code> tag or leave the image tag blank.</li>\n    <li><strong>Why:</strong> It can pull different images on each deploy, leading to drift.</li>\n    <li><strong>Fix:</strong> Tag images explicitly (e.g., <code>:v1.2.3</code>) and update the pod spec.</li>\n    <li><strong>Docs:</strong> <a href=\"https://kubernetes.io/docs/concepts/containers/images/#image-tags\" target=\"_blank\">Kubernetes Image Tagging</a></li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some containers are using the ':latest' image tag or no tag at all."
+  - "\U0001F4CC This causes unpredictable behavior across deployments."
+  - "\u26A0\uFE0F Always use explicit version tags (e.g., :v1.2.3)."
+- id: RBAC001
+  name: RBAC Misconfigurations
+  category: RBAC
+  section: Security
+  resource_kind: ClusterRoleBinding
+  severity: High
+  weight: 4
+  description: Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces.
+  fail_message: RBAC misconfiguration detected.
+  recommendation: "Fix missing roleRefs, service accounts, and invalid namespaces in RoleBindings and ClusterRoleBindings."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+  native_handler: RBAC001
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F510 RBAC Misconfiguration Fixes</h4>\n  <ul>\n    <li>Don't leave roleRef blank in bindings.</li>\n    <li>Use valid Roles/ClusterRoles that exist in the correct namespace.</li>\n    <li>Verify ServiceAccounts exist in the namespace specified.</li>\n    <li>Remove or correct subjects pointing to non-existent namespaces.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for RBAC misconfigurations in your bindings."
+  - "\U0001F4CC This includes:"
+  - '- RoleBindings referencing missing Roles or ClusterRoles'
+  - '- ClusterRoleBindings with undefined namespaces'
+  - '- Bindings missing ServiceAccount subjects'
+  - "\u26A0\uFE0F These issues can silently break access or expose resources."
+- id: RBAC002
+  name: RBAC Overexposure
+  category: RBAC
+  section: Security
+  resource_kind: ClusterRoleBinding
+  severity: High
+  weight: 5
+  description: Identifies dangerous RBAC grants such as cluster-admin and wildcard permissions.
+  fail_message: RBAC overexposure risk detected.
+  recommendation: "Avoid cluster-admin, wildcard, and sensitive resource access in roles. Use least privilege."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+  native_handler: RBAC002
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F510 RBAC Hardening Tips</h4>\n  <ul>\n    <li>Avoid using <code>cluster-admin</code> directly in bindings.</li>\n    <li>Don\u2019t assign Roles or ClusterRoles with wildcard verbs/resources/apiGroups.</li>\n    <li>Restrict access to sensitive resources like <code>secrets</code> or <code>pods/exec</code>.</li>\n    <li>Minimize privileges for default ServiceAccounts.</li>\n    <li>Document use of any built-in roles used in production.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for RBAC overexposure risks."
+  - "\U0001F4CC This flags:"
+  - '- cluster-admin bindings'
+  - '- wildcard permissions (* on resources/verbs)'
+  - '- access to secrets and exec APIs'
+  - "\u26A0\uFE0F These configurations can grant dangerous access."
+- id: RBAC003
+  name: Orphaned ServiceAccounts
+  category: RBAC
+  section: Security
+  resource_kind: ServiceAccount
+  severity: Warning
+  weight: 2
+  description: Finds ServiceAccounts not used by pods or RBAC bindings.
+  fail_message: ServiceAccount is unused.
+  recommendation: "Clean up unused ServiceAccounts to avoid confusion and reduce RBAC clutter."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/
+  native_handler: RBAC003
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F9FE Remove Orphaned ServiceAccounts</h4>\n  <ul>\n    <li>Audit ServiceAccounts not referenced in RoleBindings, ClusterRoleBindings, or used by Pods.</li>\n    <li>Delete those not actively used to reduce attack surface.</li>\n    <li>Consider automating SA cleanup with CI/CD or policy enforcement.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for orphaned ServiceAccounts."
+  - "\U0001F4CC These are not used by:"
+  - '- any Pod'
+  - '- any RoleBinding or ClusterRoleBinding'
+  - "\u26A0\uFE0F Unused ServiceAccounts create RBAC noise and potential confusion."
+- id: RBAC004
+  name: Orphaned and Ineffective Roles
+  category: RBAC
+  section: Security
+  resource_kind: Role, ClusterRole
+  severity: Low
+  weight: 1
+  description: Flags roles and clusterroles that are unused or define no rules.
+  fail_message: Role or ClusterRole is unused or ineffective.
+  recommendation: "Delete Roles and ClusterRoles that are not bound or do not define any rules."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+  native_handler: RBAC004
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F5C2\uFE0F Clean up Unused or Ineffective RBAC</h4>\n  <ul>\n    <li>Remove RoleBindings or ClusterRoleBindings without subjects.</li>\n    <li>Prune Roles and ClusterRoles not referenced by any bindings.</li>\n    <li>Remove roles with no defined rules unless planned for future use.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Auditing Roles and ClusterRoles for effectiveness."
+  - "\U0001F4CC This flags:"
+  - '- bindings with no subjects'
+  - "- roles that aren\u2019t used"
+  - '- roles that define no rules'
+  - "\u26A0\uFE0F These are usually safe to delete and clean up."
+- id: WRK001
+  name: DaemonSets Not Fully Running
+  category: Workloads
+  section: Workloads
+  resource_kind: DaemonSet
+  severity: Warning
+  weight: 2
+  description: Detects DaemonSets that have fewer ready pods than desired.
+  fail_message: DaemonSet is not running on all desired nodes.
+  recommendation: "Investigate DaemonSets not fully running. Common causes include taints, node issues, or resource constraints."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
+  native_handler: WRK001
+  value:
+    path: status.numberReady
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl describe ds <name> -n <namespace></code> to check for scheduling issues.</li>\n    <li>Check node taints and conditions.</li>\n    <li>Ensure resource requests are not too high for nodes.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some DaemonSets aren\u2019t running on all expected nodes."
+  - "\U0001F4CC This may be due to taints, resource pressure, or scheduling rules."
+  - "\u26A0\uFE0F Investigate why the pods aren\u2019t placed as expected."
+- id: WRK002
+  name: Deployment Missing Replicas
+  category: Workloads
+  section: Workloads
+  resource_kind: Deployment
+  severity: Warning
+  weight: 3
+  description: Detects Deployments where available replicas are less than desired.
+  fail_message: Deployment has fewer available replicas than desired.
+  recommendation: "Check Deployments that are not meeting their replica count. This may indicate rollout issues or failed pods."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+  native_handler: WRK002
+  value:
+    path: status.availableReplicas
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl describe deployment <name> -n <namespace></code> to view status.</li>\n    <li>Check for failed pods using <code>kubectl get pods -n <namespace></code>.</li>\n    <li>Review rollout and events for delays or crashes.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some Deployments aren\u2019t meeting their desired replica count."
+  - "\U0001F4CC This could mean pods are failing, pending, or being slow to start."
+  - "\u26A0\uFE0F Check pod logs and rollout status."
+- id: WRK003
+  name: StatefulSet Incomplete Rollout
+  category: Workloads
+  section: Workloads
+  resource_kind: StatefulSet
+  severity: Warning
+  weight: 3
+  description: Detects StatefulSets with fewer ready replicas than desired.
+  fail_message: StatefulSet has fewer ready replicas than desired.
+  recommendation: "Investigate StatefulSets with missing ready replicas. This may indicate issues with pod readiness or volume binding."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+  native_handler: WRK003
+  value:
+    path: status.readyReplicas
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl describe sts name -n namespace</code> to view rollout and events.</li>\n    <li>Check pod logs and PersistentVolumeClaim bindings.</li>\n    <li>Confirm storage class availability and node scheduling constraints.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some StatefulSets have fewer ready replicas than desired."
+  - "\U0001F4CC This could point to pod readiness issues or PVC problems."
+  - "\u26A0\uFE0F Review logs, events, and volume bindings."
+- id: WRK004
+  name: HPA Misconfiguration or Inactivity
+  category: Workloads
+  section: Workloads
+  resource_kind: HorizontalPodAutoscaler
+  severity: Warning
+  weight: 1
+  description: Checks for HPAs with missing targets, metrics, or inactive scaling.
+  fail_message: HPA is misconfigured, inactive, or not scaling correctly.
+  recommendation: "Review HorizontalPodAutoscalers with missing targets, no metrics, or disabled scaling."
+  url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  native_handler: WRK004
+  value:
+    path: spec.scaleTargetRef
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Check if the target workload exists using <code>kubectl get deploy|sts -n <namespace></code>.</li>\n    <li>Use <code>kubectl describe hpa <name> -n <namespace></code> to inspect HPA status and events.</li>\n    <li>Ensure metrics-server is running and the target exposes the required metrics.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some HorizontalPodAutoscalers are inactive or misconfigured."
+  - "\U0001F4CC Issues include missing metrics, invalid targets, or scaling disabled."
+  - "\u26A0\uFE0F Check the target object and HPA events."
+- id: WRK005
+  name: Missing Resource Requests
+  category: Workloads
+  section: Workloads
+  resource_kind: Pod
+  severity: Warning
+  weight: 3
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: resource_requests
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: workloads with missing resource requests can be denied at admission. Some safeguard versions also document request mutation/defaulting behavior."
+  description: Checks that every container has explicit CPU and memory requests.
+  fail_message: Container is missing CPU or memory requests.
+  recommendation: "Define cpu and memory requests on all containers."
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  native_handler: WRK005
+  value:
+    path: spec.containers
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Add <code>resources.requests.cpu</code> and <code>resources.requests.memory</code> to <strong>every</strong> container.</li>\n    <li>Review both workload and <code>initContainers</code> with <code>kubectl get deploy,statefulset,daemonset -A -o yaml</code>.</li>\n    <li>Apply any missing fields, then rerun KubeBuddy to confirm.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some containers are still missing resource requests."
+  - "\u26A0\uFE0F Without requests the scheduler can\u2019t make good placement decisions."
+  - "\U0001F4A1 Set both CPU and memory requests explicitly so admission and scheduling behave predictably."
+- id: WRK006
+  name: PDB Coverage and Effectiveness
+  category: PDBs
+  section: Workloads
+  resource_kind: PodDisruptionBudget
+  severity: High
+  weight: 2
+  description: Detects missing or weak PodDisruptionBudgets.
+  fail_message: Workload is unprotected or PDB is weak.
+  recommendation: "Workloads should have a valid PDB to prevent availability issues during disruptions."
+  url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  native_handler: WRK006
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<ul>\n  <li>Set <code>minAvailable</code> to a safe minimum (not 0).</li>\n  <li>Avoid setting <code>maxUnavailable</code> to <code>1</code> or <code>100%</code>.</li>\n  <li>Make sure PDBs match actual workloads via label selectors.</li>\n</ul>"
+  speech_bubble:
+  - "\U0001F916 Some workloads have missing or weak PodDisruptionBudgets."
+  - "\U0001F4CC PDBs help ensure availability during voluntary disruptions."
+  - "\u26A0\uFE0F Add or adjust PDBs to protect critical workloads."
+- id: WRK007
+  name: Missing Readiness and Liveness Probes
+  category: Probes
+  section: Workloads
+  resource_kind: Deployment
+  severity: Warning
+  weight: 4
+  automatic_relevance: warning
+  automatic_scope: workload
+  automatic_reason: health_probes
+  description: Detects containers without readiness or liveness probes.
+  fail_message: Missing readiness or liveness probes.
+  recommendation: "Add readiness and liveness probes to all containers to improve availability and fault detection."
+  url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+  native_handler: WRK007
+  value:
+    path: spec.template.spec.containers
+  operator: exists
+  recommendation_html: "<ul>\n  <li><strong>Readiness probes</strong> indicate when a container is ready to receive traffic.</li>\n  <li><strong>Liveness probes</strong> detect if a container is stuck or dead.</li>\n  <li>Use <code>httpGet</code>, <code>tcpSocket</code>, or <code>exec</code> probes for most apps.</li>\n  <li>Docs: <a href=\"https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/\">Health probes in Kubernetes</a></li>\n</ul>"
+  speech_bubble:
+  - "\U0001F916 Some containers are missing readiness or liveness probes."
+  - "\U0001F4CC These help Kubernetes detect unresponsive apps early."
+  - "\u26A0\uFE0F Add probes to improve fault tolerance and traffic routing."
+- id: WRK008
+  name: Deployment Selector Without Matching Pods
+  category: Workloads
+  section: Workloads
+  resource_kind: Deployment
+  severity: Warning
+  weight: 2
+  description: Detects Deployments whose selectors do not match any existing pods.
+  fail_message: Deployment selector does not match any pods.
+  recommendation: "Ensure that pod labels match the Deployment selector."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+  native_handler: WRK008
+  value:
+    path: spec.selector.matchLabels
+  operator: exists
+  recommendation_html: "<ul>\n  <li>Check that Deployment's <code>spec.selector.matchLabels</code> matches the pod template's labels.</li>\n  <li>Fix any label mismatches to allow pods to be created.</li>\n</ul>"
+  speech_bubble:
+  - Make sure deployment selectors and pod labels align.
+- id: WRK009
+  name: Deployment, Pod, and Service Label Consistency
+  category: Workloads
+  section: Workloads
+  resource_kind: Deployment
+  severity: Warning
+  weight: 3
+  description: Validates that deployments, pods, and services use aligned labels and selectors.
+  fail_message: Label mismatches found between Deployment selectors, Pod labels, or Service selectors.
+  recommendation: "Ensure Deployment selectors, Pod labels, and related Service selectors are consistent and aligned."
+  url: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  native_handler: WRK009
+  value:
+    path: spec.selector.matchLabels
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Deployment <code>spec.selector.matchLabels</code> must match the Pod template <code>metadata.labels</code>.</li>\n    <li>Services should have <code>spec.selector</code> that targets the same labels used by the Deployment and Pods.</li>\n    <li>Use <code>kubectl get deployment,svc,pod -o yaml</code> to compare values and fix mismatches.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some labels are inconsistent across Deployments, Pods, and Services."
+  - "\U0001F4CC This may break Service routing or monitoring integrations."
+  - "\u26A0\uFE0F Align label selectors to ensure traffic and tooling works as expected."
+- id: WRK014
+  name: Missing Memory Limits
+  category: Workloads
+  section: Workloads
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Checks that every container has an explicit memory limit.
+  fail_message: Container is missing a memory limit.
+  recommendation: "Define a memory limit on all containers to reduce the risk of node OOM pressure."
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  native_handler: WRK014
+  value:
+    path: spec.containers
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Add <code>resources.limits.memory</code> to every application and init container.</li>\n    <li>Set the limit high enough for normal peaks, then tune requests separately.</li>\n    <li>Review workloads with <code>kubectl get deploy,statefulset,daemonset -A -o yaml</code> to confirm the source manifests carry the limit.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some containers are missing memory limits."
+  - "\U0001F4CC That can increase the blast radius of memory spikes on shared nodes."
+  - "\u26A0\uFE0F Set explicit memory limits at the source manifest."
+- id: WRK013
+  name: CrashLoopBackOff and OOMKilled Guardrail
+  category: Workloads
+  section: Workloads
+  resource_kind: Pod
+  severity: High
+  weight: 3
+  description: Flags pods with CrashLoopBackOff, OOMKilled state, or high restart counts.
+  fail_message: Pod has stability guardrail issues.
+  recommendation: "Stabilize CrashLoop/OOM pods before applying aggressive right-sizing changes."
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+  native_handler: WRK013
+  value:
+    path: status.containerStatuses
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Investigate container logs and termination reasons for recurring restarts.</li>\n    <li>Increase memory requests/limits when OOMKilled events are observed.</li>\n    <li>Apply sizing changes gradually and validate SLO/error rates.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Found CrashLoopBackOff or OOMKilled signals."
+  - "\u26A0\uFE0F Treat right-sizing for these pods with extra caution."
+- id: WRK015
+  name: Replicated Workloads Missing Spread Constraints
+  category: Workloads
+  section: Workloads
+  resource_kind: Deployment
+  severity: Warning
+  weight: 2
+  automatic_relevance: blocker
+  automatic_scope: workload
+  automatic_reason: pod_spread
+  automatic_admission_behavior: denies_on_enforce
+  automatic_mutation_outcome: "Observed on AKS Automatic: replicated workloads without pod anti-affinity or topology spread constraints can be denied at admission."
+  description: Detects replicated workloads that define neither anti-affinity nor topology spread constraints.
+  fail_message: Replicated workload lacks spread constraints.
+  recommendation: "Add pod anti-affinity or topology spread constraints to replicated workloads."
+  url: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+  native_handler: WRK015
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Add <code>topologySpreadConstraints</code> or <code>affinity.podAntiAffinity</code> to each workload with multiple replicas.</li>\n    <li>Prefer distribution across nodes and zones using stable labels such as <code>topology.kubernetes.io/zone</code> and <code>kubernetes.io/hostname</code>.</li>\n    <li>Update the source Deployment, StatefulSet, or Helm values so the spreading rule is maintained on future releases.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some replicated workloads do not declare any pod spreading rules."
+  - "\U0001F4CC AKS Automatic can reject those workloads to avoid single-node placement."
+  - "\u26A0\uFE0F Add topology spread or pod anti-affinity at the source manifest."
+- id: WRK010
+  name: HPA Metrics Without Matching Resource Requests
+  category: Workloads
+  section: Workloads
+  resource_kind: HorizontalPodAutoscaler
+  severity: Warning
+  weight: 2
+  description: Detects HPAs that scale on CPU or memory metrics when target containers lack matching requests.
+  fail_message: HPA target containers are missing required resource requests.
+  recommendation: "Set resource requests for HPA-managed workloads so autoscaling decisions are based on valid utilization signals."
+  url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  native_handler: WRK010
+  value:
+    path: spec.metrics
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Add <code>resources.requests.cpu</code> and/or <code>resources.requests.memory</code> for HPA target containers.</li>\n    <li>Use consistent requests across replicas to avoid unstable scaling behavior.</li>\n    <li>After updates, validate HPA behavior with <code>kubectl describe hpa</code>.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some HPAs rely on CPU/memory metrics but target containers miss matching requests."
+  - "\u26A0\uFE0F This can make autoscaling noisy or inaccurate."
+- id: WRK011
+  name: VPA Update Mode and Declarative Resource Conflict Risk
+  category: Workloads
+  section: Workloads
+  resource_kind: verticalpodautoscalers.autoscaling.k8s.io
+  severity: Warning
+  weight: 2
+  description: Flags VPAs in Auto/Recreate mode that may conflict with declarative resource ownership or HPAs.
+  fail_message: VPA mode may conflict with declarative resources or HPA scaling.
+  recommendation: "Use VPA Off/Initial for recommendation-only flows, or tune ownership boundaries when combining VPA with HPA/GitOps."
+  url: https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler
+  native_handler: WRK011
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>If GitOps/Helm controls requests, consider VPA <code>updateMode: Off</code> or <code>Initial</code>.</li>\n    <li>Avoid overlapping HPA (CPU/memory) and VPA ownership without clear boundaries.</li>\n    <li>Document which controller owns requests per workload.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Some VPA configurations may fight with declarative config or HPA."
+  - "\u26A0\uFE0F Clarify autoscaling ownership boundaries."
+- id: WRK012
+  name: PodDisruptionBudget Adequacy for Replicated Workloads
+  category: Workloads
+  section: Workloads
+  resource_kind: PodDisruptionBudget
+  severity: Warning
+  weight: 2
+  description: Validates that replicated workloads have matching PDBs with sensible settings.
+  fail_message: PDB is missing or poorly sized for the workload.
+  recommendation: "Add or tune PDBs so maintenance can proceed safely without over-restricting disruption."
+  url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  native_handler: WRK012
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Ensure replicated workloads (2+ replicas) have a matching PDB.</li>\n    <li>Avoid <code>minAvailable</code> equal to replica count for normal maintenance windows.</li>\n    <li>Use pragmatic budgets (for example <code>maxUnavailable: 1</code> for many workloads).</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking if PDB coverage and settings are practical."
+  - "\u26A0\uFE0F Missing or overly strict PDBs can block maintenance and upgrades."
+- id: NODE001
+  name: Node Readiness and Conditions
+  category: Nodes
+  section: Nodes
+  resource_kind: Node
+  severity: High
+  weight: 8
+  description: Detects nodes that are not Ready.
+  fail_message: One or more nodes are not Ready.
+  recommendation: "Investigate NotReady nodes to avoid workload disruption."
+  url: https://kubernetes.io/docs/concepts/architecture/nodes/
+  native_handler: NODE001
+  value:
+    path: status.conditions
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Use <code>kubectl describe node <name></code> to check conditions and taints.</li>\n    <li>Check kubelet and container runtime status.</li>\n    <li>Verify cluster networking and node resource pressure.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking node readiness and conditions."
+  - "\U0001F4CC This check looks for:"
+  - '- Nodes not in ''Ready'' state'
+  - '- Warnings in other condition types'
+  - "\u26A0\uFE0F Nodes not ready may prevent scheduling or disrupt workloads."
+- id: NODE002
+  name: Node Resource Pressure
+  category: Nodes
+  section: Nodes
+  resource_kind: Node
+  severity: Warning
+  weight: 6
+  description: Detects nodes under high CPU, memory, or disk usage.
+  fail_message: One or more nodes are under high resource usage.
+  recommendation: "Investigate and rebalance workloads on nodes with high resource usage."
+  url: https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/
+  native_handler: NODE002
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Review node workloads with <code>kubectl top nodes</code>.</li>\n    <li>Move resource-hungry pods to less loaded nodes.</li>\n    <li>Scale node pool or optimize workloads if necessary.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 Checking for high CPU, memory, or disk usage on nodes."
+  - "\U0001F4CC This check compares usage against configured thresholds."
+  - '- CPU, memory: from metrics-server'
+  - '- Disk: estimated from node summary'
+  - "\u26A0\uFE0F High usage may lead to evictions or degraded performance."
+- id: NODE003
+  name: Max Pods per Node
+  category: Resources
+  section: Nodes
+  resource_kind: Node
+  severity: Warning
+  weight: 3
+  description: Flags nodes approaching or exceeding pod density thresholds.
+  fail_message: Node is approaching the configured pod capacity threshold.
+  recommendation: "Check node pod counts and adjust scheduling or cluster size as needed."
+  url: https://kubernetes.io/docs/concepts/architecture/nodes/
+  native_handler: NODE003
+  value:
+    path: status.capacity.pods
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl get pods -o wide --all-namespaces</code> and group by <code>.spec.nodeName</code> to see pod distribution.</li>\n    <li>Use <code>kubectl describe node &lt;node-name&gt;</code> to inspect allocatable pods and taints.</li>\n    <li>Consider tuning the kubelet\u2019s <code>--max-pods</code> flag if you need higher density.</li>\n    <li>Scale out your node pool or add additional nodes to balance the load.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F6A8 High pod density detected on node!"
+  - "\U0001F50E Consider rescheduling or scaling your cluster."
+- id: SC003
+  name: High Cluster Storage Usage
+  category: Utilization
+  section: Storage
+  resource_kind: Node
+  severity: Warning
+  weight: 4
+  description: Monitors overall used storage across the cluster.
+  fail_message: Cluster storage usage is above recommended threshold.
+  recommendation: "Identify large volumes or inefficient applications, and consider scaling up storage or cleaning up old data."
+  url: https://kubernetes.io/docs/concepts/storage/volumes/
+  native_handler: SC003
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4CA Manage Storage Consumption</h4>\n  <ul>\n    <li><strong>Identify:</strong> Use monitoring tools to find namespaces/pods consuming the most storage.</li>\n    <li><strong>Clean Up:</strong> Delete old data, snapshots, or unused PVCs/PVs.</li>\n    <li><strong>Scale:</strong> Plan for increasing storage capacity or optimizing storage allocation.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Your cluster's storage is getting full!
+  - Time to find the hogs.
+  - Clean up or add more capacity.
+  - Don't run out of space!

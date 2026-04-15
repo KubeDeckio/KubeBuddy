@@ -1,6 +1,6 @@
 # KubeBuddy CLI + Radar Integration (Pro)
 
-Use this guide to upload KubeBuddy JSON scan results into KubeBuddy Radar and to pull saved Radar cluster configs into the CLI for:
+Use this guide to upload KubeBuddy JSON scan results into KubeBuddy Radar and to pull saved Radar cluster configs into KubeBuddy for:
 
 - run history
 - score trends
@@ -16,9 +16,9 @@ For the Radar web experience itself, including Cluster Reports, Cluster Configs,
 
 Only the JSON report payload is uploaded.
 
+- `kubebuddy run --json-report --radar-upload ...`
 - `Invoke-KubeBuddy -jsonReport -RadarUpload ...`
 - HTML and TXT outputs are local artifacts only
-- Radar upload is non-blocking, so report generation still completes if upload fails
 - Radar now prefers the uploaded `report` payload and derives report/compare data from it asynchronously after upload
 
 ## Authentication
@@ -30,6 +30,47 @@ Set env vars before running KubeBuddy:
 ```powershell
 $env:KUBEBUDDY_RADAR_API_USER = "<wordpress-username>"
 $env:KUBEBUDDY_RADAR_API_PASSWORD = "<wordpress-app-password>"
+```
+
+```bash
+export KUBEBUDDY_RADAR_API_USER="<wordpress-username>"
+export KUBEBUDDY_RADAR_API_PASSWORD="<wordpress-app-password>"
+```
+
+## Native CLI Examples
+
+Upload JSON run:
+
+```bash
+kubebuddy run \
+  --json-report \
+  --radar-upload \
+  --radar-environment prod \
+  --yes \
+  --output-path ./reports
+```
+
+Upload + compare current run with previous run:
+
+```bash
+kubebuddy run \
+  --json-report \
+  --radar-upload \
+  --radar-compare \
+  --radar-environment prod \
+  --yes \
+  --output-path ./reports
+```
+
+Fetch a saved Radar cluster config:
+
+```bash
+kubebuddy run \
+  --radar-fetch-config \
+  --radar-config-id "ccfg_12345678-1234-1234-1234-123456789abc" \
+  --html-report \
+  --yes \
+  --output-path ./reports
 ```
 
 ## PowerShell Examples
@@ -82,7 +123,7 @@ Invoke-KubeBuddy `
   -RadarApiSecretEnv "MY_RADAR_PASS_ENV"
 ```
 
-## Docker Entry Point Support (`run.ps1`)
+## Docker Entry Point Support (`kubebuddy run-env`)
 
 When running the container image, configure Radar via env vars:
 
@@ -97,10 +138,10 @@ When running the container image, configure Radar via env vars:
 -e KUBEBUDDY_RADAR_API_PASSWORD="<wordpress-app-password>"
 ```
 
-Rules enforced by `run.ps1`:
+Rules enforced by the Go-native container entrypoint:
 
 - `RADAR_UPLOAD=true` or `RADAR_COMPARE=true` requires `JSON_REPORT=true`
-- `RADAR_FETCH_CONFIG=true` uses the saved Radar cluster profile to populate runtime defaults inside `Invoke-KubeBuddy`
+- `RADAR_FETCH_CONFIG=true` fetches the saved Radar cluster profile and applies it to the native run before checks start
 
 ## Config File Defaults (`kubebuddy-config.yaml`)
 
@@ -118,6 +159,7 @@ radar:
 ```
 
 CLI flags override config values for that run.
+`--radar-upload`, `--radar-compare`, and `--radar-fetch-config` also force Radar on for that run even if `radar.enabled` is `false`.
 
 ## Radar-managed Cluster Configs (Pro)
 
@@ -139,8 +181,8 @@ The Radar UI can:
 
 The CLI can:
 
-- fetch the profile with `-RadarFetchConfig -RadarConfigId`
-- apply the fetched YAML config when no local `-ConfigPath` is provided
+- fetch the profile with `--radar-fetch-config --radar-config-id` or `-RadarFetchConfig -RadarConfigId`
+- apply the fetched YAML config to the run
 - keep explicit CLI flags as the highest-precedence overrides
 
 ## Radar UI Output

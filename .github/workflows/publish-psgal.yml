@@ -4,10 +4,12 @@ on:
   push:
     tags:
       - 'v*'
-  release:
-    types:
-      - published
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, for example v0.0.4
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,10 +20,22 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
       - name: Debug Tag
         run: |
+          if ($Env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $resolvedTag = '${{ inputs.tag }}'
+          }
+          else {
+            $resolvedTag = $Env:GITHUB_REF_NAME
+          }
+          Write-Host "RESOLVED_TAG: $resolvedTag"
           Write-Host "GITHUB_REF_NAME: $Env:GITHUB_REF_NAME"
           Write-Host "GITHUB_REF: $Env:GITHUB_REF"
         shell: pwsh
@@ -29,8 +43,10 @@ jobs:
       - name: Set Module Version from Git Tag
         id: set_version
         run: |
-          # If no GITHUB_REF_NAME, parse GITHUB_REF
-          if (-not $Env:GITHUB_REF_NAME) {
+          if ($Env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $tagVersion = '${{ inputs.tag }}' -replace '^v',''
+          }
+          elseif (-not $Env:GITHUB_REF_NAME) {
             $tagVersion = $Env:GITHUB_REF -replace '^refs/tags/v',''
           }
           else {
@@ -44,10 +60,9 @@ jobs:
             -replace '^\s*ModuleVersion\s*=\s*''.*''', "ModuleVersion = '$tagVersion'" |
             Set-Content ./KubeBuddy.psd1
 
-          # Corrected update for kubebuddy.ps1 line: $moduleVersion = "v0.0.4"
           (Get-Content ./Public/kubebuddy.ps1) |
-          ForEach-Object { 
-              $_ -replace '^\s*\$moduleVersion\s*=\s*".*"', "`$moduleVersion = 'v$tagVersion'" 
+          ForEach-Object {
+              $_ -replace '^\s*\$script:KubeBuddyModuleVersion\s*=\s*".*"', "`$script:KubeBuddyModuleVersion = `"v$tagVersion`""
           } |
           Set-Content ./Public/kubebuddy.ps1
 
@@ -104,6 +119,37 @@ jobs:
         run: |
           $manifest = Test-ModuleManifest -Path ./KubeBuddy.psd1
           Write-Host "Validated Module Version: $($manifest.Version)"
+        shell: pwsh
+
+      - name: Build bundled native binaries for module package
+        run: |
+          New-Item -ItemType Directory -Path ./bin/windows-amd64 -Force | Out-Null
+          New-Item -ItemType Directory -Path ./bin/windows-arm64 -Force | Out-Null
+          New-Item -ItemType Directory -Path ./bin/darwin-amd64 -Force | Out-Null
+          New-Item -ItemType Directory -Path ./bin/darwin-arm64 -Force | Out-Null
+          New-Item -ItemType Directory -Path ./bin/linux-amd64 -Force | Out-Null
+          New-Item -ItemType Directory -Path ./bin/linux-arm64 -Force | Out-Null
+
+          $version = (Import-PowerShellDataFile ./KubeBuddy.psd1).ModuleVersion
+          $ldflags = "-s -w -X github.com/KubeDeckio/KubeBuddy/internal/version.Version=v$version"
+
+          $targets = @(
+            @{ GOOS = "windows"; GOARCH = "amd64"; OUT = "./bin/windows-amd64/kubebuddy.exe" },
+            @{ GOOS = "windows"; GOARCH = "arm64"; OUT = "./bin/windows-arm64/kubebuddy.exe" },
+            @{ GOOS = "darwin"; GOARCH = "amd64"; OUT = "./bin/darwin-amd64/kubebuddy" },
+            @{ GOOS = "darwin"; GOARCH = "arm64"; OUT = "./bin/darwin-arm64/kubebuddy" },
+            @{ GOOS = "linux"; GOARCH = "amd64"; OUT = "./bin/linux-amd64/kubebuddy" },
+            @{ GOOS = "linux"; GOARCH = "arm64"; OUT = "./bin/linux-arm64/kubebuddy" }
+          )
+
+          foreach ($target in $targets) {
+            Write-Host "Building $($target.GOOS)/$($target.GOARCH) -> $($target.OUT)"
+            $env:CGO_ENABLED = "0"
+            $env:GOOS = $target.GOOS
+            $env:GOARCH = $target.GOARCH
+            go build -trimpath -ldflags="$ldflags" -o $target.OUT ./cmd/kubebuddy
+            if ($LASTEXITCODE -ne 0) { throw "go build failed for $($target.GOOS)/$($target.GOARCH)" }
+          }
         shell: pwsh
 
       - name: Publish to PowerShell Gallery
