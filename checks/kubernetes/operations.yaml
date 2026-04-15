@@ -8,7 +8,7 @@ checks:
   weight: 1
   description: Detects ConfigMaps that are not referenced by workloads or related resources.
   fail_message: ConfigMap is not referenced by any workloads or services.
-  recommendation: Delete unused ConfigMaps after confirming they are not needed.
+  recommendation: "Delete unused ConfigMaps to clean up the cluster and reduce confusion."
   url: https://kubernetes.io/docs/concepts/configuration/configmap/
   native_handler: CFG001
   value:
@@ -28,7 +28,7 @@ checks:
   weight: 1
   description: Detects ConfigMaps with identical names across multiple namespaces.
   fail_message: ConfigMap name reused in multiple namespaces.
-  recommendation: Use unique ConfigMap names to avoid confusion across namespaces.
+  recommendation: "Avoid using the same ConfigMap name across namespaces to reduce confusion and misconfiguration risk."
   url: https://kubernetes.io/docs/concepts/configuration/configmap/
   native_handler: CFG002
   value:
@@ -48,7 +48,7 @@ checks:
   weight: 2
   description: Finds ConfigMaps larger than 1 MiB.
   fail_message: ConfigMap exceeds 1 MiB in size.
-  recommendation: Move large data out of ConfigMaps into more suitable storage.
+  recommendation: "Avoid storing large data in ConfigMaps. Consider using PersistentVolumes or Secrets instead."
   url: https://kubernetes.io/docs/concepts/configuration/configmap/
   native_handler: CFG003
   value:
@@ -68,7 +68,7 @@ checks:
   weight: 1
   description: Finds namespaces with no running pods.
   fail_message: Namespace has no pods.
-  recommendation: Remove stale namespaces after confirming they are no longer needed.
+  recommendation: "These may be stale or unused and safe to delete after verifying they contain no critical resources."
   url: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
   native_handler: NS001
   value:
@@ -88,7 +88,7 @@ checks:
   weight: 3
   description: Detects namespaces with missing or incomplete ResourceQuota definitions.
   fail_message: ResourceQuota is missing or incomplete.
-  recommendation: Set CPU, memory, and pod quotas for each namespace.
+  recommendation: "Apply CPU, memory, and pod quotas to enforce fair resource usage."
   url: https://kubernetes.io/docs/concepts/policy/resource-quotas/
   native_handler: NS002
   value:
@@ -111,7 +111,7 @@ checks:
   weight: 2
   description: Detects namespaces without a defined LimitRange.
   fail_message: Namespace has no LimitRange.
-  recommendation: Define default CPU and memory ranges for each namespace.
+  recommendation: "Define default CPU and memory limits to avoid unbounded pod usage."
   url: https://kubernetes.io/docs/concepts/policy/limit-range/
   native_handler: NS003
   value:
@@ -131,7 +131,7 @@ checks:
   weight: 2
   description: Flags pods running in the default namespace.
   fail_message: Pod is running in the default namespace.
-  recommendation: Move workloads into dedicated namespaces instead of using default.
+  recommendation: "Create and deploy into dedicated namespaces instead of `default`."
   url: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
   native_handler: NS004
   value:
@@ -150,8 +150,8 @@ checks:
   weight: 2
   description: Finds Jobs that have started but not completed within the threshold.
   fail_message: Job appears stuck.
-  recommendation: Inspect job status, pods, and logs to identify the blocker.
-  url: https://kubernetes.io/docs/concepts/workloads/controllers/job/
+  recommendation: "Jobs that haven't completed may be stuck due to node issues, misconfiguration, or missing pods."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
   native_handler: JOB001
   value:
     path: status.startTime
@@ -170,8 +170,8 @@ checks:
   weight: 3
   description: Detects jobs with failures and no successful completions.
   fail_message: Job failed with no successful completions.
-  recommendation: Review job logs and recent failures.
-  url: https://kubernetes.io/docs/concepts/workloads/controllers/job/
+  recommendation: "Review job logs and resource constraints to identify cause of failure."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/job/#handling-pod-and-container-failures
   native_handler: JOB002
   value:
     path: status.failed
@@ -190,8 +190,8 @@ checks:
   weight: 3
   description: Detects pods that have restarted more than the configured thresholds.
   fail_message: Pod has restarted excessively.
-  recommendation: Inspect logs, probes, and resource settings for unstable pods.
-  url: https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/
+  recommendation: "Review logs and events for frequently restarting pods and address root causes such as crashes, missing configs, or failing probes."
+  url: https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#application-crashes
   native_handler: POD001
   value:
     path: status.containerStatuses
@@ -210,8 +210,8 @@ checks:
   weight: 2
   description: Flags pods that have been running longer than configured thresholds.
   fail_message: Pod has been running longer than expected.
-  recommendation: Review long-running pods and confirm they match the intended rollout state.
-  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+  recommendation: "Review long-running pods and determine if they should be restarted or replaced by updated deployments."
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
   native_handler: POD002
   value:
     path: status.startTime
@@ -230,7 +230,7 @@ checks:
   weight: 2
   description: Detects pods created by kubectl debug that have not been cleaned up.
   fail_message: Leftover debug pod found.
-  recommendation: Delete unused debug pods after troubleshooting is complete.
+  recommendation: "Delete any leftover debug pods and review your debugging practices."
   url: https://kubernetes.io/docs/tasks/debug/debug-cluster/debug-running-pod/
   native_handler: POD006
   value:
@@ -250,7 +250,7 @@ checks:
   weight: 3
   description: Flags containers using latest or no explicit tag.
   fail_message: Container image uses latest or omits an explicit tag.
-  recommendation: Pin image versions explicitly for predictable deployments.
+  recommendation: "Specify an explicit image tag (e.g., ':v1.2.3') on every container and initContainer to ensure consistent deployments."
   url: https://kubernetes.io/docs/concepts/containers/images/#image-tags
   native_handler: POD007
   value:
@@ -270,7 +270,7 @@ checks:
   weight: 4
   description: Detects invalid roleRefs, missing roles, orphaned service accounts, and incorrect subject namespaces.
   fail_message: RBAC misconfiguration detected.
-  recommendation: Fix missing roleRefs, service accounts, and invalid namespaces in RBAC bindings.
+  recommendation: "Fix missing roleRefs, service accounts, and invalid namespaces in RoleBindings and ClusterRoleBindings."
   url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
   native_handler: RBAC001
   value:
@@ -293,7 +293,7 @@ checks:
   weight: 5
   description: Identifies dangerous RBAC grants such as cluster-admin and wildcard permissions.
   fail_message: RBAC overexposure risk detected.
-  recommendation: Use least privilege and remove broad or sensitive grants.
+  recommendation: "Avoid cluster-admin, wildcard, and sensitive resource access in roles. Use least privilege."
   url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
   native_handler: RBAC002
   value:
@@ -316,7 +316,7 @@ checks:
   weight: 2
   description: Finds ServiceAccounts not used by pods or RBAC bindings.
   fail_message: ServiceAccount is unused.
-  recommendation: Remove unused ServiceAccounts to reduce RBAC clutter.
+  recommendation: "Clean up unused ServiceAccounts to avoid confusion and reduce RBAC clutter."
   url: https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/
   native_handler: RBAC003
   value:
@@ -338,7 +338,7 @@ checks:
   weight: 1
   description: Flags roles and clusterroles that are unused or define no rules.
   fail_message: Role or ClusterRole is unused or ineffective.
-  recommendation: Remove unused RBAC roles and keep active ones minimal.
+  recommendation: "Delete Roles and ClusterRoles that are not bound or do not define any rules."
   url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
   native_handler: RBAC004
   value:
@@ -361,7 +361,7 @@ checks:
   weight: 2
   description: Detects DaemonSets that have fewer ready pods than desired.
   fail_message: DaemonSet is not running on all desired nodes.
-  recommendation: Inspect scheduling constraints, taints, and resource pressure.
+  recommendation: "Investigate DaemonSets not fully running. Common causes include taints, node issues, or resource constraints."
   url: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
   native_handler: WRK001
   value:
@@ -381,7 +381,7 @@ checks:
   weight: 3
   description: Detects Deployments where available replicas are less than desired.
   fail_message: Deployment has fewer available replicas than desired.
-  recommendation: Review rollout status and failing pods.
+  recommendation: "Check Deployments that are not meeting their replica count. This may indicate rollout issues or failed pods."
   url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
   native_handler: WRK002
   value:
@@ -401,7 +401,7 @@ checks:
   weight: 3
   description: Detects StatefulSets with fewer ready replicas than desired.
   fail_message: StatefulSet has fewer ready replicas than desired.
-  recommendation: Review rollout status, readiness, and storage binding issues.
+  recommendation: "Investigate StatefulSets with missing ready replicas. This may indicate issues with pod readiness or volume binding."
   url: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
   native_handler: WRK003
   value:
@@ -421,7 +421,7 @@ checks:
   weight: 1
   description: Checks for HPAs with missing targets, metrics, or inactive scaling.
   fail_message: HPA is misconfigured, inactive, or not scaling correctly.
-  recommendation: Review HPA target references, metrics, and scaling conditions.
+  recommendation: "Review HorizontalPodAutoscalers with missing targets, no metrics, or disabled scaling."
   url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   native_handler: WRK004
   value:
@@ -441,7 +441,7 @@ checks:
   weight: 3
   description: Checks that every container has explicit CPU and memory requests.
   fail_message: Container is missing CPU or memory requests.
-  recommendation: Set explicit CPU and memory requests on every container.
+  recommendation: "Define cpu and memory requests on all containers."
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   native_handler: WRK005
   value:
@@ -461,7 +461,7 @@ checks:
   weight: 2
   description: Detects missing or weak PodDisruptionBudgets.
   fail_message: Workload is unprotected or PDB is weak.
-  recommendation: Add matching PDBs and avoid ineffective settings.
+  recommendation: "Workloads should have a valid PDB to prevent availability issues during disruptions."
   url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
   native_handler: WRK006
   value:
@@ -481,7 +481,7 @@ checks:
   weight: 4
   description: Detects containers without readiness or liveness probes.
   fail_message: Missing readiness or liveness probes.
-  recommendation: Add both readiness and liveness probes to each app container.
+  recommendation: "Add readiness and liveness probes to all containers to improve availability and fault detection."
   url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
   native_handler: WRK007
   value:
@@ -501,7 +501,7 @@ checks:
   weight: 2
   description: Detects Deployments whose selectors do not match any existing pods.
   fail_message: Deployment selector does not match any pods.
-  recommendation: Make sure deployment selectors and pod labels align.
+  recommendation: "Ensure that pod labels match the Deployment selector."
   url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
   native_handler: WRK008
   value:
@@ -519,7 +519,7 @@ checks:
   weight: 3
   description: Validates that deployments, pods, and services use aligned labels and selectors.
   fail_message: Label mismatches found between Deployment selectors, Pod labels, or Service selectors.
-  recommendation: Keep deployment selectors, pod template labels, and service selectors aligned.
+  recommendation: "Ensure Deployment selectors, Pod labels, and related Service selectors are consistent and aligned."
   url: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   native_handler: WRK009
   value:
@@ -539,7 +539,7 @@ checks:
   weight: 2
   description: Checks that every container has an explicit memory limit.
   fail_message: Container is missing a memory limit.
-  recommendation: Add a memory limit to each application and init container.
+  recommendation: "Define a memory limit on all containers to reduce the risk of node OOM pressure."
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   native_handler: WRK014
   value:
@@ -559,7 +559,7 @@ checks:
   weight: 3
   description: Flags pods with CrashLoopBackOff, OOMKilled state, or high restart counts.
   fail_message: Pod has stability guardrail issues.
-  recommendation: Inspect restart causes and align resource requests, limits, and probe settings.
+  recommendation: "Stabilize CrashLoop/OOM pods before applying aggressive right-sizing changes."
   url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
   native_handler: WRK013
   value:
@@ -578,7 +578,7 @@ checks:
   weight: 2
   description: Detects replicated workloads that define neither anti-affinity nor topology spread constraints.
   fail_message: Replicated workload lacks spread constraints.
-  recommendation: Add pod anti-affinity or topology spread constraints to improve resilience.
+  recommendation: "Add pod anti-affinity or topology spread constraints to replicated workloads."
   url: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
   native_handler: WRK015
   value:
@@ -598,7 +598,7 @@ checks:
   weight: 2
   description: Detects HPAs that scale on CPU or memory metrics when target containers lack matching requests.
   fail_message: HPA target containers are missing required resource requests.
-  recommendation: Add the matching CPU or memory requests to all target containers.
+  recommendation: "Set resource requests for HPA-managed workloads so autoscaling decisions are based on valid utilization signals."
   url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   native_handler: WRK010
   value:
@@ -617,7 +617,7 @@ checks:
   weight: 2
   description: Flags VPAs in Auto/Recreate mode that may conflict with declarative resource ownership or HPAs.
   fail_message: VPA mode may conflict with declarative resources or HPA scaling.
-  recommendation: Use VPA Off or Initial for recommendation-only flows, or separate ownership boundaries clearly.
+  recommendation: "Use VPA Off/Initial for recommendation-only flows, or tune ownership boundaries when combining VPA with HPA/GitOps."
   url: https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler
   native_handler: WRK011
   value:
@@ -629,14 +629,14 @@ checks:
   - "\u26A0\uFE0F Clarify autoscaling ownership boundaries."
 - id: WRK012
   name: PodDisruptionBudget Adequacy for Replicated Workloads
-  category: PDBs
+  category: Workloads
   section: Workloads
   resource_kind: PodDisruptionBudget
   severity: Warning
   weight: 2
   description: Validates that replicated workloads have matching PDBs with sensible settings.
   fail_message: PDB is missing or poorly sized for the workload.
-  recommendation: Add matching PDBs and tune minAvailable or maxUnavailable for safe disruption handling.
+  recommendation: "Add or tune PDBs so maintenance can proceed safely without over-restricting disruption."
   url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
   native_handler: WRK012
   value:
@@ -655,7 +655,7 @@ checks:
   weight: 8
   description: Detects nodes that are not Ready.
   fail_message: One or more nodes are not Ready.
-  recommendation: Investigate kubelet, runtime, network, and node conditions.
+  recommendation: "Investigate NotReady nodes to avoid workload disruption."
   url: https://kubernetes.io/docs/concepts/architecture/nodes/
   native_handler: NODE001
   value:
@@ -677,7 +677,7 @@ checks:
   weight: 6
   description: Detects nodes under high CPU, memory, or disk usage.
   fail_message: One or more nodes are under high resource usage.
-  recommendation: Rebalance workloads or add capacity for pressured nodes.
+  recommendation: "Investigate and rebalance workloads on nodes with high resource usage."
   url: https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/
   native_handler: NODE002
   value:
@@ -692,14 +692,14 @@ checks:
   - "\u26A0\uFE0F High usage may lead to evictions or degraded performance."
 - id: NODE003
   name: Max Pods per Node
-  category: Nodes
+  category: Resources
   section: Nodes
   resource_kind: Node
   severity: Warning
   weight: 3
   description: Flags nodes approaching or exceeding pod density thresholds.
   fail_message: Node is approaching the configured pod capacity threshold.
-  recommendation: Rebalance workloads or add node capacity before saturation.
+  recommendation: "Check node pod counts and adjust scheduling or cluster size as needed."
   url: https://kubernetes.io/docs/concepts/architecture/nodes/
   native_handler: NODE003
   value:
@@ -718,7 +718,7 @@ checks:
   weight: 4
   description: Monitors overall used storage across the cluster.
   fail_message: Cluster storage usage is above recommended threshold.
-  recommendation: Clean up old data or expand capacity before the cluster runs out of space.
+  recommendation: "Identify large volumes or inefficient applications, and consider scaling up storage or cleaning up old data."
   url: https://kubernetes.io/docs/concepts/storage/volumes/
   native_handler: SC003
   value:

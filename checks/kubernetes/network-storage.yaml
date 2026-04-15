@@ -8,7 +8,7 @@ checks:
   weight: 2
   description: Identifies services that have no backing endpoints.
   fail_message: Service has no endpoints.
-  recommendation: Check selectors, pod readiness, and EndpointSlice generation.
+  recommendation: "Check if the service selector matches any pods. Ensure the backing pods are running and ready."
   url: https://kubernetes.io/docs/concepts/services-networking/service/
   native_handler: NET001
   value:
@@ -28,7 +28,7 @@ checks:
   weight: 4
   description: Detects services of type LoadBalancer or NodePort that may be publicly exposed.
   fail_message: Publicly accessible services found.
-  recommendation: Restrict or internalize externally exposed services.
+  recommendation: "Audit services of type LoadBalancer or NodePort. Limit exposure with firewalls or internal IP ranges."
   url: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services
   native_handler: NET002
   value:
@@ -48,7 +48,7 @@ checks:
   weight: 3
   description: Validates ingress classes, TLS secrets, and backend service references.
   fail_message: Ingress health validation failed.
-  recommendation: Fix ingress class, TLS secret, and backend service issues before routing traffic.
+  recommendation: "Fix invalid ingress definitions including missing TLS secrets, backend services, and path issues."
   url: https://kubernetes.io/docs/concepts/services-networking/ingress/
   native_handler: NET003
   value:
@@ -64,14 +64,15 @@ checks:
   - "\u26A0\uFE0F These issues can break routing or expose services incorrectly."
 - id: NET004
   name: Namespace Missing Network Policy
-  category: Networking
+  category: Security
   section: Networking
   resource_kind: Namespace
   severity: Warning
   weight: 2
   description: Flags namespaces that do not define any NetworkPolicy.
   fail_message: Namespace has no NetworkPolicy.
-  recommendation: Add baseline NetworkPolicies for each application namespace.
+  recommendation: "Apply a default deny-all ingress/egress NetworkPolicy in each namespace that hosts workloads, then selectively allow traffic as needed.\n"
+
   url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
   native_handler: NET004
   value:
@@ -90,8 +91,8 @@ checks:
   weight: 2
   description: Detects duplicate host/path combinations across ingresses in the same namespace.
   fail_message: Duplicate ingress host/path combination found.
-  recommendation: Ensure each ingress host/path combination is unique.
-  url: https://kubernetes.io/docs/concepts/services-networking/ingress/
+  recommendation: "Resolve conflicting host and path combinations across Ingress resources to ensure predictable routing. Each host/path pair should be unique."
+  url: https://kubernetes.io/docs/concepts/services-networking/ingress/#multiple-ingresses
   native_handler: NET005
   value:
     path: spec.rules
@@ -110,8 +111,8 @@ checks:
   weight: 2
   description: Detects ingress rules that use wildcard hosts.
   fail_message: Ingress uses wildcard hosts.
-  recommendation: Prefer explicit hosts unless wildcard routing is intentional.
-  url: https://kubernetes.io/docs/concepts/services-networking/ingress/
+  recommendation: "Review Ingress resources using wildcard hosts. Prefer explicit hostnames for tighter security and clearer routing intent where possible."
+  url: https://kubernetes.io/docs/concepts/services-networking/ingress/#hostname-wildcards
   native_handler: NET006
   value:
     path: spec.rules
@@ -130,8 +131,8 @@ checks:
   weight: 2
   description: Detects services whose targetPort does not exist on backing pods.
   fail_message: Service targetPort does not match any backing pod port.
-  recommendation: Align Service targetPort values with container ports or names.
-  url: https://kubernetes.io/docs/concepts/services-networking/service/
+  recommendation: "Ensure that all 'targetPort' definitions in services correctly match a 'containerPort' (by number or name) defined in the pods selected by the service."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service
   native_handler: NET007
   value:
     path: spec.ports
@@ -150,7 +151,7 @@ checks:
   weight: 2
   description: Identifies ExternalName services that point to internal IP addresses.
   fail_message: ExternalName service points to an internal IP.
-  recommendation: Use a regular Service or EndpointSlice for internal traffic patterns.
+  recommendation: "Review 'ExternalName' services pointing to internal IPs. Consider using a regular Service with an EndpointSlice for internal traffic, or clarify intent if valid."
   url: https://kubernetes.io/docs/concepts/services-networking/service/#externalname
   native_handler: NET008
   value:
@@ -170,7 +171,7 @@ checks:
   weight: 4
   description: Identifies NetworkPolicies with empty rules or broad all-IP blocks.
   fail_message: Overly permissive NetworkPolicy found.
-  recommendation: Restrict policies to the minimum required traffic.
+  recommendation: "Review NetworkPolicies with empty rules or broad IP blocks. Ensure policies enforce the principle of least privilege, explicitly defining allowed traffic."
   url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
   native_handler: NET009
   value:
@@ -190,7 +191,7 @@ checks:
   weight: 5
   description: Flags NetworkPolicies that allow 0.0.0.0/0 through ipBlock rules.
   fail_message: NetworkPolicy uses 0.0.0.0/0 in ipBlock.
-  recommendation: Replace broad ipBlocks with specific CIDRs.
+  recommendation: "Replace '0.0.0.0/0' ipBlock in NetworkPolicies with specific CIDR ranges to enforce the principle of least privilege. Only allow traffic to/from necessary IPs."
   url: https://kubernetes.io/docs/concepts/services-networking/network-policies/#the-ipblock-specifier
   native_handler: NET010
   value:
@@ -210,7 +211,7 @@ checks:
   weight: 1
   description: Detects NetworkPolicies that do not explicitly define policyTypes.
   fail_message: NetworkPolicy does not explicitly define policyTypes.
-  recommendation: Set policyTypes explicitly for clarity and portability.
+  recommendation: "Explicitly define 'policyTypes' (e.g., [Ingress, Egress]) in NetworkPolicies for clarity and to prevent unexpected behavior with future Kubernetes versions or different CNI plugins."
   url: https://kubernetes.io/docs/concepts/services-networking/network-policies/#policy-types
   native_handler: NET011
   value:
@@ -230,8 +231,8 @@ checks:
   weight: 2
   description: Identifies pods configured with hostNetwork true.
   fail_message: Pod uses hostNetwork.
-  recommendation: Disable hostNetwork unless direct node networking is required.
-  url: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+  recommendation: "Avoid 'hostNetwork: true' unless absolutely necessary. For most cases, Kubernetes' built-in networking (e.g., Services, Ingress, NetworkPolicies) provides better isolation and security."
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/#host-networking
   native_handler: NET012
   value:
     path: spec.hostNetwork
@@ -250,7 +251,7 @@ checks:
   weight: 2
   description: Detects clusters still using Ingress without any Gateway API resources.
   fail_message: Ingress is in use without Gateway API adoption.
-  recommendation: Plan a phased move from Ingress to Gateway API resources.
+  recommendation: "Plan migration from Ingress to Gateway API. Start by defining GatewayClass/Gateway and incrementally moving routes to HTTPRoute."
   url: https://gateway-api.sigs.k8s.io/
   native_handler: NET013
   value:
@@ -269,7 +270,7 @@ checks:
   weight: 3
   description: Detects HTTPRoutes with missing parentRefs or no accepted parent Gateway.
   fail_message: HTTPRoute has no valid accepted parent.
-  recommendation: Ensure each HTTPRoute references an existing Gateway and is accepted.
+  recommendation: "Ensure each HTTPRoute has valid parentRefs and that the referenced Gateway accepts the route."
   url: https://gateway-api.sigs.k8s.io/api-types/httproute/
   native_handler: NET014
   value:
@@ -288,7 +289,7 @@ checks:
   weight: 2
   description: Detects Gateway resources that have no attached HTTPRoutes.
   fail_message: Gateway has no attached HTTPRoutes.
-  recommendation: Attach routes to active Gateways or remove stale ones.
+  recommendation: "Attach HTTPRoutes to active Gateways or remove unused Gateways to reduce configuration drift."
   url: https://gateway-api.sigs.k8s.io/api-types/gateway/
   native_handler: NET015
   value:
@@ -307,7 +308,7 @@ checks:
   weight: 3
   description: Detects Gateway resources that are not accepted or programmed.
   fail_message: Gateway API resources are not accepted or programmed.
-  recommendation: Review Gateway conditions and controller health before routing traffic.
+  recommendation: "Review GatewayClass and Gateway status conditions and controller health before migrating traffic."
   url: https://gateway-api.sigs.k8s.io/guides/
   native_handler: NET016
   value:
@@ -326,7 +327,7 @@ checks:
   weight: 3
   description: Validates Gateway certificateRefs against existing Secrets and ReferenceGrants.
   fail_message: Gateway TLS references are invalid or missing required grants.
-  recommendation: Ensure listener certificateRefs point to valid Secrets and add ReferenceGrants where needed.
+  recommendation: "Ensure listener certificateRefs point to existing Secrets and add ReferenceGrants for cross-namespace Secret usage."
   url: https://gateway-api.sigs.k8s.io/api-types/referencegrant/
   native_handler: NET017
   value:
@@ -345,7 +346,7 @@ checks:
   weight: 3
   description: Detects multiple Services in the same namespace with identical selectors.
   fail_message: Multiple Services share the same selector.
-  recommendation: Use distinct selectors or consolidate duplicate Services.
+  recommendation: "Use unique selectors per Service so AKS Automatic admission does not reject overlapping service ownership."
   url: https://kubernetes.io/docs/concepts/services-networking/service/
   native_handler: NET018
   value:
@@ -365,7 +366,7 @@ checks:
   weight: 3
   description: Detects PersistentVolumes that are not bound to any PVC.
   fail_message: Persistent Volume is not bound to any PVC.
-  recommendation: Review and delete orphaned PersistentVolumes to reclaim storage.
+  recommendation: "Review and delete orphaned Persistent Volumes to reclaim storage."
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   native_handler: PV001
   value:
@@ -386,7 +387,7 @@ checks:
   weight: 2
   description: Detects PVCs not attached to any pod.
   fail_message: PVC is not used by any running pod.
-  recommendation: Remove unused PVCs after confirming they are not needed.
+  recommendation: "Review and delete unused PVCs to reclaim storage."
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   native_handler: PVC001
   value:
@@ -406,7 +407,7 @@ checks:
   weight: 5
   description: Detects ReadWriteMany PVCs backed by likely block-storage provisioners.
   fail_message: PVC requests ReadWriteMany on likely incompatible storage.
-  recommendation: Use a shared filesystem backend or switch to ReadWriteOnce.
+  recommendation: "Change access mode to ReadWriteOnce if only one pod needs access, or use a shared file system (e.g., NFS, GlusterFS, CephFS) for ReadWriteMany."
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
   native_handler: PVC003
   value:
@@ -427,7 +428,7 @@ checks:
   weight: 1
   description: Detects PVCs that do not explicitly specify storageClassName.
   fail_message: PVC does not explicitly define a storageClassName.
-  recommendation: Set storageClassName explicitly for clarity and portability.
+  recommendation: "Explicitly specify storageClassName in PVCs for clarity and portability, reducing reliance on default configurations."
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   value:
     path: spec.storageClassName
@@ -448,7 +449,7 @@ checks:
   weight: 3
   description: Detects PersistentVolumeClaims that remain Pending.
   fail_message: PVC is in Pending state and not bound to a PV.
-  recommendation: Inspect the StorageClass, provisioner, and PVC events to resolve binding.
+  recommendation: "Investigate why the PVC is stuck in Pending. This often indicates issues with the StorageClass, available PVs, or the underlying storage provisioner."
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   value:
     path: status.phase
@@ -469,7 +470,7 @@ checks:
   weight: 4
   description: Detects StorageClasses still using in-tree provisioners.
   fail_message: StorageClass uses a deprecated or in-tree provisioner.
-  recommendation: Migrate to CSI-based provisioners.
+  recommendation: "Migrate to a CSI-compliant StorageClass. This typically involves creating a new CSI-based StorageClass and then migrating existing PVCs."
   url: https://kubernetes.io/docs/concepts/storage/storage-classes/#provisioner
   value:
     path: provisioner
@@ -490,7 +491,7 @@ checks:
   weight: 4
   description: Detects Azure in-tree storage provisioners that are not AKS Automatic compatible.
   fail_message: StorageClass uses an Azure in-tree provisioner.
-  recommendation: Migrate to disk.csi.azure.com or file.csi.azure.com.
+  recommendation: "Migrate Azure storage classes to CSI drivers. Use disk.csi.azure.com or file.csi.azure.com instead of kubernetes.io/azure-disk and kubernetes.io/azure-file."
   url: https://learn.microsoft.com/azure/aks/csi-storage-drivers
   native_handler: SC002_AKS
   value:

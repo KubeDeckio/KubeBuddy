@@ -1422,30 +1422,21 @@ func compatHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {
 		"SEC007":  {Severity: "info", Weight: 1},
 		"SEC008":  {Severity: "critical", Weight: 4},
 		"SEC014":  {Severity: "critical", Weight: 3},
-		"SEC015":  {Name: "Pods Using Default ServiceAccount", Severity: "warning", Weight: 3},
-		"SEC016":  {Name: "Non-Existent Secret References", Severity: "critical", Weight: 4},
+		"SEC015":  {Severity: "warning", Weight: 3},
+		"SEC016":  {Severity: "critical", Weight: 3},
 		"SEC017":  {Severity: "critical", Weight: 3},
-		"SEC018":  {Name: "Automounting API Credentials Enabled in ServiceAccounts", Severity: "warning", Weight: 3},
+		"SEC018":  {Severity: "warning", Weight: 3},
 		"WRK010":  {Severity: "warning", Weight: 3},
 		"WRK015":  {Severity: "warning", Weight: 3},
 	}
-	duplicateOverrides := map[string]compatHTMLOverride{
-		"SC002":  {Name: "StorageClass Prevents Volume Expansion", Severity: "critical", Weight: 4, Total: intPtr(0)},
-		"SEC015": {Name: "Host Ports in Pod Specs", Severity: "critical", Weight: 4, Total: intPtr(0)},
-		"SEC016": {Name: "Unconfined Seccomp Profiles", Severity: "critical", Weight: 4, Total: intPtr(0)},
-		"SEC018": {Name: "Disallowed Sysctls", Severity: "critical", Weight: 3, Total: intPtr(0)},
-	}
 
-	out := make([]scan.CheckResult, 0, len(checks)+len(duplicateOverrides))
+	out := make([]scan.CheckResult, 0, len(checks))
 	for _, check := range checks {
 		current := check
 		if override, ok := baseOverrides[current.ID]; ok {
 			current = applyCompatHTMLOverride(current, override)
 		}
 		out = append(out, current)
-		if override, ok := duplicateOverrides[current.ID]; ok {
-			out = append(out, applyCompatHTMLOverride(current, override))
-		}
 	}
 	return out
 }

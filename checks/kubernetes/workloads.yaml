@@ -8,7 +8,7 @@ checks:
   weight: 4
   description: Detects pods in a failed phase, typically due to startup errors, crashes, or misconfiguration.
   fail_message: Some pods are stuck in the 'Failed' phase. These workloads are not running and require attention.
-  recommendation: Investigate failed pods for common issues like image errors, resource constraints, or crash loops.
+  recommendation: "Investigate failed pods for common issues like image errors, resource constraints, or crash loops."
   recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Check the pod events with <code>kubectl describe pod &lt;pod&gt; -n &lt;ns&gt;</code></li>\n    <li>Review logs using <code>kubectl logs &lt;pod&gt; -n &lt;ns&gt;</code></li>\n    <li>Validate container specs, resource limits, and init containers</li>\n    <li>Check node availability or taints</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
   value:
@@ -28,7 +28,7 @@ checks:
   weight: 3
   description: Detects pods stuck in a 'Pending' state due to scheduling or resource issues.
   fail_message: Some pods are stuck in Pending. These workloads are not running and are waiting on cluster conditions.
-  recommendation: Inspect scheduling constraints, resource availability, and missing dependencies.
+  recommendation: "Inspect scheduling constraints, resource availability, and missing dependencies."
   recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl describe pod &lt;pod&gt; -n &lt;namespace&gt;</code> to check scheduling events</li>\n    <li>Check if nodes meet the pod's resource requests and tolerations</li>\n    <li>Look for unresolved PVCs, Secrets, or ConfigMaps</li>\n    <li>Check cluster-wide CPU and memory availability</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
   value:
@@ -48,7 +48,7 @@ checks:
   weight: 4
   description: Identifies pods stuck in a CrashLoopBackOff state due to repeated container crashes.
   fail_message: Some pods are stuck restarting in CrashLoopBackOff. These workloads are not stable.
-  recommendation: Check logs, investigate container errors, and fix misconfigurations.
+  recommendation: "Check logs, investigate container errors, and fix misconfigurations."
   recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl logs &lt;pod-name&gt; -n &lt;namespace&gt;</code> to see error output</li>\n    <li>Describe the pod for events and messages: <code>kubectl describe pod &lt;pod&gt; -n &lt;ns&gt;</code></li>\n    <li>Check init containers, config errors, and resource limits</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy
   value:
@@ -62,14 +62,14 @@ checks:
 - id: POD008
   name: Automounting API Credentials Enabled in Pods
   section: Pods
-  category: Workloads
+  category: Security
   resource_kind: Pod
   severity: Warning
   weight: 2
   description: Flags pods that do not explicitly disable service account token automounting.
   fail_message: Pod automounts API credentials.
-  recommendation: Set automountServiceAccountToken to false unless the pod needs Kubernetes API access.
-  url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  recommendation: "Set automountServiceAccountToken to false in Pod specs unless API access is required."
+  url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#use-the-default-service-account-to-access-the-api-server
   native_handler: POD008
   value:
     path: metadata.name

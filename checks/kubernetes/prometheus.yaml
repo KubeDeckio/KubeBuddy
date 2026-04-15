@@ -8,7 +8,7 @@ checks:
   weight: 3
   description: Checks for pods with sustained high CPU usage over the last 24 hours using Prometheus metrics.
   fail_message: Some pods show high sustained CPU usage.
-  recommendation: Investigate high CPU usage pods. Adjust limits or optimize workloads.
+  recommendation: "Investigate high CPU usage pods. Adjust limits or optimize workloads."
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High CPU Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to see real-time CPU usage.</li>\n    <li>Review app code or HPA settings for misbehaving containers.</li>\n    <li>Consider raising CPU requests/limits or scaling out.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
   prometheus:
@@ -30,7 +30,7 @@ checks:
   weight: 3
   description: Detects pods with high memory usage over the last 24 hours based on Prometheus metrics.
   fail_message: Some pods are consistently using high memory.
-  recommendation: Review memory usage and consider tuning container memory limits.
+  recommendation: "Review memory usage and consider tuning container memory limits."
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High Memory Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to review memory usage.</li>\n    <li>Adjust <code>resources.limits.memory</code> appropriately.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   prometheus:
@@ -52,7 +52,7 @@ checks:
   weight: 2
   description: Detects pods receiving large amounts of network traffic over the last 24 hours.
   fail_message: Some pods show high network RX throughput.
-  recommendation: Check for possible DDoS, misrouted traffic, or excessive ingress.
+  recommendation: "Check for possible DDoS, misrouted traffic, or excessive ingress."
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate Network Receive Rate</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> or Prometheus UI.</li>\n    <li>Inspect service ingress patterns.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/cluster-administration/networking/
   prometheus:
@@ -74,7 +74,7 @@ checks:
   weight: 5
   description: Detects high latency in Kubernetes API server requests over the last 24 hours.
   fail_message: API server latency exceeds healthy thresholds.
-  recommendation: Investigate API server load, networking issues, or control plane bottlenecks.
+  recommendation: "Investigate API server load, networking issues, or control plane bottlenecks."
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate API Server Latency</h4>\n  <ul>\n    <li>Check <code>kube-apiserver</code> logs.</li>\n    <li>Review <code>etcd</code> performance.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/overview/components/
   prometheus:
@@ -96,7 +96,7 @@ checks:
   weight: 2
   description: Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours.
   fail_message: Node CPU is overcommitted by requests.
-  recommendation: Consider rescheduling pods or adjusting requests.
+  recommendation: "Consider rescheduling pods or adjusting requests."
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate CPU Overcommitment</h4>\n  <ul>\n    <li>Check node resource allocation.</li>\n    <li>Balance workloads more evenly.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   prometheus:
@@ -118,7 +118,7 @@ checks:
   weight: 3
   description: Uses Prometheus p95 CPU and memory usage over a fixed 7-day window to highlight underutilized or saturated nodes and suggest sizing actions.
   fail_message: Node sizing opportunities detected.
-  recommendation: Use p95 CPU and memory trends to right-size node pools. Downsize sustained low-use nodes and scale up when saturation is sustained.
+  recommendation: "Use p95 CPU and memory trends to right-size node pools. Downsize sustained low-use nodes and scale up when saturation is sustained. Recommendations use a fixed 7-day window to reduce query cost and improve reliability."
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Node Sizing Guidance</h4>\n  <ul>\n    <li>Focus on sustained p95 trends, not short spikes.</li>\n    <li>Sizing window is fixed to 7 days for stable, lower-cost query execution.</li>\n    <li>Nodes flagged as underutilized are candidates for smaller SKUs or scale-in.</li>\n    <li>Nodes flagged as saturated likely need larger SKUs, scale-out, or workload rebalancing.</li>\n    <li>Validate with workload requests/limits and HPA/VPA behavior before applying changes.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/cluster-administration/node-autoscaling/
   native_handler: PROM006
@@ -137,7 +137,7 @@ checks:
   weight: 4
   description: Generates per-container CPU and memory sizing recommendations from fixed 7-day p95 Prometheus usage.
   fail_message: Pod/container sizing opportunities detected.
-  recommendation: Tune requests to p95 usage with headroom. CPU limit recommendation defaults to none; memory limits should stay set to cap OOM blast radius.
+  recommendation: "Tune requests to p95 usage with headroom. By default, keep CPU limits unset to reduce CFS throttling risk; keep memory limits to cap OOM blast radius. Recommendations use a fixed 7-day window to reduce query cost and improve reliability."
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Pod Sizing Guidance</h4>\n  <ul>\n    <li>Set CPU and memory <code>requests</code> from p95 usage with safety headroom.</li>\n    <li>Default CPU <code>limits</code> recommendation is <code>none</code> to avoid unnecessary CPU throttling and latency spikes.</li>\n    <li>Keep memory <code>limits</code> set above memory request to control OOM blast radius.</li>\n    <li>Validate against SLOs and roll out gradually.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   native_handler: PROM007

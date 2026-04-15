@@ -786,15 +786,27 @@ func writeText(w io.Writer, result scan.Result, metadata Metadata) error {
 		if err := writeLine("%s - %s", compat.ID, compat.Name); err != nil {
 			return err
 		}
-		if err := writeLine("⚠️ Total Issues: %d", compat.Total); err != nil {
+		if err := writeLine("Total Issues: %d", compat.Total); err != nil {
 			return err
 		}
-		if compat.Total == 0 {
-			if err := writeLine("✅ No issues detected for %s.", compat.Name); err != nil {
+		lines, raw := compatTextLines(compat)
+		shouldRenderDetails := len(lines) > 0 && (compat.Total > 0 || compat.SummaryMessage != "" || isStructuredTextCheck(compat.ID))
+		if compat.Total == 0 && !shouldRenderDetails {
+			if strings.HasPrefix(compat.ID, "PROM") {
+				if err := writeLine("✅ "); err != nil {
+					return err
+				}
+			} else if err := writeLine("✅ No issues detected for %s.", compat.Name); err != nil {
 				return err
 			}
 		} else {
-			for _, line := range compatTextLines(compat) {
+			for _, line := range lines {
+				if raw {
+					if err := writeLine("%s", line); err != nil {
+						return err
+					}
+					continue
+				}
 				if err := writeLine("- %s", line); err != nil {
 					return err
 				}
@@ -865,8 +877,18 @@ func writeCSV(w io.Writer, result scan.Result, metadata Metadata) error {
 		}
 		recommendation := compatRecommendationText(compat.Recommendation)
 		url := strings.TrimSpace(compat.URL)
+		message := csvPassMessage(compat, check)
 		if compat.Total == 0 {
-			if _, err := io.WriteString(w, csvLine([]string{compat.ID, compat.Name, compat.Category, compat.Severity, status, textSanitize(firstNonEmpty(compat.Message, checkMessage(check))), recommendation, url})); err != nil {
+			if strings.HasPrefix(compat.ID, "AKS") {
+				message = csvAKSMessage(compat)
+			}
+			if _, err := io.WriteString(w, csvLine([]string{compat.ID, compat.Name, compat.Category, compat.Severity, status, message, recommendation, url})); err != nil {
+				return err
+			}
+			continue
+		}
+		if strings.HasPrefix(compat.ID, "AKS") {
+			if _, err := io.WriteString(w, csvLine([]string{compat.ID, compat.Name, compat.Category, compat.Severity, status, csvAKSMessage(compat), recommendation, url})); err != nil {
 				return err
 			}
 			continue
@@ -1071,11 +1093,126 @@ func compatRecommendationText(value any) string {
 	}
 }
 
-func compatTextLines(check jsonCheckResult) []string {
-	return flattenCompatItems(check.Items)
+func compatTextLines(check jsonCheckResult) ([]string, bool) {
+	switch check.ID {
+	case "NODE001":
+		rows := make([][]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			rows = append(rows, []string{
+				textSanitize(fmt.Sprint(item["Node"])),
+				textSanitize(fmt.Sprint(item["Status"])),
+				textSanitize(fmt.Sprint(item["Issues"])),
+			})
+		}
+		if len(rows) > 0 {
+			return renderTextTable([]string{"Node", "Status", "Issues"}, rows), true
+		}
+	case "NODE002":
+		rows := make([][]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			rows = append(rows, []string{
+				textSanitize(fmt.Sprint(item["Node"])),
+				textSanitize(fmt.Sprint(item["CPU Status"])),
+				textSanitize(fmt.Sprint(item["Mem Status"])),
+				textSanitize(fmt.Sprint(item["Disk Status"])),
+			})
+		}
+		if len(rows) > 0 {
+			return renderTextTable([]string{"Node", "CPU Status", "Mem Status", "Disk Status"}, rows), true
+		}
+	case "NODE003":
+		rows := make([][]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			rows = append(rows, []string{
+				textSanitize(fmt.Sprint(item["Node"])),
+				textSanizePct(textSanitize(fmt.Sprint(item["Percentage"]))),
+				textSanitize(fmt.Sprint(item["Threshold"])),
+				textSanitize(fmt.Sprint(item["Status"])),
+			})
+		}
+		if len(rows) > 0 {
+			return renderTextTable([]string{"Node", "Percentage", "Threshold", "Status"}, rows), true
+		}
+	case "NS001":
+		rows := make([][]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			rows = append(rows, []string{
+				textSanitize(fmt.Sprint(item["Namespace"])),
+				textSanitize(fmt.Sprint(item["Status"])),
+				textSanitize(fmt.Sprint(item["Issue"])),
+			})
+		}
+		if len(rows) > 0 {
+			return renderTextTable([]string{"Namespace", "Status", "Issue"}, rows), true
+		}
+	case "NS002", "NS003":
+		rows := make([][]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			rows = append(rows, []string{
+				textSanitize(fmt.Sprint(item["Namespace"])),
+				strings.TrimPrefix(textSanitize(fmt.Sprint(item["Issue"])), "❌ "),
+			})
+		}
+		if len(rows) > 0 {
+			return renderTextTable([]string{"Namespace", "Issue"}, rows), true
+		}
+	case "PROM006", "PROM007":
+		if item, ok := check.Items.(map[string]any); ok {
+			rows := [][]string{{
+				textSanitize(fmt.Sprint(item["Status"])),
+				textSanitize(fmt.Sprint(item["Required Days"])),
+				textSanizeFloat(textSanitize(fmt.Sprint(item["Available Days"]))),
+				textSanitize(fmt.Sprint(item["Message"])),
+			}}
+			return renderTextTable([]string{"Status", "Required Days", "Available Days", "Message"}, rows), true
+		}
+	}
+	return flattenCompatItems(check.Items), false
 }
 
 func compatCSVLines(check jsonCheckResult) []string {
+	switch check.ID {
+	case "NS001":
+		lines := make([]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			namespace := textSanitize(fmt.Sprint(item["Namespace"]))
+			issue := textSanitize(fmt.Sprint(item["Issue"]))
+			line := strings.Join(nonEmptyStrings(namespace, issue), " | ")
+			if strings.TrimSpace(line) != "" {
+				lines = append(lines, line)
+			}
+		}
+		if len(lines) > 0 {
+			return lines
+		}
+	case "NS002", "NS003":
+		lines := make([]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			namespace := textSanitize(fmt.Sprint(item["Namespace"]))
+			issue := strings.TrimPrefix(textSanitize(fmt.Sprint(item["Issue"])), "❌ ")
+			line := strings.Join(nonEmptyStrings(namespace, issue), " | ")
+			if strings.TrimSpace(line) != "" {
+				lines = append(lines, line)
+			}
+		}
+		if len(lines) > 0 {
+			return lines
+		}
+	case "NODE003":
+		lines := make([]string, 0)
+		for _, item := range flattenLegacyMaps(check.Items) {
+			node := textSanitize(fmt.Sprint(item["Node"]))
+			status := textSanitize(fmt.Sprint(item["Status"]))
+			percentage := textSanitize(fmt.Sprint(item["Percentage"]))
+			line := strings.Join(nonEmptyStrings(node, status, percentage), " | ")
+			if strings.TrimSpace(line) != "" {
+				lines = append(lines, line)
+			}
+		}
+		if len(lines) > 0 {
+			return lines
+		}
+	}
 	switch check.ID {
 	case "EVENT001":
 		lines := make([]string, 0)
@@ -1103,6 +1240,29 @@ func compatCSVLines(check jsonCheckResult) []string {
 		}
 	}
 	return flattenCompatItems(check.Items)
+}
+
+func csvPassMessage(compat jsonCheckResult, check scan.CheckResult) string {
+	if strings.HasPrefix(compat.ID, "PROM") {
+		if compat.SummaryMessage == "" {
+			return ""
+		}
+		return textSanitize(firstNonEmpty(compat.Message, checkMessage(check)))
+	}
+	if compat.ID == "NODE002" {
+		return textSanitize(checkMessage(check))
+	}
+	return textSanitize(firstNonEmpty(compat.Message, checkMessage(check)))
+}
+
+func csvAKSMessage(compat jsonCheckResult) string {
+	if compat.Total == 0 {
+		return textSanitize(compat.ObservedValue)
+	}
+	if compat.FailMessage != nil {
+		return textSanitize(strings.TrimSpace(*compat.FailMessage))
+	}
+	return textSanitize(firstNonEmpty(compat.Message, compat.ObservedValue))
 }
 
 func flattenLegacyMaps(value any) []map[string]any {
@@ -1512,6 +1672,67 @@ func flattenCompatItems(value any) []string {
 	default:
 		return []string{textSanitize(fmt.Sprint(value))}
 	}
+}
+
+func isStructuredTextCheck(id string) bool {
+	switch id {
+	case "NODE001", "NODE002", "NODE003", "NS001", "NS002", "NS003", "PROM006", "PROM007":
+		return true
+	default:
+		return false
+	}
+}
+
+func renderTextTable(headers []string, rows [][]string) []string {
+	widths := make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = len(h)
+	}
+	for _, row := range rows {
+		for i, col := range row {
+			if len(col) > widths[i] {
+				widths[i] = len(col)
+			}
+		}
+	}
+	lines := make([]string, 0, len(rows)+2)
+	lines = append(lines, padRow(headers, widths))
+	underline := make([]string, len(headers))
+	for i := range headers {
+		underline[i] = strings.Repeat("-", widths[i])
+	}
+	lines = append(lines, padRow(underline, widths))
+	for _, row := range rows {
+		lines = append(lines, padRow(row, widths))
+	}
+	return lines
+}
+
+func padRow(cols []string, widths []int) string {
+	padded := make([]string, len(cols))
+	for i, col := range cols {
+		padded[i] = fmt.Sprintf("%-*s", widths[i], col)
+	}
+	return strings.Join(padded, " ")
+}
+
+func textSanizePct(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return value
+	}
+	return strings.TrimSuffix(value, ".00%") + "%"
+}
+
+func textSanizeFloat(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return value
+	}
+	if f, err := strconv.ParseFloat(value, 64); err == nil {
+		return strconv.FormatFloat(f, 'f', 3, 64)
+	}
+	return value
 }
 
 func joinLegacyMap(item map[string]any) string {

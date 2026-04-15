@@ -164,12 +164,15 @@ Each table includes:
 | SEC012 | Added Linux Capabilities              | Use of extra Linux capabilities via `securityContext.capabilities.add`. | Medium   | 2      |
 | SEC013 | EmptyDir Volume Usage                 | `emptyDir` volumes are non-persistent and cleared on restart.           | Low      | 1      |
 | SEC014 | Untrusted Image Registries            | Pulling from unapproved registries.                                     | High     | 3      |
-| SEC015 | Host Ports in Pod Specs               | Detects containers that bind host ports directly on the node.           | High     | 4      |
-| SEC016 | Unconfined Seccomp Profiles           | Detects pod or container seccomp profiles explicitly set to `Unconfined`. | High   | 4      |
+| SEC015 | Pods Using Default ServiceAccount     | Flags pods using the default service account, which may have broad permissions. | Warning | 3      |
+| SEC016 | Unconfined Seccomp Profiles           | Detects pod or container seccomp profiles explicitly set to `Unconfined`. | High   | 3      |
 | SEC017 | Non-Default ProcMount                 | Detects containers that set a `procMount` value other than `Default`.   | High     | 3      |
-| SEC018 | Disallowed Sysctls                    | Detects sysctls outside the Kubernetes baseline allowlist.              | High     | 3      |
+| SEC018 | Automounting API Credentials Enabled in ServiceAccounts | Flags ServiceAccounts where API token automounting is enabled. | Warning | 3      |
 | SEC019 | Unsupported AppArmor Values           | Detects unsupported AppArmor annotations or structured profile types.   | High     | 2      |
 | SEC020 | Seccomp Profile Not Configured        | Detects pods and containers without an explicit seccomp profile.        | Warning  | 2      |
+| SEC021 | Host Ports in Pod Specs               | Detects containers that bind host ports directly on the node.           | Critical | 4      |
+| SEC022 | Non-Existent Secret References        | Flags pods referencing Secrets that do not exist.                       | Critical | 4      |
+| SEC023 | Disallowed Sysctls                    | Detects sysctls outside the Kubernetes baseline allowlist.              | Critical | 3      |
 
 ### Storage
 

@@ -47,6 +47,9 @@ var nativeHandlers = map[string]nativeHandler{
 	"SEC012":          runSEC012,
 	"SEC013":          runSEC013,
 	"SEC014":          runSEC014,
+	"SEC021":          runSEC021,
+	"SEC022":          runSEC022,
+	"SEC023":          runSEC023,
 	"SEC016":          runSEC016,
 	"SEC017":          runSEC017,
 	"SEC019":          runSEC019,
@@ -668,6 +671,88 @@ func runSEC014(check checks.Check, item map[string]any, cache map[string][]map[s
 	return findings, nil
 }
 
+func runSEC021(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	podNamespace := namespaceOf(item)
+	podName := stringifyLookup(item, "metadata.name")
+	containers := appendContainerSets(item)
+
+	var findings []Finding
+	for _, container := range containers {
+		containerName := strings.TrimSpace(stringifyLookup(container, "name"))
+		for _, port := range asSlice(mustResolve(container, "ports")) {
+			hostPort := asInt64(mustResolve(port, "hostPort"))
+			if hostPort <= 0 {
+				continue
+			}
+			findings = append(findings, Finding{
+				Namespace: podNamespace,
+				Resource:  "pod/" + podName,
+				Value:     fmt.Sprintf("%d", hostPort),
+				Message:   fmt.Sprintf("Container %s uses hostPort %d", containerName, hostPort),
+			})
+		}
+	}
+	return findings, nil
+}
+
+func runSEC022(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	secrets, err := getCachedItems(cache, "secrets")
+	if err != nil {
+		return nil, err
+	}
+
+	podNamespace := namespaceOf(item)
+	podName := stringifyLookup(item, "metadata.name")
+	containers := allContainers(item)
+
+	var findings []Finding
+	for _, container := range containers {
+		containerName := strings.TrimSpace(stringifyLookup(container, "name"))
+		for _, env := range asSlice(mustResolve(container, "env")) {
+			name := stringifyLookup(env, "valueFrom.secretKeyRef.name")
+			optional, _ := readBool(env, "valueFrom.secretKeyRef.optional")
+			if name == "" || optional || secretExists(secrets, podNamespace, name) {
+				continue
+			}
+			findings = append(findings, Finding{
+				Namespace: podNamespace,
+				Resource:  "pod/" + podName,
+				Value:     name,
+				Message:   fmt.Sprintf("Container %s references missing secret %s", containerName, name),
+			})
+		}
+		for _, envFrom := range asSlice(mustResolve(container, "envFrom")) {
+			name := stringifyLookup(envFrom, "secretRef.name")
+			optional, _ := readBool(envFrom, "secretRef.optional")
+			if name == "" || optional || secretExists(secrets, podNamespace, name) {
+				continue
+			}
+			findings = append(findings, Finding{
+				Namespace: podNamespace,
+				Resource:  "pod/" + podName,
+				Value:     name,
+				Message:   fmt.Sprintf("Container %s references missing secret %s", containerName, name),
+			})
+		}
+	}
+
+	for _, volume := range asSlice(mustResolve(item, "spec.volumes")) {
+		name := stringifyLookup(volume, "secret.secretName")
+		optional, _ := readBool(volume, "secret.optional")
+		if name == "" || optional || secretExists(secrets, podNamespace, name) {
+			continue
+		}
+		findings = append(findings, Finding{
+			Namespace: podNamespace,
+			Resource:  "pod/" + podName,
+			Value:     name,
+			Message:   fmt.Sprintf("Volume %s references missing secret %s", stringifyLookup(volume, "name"), name),
+		})
+	}
+
+	return findings, nil
+}
+
 func runSEC016(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	podName := stringifyLookup(item, "metadata.name")
 	var findings []Finding
@@ -688,6 +773,38 @@ func runSEC016(check checks.Check, item map[string]any, cache map[string][]map[s
 			Resource:  "pod/" + podName,
 			Value:     "Unconfined",
 			Message:   fmt.Sprintf("Container %s seccomp profile is Unconfined", stringifyLookup(container, "name")),
+		})
+	}
+	return findings, nil
+}
+
+func runSEC023(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	allowed := map[string]struct{}{
+		"kernel.shm_rmid_forced":          {},
+		"net.ipv4.ip_local_port_range":    {},
+		"net.ipv4.tcp_syncookies":         {},
+		"net.ipv4.ping_group_range":       {},
+		"net.ipv4.ip_unprivileged_port_start": {},
+		"net.ipv4.ip_local_reserved_ports": {},
+	}
+
+	podNamespace := namespaceOf(item)
+	podName := stringifyLookup(item, "metadata.name")
+	var findings []Finding
+	for _, sysctl := range asSlice(mustResolve(item, "spec.securityContext.sysctls")) {
+		name := stringifyLookup(sysctl, "name")
+		if name == "" {
+			continue
+		}
+		if _, ok := allowed[name]; ok {
+			continue
+		}
+		value := stringifyLookup(sysctl, "value")
+		findings = append(findings, Finding{
+			Namespace: podNamespace,
+			Resource:  "pod/" + podName,
+			Value:     firstNonEmpty(name+"="+value, name),
+			Message:   fmt.Sprintf("Disallowed sysctl %s configured", name),
 		})
 	}
 	return findings, nil

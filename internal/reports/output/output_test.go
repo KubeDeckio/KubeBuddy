@@ -68,7 +68,7 @@ func TestWriteScanResultText(t *testing.T) {
 	if !strings.Contains(buf.String(), "Category: Cat") {
 		t.Fatalf("expected category line, got %s", buf.String())
 	}
-	if !strings.Contains(buf.String(), "⚠️ Total Issues: 1") {
+	if !strings.Contains(buf.String(), "Total Issues: 1") {
 		t.Fatalf("expected issue count line, got %s", buf.String())
 	}
 }
