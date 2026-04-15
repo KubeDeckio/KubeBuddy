@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	container "cloud.google.com/go/container/apiv1"
+	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
 	"github.com/KubeDeckio/KubeBuddy/internal/config"
 )
@@ -257,7 +260,7 @@ func gkeAllNodePoolsBool(document map[string]any, path string) bool {
 }
 
 // loadGKEDocument loads a GKE cluster description from a local JSON file
-// or (in a future iteration) from the GKE API.
+// or from the live GKE API using Application Default Credentials (ADC).
 func loadGKEDocument(opts GKEOptions) (map[string]any, error) {
 	if strings.TrimSpace(opts.InputFile) != "" {
 		data, err := os.ReadFile(opts.InputFile)
@@ -270,8 +273,37 @@ func loadGKEDocument(opts GKEOptions) (map[string]any, error) {
 		}
 		return document, nil
 	}
-	// Live GKE API collection is left as a future enhancement.
-	// For now, require --input-file with the output of:
-	//   gcloud container clusters describe <cluster> --format json
-	return nil, fmt.Errorf("live GKE collection is not yet supported; use --input-file with the output of 'gcloud container clusters describe <cluster> --format json'")
+	if strings.TrimSpace(opts.ProjectID) != "" && strings.TrimSpace(opts.Location) != "" && strings.TrimSpace(opts.ClusterName) != "" {
+		return collectLiveGKEDocument(opts)
+	}
+	return nil, fmt.Errorf("provide --input with a GKE cluster JSON file, or --project-id, --location, and --cluster-name for live collection")
+}
+
+// collectLiveGKEDocument fetches the cluster description from the GKE API
+// using the official Go SDK and Application Default Credentials.
+func collectLiveGKEDocument(opts GKEOptions) (map[string]any, error) {
+	ctx := context.Background()
+	client, err := container.NewClusterManagerClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("creating GKE client: %w", err)
+	}
+	defer client.Close()
+
+	name := fmt.Sprintf("projects/%s/locations/%s/clusters/%s", opts.ProjectID, opts.Location, opts.ClusterName)
+	cluster, err := client.GetCluster(ctx, &containerpb.GetClusterRequest{Name: name})
+	if err != nil {
+		return nil, fmt.Errorf("fetching cluster %s: %w", name, err)
+	}
+
+	// Marshal the protobuf response to JSON, then unmarshal into map[string]any
+	// to match the format used by gcloud --format json and the declarative evaluator.
+	data, err := json.Marshal(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling cluster response: %w", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(data, &document); err != nil {
+		return nil, fmt.Errorf("parsing cluster response: %w", err)
+	}
+	return document, nil
 }

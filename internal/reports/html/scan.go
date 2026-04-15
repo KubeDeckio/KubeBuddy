@@ -72,7 +72,7 @@ func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	clusterName := reportClusterName(title, result)
 	snapshot := collectSnapshot(opts)
 	htmlChecks := compatHTMLChecks(result.Checks)
-	pages, aksPage := buildPages(scan.Result{Checks: htmlChecks, AutomaticReadiness: result.AutomaticReadiness})
+	pages, aksPage, gkePage := buildPages(scan.Result{Checks: htmlChecks, AutomaticReadiness: result.AutomaticReadiness})
 	overviewChecks := overviewChecks(htmlChecks)
 	totalChecks := len(overviewChecks)
 	passedChecks := passedChecks(overviewChecks)
@@ -100,6 +100,9 @@ func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	}
 	if len(aksPage.Checks) > 0 {
 		body.WriteString(`<li class="tab" data-tab="aks" data-tooltip="AKS Best Practices">AKS Best Practices</li>`)
+	}
+	if len(gkePage.Checks) > 0 {
+		body.WriteString(`<li class="tab" data-tab="gke" data-tooltip="GKE Best Practices">GKE Best Practices</li>`)
 	}
 	body.WriteString(`</ul></div></div>`)
 	body.WriteString(`<div id="navDrawer" class="nav-drawer"><div class="nav-header"><h3>Menu</h3><button id="navClose" class="nav-close">×</button></div><ul class="nav-items"></ul></div>`)
@@ -154,6 +157,9 @@ func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	}
 	if len(aksPage.Checks) > 0 {
 		body.WriteString(renderAKSPage(aksPage, result.AutomaticReadiness))
+	}
+	if len(gkePage.Checks) > 0 {
+		body.WriteString(renderGKEPage(gkePage))
 	}
 
 	body.WriteString(`</div>`)
@@ -702,6 +708,72 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 	return b.String()
 }
 
+func renderGKEPage(page reportPage) string {
+	passed := 0
+	for _, check := range page.Checks {
+		if check.Total == 0 {
+			passed++
+		}
+	}
+	failed := len(page.Checks) - passed
+	rating := aksRating(passed, failed)
+	var b strings.Builder
+	b.WriteString(`<div class="tab-content" id="gke"><div class="container">`)
+	b.WriteString(`<h1>GKE Best Practices Results</h1>`)
+	b.WriteString(`<div class="hero-metrics">`)
+	b.WriteString(metricCard("normal", "✅ Passed", fmt.Sprintf("%d", passed)))
+	b.WriteString(metricCard("critical", "❌ Failed", fmt.Sprintf("%d", failed)))
+	b.WriteString(metricCard("default", "📊 Total Checks", fmt.Sprintf("%d", len(page.Checks))))
+	b.WriteString(metricCard("default", "🎯 Score", fmt.Sprintf("%.2f%%", aksScore(passed, len(page.Checks)))))
+	b.WriteString(metricCard(ratingClass(rating), "⭐ Rating", rating))
+	b.WriteString(`</div><div class="table-container">`)
+	b.WriteString(`<div class="aks-filter-bar" role="group" aria-label="GKE check filter">`)
+	b.WriteString(`<button type="button" class="aks-filter-btn is-active" id="gkeFilterFailed" data-filter-mode="failed" aria-pressed="true" onclick="setAKSFilter('failed')">Failed Checks Only</button>`)
+	b.WriteString(`<button type="button" class="aks-filter-btn" id="gkeFilterAll" data-filter-mode="all" aria-pressed="false" onclick="setAKSFilter('all')">All Checks</button>`)
+	b.WriteString(`</div>`)
+	categories := groupByCategory(page.Checks)
+	for _, category := range categories {
+		sort.Slice(category.Checks, func(i, j int) bool {
+			iFailed := category.Checks[i].Total > 0
+			jFailed := category.Checks[j].Total > 0
+			if iFailed != jFailed {
+				return iFailed
+			}
+			return category.Checks[i].ID < category.Checks[j].ID
+		})
+		failures := 0
+		for _, check := range category.Checks {
+			if check.Total > 0 {
+				failures++
+			}
+		}
+		b.WriteString(`<div class="collapsible-container"><details id='gkeCategory_` + escAttr(compatAKSCategoryID(category.Name)) + `'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show ` + category.Name + ` (` + esc(fmt.Sprintf("%d/%d failed", failures, len(category.Checks))) + `)</summary><div style='padding-top: 15px;'>`)
+		b.WriteString(`<table><thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Observed Value</th><th>Fail Message</th><th>Recommendation</th><th>URL</th></tr></thead><tbody>`)
+		for _, check := range category.Checks {
+			status := "PASS"
+			icon := "✅"
+			value := ""
+			failMessage := "No issues detected."
+			rowClass := ` class="aks-pass-row"`
+			if check.Total > 0 {
+				status = "FAIL"
+				icon = "❌"
+				value = firstFindingValue(check)
+				failMessage = firstFindingMessage(check)
+				rowClass = ""
+			}
+			b.WriteString(`<tr` + rowClass + `><td>` + esc(check.ID) + `</td><td>` + esc(check.Name) + `</td><td>` + esc(check.Severity) + `</td><td>` + check.Category + `</td><td>` + icon + ` ` + status + `</td><td>` + formatAKSCellText(value) + `</td><td>` + formatAKSCellText(failMessage) + `</td><td>` + renderAKSRecommendationCell(check) + `</td><td>`)
+			if strings.TrimSpace(check.URL) != "" {
+				b.WriteString(`<a href='` + escAttr(check.URL) + `' target='_blank'>Learn More</a>`)
+			}
+			b.WriteString(`</td></tr>`)
+		}
+		b.WriteString(`</tbody></table></div></details></div>`)
+	}
+	b.WriteString(`</div></div></div>`)
+	return b.String()
+}
+
 func renderRightsizingAtGlance(result scan.Result, snapshot reportSnapshot) string {
 	nodeCheck, hasNodes := findCheck(result.Checks, "PROM006")
 	podCheck, hasPods := findCheck(result.Checks, "PROM007")
@@ -1060,7 +1132,7 @@ func formatCompatAvailableDays(value any) string {
 	}
 }
 
-func buildPages(result scan.Result) ([]reportPage, reportPage) {
+func buildPages(result scan.Result) ([]reportPage, reportPage, reportPage) {
 	order := []reportPage{
 		{ID: "nodes", Name: "Nodes"},
 		{ID: "namespaces", Name: "Namespaces"},
@@ -1078,10 +1150,16 @@ func buildPages(result scan.Result) ([]reportPage, reportPage) {
 		index[page.ID] = i
 	}
 	aksPage := reportPage{ID: "aks", Name: "AKS Best Practices"}
+	gkePage := reportPage{ID: "gke", Name: "GKE Best Practices"}
 	for _, check := range result.Checks {
 		if strings.HasPrefix(check.ID, "AKS") {
 			aksPage.Checks = append(aksPage.Checks, check)
 			aksPage.Findings += check.Total
+			continue
+		}
+		if strings.HasPrefix(check.ID, "GKE") {
+			gkePage.Checks = append(gkePage.Checks, check)
+			gkePage.Findings += check.Total
 			continue
 		}
 		pageID := sectionID(check.Section, check.Category)
@@ -1097,7 +1175,7 @@ func buildPages(result scan.Result) ([]reportPage, reportPage) {
 		}
 		pages = append(pages, page)
 	}
-	return pages, aksPage
+	return pages, aksPage, gkePage
 }
 
 func sectionID(section string, category string) string {
@@ -1409,7 +1487,7 @@ func compatSectionRank(section string) int {
 func overviewChecks(checks []scan.CheckResult) []scan.CheckResult {
 	filtered := make([]scan.CheckResult, 0, len(checks))
 	for _, check := range checks {
-		if strings.HasPrefix(check.ID, "AKS") {
+		if strings.HasPrefix(check.ID, "AKS") || strings.HasPrefix(check.ID, "GKE") {
 			continue
 		}
 		filtered = append(filtered, check)

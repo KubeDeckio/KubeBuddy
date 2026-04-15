@@ -264,8 +264,8 @@ func newGKEScanCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/gke", "Directory containing GKE check YAML files.")
 	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
 	cmd.Flags().StringVar(&opts.InputFile, "input", "", "Path to a GKE cluster JSON document (output of 'gcloud container clusters describe <cluster> --format json').")
-	cmd.Flags().StringVar(&opts.ProjectID, "project-id", "", "GCP project ID for live collection (not yet supported).")
-	cmd.Flags().StringVar(&opts.Location, "location", "", "GKE cluster location/zone for live collection (not yet supported).")
+	cmd.Flags().StringVar(&opts.ProjectID, "project-id", "", "GCP project ID for live collection via Application Default Credentials.")
+	cmd.Flags().StringVar(&opts.Location, "location", "", "GKE cluster zone or region for live collection.")
 	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "GKE cluster name.")
 	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
 	return cmd
