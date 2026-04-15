@@ -1,0 +1,87 @@
+{
+  "name": "insecure-cluster",
+  "zone": "us-central1-a",
+  "currentMasterVersion": "1.28.3-gke.1200000",
+  "status": "RUNNING",
+
+  "shieldedNodes": {
+    "enabled": false
+  },
+
+  "releaseChannel": {
+    "channel": "UNSPECIFIED"
+  },
+
+  "loggingService": "none",
+  "monitoringService": "none",
+
+  "ipAllocationPolicy": {
+    "useIpAliases": false
+  },
+
+  "binaryAuthorization": {
+    "evaluationMode": "DISABLED"
+  },
+
+  "privateClusterConfig": {
+    "enablePrivateNodes": false
+  },
+
+  "masterAuthorizedNetworksConfig": {
+    "enabled": false
+  },
+
+  "networkPolicy": {
+    "enabled": false
+  },
+
+  "datapathProvider": "LEGACY_DATAPATH",
+
+  "networkConfig": {
+    "enableIntraNodeVisibility": false,
+    "gatewayApiConfig": {
+      "channel": "CHANNEL_DISABLED"
+    }
+  },
+
+  "databaseEncryption": {
+    "state": "DECRYPTED"
+  },
+
+  "monitoringConfig": {
+    "managedPrometheusConfig": {
+      "enabled": false
+    }
+  },
+
+  "loggingConfig": {
+    "componentConfig": {
+      "enableComponents": []
+    }
+  },
+
+  "addonsConfig": {
+    "httpLoadBalancing": {
+      "disabled": true
+    },
+    "dnsCacheConfig": {
+      "enabled": false
+    }
+  },
+
+  "nodePools": [
+    {
+      "name": "default-pool",
+      "config": {
+        "machineType": "e2-medium",
+        "diskSizeGb": 50,
+        "diskType": "pd-standard"
+      },
+      "management": {
+        "autoUpgrade": false,
+        "autoRepair": false
+      },
+      "initialNodeCount": 3
+    }
+  ]
+}

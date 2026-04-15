@@ -64,6 +64,7 @@ behavior through the native runtime and wrapper surfaces.`),
 	cmd.AddCommand(newMenuCommand())
 	cmd.AddCommand(newScanCommand())
 	cmd.AddCommand(newAKSScanCommand())
+	cmd.AddCommand(newGKEScanCommand())
 	cmd.AddCommand(newRunCommand())
 	cmd.AddCommand(newRunEnvCommand())
 
@@ -240,6 +241,32 @@ func newAKSScanCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID for live collection.")
 	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group for live collection.")
 	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS cluster name for live collection.")
+	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
+	return cmd
+}
+
+func newGKEScanCommand() *cobra.Command {
+	opts := scan.GKEOptions{}
+	var outputMode string
+	cmd := &cobra.Command{
+		Use:   "scan-gke",
+		Short: "Run native GKE YAML checks against a GKE JSON document",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := scan.RunGKE(opts)
+			if err != nil {
+				return err
+			}
+			return output.WriteScanResultWithMetadata(cmd.OutOrStdout(), result, output.Mode(outputMode), output.Metadata{
+				ClusterName: opts.ClusterName,
+			})
+		},
+	}
+	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/gke", "Directory containing GKE check YAML files.")
+	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
+	cmd.Flags().StringVar(&opts.InputFile, "input", "", "Path to a GKE cluster JSON document (output of 'gcloud container clusters describe <cluster> --format json').")
+	cmd.Flags().StringVar(&opts.ProjectID, "project-id", "", "GCP project ID for live collection via Application Default Credentials.")
+	cmd.Flags().StringVar(&opts.Location, "location", "", "GKE cluster zone or region for live collection.")
+	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "GKE cluster name.")
 	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
 	return cmd
 }

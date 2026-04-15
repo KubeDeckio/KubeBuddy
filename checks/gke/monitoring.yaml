@@ -1,0 +1,45 @@
+checks:
+  - id: GKEMON001
+    name: Managed Prometheus Enabled
+    category: Monitoring
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: monitoringConfig.managedPrometheusConfig.enabled
+    operator: equals
+    expected: true
+    fail_message: Google Cloud Managed Service for Prometheus is not enabled. Without managed Prometheus, custom application metrics require self-managed Prometheus infrastructure, increasing operational complexity, storage costs, and the risk of monitoring gaps during cluster upgrades or node failures.
+    recommendation: Enable managed Prometheus using 'gcloud container clusters update <cluster> --enable-managed-prometheus'. This provides a fully managed, globally scalable Prometheus-compatible monitoring backend. Deploy PodMonitoring resources to scrape application metrics without managing Prometheus servers.
+    url: https://cloud.google.com/stackdriver/docs/managed-prometheus
+
+  - id: GKEMON002
+    name: Control Plane Logging Enabled
+    category: Monitoring
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: loggingConfig.componentConfig.enableComponents
+    operator: contains
+    expected: SYSTEM_COMPONENTS
+    fail_message: Control plane component logging is not enabled. Without logging for the API server, scheduler, and controller manager, there is no audit trail for cluster operations, making it impossible to investigate security incidents, debug scheduling failures, or track unauthorized API access.
+    recommendation: Enable control plane logging using 'gcloud container clusters update <cluster> --logging=SYSTEM,WORKLOAD,API_SERVER,SCHEDULER,CONTROLLER_MANAGER'. Configure log-based alerting in Cloud Logging for critical events such as failed authentication attempts, RBAC violations, and resource deletion events.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/logging
+
+  - id: GKEMON003
+    name: GKE Usage Metering Enabled
+    category: Monitoring
+    severity: Low
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: resourceUsageExportConfig.enableNetworkEgressMetering
+    operator: equals
+    expected: true
+    fail_message: GKE usage metering is not enabled. Without usage metering, there is no visibility into per-namespace or per-label resource consumption and network egress costs. This makes it impossible to implement accurate chargeback, identify cost optimization opportunities, or track spending by team or application.
+    recommendation: Enable GKE usage metering using 'gcloud container clusters update <cluster> --resource-usage-bigquery-dataset=<dataset> --enable-network-egress-metering'. This exports detailed CPU, memory, storage, and network usage to BigQuery for cost analysis and chargeback reporting.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-usage-metering

@@ -1,0 +1,96 @@
+checks:
+  - id: GKESEC001
+    name: Private Cluster Enabled
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: privateClusterConfig.enablePrivateNodes
+    operator: equals
+    expected: true
+    fail_message: GKE nodes have public IP addresses, exposing them directly to the internet. This significantly increases the attack surface, allowing potential exploitation of node-level services, SSH brute-force attempts, and lateral movement from compromised containers to the public network.
+    recommendation: Enable private nodes using 'gcloud container clusters update <cluster> --enable-private-nodes --master-ipv4-cidr=<cidr>'. This removes public IP addresses from nodes and routes all traffic through private Google networking. Configure Cloud NAT for outbound internet access if required by workloads.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/private-clusters
+
+  - id: GKESEC002
+    name: Master Authorized Networks Configured
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: masterAuthorizedNetworksConfig.enabled
+    operator: equals
+    expected: true
+    fail_message: Master Authorized Networks are not configured, allowing the Kubernetes API server to be accessed from any IP address on the internet. This enables brute-force attacks against API credentials, exploitation of Kubernetes API vulnerabilities, and unauthorized cluster management from untrusted networks.
+    recommendation: Configure Master Authorized Networks using 'gcloud container clusters update <cluster> --enable-master-authorized-networks --master-authorized-networks=<cidr1>,<cidr2>'. Restrict API access to known corporate IP ranges, VPN endpoints, and CI/CD infrastructure only.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/authorized-networks
+
+  - id: GKESEC003
+    name: Network Policy Enforcement Enabled
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      any:
+        - path: networkPolicy.enabled
+          operator: equals
+          expected: true
+        - path: datapathProvider
+          operator: equals
+          expected: ADVANCED_DATAPATH
+    operator: equals
+    expected: true
+    fail_message: Network policies are not enforced on this cluster. Without network policies, all pods can communicate with all other pods across all namespaces by default. A compromised workload can freely scan, connect to, and exfiltrate data from any other pod in the cluster, including databases and internal services.
+    recommendation: Enable network policy enforcement using 'gcloud container clusters update <cluster> --enable-network-policy' or use GKE Dataplane V2 with 'gcloud container clusters create <cluster> --enable-dataplane-v2' which includes built-in network policy support. Deploy NetworkPolicy resources to restrict inter-pod traffic.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/network-policy
+
+  - id: GKESEC004
+    name: GKE Dataplane V2 (Cilium) Enabled
+    category: Security
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: datapathProvider
+    operator: equals
+    expected: ADVANCED_DATAPATH
+    fail_message: Cluster is using the legacy datapath (kube-proxy/iptables) instead of GKE Dataplane V2 (Cilium/eBPF). The legacy datapath has limited network policy capabilities, no native FQDN-based policies, higher latency for large rule sets, and lacks built-in network flow logging for security analysis.
+    recommendation: GKE Dataplane V2 must be enabled at cluster creation time with 'gcloud container clusters create <cluster> --enable-dataplane-v2'. For existing clusters, create a new Dataplane V2 cluster and migrate workloads. Dataplane V2 provides eBPF-based networking, built-in network policy logging, and improved performance.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/dataplane-v2
+
+  - id: GKESEC005
+    name: Intranode Visibility Enabled
+    category: Security
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: networkConfig.enableIntraNodeVisibility
+    operator: equals
+    expected: true
+    fail_message: Intranode visibility is disabled. Without it, pod-to-pod traffic within the same node bypasses VPC flow logging and firewall rules, creating blind spots in network security monitoring. This prevents detection of lateral movement between compromised pods on the same node.
+    recommendation: Enable intranode visibility using 'gcloud container clusters update <cluster> --enable-intra-node-visibility'. This ensures all pod-to-pod traffic (even within the same node) is processed by the VPC network and captured in VPC Flow Logs for security analysis and compliance monitoring.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/intranode-visibility
+
+  - id: GKESEC006
+    name: Application-Layer Secrets Encryption Enabled
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: databaseEncryption.state
+    operator: equals
+    expected: ENCRYPTED
+    fail_message: Application-layer secrets encryption with a Cloud KMS key is not enabled. While GKE encrypts etcd data at rest by default, without application-layer encryption using a customer-managed key (CMEK), Google manages the encryption keys. This may not satisfy compliance requirements (PCI-DSS, HIPAA) that mandate customer-controlled key management.
+    recommendation: Enable application-layer secrets encryption using 'gcloud container clusters update <cluster> --database-encryption-key=projects/<project>/locations/<location>/keyRings/<ring>/cryptoKeys/<key>'. First create a Cloud KMS key ring and crypto key, then grant the GKE service account the 'Cloud KMS CryptoKey Encrypter/Decrypter' role.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/encrypting-secrets

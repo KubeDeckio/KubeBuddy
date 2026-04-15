@@ -1,0 +1,127 @@
+{
+  "name": "test-cluster",
+  "zone": "us-central1-a",
+  "currentMasterVersion": "1.29.4-gke.1043000",
+  "status": "RUNNING",
+
+  "workloadIdentityConfig": {
+    "workloadPool": "my-project.svc.id.goog"
+  },
+
+  "shieldedNodes": {
+    "enabled": true
+  },
+
+  "releaseChannel": {
+    "channel": "REGULAR"
+  },
+
+  "loggingService": "logging.googleapis.com/kubernetes",
+  "monitoringService": "monitoring.googleapis.com/kubernetes",
+
+  "ipAllocationPolicy": {
+    "useIpAliases": true,
+    "clusterIpv4CidrBlock": "10.4.0.0/14",
+    "servicesIpv4CidrBlock": "10.8.0.0/20"
+  },
+
+  "binaryAuthorization": {
+    "evaluationMode": "PROJECT_SINGLETON_POLICY_ENFORCE"
+  },
+
+  "privateClusterConfig": {
+    "enablePrivateNodes": true,
+    "enablePrivateEndpoint": false,
+    "masterIpv4CidrBlock": "172.16.0.0/28"
+  },
+
+  "masterAuthorizedNetworksConfig": {
+    "enabled": true,
+    "cidrBlocks": [
+      { "cidrBlock": "10.0.0.0/8", "displayName": "internal" }
+    ]
+  },
+
+  "networkPolicy": {
+    "enabled": false
+  },
+
+  "datapathProvider": "ADVANCED_DATAPATH",
+
+  "networkConfig": {
+    "enableIntraNodeVisibility": true,
+    "gatewayApiConfig": {
+      "channel": "CHANNEL_STANDARD"
+    }
+  },
+
+  "databaseEncryption": {
+    "state": "ENCRYPTED",
+    "keyName": "projects/my-project/locations/us-central1/keyRings/my-ring/cryptoKeys/my-key"
+  },
+
+  "monitoringConfig": {
+    "managedPrometheusConfig": {
+      "enabled": true
+    }
+  },
+
+  "loggingConfig": {
+    "componentConfig": {
+      "enableComponents": ["SYSTEM_COMPONENTS", "WORKLOADS"]
+    }
+  },
+
+  "resourceUsageExportConfig": {
+    "enableNetworkEgressMetering": true,
+    "bigqueryDestination": {
+      "datasetId": "gke_usage"
+    }
+  },
+
+  "addonsConfig": {
+    "httpLoadBalancing": {},
+    "dnsCacheConfig": {
+      "enabled": true
+    }
+  },
+
+  "nodePools": [
+    {
+      "name": "default-pool",
+      "config": {
+        "machineType": "e2-standard-4",
+        "diskSizeGb": 100,
+        "diskType": "pd-balanced"
+      },
+      "management": {
+        "autoUpgrade": true,
+        "autoRepair": true
+      },
+      "autoscaling": {
+        "enabled": true,
+        "minNodeCount": 1,
+        "maxNodeCount": 5
+      },
+      "initialNodeCount": 3
+    },
+    {
+      "name": "high-mem-pool",
+      "config": {
+        "machineType": "n2-highmem-8",
+        "diskSizeGb": 200,
+        "diskType": "pd-ssd"
+      },
+      "management": {
+        "autoUpgrade": true,
+        "autoRepair": true
+      },
+      "autoscaling": {
+        "enabled": true,
+        "minNodeCount": 0,
+        "maxNodeCount": 10
+      },
+      "initialNodeCount": 0
+    }
+  ]
+}
