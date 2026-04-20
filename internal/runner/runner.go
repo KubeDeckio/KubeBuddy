@@ -91,7 +91,9 @@ func Execute(opts compat.RunOptions) error {
 				return err
 			}
 			fmt.Printf("%s[Kubernetes]%s skipped: %v\n", colorGray, colorReset, err)
-			result = scan.Result{}
+			if len(result.Checks) > 0 {
+				fmt.Printf("%s[Kubernetes]%s Retaining %d completed checks collected before the error\n", colorGray, colorReset, len(result.Checks))
+			}
 		} else {
 			fmt.Printf("%s[Kubernetes]%s Completed %d checks with %d findings in %s\n", colorGreen, colorReset, len(result.Checks), findingsCount(result), time.Since(start).Round(time.Second))
 		}
