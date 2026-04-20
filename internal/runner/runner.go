@@ -68,7 +68,7 @@ func Execute(opts compat.RunOptions) error {
 			}
 		}
 	}
-	if !(opts.AKS || opts.UseAKSRestAPI) || clusterReachable {
+	if !(opts.AKS || opts.GKE || opts.UseAKSRestAPI) || clusterReachable {
 		printPhase("Kubernetes", "Running Kubernetes checks")
 		if opts.IncludePrometheus && opts.PrometheusURL != "" {
 			fmt.Printf("[Prometheus] enabled via %s (%s)\n", opts.PrometheusURL, firstNonEmpty(opts.PrometheusMode, "default"))
@@ -87,7 +87,7 @@ func Execute(opts compat.RunOptions) error {
 			Progress:                 logCheckProgress("Kubernetes"),
 		})
 		if err != nil {
-			if !(opts.AKS || opts.UseAKSRestAPI) {
+			if !(opts.AKS || opts.GKE || opts.UseAKSRestAPI) {
 				return err
 			}
 			fmt.Printf("%s[Kubernetes]%s skipped: %v\n", colorGray, colorReset, err)
@@ -96,7 +96,7 @@ func Execute(opts compat.RunOptions) error {
 			fmt.Printf("%s[Kubernetes]%s Completed %d checks with %d findings in %s\n", colorGreen, colorReset, len(result.Checks), findingsCount(result), time.Since(start).Round(time.Second))
 		}
 	} else {
-		fmt.Printf("%s[Kubernetes]%s Skipped: cluster API unreachable, continuing with AKS-only flow\n", colorGray, colorReset)
+		fmt.Printf("%s[Kubernetes]%s Skipped: cluster API unreachable, continuing with provider-only flow\n", colorGray, colorReset)
 	}
 	if opts.AKS || opts.UseAKSRestAPI {
 		printPhase("AKS", "Running AKS checks")
@@ -119,6 +119,24 @@ func Execute(opts compat.RunOptions) error {
 		if result.AutomaticReadiness != nil {
 			fmt.Printf("%s[AKS]%s Automatic readiness: %s (%d blockers, %d warnings)\n", colorMagenta, colorReset, result.AutomaticReadiness.Summary.StatusLabel, result.AutomaticReadiness.Summary.BlockerCount, result.AutomaticReadiness.Summary.WarningCount)
 		}
+	}
+	if opts.GKE {
+		printPhase("GKE", "Running GKE checks")
+		start := time.Now()
+		gkeResult, err := scan.RunGKE(scan.GKEOptions{
+			ChecksDir:   "checks/gke",
+			ConfigPath:  opts.ConfigPath,
+			ProjectID:   opts.ProjectID,
+			Location:    opts.Location,
+			ClusterName: opts.ClusterName,
+			Progress:    logCheckProgress("GKE"),
+		})
+		if err != nil {
+			return err
+		}
+		result.Checks = append(result.Checks, gkeResult.Checks...)
+		sort.Slice(result.Checks, func(i, j int) bool { return result.Checks[i].ID < result.Checks[j].ID })
+		fmt.Printf("%s[GKE]%s Completed %d checks with %d findings in %s\n", colorGreen, colorReset, len(gkeResult.Checks), findingsCount(gkeResult), time.Since(start).Round(time.Second))
 	}
 	if len(result.Checks) == 0 {
 		return fmt.Errorf("no checks executed")

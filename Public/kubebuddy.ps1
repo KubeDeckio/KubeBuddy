@@ -155,12 +155,15 @@ function Invoke-KubeBuddy {
         [switch]$jsonReport,
         [switch]$CsvReport,
         [switch]$Aks,
+        [switch]$Gke,
         [switch]$ExcludeNamespaces,
         [string[]]$AdditionalExcludedNamespaces,
         [switch]$yes,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
         [string]$ClusterName,
+        [string]$ProjectId,
+        [string]$Location,
         [string]$outputpath,
         [switch]$UseAksRestApi,
         [string]$ConfigPath,
@@ -239,6 +242,7 @@ function Invoke-KubeBuddy {
     if ($jsonReport) { $arguments += "--json-report" }
     if ($CsvReport) { $arguments += "--csv-report" }
     if ($Aks) { $arguments += "--aks" }
+    if ($Gke) { $arguments += "--gke" }
     if ($ExcludeNamespaces) { $arguments += "--exclude-namespaces" }
     if ($yes) { $arguments += "--yes" }
     if ($UseAksRestApi) { $arguments += "--use-aks-rest-api" }
@@ -250,6 +254,8 @@ function Invoke-KubeBuddy {
     if ($SubscriptionId) { $arguments += @("--subscription-id", $SubscriptionId) }
     if ($ResourceGroup) { $arguments += @("--resource-group", $ResourceGroup) }
     if ($ClusterName) { $arguments += @("--cluster-name", $ClusterName) }
+    if ($ProjectId) { $arguments += @("--project-id", $ProjectId) }
+    if ($Location) { $arguments += @("--location", $Location) }
     if ($ConfigPath) { $arguments += @("--config-path", $ConfigPath) }
     if ($PrometheusUrl) { $arguments += @("--prometheus-url", $PrometheusUrl) }
     if ($PrometheusMode) { $arguments += @("--prometheus-mode", $PrometheusMode) }
