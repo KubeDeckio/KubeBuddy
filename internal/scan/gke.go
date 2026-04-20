@@ -13,17 +13,18 @@ import (
 	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
 	"github.com/KubeDeckio/KubeBuddy/internal/config"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // GKEOptions holds the parameters needed to run a GKE best-practice scan.
 type GKEOptions struct {
-	ChecksDir  string
-	ConfigPath string
-	InputFile  string
-	ProjectID  string
-	Location   string
+	ChecksDir   string
+	ConfigPath  string
+	InputFile   string
+	ProjectID   string
+	Location    string
 	ClusterName string
-	Progress   func(ProgressEvent)
+	Progress    func(ProgressEvent)
 }
 
 // RunGKE executes GKE-specific best-practice checks against a cluster document.
@@ -295,9 +296,11 @@ func collectLiveGKEDocument(opts GKEOptions) (map[string]any, error) {
 		return nil, fmt.Errorf("fetching cluster %s: %w", name, err)
 	}
 
-	// Marshal the protobuf response to JSON, then unmarshal into map[string]any
-	// to match the format used by gcloud --format json and the declarative evaluator.
-	data, err := json.Marshal(cluster)
+	// Marshal the protobuf response to JSON using protojson so that field names
+	// are camelCase (e.g. "shieldedNodes", "monitoringConfig") matching the paths
+	// used in the YAML check definitions and gcloud --format json output.
+	// Standard json.Marshal produces snake_case names which break path resolution.
+	data, err := protojson.Marshal(cluster)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling cluster response: %w", err)
 	}
