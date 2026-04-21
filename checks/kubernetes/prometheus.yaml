@@ -12,7 +12,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High CPU Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to see real-time CPU usage.</li>\n    <li>Review app code or HPA settings for misbehaving containers.</li>\n    <li>Consider raising CPU requests/limits or scaling out.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
   prometheus:
-    query: sum(rate({__name__=~"container_cpu_usage_seconds_total|kubernetes_io:anthos_container_cpu_usage_seconds_total",container!="",pod!=""}[5m])) by (pod)
+    query: (sum(rate(container_cpu_usage_seconds_total{container!="",container!="POD",pod!=""}[5m])) by (pod)) or (sum(rate(kubernetes_io:anthos_container_cpu_usage_seconds_total{container!="",container!="POD",pod!=""}[5m])) by (pod))
     range:
       step: 5m
       duration: 24h
@@ -34,7 +34,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High Memory Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to review memory usage.</li>\n    <li>Adjust <code>resources.limits.memory</code> appropriately.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   prometheus:
-    query: sum({__name__=~"container_memory_usage_bytes|kubernetes_io:anthos_container_memory_usage_bytes",container!="",pod!=""}) by (pod)
+    query: (sum(container_memory_working_set_bytes{container!="",pod!=""}) by (pod)) or (sum(kubernetes_io:anthos_container_memory_working_set_bytes{container!="",pod!=""}) by (pod))
     range:
       step: 5m
       duration: 24h
@@ -56,7 +56,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate Network Receive Rate</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> or Prometheus UI.</li>\n    <li>Inspect service ingress patterns.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/cluster-administration/networking/
   prometheus:
-    query: sum(rate({__name__=~"container_network_receive_bytes_total|kubernetes_io:anthos_container_network_receive_bytes_total",pod!=""}[5m])) by (pod)
+    query: (sum(rate(container_network_receive_bytes_total{pod!=""}[5m])) by (pod)) or (sum(rate(kubernetes_io:anthos_container_network_receive_bytes_total{pod!=""}[5m])) by (pod))
     range:
       step: 5m
       duration: 24h
@@ -100,7 +100,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate CPU Overcommitment</h4>\n  <ul>\n    <li>Check node resource allocation.</li>\n    <li>Balance workloads more evenly.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   prometheus:
-    query: sum({__name__=~"kube_pod_resource_request_cpu_cores|kubernetes_io:anthos_kube_pod_container_resource_requests_cpu_cores"}) by (node) / sum({__name__=~"kube_node_status_allocatable_cpu_cores|kubernetes_io:anthos_kube_node_status_allocatable_cpu_cores"}) by (node)
+    query: (sum(kube_pod_container_resource_requests{resource="cpu",unit="core"}) by (node) / sum(kube_node_status_allocatable{resource="cpu",unit="core"}) by (node)) or (sum(kubernetes_io:anthos_kube_pod_container_resource_requests_cpu_cores) by (node) / sum(kubernetes_io:anthos_kube_node_status_allocatable_cpu_cores) by (node))
     range:
       step: 5m
       duration: 24h
@@ -147,3 +147,22 @@ checks:
   speech_bubble:
   - Pod sizing insights are ready from Prometheus usage trends.
   - CPU limits default to none unless you need strict tenant caps.
+- id: PROM008
+  name: Node Exporter Not Deployed
+  category: Observability
+  section: Nodes
+  resource_kind: DaemonSet
+  severity: Medium
+  weight: 3
+  description: Checks whether a node-exporter DaemonSet is deployed in the cluster. Node-exporter is required for PROM006 node sizing insights and for node-level CPU, memory, and disk metrics in Prometheus.
+  fail_message: Node-exporter DaemonSet not found. PROM006 node sizing insights and node-level Prometheus metrics are unavailable.
+  recommendation: "Deploy node-exporter and configure a PodMonitoring (or ClusterPodMonitoring for GMP) to scrape it. Without node-exporter, PROM006 node sizing insights are disabled and node-level capacity checks will not produce results."
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Deploy Node Exporter</h4>\n  <ul>\n    <li>For GKE with Managed Prometheus: deploy node-exporter and a <code>ClusterPodMonitoring</code> resource. See <a href='https://cloud.google.com/stackdriver/docs/managed-prometheus/setup-unmanaged' target='_blank'>GMP node-exporter setup</a>.</li>\n    <li>For OSS Prometheus / kube-prometheus-stack: node-exporter is included by default. Ensure it is enabled in your Helm values.</li>\n    <li>For AKS with Azure Monitor Managed Prometheus: node-exporter is deployed automatically by the Azure Monitor agent.</li>\n  </ul>\n</div>\n"
+  url: https://github.com/prometheus/node_exporter
+  native_handler: PROM008
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Node-exporter is not deployed — node sizing insights are unavailable.
+  - Deploy node-exporter to enable PROM006 node Prometheus metrics.

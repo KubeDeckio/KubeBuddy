@@ -329,7 +329,7 @@ func renderLegacyNodeSection(check scan.CheckResult, snapshot reportSnapshot) st
 	b.WriteString(`<div class='table-container'><h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatNodeHeading(check)) + ` ` + headingTooltip(check) + `</h2>`)
 	b.WriteString(`<p>` + compatNodeStatusLine(check) + `</p>`)
 	if check.ID == "PROM006" && strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient") {
-		b.WriteString(`<p>📅 ` + esc(check.SummaryMessage) + `</p>`)
+		b.WriteString(`<div class="skipped-notice">⚠️ Node-exporter is not deployed. Deploy node-exporter with a GMP <code>ClusterPodMonitoring</code> to enable node sizing insights. See: <a href="https://cloud.google.com/stackdriver/docs/managed-prometheus/setup-unmanaged" target="_blank">GMP node-exporter setup</a>.</div>`)
 	}
 	if check.ID == "NODE003" || check.ID == "PROM006" {
 		b.WriteString(renderRecommendationDetails(check))
@@ -432,6 +432,9 @@ func compatNodeStatusLine(check scan.CheckResult) string {
 			return `⚠️ Total Nodes with Issues: ` + esc(fmt.Sprintf("%d", check.Total))
 		}
 	case "PROM006":
+		if strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient") {
+			return `⚠️ Node-exporter metrics unavailable — node sizing requires node-exporter to be deployed.`
+		}
 		if check.Total == 0 {
 			return `✅ All Nodes are healthy.`
 		}

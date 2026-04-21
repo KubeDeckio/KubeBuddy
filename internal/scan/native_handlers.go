@@ -83,6 +83,7 @@ var nativeHandlers = map[string]nativeHandler{
 	"SC003":           runSC003,
 	"PROM006":         runPROM006,
 	"PROM007":         runPROM007,
+	"PROM008":         runPROM008,
 	"WRK001":          runWRK001,
 	"WRK002":          runWRK002,
 	"WRK003":          runWRK003,
@@ -1575,16 +1576,16 @@ func runPROM006(check checks.Check, item map[string]any, cache map[string][]map[
 		now = time.Now().UTC()
 	}
 	start := now.Add(-7 * 24 * time.Hour)
-	coverage, err := client.QueryRange(`(1 - avg(rate({__name__=~"node_cpu_seconds_total|kubernetes_io:anthos_node_cpu_seconds_total",mode="idle"}[5m]))) * 100`, start.Format(time.RFC3339), now.Format(time.RFC3339), "6h", int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	coverage, err := client.QueryRange(`((1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100) or ((1 - avg(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)`, start.Format(time.RFC3339), now.Format(time.RFC3339), "6h", int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	coverageDays := maxCoverageDays(coverage)
 	if err != nil || coverageDays < 6.9 {
 		return []Finding{{Namespace: "(cluster)", Resource: "prometheus/node-sizing", Value: fmt.Sprintf("%.2f", coverageDays), Message: "Insufficient Prometheus history for node sizing recommendations"}}, nil
 	}
-	cpuSeries, err := client.Query(`quantile_over_time(0.95, ((1 - avg by(instance)(rate({__name__=~"node_cpu_seconds_total|kubernetes_io:anthos_node_cpu_seconds_total",mode="idle"}[5m]))) * 100)[7d:15m])`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	cpuSeries, err := client.Query(`(quantile_over_time(0.95, ((1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100)[7d:15m])) or (quantile_over_time(0.95, ((1 - avg by(instance)(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)[7d:15m]))`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {
 		return nil, err
 	}
-	memSeries, err := client.Query(`quantile_over_time(0.95, ((1 - ({__name__=~"node_memory_MemAvailable_bytes|kubernetes_io:anthos_node_memory_MemAvailable_bytes"} / {__name__=~"node_memory_MemTotal_bytes|kubernetes_io:anthos_node_memory_MemTotal_bytes"})) * 100)[7d:15m])`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	memSeries, err := client.Query(`(quantile_over_time(0.95, ((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100)[7d:15m])) or (quantile_over_time(0.95, ((1 - (kubernetes_io:anthos_node_memory_MemAvailable_bytes / kubernetes_io:anthos_node_memory_MemTotal_bytes)) * 100)[7d:15m]))`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {
 		return nil, err
 	}
@@ -1625,16 +1626,16 @@ func runPROM007(check checks.Check, item map[string]any, cache map[string][]map[
 		now = time.Now().UTC()
 	}
 	start := now.Add(-7 * 24 * time.Hour)
-	coverage, err := client.QueryRange(`sum(rate({__name__=~"container_cpu_usage_seconds_total|kubernetes_io:anthos_container_cpu_usage_seconds_total",container!="",pod!=""}[5m])) * 1000`, start.Format(time.RFC3339), now.Format(time.RFC3339), "6h", int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	coverage, err := client.QueryRange(`(sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) * 1000) or (sum(rate(kubernetes_io:anthos_container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) * 1000)`, start.Format(time.RFC3339), now.Format(time.RFC3339), "6h", int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	coverageDays := maxCoverageDays(coverage)
 	if err != nil || coverageDays < 6.9 {
 		return []Finding{{Namespace: "(cluster)", Resource: "prometheus/pod-sizing", Value: fmt.Sprintf("%.2f", coverageDays), Message: "Insufficient Prometheus history for pod sizing recommendations"}}, nil
 	}
-	cpuSeries, err := client.Query(`quantile_over_time(0.95, (sum by(namespace,pod,container) (rate({__name__=~"container_cpu_usage_seconds_total|kubernetes_io:anthos_container_cpu_usage_seconds_total",container!="",container!="POD",pod!=""}[5m])) * 1000)[7d:15m])`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	cpuSeries, err := client.Query(`(quantile_over_time(0.95, (sum by(namespace,pod,container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD",pod!=""}[5m])) * 1000)[7d:15m])) or (quantile_over_time(0.95, (sum by(namespace,pod,container) (rate(kubernetes_io:anthos_container_cpu_usage_seconds_total{container!="",container!="POD",pod!=""}[5m])) * 1000)[7d:15m]))`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {
 		return nil, err
 	}
-	memSeries, err := client.Query(`quantile_over_time(0.95, (max by(namespace,pod,container) ({__name__=~"container_memory_working_set_bytes|kubernetes_io:anthos_container_memory_working_set_bytes",container!="",container!="POD",pod!=""}) / 1024 / 1024)[7d:15m])`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	memSeries, err := client.Query(`(quantile_over_time(0.95, (max by(namespace,pod,container) (container_memory_working_set_bytes{container!="",container!="POD",pod!=""}) / 1024 / 1024)[7d:15m])) or (quantile_over_time(0.95, (max by(namespace,pod,container) (kubernetes_io:anthos_container_memory_working_set_bytes{container!="",container!="POD",pod!=""}) / 1024 / 1024)[7d:15m]))`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {
 		return nil, err
 	}
@@ -1682,6 +1683,28 @@ func runPROM007(check checks.Check, item map[string]any, cache map[string][]map[
 		}
 	}
 	return findings, nil
+}
+
+func runPROM008(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if !currentRuntime.Prometheus.Enabled {
+		return nil, nil
+	}
+	daemonsets, err := getCachedItems(cache, "daemonsets")
+	if err != nil {
+		return nil, err
+	}
+	for _, ds := range daemonsets {
+		name := strings.ToLower(stringifyLookup(ds, "metadata.name"))
+		if strings.Contains(name, "node-exporter") || strings.Contains(name, "node_exporter") {
+			return nil, nil
+		}
+	}
+	return []Finding{{
+		Namespace: "(cluster)",
+		Resource:  "daemonset/node-exporter",
+		Value:     "not found",
+		Message:   "Node-exporter DaemonSet not found — node sizing (PROM006) and node-level metrics are unavailable",
+	}}, nil
 }
 
 func runWRK013(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {

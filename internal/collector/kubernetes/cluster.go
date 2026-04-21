@@ -268,9 +268,9 @@ func collectPrometheusMetrics(nodes []map[string]any, opts ClusterDataOptions) (
 	end := time.Now().UTC()
 	start := end.Add(-24 * time.Hour)
 	queries := map[string]string{
-		"NodeCpuUsagePercent":    `(1 - avg by(instance)(rate({__name__=~"node_cpu_seconds_total|kubernetes_io:anthos_node_cpu_seconds_total",mode="idle"}[5m]))) * 100`,
-		"NodeMemoryUsagePercent": `(1 - ({__name__=~"node_memory_MemAvailable_bytes|kubernetes_io:anthos_node_memory_MemAvailable_bytes"} / {__name__=~"node_memory_MemTotal_bytes|kubernetes_io:anthos_node_memory_MemTotal_bytes"})) * 100`,
-		"NodeDiskUsagePercent":   `100 * (1 - (sum by(instance) ({__name__=~"node_filesystem_avail_bytes|kubernetes_io:anthos_node_filesystem_avail_bytes",fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) ({__name__=~"node_filesystem_size_bytes|kubernetes_io:anthos_node_filesystem_size_bytes",fstype!~"tmpfs|aufs|squashfs", device!~"^$"})))`,
+		"NodeCpuUsagePercent":    `((1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100) or ((1 - avg by(instance)(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)`,
+		"NodeMemoryUsagePercent": `((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100) or ((1 - (kubernetes_io:anthos_node_memory_MemAvailable_bytes / kubernetes_io:anthos_node_memory_MemTotal_bytes)) * 100)`,
+		"NodeDiskUsagePercent":   `(100 * (1 - (sum by(instance) (node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"})))) or (100 * (1 - (sum by(instance) (kubernetes_io:anthos_node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (kubernetes_io:anthos_node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}))))`,
 	}
 	results := map[string][]prom.Result{}
 	for key, query := range queries {
