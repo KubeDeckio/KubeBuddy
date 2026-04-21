@@ -584,6 +584,20 @@ func nodeIssueSummary(node map[string]any) string {
 	return strings.Join(issues, " | ")
 }
 
+func metricDisplay(avg float64, series []kubernetes.MetricPoint) string {
+	if len(series) == 0 {
+		return "N/A"
+	}
+	return fmt.Sprintf("%.2f%%", avg)
+}
+
+func metricClassWithData(avg float64, series []kubernetes.MetricPoint, warning, critical float64) string {
+	if len(series) == 0 {
+		return "default"
+	}
+	return metricClass(avg, warning, critical)
+}
+
 func nodePodCount(snapshot reportSnapshot, name string) (int, int) {
 	pods := snapshot.AllPodObjects
 	if len(pods) == 0 {
@@ -622,15 +636,15 @@ func renderNodeCards(snapshot reportSnapshot) string {
 		kernel := lookupString(node, "status.nodeInfo.kernelVersion")
 		kubelet := lookupString(node, "status.nodeInfo.kubeletVersion")
 		runtime := lookupString(node, "status.nodeInfo.containerRuntimeVersion")
-		cpuClass := metricClass(metrics.CPUAvg, 50, 75)
-		memClass := metricClass(metrics.MemAvg, 50, 75)
-		diskClass := metricClass(metrics.DiskAvg, 75, 90)
+		cpuClass := metricClassWithData(metrics.CPUAvg, metrics.CPUSeries, 50, 75)
+		memClass := metricClassWithData(metrics.MemAvg, metrics.MemSeries, 50, 75)
+		diskClass := metricClassWithData(metrics.DiskAvg, metrics.DiskSeries, 75, 90)
 		content := `<div class='recommendation-card node-card'><div style='padding: 15px;'><p><strong>OS:</strong> ` + esc(osImage) + `<br><strong>Kernel:</strong> ` + esc(kernel) + `<br><strong>Kubelet:</strong> ` + esc(kubelet) + `<br><strong>Runtime:</strong> ` + esc(runtime) + `</p><div class='hero-metrics'>` +
-			metricCard(cpuClass, "CPU", fmt.Sprintf("%.2f%%", metrics.CPUAvg)) +
-			metricCard(memClass, "Memory", fmt.Sprintf("%.2f%%", metrics.MemAvg)) +
-			metricCard(diskClass, "Disk", fmt.Sprintf("%.2f%%", metrics.DiskAvg)) +
+			metricCard(cpuClass, "CPU", metricDisplay(metrics.CPUAvg, metrics.CPUSeries)) +
+			metricCard(memClass, "Memory", metricDisplay(metrics.MemAvg, metrics.MemSeries)) +
+			metricCard(diskClass, "Disk", metricDisplay(metrics.DiskAvg, metrics.DiskSeries)) +
 			`</div><div class='chart-wrapper row-3'><div class='chart-item'><h3>CPU Usage (%)</h3><canvas class='node-chart' data-values='` + escAttr(toJSON(metrics.CPUSeries)) + `'></canvas></div><div class='chart-item'><h3>Memory Usage (%)</h3><canvas class='node-chart' data-values='` + escAttr(toJSON(metrics.MemSeries)) + `'></canvas></div><div class='chart-item'><h3>Disk Usage (%)</h3><canvas class='node-chart' data-values='` + escAttr(toJSON(metrics.DiskSeries)) + `'></canvas></div></div></div></div>`
-		summary := `<summary class="node-summary collapsible-arrow"><span class="summary-inner"><span class="node-name">Node: ` + esc(metrics.NodeName) + `</span><span class="summary-metrics"><span class="metric-badge ` + cpuClass + `">CPU: ` + esc(fmt.Sprintf("%.2f%%", metrics.CPUAvg)) + `</span><span class="metric-badge ` + memClass + `">Mem: ` + esc(fmt.Sprintf("%.2f%%", metrics.MemAvg)) + `</span><span class="metric-badge ` + diskClass + `">Disk: ` + esc(fmt.Sprintf("%.2f%%", metrics.DiskAvg)) + `</span></span></span></summary>`
+		summary := `<summary class="node-summary collapsible-arrow"><span class="summary-inner"><span class="node-name">Node: ` + esc(metrics.NodeName) + `</span><span class="summary-metrics"><span class="metric-badge ` + cpuClass + `">CPU: ` + esc(metricDisplay(metrics.CPUAvg, metrics.CPUSeries)) + `</span><span class="metric-badge ` + memClass + `">Mem: ` + esc(metricDisplay(metrics.MemAvg, metrics.MemSeries)) + `</span><span class="metric-badge ` + diskClass + `">Disk: ` + esc(metricDisplay(metrics.DiskAvg, metrics.DiskSeries)) + `</span></span></span></summary>`
 		b.WriteString(`<div class="collapsible-container"><details id="` + escAttr(nodeID) + `">` + summary + `<div style='padding-top: 15px;'>` + content + `</div></details></div>`)
 	}
 	b.WriteString(`</div><div id="nodeCardPagination" class="table-pagination"></div></div>`)

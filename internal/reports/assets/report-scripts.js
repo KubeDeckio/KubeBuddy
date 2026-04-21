@@ -158,7 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } catch (e) {
             console.error(`Failed to render line chart (${label}):`, e);
-            canvas.insertAdjacentHTML('afterend', `<p class="warning">⚠️ Failed to render ${label}</p>`);
+            const message = e && e.message === 'Empty data'
+                ? `⚠️ No Prometheus data available for ${label}`
+                : `⚠️ Failed to render ${label}`;
+            canvas.insertAdjacentHTML('afterend', `<p class="warning">${message}</p>`);
             return null;
         }
     }

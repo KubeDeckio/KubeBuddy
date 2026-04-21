@@ -354,14 +354,33 @@ func averageTimeSeries(series []prom.Result) []MetricPoint {
 func metricSeriesForNode(series []prom.Result, aliases []string) []MetricPoint {
 	for _, alias := range aliases {
 		for _, entry := range series {
-			instance := strings.ToLower(strings.TrimSpace(entry.Metric["instance"]))
-			host := strings.Split(instance, ":")[0]
-			if alias == host || alias == strings.Split(host, ".")[0] || strings.Contains(host, alias) {
+			if metricMatchesNodeAlias(entry.Metric, alias) {
 				return toMetricPoints(entry.Values)
 			}
 		}
 	}
 	return nil
+}
+
+func metricMatchesNodeAlias(labels map[string]string, alias string) bool {
+	candidates := []string{
+		labels["node"],
+		labels["nodename"],
+		labels["kubernetes_node"],
+		labels["instance"],
+	}
+	for _, candidate := range candidates {
+		value := strings.ToLower(strings.TrimSpace(candidate))
+		if value == "" {
+			continue
+		}
+		host := strings.Split(value, ":")[0]
+		shortHost := strings.Split(host, ".")[0]
+		if alias == host || alias == shortHost || strings.Contains(host, alias) || strings.Contains(alias, host) {
+			return true
+		}
+	}
+	return false
 }
 
 func toMetricPoints(values [][]any) []MetricPoint {
