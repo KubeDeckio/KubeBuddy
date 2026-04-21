@@ -9,7 +9,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apimachinery v0.35.3
+	k8s.io/apimachinery v0.35.4
 	k8s.io/client-go v0.35.3
 )
 
