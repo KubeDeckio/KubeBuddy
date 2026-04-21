@@ -12,7 +12,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High CPU Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to see real-time CPU usage.</li>\n    <li>Review app code or HPA settings for misbehaving containers.</li>\n    <li>Consider raising CPU requests/limits or scaling out.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/cluster-administration/monitoring/
   prometheus:
-    query: sum(rate({__name__=~"container_cpu_usage_seconds_total|kubernetes.io/anthos/container_cpu_usage_seconds_total",container!="",pod!=""}[5m])) by (pod)
+    query: sum(rate({__name__=~"container_cpu_usage_seconds_total|kubernetes_io:anthos_container_cpu_usage_seconds_total",container!="",pod!=""}[5m])) by (pod)
     range:
       step: 5m
       duration: 24h
@@ -34,7 +34,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate High Memory Pods</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> to review memory usage.</li>\n    <li>Adjust <code>resources.limits.memory</code> appropriately.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   prometheus:
-    query: sum({__name__=~"container_memory_usage_bytes|kubernetes.io/anthos/container_memory_usage_bytes",container!="",pod!=""}) by (pod)
+    query: sum({__name__=~"container_memory_usage_bytes|kubernetes_io:anthos_container_memory_usage_bytes",container!="",pod!=""}) by (pod)
     range:
       step: 5m
       duration: 24h
@@ -56,7 +56,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate Network Receive Rate</h4>\n  <ul>\n    <li>Use <code>kubectl top pod</code> or Prometheus UI.</li>\n    <li>Inspect service ingress patterns.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/cluster-administration/networking/
   prometheus:
-    query: sum(rate({__name__=~"container_network_receive_bytes_total|kubernetes.io/anthos/container_network_receive_bytes_total",pod!=""}[5m])) by (pod)
+    query: sum(rate({__name__=~"container_network_receive_bytes_total|kubernetes_io:anthos_container_network_receive_bytes_total",pod!=""}[5m])) by (pod)
     range:
       step: 5m
       duration: 24h
@@ -100,7 +100,7 @@ checks:
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6E0\uFE0F Investigate CPU Overcommitment</h4>\n  <ul>\n    <li>Check node resource allocation.</li>\n    <li>Balance workloads more evenly.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   prometheus:
-    query: sum({__name__=~"kube_pod_resource_request_cpu_cores|kubernetes.io/anthos/kube_pod_container_resource_requests_cpu_cores"}) by (node) / sum({__name__=~"kube_node_status_allocatable_cpu_cores|kubernetes.io/anthos/kube_node_status_allocatable_cpu_cores"}) by (node)
+    query: sum({__name__=~"kube_pod_resource_request_cpu_cores|kubernetes_io:anthos_kube_pod_container_resource_requests_cpu_cores"}) by (node) / sum({__name__=~"kube_node_status_allocatable_cpu_cores|kubernetes_io:anthos_kube_node_status_allocatable_cpu_cores"}) by (node)
     range:
       step: 5m
       duration: 24h
