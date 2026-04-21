@@ -208,7 +208,7 @@ func newScanCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&opts.ExcludedNamespaces, "additional-excluded-namespaces", nil, "Additional namespaces to exclude.")
 	cmd.Flags().BoolVar(&opts.IncludePrometheus, "include-prometheus", false, "Include Prometheus data in the native scan.")
 	cmd.Flags().StringVar(&opts.PrometheusURL, "prometheus-url", "", "Prometheus URL.")
-	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode.")
+	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode (local, basic, bearer, azure, gcp).")
 	cmd.Flags().StringVar(&opts.PrometheusBearerTokenEnv, "prometheus-bearer-token-env", "", "Environment variable containing the bearer token.")
 	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
 	return cmd
@@ -320,7 +320,7 @@ func newRunCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
 	cmd.Flags().BoolVar(&opts.IncludePrometheus, "include-prometheus", false, "Include Prometheus data.")
 	cmd.Flags().StringVar(&opts.PrometheusURL, "prometheus-url", "", "Prometheus URL.")
-	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode.")
+	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode (local, basic, bearer, azure, gcp).")
 	cmd.Flags().StringVar(&opts.PrometheusBearerTokenEnv, "prometheus-bearer-token-env", "", "Environment variable containing the bearer token.")
 	cmd.Flags().BoolVar(&opts.RadarUpload, "radar-upload", false, "Upload the JSON scan to Radar.")
 	cmd.Flags().BoolVar(&opts.RadarCompare, "radar-compare", false, "Compare the uploaded run in Radar.")

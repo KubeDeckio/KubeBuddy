@@ -28,6 +28,7 @@ By pulling time-series data you can detect:
 | `basic`  | External Prometheus with HTTP Basic auth              | ✅            | Behind an ingress or firewall         |
 | `bearer` | External Prometheus secured by bearer token           | ✅            | OAuth proxy, API gateway, etc.        |
 | `azure`  | Azure Monitor Managed Prometheus (AKS + Monitor)      | ✅ AAD token  | AKS + Azure Monitor workspace         |
+| `gcp`    | Google Managed Service for Prometheus                 | ✅ ADC token  | GKE + Cloud Monitoring                |
 
 ## 🔐 How to Authenticate
 
@@ -35,6 +36,7 @@ For the native Go CLI, the auth model is:
 
 - `local`: no extra auth inputs
 - `azure`: uses existing Azure auth from the current shell or environment
+- `gcp`: uses Google Application Default Credentials from the current shell or environment
 - `bearer`: uses `--prometheus-bearer-token-env` to read a bearer token from an environment variable
 - `basic`: reads `PROMETHEUS_USERNAME` and `PROMETHEUS_PASSWORD` from the environment
 
@@ -75,6 +77,18 @@ kubebuddy run \
   --include-prometheus \
   --prometheus-url "https://<workspace>.prometheus.monitor.azure.com" \
   --prometheus-mode azure \
+  --yes
+```
+
+### Google Managed Service for Prometheus (ADC)
+
+Use Application Default Credentials from your current environment. Local shells often use `gcloud auth application-default login`; GKE, Cloud Run, and CI typically use attached service accounts or `GOOGLE_APPLICATION_CREDENTIALS`.
+
+```bash
+kubebuddy run \
+  --include-prometheus \
+  --prometheus-url "https://monitoring.googleapis.com/v1/projects/<project-id>/location/global/prometheus" \
+  --prometheus-mode gcp \
   --yes
 ```
 
@@ -133,6 +147,16 @@ Invoke-KubeBuddy `
   -IncludePrometheus `
   -PrometheusUrl "https://<workspace>.prometheus.monitor.azure.com" `
   -PrometheusMode azure
+```
+
+### Google Managed Service for Prometheus (ADC)
+
+```powershell
+# Ensure Application Default Credentials are available
+Invoke-KubeBuddy `
+  -IncludePrometheus `
+  -PrometheusUrl "https://monitoring.googleapis.com/v1/projects/<project-id>/location/global/prometheus" `
+  -PrometheusMode gcp
 ```
 
 ## 🧪 Example Query

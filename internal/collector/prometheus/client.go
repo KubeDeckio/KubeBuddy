@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/azure"
+	"github.com/KubeDeckio/KubeBuddy/internal/gcp"
 )
 
 type Client struct {
@@ -21,19 +22,19 @@ type Client struct {
 }
 
 type Options struct {
-	URL                string
-	Mode               string
-	BearerTokenEnv     string
-	TimeoutSeconds     int
-	RetryCount         int
-	RetryDelaySeconds  int
+	URL               string
+	Mode              string
+	BearerTokenEnv    string
+	TimeoutSeconds    int
+	RetryCount        int
+	RetryDelaySeconds int
 }
 
 type Response struct {
 	Status string `json:"status"`
 	Data   struct {
-		ResultType string     `json:"resultType"`
-		Result     []Result   `json:"result"`
+		ResultType string   `json:"resultType"`
+		Result     []Result `json:"result"`
 	} `json:"data"`
 	Error string `json:"error"`
 }
@@ -51,8 +52,8 @@ func New(options Options) (*Client, error) {
 	}
 	timeout := time.Duration(maxInt(options.TimeoutSeconds, 60)) * time.Second
 	return &Client{
-		BaseURL: strings.TrimRight(options.URL, "/"),
-		Headers: headers,
+		BaseURL:    strings.TrimRight(options.URL, "/"),
+		Headers:    headers,
 		HTTPClient: &http.Client{Timeout: timeout},
 	}, nil
 }
@@ -127,6 +128,13 @@ func authHeaders(mode, bearerTokenEnv string) (map[string]string, error) {
 		return headers, nil
 	case "azure":
 		token, err := azure.PrometheusToken()
+		if err != nil {
+			return nil, err
+		}
+		headers["Authorization"] = "Bearer " + token
+		return headers, nil
+	case "gcp", "google":
+		token, err := gcp.PrometheusToken()
 		if err != nil {
 			return nil, err
 		}
