@@ -115,7 +115,7 @@ Below is a categorized list of all GKE checks, ordered by ID and category.
 | ID         | Check                              | Severity |
 |------------|-------------------------------------|----------|
 | GKEMON001  | Managed Prometheus Enabled          | Medium   |
-| GKEMON002  | Control Plane Logging Enabled       | High     |
+| GKEMON002  | System Component Logging Enabled    | High     |
 | GKEMON003  | GKE Usage Metering Enabled          | Low      |
 
 ### Networking
