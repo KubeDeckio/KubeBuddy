@@ -12,9 +12,6 @@
     "channel": "UNSPECIFIED"
   },
 
-  "loggingService": "none",
-  "monitoringService": "none",
-
   "ipAllocationPolicy": {
     "useIpAliases": false
   },
@@ -27,18 +24,13 @@
     "enablePrivateNodes": false
   },
 
-  "masterAuthorizedNetworksConfig": {
-    "enabled": false
-  },
-
   "networkPolicy": {
     "enabled": false
   },
 
-  "datapathProvider": "LEGACY_DATAPATH",
-
   "networkConfig": {
     "enableIntraNodeVisibility": false,
+    "datapathProvider": "LEGACY_DATAPATH",
     "gatewayApiConfig": {
       "channel": "CHANNEL_DISABLED"
     }
@@ -49,6 +41,9 @@
   },
 
   "monitoringConfig": {
+    "componentConfig": {
+      "enableComponents": []
+    },
     "managedPrometheusConfig": {
       "enabled": false
     }
@@ -57,6 +52,15 @@
   "loggingConfig": {
     "componentConfig": {
       "enableComponents": []
+    }
+  },
+
+  "controlPlaneEndpointsConfig": {
+    "ipEndpointsConfig": {
+      "authorizedNetworksConfig": {
+        "enabled": false,
+        "cidrBlocks": []
+      }
     }
   },
 
@@ -81,6 +85,7 @@
         "autoUpgrade": false,
         "autoRepair": false
       },
+      "autoscaling": null,
       "initialNodeCount": 3
     }
   ]

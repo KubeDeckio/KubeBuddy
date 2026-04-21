@@ -22,7 +22,13 @@ checks:
     sources:
       - gke.cluster
     value:
-      path: masterAuthorizedNetworksConfig.enabled
+      any:
+        - path: masterAuthorizedNetworksConfig.enabled
+          operator: equals
+          expected: true
+        - path: controlPlaneEndpointsConfig.ipEndpointsConfig.authorizedNetworksConfig.enabled
+          operator: equals
+          expected: true
     operator: equals
     expected: true
     fail_message: Master Authorized Networks are not configured, allowing the Kubernetes API server to be accessed from any IP address on the internet. This enables brute-force attacks against API credentials, exploitation of Kubernetes API vulnerabilities, and unauthorized cluster management from untrusted networks.
@@ -41,6 +47,12 @@ checks:
         - path: networkPolicy.enabled
           operator: equals
           expected: true
+        - path: addonsConfig.networkPolicyConfig.disabled
+          operator: equals
+          expected: false
+        - path: networkConfig.datapathProvider
+          operator: equals
+          expected: ADVANCED_DATAPATH
         - path: datapathProvider
           operator: equals
           expected: ADVANCED_DATAPATH
@@ -58,9 +70,15 @@ checks:
     sources:
       - gke.cluster
     value:
-      path: datapathProvider
+      any:
+        - path: networkConfig.datapathProvider
+          operator: equals
+          expected: ADVANCED_DATAPATH
+        - path: datapathProvider
+          operator: equals
+          expected: ADVANCED_DATAPATH
     operator: equals
-    expected: ADVANCED_DATAPATH
+    expected: true
     fail_message: Cluster is using the legacy datapath (kube-proxy/iptables) instead of GKE Dataplane V2 (Cilium/eBPF). The legacy datapath has limited network policy capabilities, no native FQDN-based policies, higher latency for large rule sets, and lacks built-in network flow logging for security analysis.
     recommendation: GKE Dataplane V2 must be enabled at cluster creation time with 'gcloud container clusters create <cluster> --enable-dataplane-v2'. For existing clusters, create a new Dataplane V2 cluster and migrate workloads. Dataplane V2 provides eBPF-based networking, built-in network policy logging, and improved performance.
     url: https://cloud.google.com/kubernetes-engine/docs/how-to/dataplane-v2

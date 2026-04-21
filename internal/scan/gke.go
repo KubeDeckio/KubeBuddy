@@ -152,14 +152,12 @@ func evaluateGKECheck(check checks.Check, document map[string]any, eval checks.E
 
 	case "GKEBP005":
 		// Cloud Logging enabled
-		svc := strings.TrimSpace(stringifyLookup(document, "loggingService"))
-		ok := !strings.EqualFold(svc, "none") && svc != ""
+		ok := gkeLoggingEnabled(document)
 		return gkeBoolEval(!ok, ok), nil
 
 	case "GKEBP006":
 		// Cloud Monitoring enabled
-		svc := strings.TrimSpace(stringifyLookup(document, "monitoringService"))
-		ok := !strings.EqualFold(svc, "none") && svc != ""
+		ok := gkeMonitoringEnabled(document)
 		return gkeBoolEval(!ok, ok), nil
 
 	case "GKEBP007":
@@ -191,19 +189,19 @@ func evaluateGKECheck(check checks.Check, document map[string]any, eval checks.E
 
 	case "GKESEC002":
 		// Master Authorized Networks
-		ok := boolFromAny(mustResolve(document, "masterAuthorizedNetworksConfig.enabled"))
+		ok := gkeAuthorizedNetworksEnabled(document)
 		return gkeBoolEval(!ok, ok), nil
 
 	case "GKESEC003":
 		// Network Policy or Dataplane V2
-		npEnabled := boolFromAny(mustResolve(document, "networkPolicy.enabled"))
-		dpv2 := strings.EqualFold(stringifyLookup(document, "datapathProvider"), "ADVANCED_DATAPATH")
+		npEnabled := gkeNetworkPolicyEnabled(document)
+		dpv2 := strings.EqualFold(gkeDatapathProvider(document), "ADVANCED_DATAPATH")
 		ok := npEnabled || dpv2
 		return gkeBoolEval(!ok, ok), nil
 
 	case "GKESEC004":
 		// Dataplane V2
-		ok := strings.EqualFold(stringifyLookup(document, "datapathProvider"), "ADVANCED_DATAPATH")
+		ok := strings.EqualFold(gkeDatapathProvider(document), "ADVANCED_DATAPATH")
 		return gkeBoolEval(!ok, ok), nil
 
 	case "GKESEC005":
@@ -258,6 +256,46 @@ func gkeAllNodePoolsBool(document map[string]any, path string) bool {
 		}
 	}
 	return true
+}
+
+func gkeLoggingEnabled(document map[string]any) bool {
+	svc := strings.TrimSpace(stringifyLookup(document, "loggingService"))
+	if svc != "" {
+		return !strings.EqualFold(svc, "none")
+	}
+	return len(asSlice(mustResolve(document, "loggingConfig.componentConfig.enableComponents"))) > 0
+}
+
+func gkeMonitoringEnabled(document map[string]any) bool {
+	svc := strings.TrimSpace(stringifyLookup(document, "monitoringService"))
+	if svc != "" {
+		return !strings.EqualFold(svc, "none")
+	}
+	return len(asSlice(mustResolve(document, "monitoringConfig.componentConfig.enableComponents"))) > 0
+}
+
+func gkeAuthorizedNetworksEnabled(document map[string]any) bool {
+	return boolFromAny(mustResolve(document, "masterAuthorizedNetworksConfig.enabled")) ||
+		boolFromAny(mustResolve(document, "controlPlaneEndpointsConfig.ipEndpointsConfig.authorizedNetworksConfig.enabled"))
+}
+
+func gkeNetworkPolicyEnabled(document map[string]any) bool {
+	if boolFromAny(mustResolve(document, "networkPolicy.enabled")) {
+		return true
+	}
+	value, err := checks.ResolvePath(document, "addonsConfig.networkPolicyConfig.disabled")
+	if err != nil || value == nil {
+		return false
+	}
+	return !boolFromAny(value)
+}
+
+func gkeDatapathProvider(document map[string]any) string {
+	provider := strings.TrimSpace(stringifyLookup(document, "networkConfig.datapathProvider"))
+	if provider != "" {
+		return provider
+	}
+	return strings.TrimSpace(stringifyLookup(document, "datapathProvider"))
 }
 
 // loadGKEDocument loads a GKE cluster description from a local JSON file

@@ -32,6 +32,74 @@ func TestRunGKE(t *testing.T) {
 	}
 }
 
+func TestRunGKECurrentSchemaFixtureFlagsExpectedFailures(t *testing.T) {
+	t.Helper()
+
+	result, err := RunGKE(GKEOptions{
+		ChecksDir: filepath.Clean(filepath.Join("..", "..", "checks", "gke")),
+		InputFile: filepath.Clean(filepath.Join("..", "..", "checks", "gke", "testdata", "failing-cluster.json")),
+	})
+	if err != nil {
+		t.Fatalf("run gke scan: %v", err)
+	}
+
+	expectedFailing := map[string]bool{
+		"GKEBP003":  false,
+		"GKEBP004":  false,
+		"GKEBP005":  false,
+		"GKEBP006":  false,
+		"GKEBP009":  false,
+		"GKESEC002": false,
+		"GKESEC004": false,
+	}
+
+	for _, check := range result.Checks {
+		if _, ok := expectedFailing[check.ID]; ok && check.Total > 0 {
+			expectedFailing[check.ID] = true
+		}
+	}
+
+	for id, found := range expectedFailing {
+		if !found {
+			t.Fatalf("expected %s to fail for current-schema failing fixture", id)
+		}
+	}
+}
+
+func TestRunGKECurrentSchemaFixturePassesExpectedChecks(t *testing.T) {
+	t.Helper()
+
+	result, err := RunGKE(GKEOptions{
+		ChecksDir: filepath.Clean(filepath.Join("..", "..", "checks", "gke")),
+		InputFile: filepath.Clean(filepath.Join("..", "..", "checks", "gke", "testdata", "passing-cluster.json")),
+	})
+	if err != nil {
+		t.Fatalf("run gke scan: %v", err)
+	}
+
+	expectedPassing := map[string]bool{
+		"GKEBP003":  false,
+		"GKEBP004":  false,
+		"GKEBP005":  false,
+		"GKEBP006":  false,
+		"GKEBP009":  false,
+		"GKESEC002": false,
+		"GKESEC004": false,
+	}
+
+	for _, check := range result.Checks {
+		if _, ok := expectedPassing[check.ID]; ok && check.Total == 0 {
+			expectedPassing[check.ID] = true
+		}
+	}
+
+	for id, passed := range expectedPassing {
+		if !passed {
+			t.Fatalf("expected %s to pass for current-schema passing fixture", id)
+		}
+	}
+}
+
 func TestRunGKERespectsExcludedChecksFromConfig(t *testing.T) {
 	t.Helper()
 

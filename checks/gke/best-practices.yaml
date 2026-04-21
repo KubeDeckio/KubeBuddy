@@ -37,9 +37,9 @@ checks:
     sources:
       - gke.cluster
     value:
-      path: nodePools
-    operator: greater_than
-    expected: 0
+      path: nodePools[].management.autoUpgrade
+    operator: not_contains
+    expected: false
     fail_message: Node auto-upgrade is not enabled for one or more node pools. Disabling auto-upgrade leaves nodes running outdated Kubernetes versions with known CVEs, missing security patches, and potential API incompatibilities with the control plane. This increases both the security risk and operational maintenance burden.
     recommendation: Enable node auto-upgrade using 'gcloud container node-pools update <pool> --cluster=<cluster> --enable-autoupgrade'. Configure maintenance windows using 'gcloud container clusters update <cluster> --maintenance-window-start=<time>' to control when upgrades occur and minimize disruption to workloads.
     url: https://cloud.google.com/kubernetes-engine/docs/how-to/node-auto-upgrades
@@ -52,9 +52,9 @@ checks:
     sources:
       - gke.cluster
     value:
-      path: nodePools
-    operator: greater_than
-    expected: 0
+      path: nodePools[].management.autoRepair
+    operator: not_contains
+    expected: false
     fail_message: Node auto-repair is not enabled. Without auto-repair, unhealthy nodes (failed health checks, unresponsive kubelet, disk pressure, or kernel panics) will remain in the cluster indefinitely, causing pod scheduling failures, degraded application performance, and potential cascading failures across workloads.
     recommendation: Enable node auto-repair using 'gcloud container node-pools update <pool> --cluster=<cluster> --enable-autorepair'. GKE will automatically detect unhealthy nodes via health checks (kubelet status, disk pressure, kernel panics) and drain and recreate them to restore cluster health.
     url: https://cloud.google.com/kubernetes-engine/docs/how-to/node-auto-repair
@@ -67,9 +67,15 @@ checks:
     sources:
       - gke.cluster
     value:
-      path: loggingService
-    operator: not_equals
-    expected: none
+      any:
+        - path: loggingService
+          operator: not_equals
+          expected: none
+        - path: loggingConfig.componentConfig.enableComponents
+          operator: contains
+          expected: SYSTEM_COMPONENTS
+    operator: equals
+    expected: true
     fail_message: Cloud Logging is disabled for this cluster. Without centralized logging, container stdout/stderr logs, Kubernetes audit logs, and system component logs are not collected, making it impossible to debug application issues, investigate security incidents, or meet compliance audit requirements.
     recommendation: Enable Cloud Logging using 'gcloud container clusters update <cluster> --logging=SYSTEM,WORKLOAD'. For granular control, configure specific log types with '--logging=SYSTEM,WORKLOAD,API_SERVER,SCHEDULER,CONTROLLER_MANAGER'. Ensure Cloud Logging API is enabled in the project.
     url: https://cloud.google.com/kubernetes-engine/docs/how-to/logging
@@ -82,9 +88,15 @@ checks:
     sources:
       - gke.cluster
     value:
-      path: monitoringService
-    operator: not_equals
-    expected: none
+      any:
+        - path: monitoringService
+          operator: not_equals
+          expected: none
+        - path: monitoringConfig.componentConfig.enableComponents
+          operator: contains
+          expected: SYSTEM_COMPONENTS
+    operator: equals
+    expected: true
     fail_message: Cloud Monitoring is disabled for this cluster. Without monitoring, there is no visibility into node CPU/memory utilization, pod health, container resource consumption, or Kubernetes control plane metrics. This prevents proactive capacity planning, SLO tracking, and timely alerting on infrastructure issues.
     recommendation: Enable Cloud Monitoring using 'gcloud container clusters update <cluster> --monitoring=SYSTEM,WORKLOAD'. Configure Google Cloud Managed Service for Prometheus for custom application metrics using '--enable-managed-prometheus'. Set up alerting policies in Cloud Monitoring for critical cluster events.
     url: https://cloud.google.com/kubernetes-engine/docs/how-to/monitoring
@@ -127,9 +139,9 @@ checks:
     sources:
       - gke.cluster
     value:
-      path: nodePools
-    operator: greater_than
-    expected: 0
+      path: nodePools[].autoscaling.enabled
+    operator: not_contains
+    expected: false
     fail_message: Cluster autoscaling is not enabled for one or more node pools, resulting in either over-provisioned resources (wasted cost) or under-provisioned capacity (pod scheduling failures during peak demand). Manual node scaling is slow, error-prone, and cannot respond to sudden traffic spikes.
     recommendation: Enable cluster autoscaler using 'gcloud container clusters update <cluster> --enable-autoscaling --min-nodes=<min> --max-nodes=<max> --node-pool=<pool>'. Configure appropriate min/max node counts based on baseline and peak workloads. Consider using Node Auto-Provisioning (NAP) for automatic node pool creation.
     url: https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-autoscaler

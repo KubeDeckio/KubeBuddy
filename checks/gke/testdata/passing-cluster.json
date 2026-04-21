@@ -16,9 +16,6 @@
     "channel": "REGULAR"
   },
 
-  "loggingService": "logging.googleapis.com/kubernetes",
-  "monitoringService": "monitoring.googleapis.com/kubernetes",
-
   "ipAllocationPolicy": {
     "useIpAliases": true,
     "clusterIpv4CidrBlock": "10.4.0.0/14",
@@ -35,21 +32,13 @@
     "masterIpv4CidrBlock": "172.16.0.0/28"
   },
 
-  "masterAuthorizedNetworksConfig": {
-    "enabled": true,
-    "cidrBlocks": [
-      { "cidrBlock": "10.0.0.0/8", "displayName": "internal" }
-    ]
-  },
-
   "networkPolicy": {
     "enabled": false
   },
 
-  "datapathProvider": "ADVANCED_DATAPATH",
-
   "networkConfig": {
     "enableIntraNodeVisibility": true,
+    "datapathProvider": "ADVANCED_DATAPATH",
     "gatewayApiConfig": {
       "channel": "CHANNEL_STANDARD"
     }
@@ -61,6 +50,9 @@
   },
 
   "monitoringConfig": {
+    "componentConfig": {
+      "enableComponents": ["SYSTEM_COMPONENTS", "POD", "DEPLOYMENT"]
+    },
     "managedPrometheusConfig": {
       "enabled": true
     }
@@ -76,6 +68,17 @@
     "enableNetworkEgressMetering": true,
     "bigqueryDestination": {
       "datasetId": "gke_usage"
+    }
+  },
+
+  "controlPlaneEndpointsConfig": {
+    "ipEndpointsConfig": {
+      "authorizedNetworksConfig": {
+        "enabled": true,
+        "cidrBlocks": [
+          { "cidrBlock": "10.0.0.0/8", "displayName": "internal" }
+        ]
+      }
     }
   },
 
