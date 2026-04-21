@@ -728,8 +728,8 @@ func renderGKEPage(page reportPage) string {
 	b.WriteString(metricCard(ratingClass(rating), "⭐ Rating", rating))
 	b.WriteString(`</div><div class="table-container">`)
 	b.WriteString(`<div class="aks-filter-bar" role="group" aria-label="GKE check filter">`)
-	b.WriteString(`<button type="button" class="aks-filter-btn is-active" id="gkeFilterFailed" data-filter-mode="failed" aria-pressed="true" onclick="setAKSFilter('failed')">Failed Checks Only</button>`)
-	b.WriteString(`<button type="button" class="aks-filter-btn" id="gkeFilterAll" data-filter-mode="all" aria-pressed="false" onclick="setAKSFilter('all')">All Checks</button>`)
+	b.WriteString(`<button type="button" class="aks-filter-btn is-active" id="gkeFilterFailed" data-filter-mode="failed" aria-pressed="true" onclick="setGKEFilter('failed')">Failed Checks Only</button>`)
+	b.WriteString(`<button type="button" class="aks-filter-btn" id="gkeFilterAll" data-filter-mode="all" aria-pressed="false" onclick="setGKEFilter('all')">All Checks</button>`)
 	b.WriteString(`</div>`)
 	categories := groupByCategory(page.Checks)
 	for _, category := range categories {
@@ -882,7 +882,7 @@ func renderCheckDetails(check scan.CheckResult) string {
 	}
 	if check.Total == 0 {
 		if strings.TrimSpace(check.SummaryMessage) != "" {
-			b.WriteString(`<p>` + esc(check.SummaryMessage) + `</p>`)
+			b.WriteString(renderSkippedNotice(check.SummaryMessage))
 		} else {
 			b.WriteString(`<p>No issues detected.</p>`)
 		}
@@ -905,6 +905,9 @@ func renderLegacyStandardSection(check scan.CheckResult) string {
 	var b strings.Builder
 	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatStandardHeading(check)) + ` ` + standardHeadingTooltip(check) + `</h2>`)
 	b.WriteString(`<p>` + compatStandardStatusLine(check) + `</p>`)
+	if check.Total == 0 && strings.TrimSpace(check.SummaryMessage) != "" {
+		b.WriteString(renderSkippedNotice(check.SummaryMessage))
+	}
 	if strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient prometheus history") {
 		b.WriteString(`<p>📅 ` + esc(check.SummaryMessage) + `</p>`)
 	}
@@ -957,11 +960,19 @@ func compatStandardStatusLine(check scan.CheckResult) string {
 	label := statusSubject(check)
 	if check.Total == 0 {
 		if strings.TrimSpace(check.SummaryMessage) != "" {
-			return `⚪ ` + esc(check.SummaryMessage)
+			return `⚪ Check could not be completed`
 		}
 		return `✅ All ` + esc(label) + ` are healthy.`
 	}
 	return `⚠️ Total ` + esc(label) + ` with Issues: ` + esc(strconv.Itoa(check.Total))
+}
+
+func renderSkippedNotice(message string) string {
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return ""
+	}
+	return `<div style="margin:0.75rem 0 1rem;padding:0.9rem 1rem;border-radius:12px;border:1px solid rgba(255,196,92,0.35);background:linear-gradient(180deg, rgba(255,196,92,0.14), rgba(255,196,92,0.08));color:#ffe7ad;"><strong style="display:block;margin-bottom:0.35rem;color:#ffd36b;">Unable to complete this check</strong><span style="line-height:1.6;">` + esc(trimmed) + `</span></div>`
 }
 
 func statusSubject(check scan.CheckResult) string {

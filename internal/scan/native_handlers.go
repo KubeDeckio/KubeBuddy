@@ -780,12 +780,12 @@ func runSEC016(check checks.Check, item map[string]any, cache map[string][]map[s
 
 func runSEC023(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	allowed := map[string]struct{}{
-		"kernel.shm_rmid_forced":          {},
-		"net.ipv4.ip_local_port_range":    {},
-		"net.ipv4.tcp_syncookies":         {},
-		"net.ipv4.ping_group_range":       {},
+		"kernel.shm_rmid_forced":              {},
+		"net.ipv4.ip_local_port_range":        {},
+		"net.ipv4.tcp_syncookies":             {},
+		"net.ipv4.ping_group_range":           {},
 		"net.ipv4.ip_unprivileged_port_start": {},
-		"net.ipv4.ip_local_reserved_ports": {},
+		"net.ipv4.ip_local_reserved_ports":    {},
 	}
 
 	podNamespace := namespaceOf(item)
@@ -2169,10 +2169,14 @@ func runPOD008(check checks.Check, item map[string]any, cache map[string][]map[s
 	if flag, ok := value.(bool); ok && !flag {
 		return nil, nil
 	}
+	displayValue := "not set (defaults to true)"
+	if value != nil {
+		displayValue = fmt.Sprint(value)
+	}
 	return []Finding{{
 		Namespace: namespaceOf(item),
 		Resource:  "pod/" + stringifyLookup(item, "metadata.name"),
-		Value:     fmt.Sprint(value),
+		Value:     displayValue,
 		Message:   "Pod automounts API credentials",
 	}}, nil
 }

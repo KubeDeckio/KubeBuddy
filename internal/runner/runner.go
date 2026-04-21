@@ -81,6 +81,7 @@ func Execute(opts compat.RunOptions) error {
 		result, err = scan.Run(scan.Options{
 			ChecksDir:                "checks/kubernetes",
 			ConfigPath:               opts.ConfigPath,
+			AKSMode:                  opts.AKS || opts.UseAKSRestAPI,
 			ExcludeNamespaces:        opts.ExcludeNamespaces,
 			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
 			IncludePrometheus:        opts.IncludePrometheus,
@@ -291,6 +292,7 @@ func printPhase(name string, message string) {
 
 func collectorProgress(current, total int, kind string) {
 	const barWidth = 25
+	const clearLine = "\x1b[K"
 	filled := 0
 	if total > 0 {
 		filled = (current * barWidth) / total
@@ -298,12 +300,12 @@ func collectorProgress(current, total int, kind string) {
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
 	if kind == "" {
 		// final call — move to next line so subsequent output isn't overwritten
-		fmt.Printf("\r%s[Collector]%s [%s] %d/%d complete                    \n",
-			colorGreen, colorReset, bar, current, total)
+		fmt.Printf("\r%s[Collector]%s [%s] %d/%d complete%s\n",
+			colorGreen, colorReset, bar, current, total, clearLine)
 		return
 	}
-	fmt.Printf("\r%s[Collector]%s [%s] %2d/%d  Gathering %-22s",
-		colorCyan, colorReset, bar, current, total, kind)
+	fmt.Printf("\r%s[Collector]%s [%s] %2d/%d  Gathering %-22s%s",
+		colorCyan, colorReset, bar, current, total, kind, clearLine)
 }
 
 func kubernetesReachable() bool {

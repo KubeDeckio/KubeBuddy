@@ -32,6 +32,15 @@ func TestScanRenderer(t *testing.T) {
 				Total:    0,
 			},
 			{
+				ID:             "NS002",
+				Name:           "Missing or Weak ResourceQuotas",
+				Category:       "Namespaces",
+				Section:        "Namespaces",
+				Severity:       "Warning",
+				Total:          0,
+				SummaryMessage: `Unable to check due to: resourcequotas is forbidden`,
+			},
+			{
 				ID:       "PROM006",
 				Name:     "Node Sizing Insights (Prometheus)",
 				Category: "Workloads",
@@ -157,6 +166,9 @@ func TestScanRenderer(t *testing.T) {
 	}
 	if !strings.Contains(out, "<code>az aks update --enable-private-cluster</code>") {
 		t.Fatalf("expected AKS recommendation html in output")
+	}
+	if !strings.Contains(out, "Unable to complete this check") || !strings.Contains(out, "resourcequotas is forbidden") {
+		t.Fatalf("expected skipped-check warning notice in output")
 	}
 }
 
