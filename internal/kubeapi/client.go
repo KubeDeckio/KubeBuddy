@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -411,12 +412,53 @@ func (c *Client) listByResource(ctx context.Context, info resourceInfo, allNames
 	} else {
 		list, err = c.dynamic.Resource(info.GVR).List(ctx, metav1.ListOptions{})
 	}
+	if err != nil && info.Namespaced && allNamespaces && (apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err)) {
+		return c.listByNamespace(ctx, info)
+	}
 	if err != nil {
 		return nil, err
 	}
 	out := make([]map[string]any, 0, len(list.Items))
 	for _, item := range list.Items {
 		out = append(out, item.Object)
+	}
+	return out, nil
+}
+
+func (c *Client) listByNamespace(ctx context.Context, info resourceInfo) ([]map[string]any, error) {
+	namespaceInfo, err := c.resource("namespaces")
+	if err != nil {
+		return nil, err
+	}
+	namespaceList, err := c.listByResource(ctx, namespaceInfo, false)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]map[string]any, 0)
+	var firstErr error
+	for _, item := range namespaceList {
+		namespace := lookup(item, "metadata.name")
+		if namespace == "" {
+			continue
+		}
+		list, err := c.dynamic.Resource(info.GVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
+			}
+			return nil, err
+		}
+		for _, listed := range list.Items {
+			out = append(out, listed.Object)
+		}
+	}
+
+	if len(out) == 0 && firstErr != nil {
+		return nil, firstErr
 	}
 	return out, nil
 }

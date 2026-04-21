@@ -45,6 +45,8 @@ func Execute(opts compat.RunOptions) error {
 
 	result := scan.Result{}
 	var snapshot *kubernetes.ClusterData
+	var collectorErr error
+	var kubernetesErr error
 	clusterReachable := kubernetesReachable()
 	if clusterReachable {
 		printPhase("Collector", "Building native cluster snapshot")
@@ -58,6 +60,7 @@ func Execute(opts compat.RunOptions) error {
 			Progress:                 collectorProgress,
 		})
 		if err != nil {
+			collectorErr = err
 			fmt.Printf("%s[Collector]%s Snapshot skipped: %v\n", colorGray, colorReset, err)
 		} else {
 			snapshot = &collected
@@ -87,6 +90,7 @@ func Execute(opts compat.RunOptions) error {
 			Progress:                 logCheckProgress("Kubernetes"),
 		})
 		if err != nil {
+			kubernetesErr = err
 			if !(opts.AKS || opts.GKE || opts.UseAKSRestAPI) {
 				return err
 			}
@@ -141,7 +145,8 @@ func Execute(opts compat.RunOptions) error {
 		fmt.Printf("%s[GKE]%s Completed %d checks with %d findings in %s\n", colorGreen, colorReset, len(gkeResult.Checks), findingsCount(gkeResult), time.Since(start).Round(time.Second))
 	}
 	if len(result.Checks) == 0 {
-		return fmt.Errorf("no checks executed")
+		result.Checks = append(result.Checks, runtimeDiagnosticCheck(clusterReachable, collectorErr, kubernetesErr))
+		fmt.Printf("%s[Runtime]%s No checks executed; writing diagnostic report instead\n", colorYellow, colorReset)
 	}
 	printPhase("AI", "Checking AI enrichment")
 	if enrichWithAI(&result) == 0 {
@@ -226,6 +231,34 @@ func Execute(opts compat.RunOptions) error {
 
 	fmt.Printf("%s[Reports]%s Reports written to %s\n", colorGreen, colorReset, outputPath)
 	return nil
+}
+
+func runtimeDiagnosticCheck(clusterReachable bool, collectorErr error, kubernetesErr error) scan.CheckResult {
+	lines := make([]string, 0, 3)
+	if !clusterReachable {
+		lines = append(lines, "cluster API was unreachable")
+	}
+	if collectorErr != nil {
+		lines = append(lines, "snapshot collection failed: "+collectorErr.Error())
+	}
+	if kubernetesErr != nil {
+		lines = append(lines, "kubernetes scan failed: "+kubernetesErr.Error())
+	}
+	if len(lines) == 0 {
+		lines = append(lines, "KubeBuddy did not execute any checks for an unknown reason")
+	}
+
+	return scan.CheckResult{
+		ID:                 "RUN001",
+		Name:               "Run Diagnostics",
+		Category:           "Runtime",
+		Section:            "Runtime",
+		Severity:           "Warning",
+		Description:        "Explains why KubeBuddy could not execute the expected checks for this run.",
+		Recommendation:     "Review cluster connectivity, kubeconfig permissions, and API access. Retry the run after correcting the reported issue.",
+		RecommendationHTML: "<div class=\"recommendation-content\"><ul><li>Check cluster connectivity and kubeconfig context.</li><li>Verify the identity running KubeBuddy can list the required Kubernetes resources.</li><li>Retry the scan after resolving the runtime issue.</li></ul></div>",
+		SummaryMessage:     "Unable to execute checks due to: " + strings.Join(lines, "; "),
+	}
 }
 
 func effectiveExcludedNamespaces(enabled bool, configured []string, extra []string) []string {

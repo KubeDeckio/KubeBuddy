@@ -24,8 +24,8 @@ Each tagged release should publish:
 - `kubebuddy_<version>_darwin_arm64.tar.gz`
 - `kubebuddy_<version>_linux_amd64.tar.gz`
 - `kubebuddy_<version>_linux_arm64.tar.gz`
-- `kubebuddy_<version>_windows_amd64.tar.gz`
-- `kubebuddy_<version>_windows_arm64.tar.gz`
+- `kubebuddy_<version>_windows_amd64.zip`
+- `kubebuddy_<version>_windows_arm64.zip`
 - `kubebuddy-psgallery-v<version>.tar.gz`
 - `checksums.txt`
 

@@ -854,7 +854,11 @@ func renderCheckDetails(check scan.CheckResult) string {
 	var b strings.Builder
 	summaryText := fmt.Sprintf("Show %s - %s", check.ID, check.Name)
 	if check.Total == 0 {
-		summaryText = fmt.Sprintf("Show %s - %s (No issues detected)", check.ID, check.Name)
+		if strings.TrimSpace(check.SummaryMessage) != "" {
+			summaryText = fmt.Sprintf("Show %s - %s (Skipped)", check.ID, check.Name)
+		} else {
+			summaryText = fmt.Sprintf("Show %s - %s (No issues detected)", check.ID, check.Name)
+		}
 	}
 	b.WriteString(`<div class="collapsible-container"><details id="` + escAttr(check.ID) + `"><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>` + esc(summaryText) + `</summary><div style='padding-top: 15px;'><div class="card">`)
 	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(check.Name) + `</h2>`)
@@ -877,7 +881,11 @@ func renderCheckDetails(check scan.CheckResult) string {
 		b.WriteString(`<div class="recommendation-card"><ul><li><strong>Docs:</strong> <a href='` + escAttr(check.URL) + `' target='_blank'>Reference</a></li></ul></div>`)
 	}
 	if check.Total == 0 {
-		b.WriteString(`<p>No issues detected.</p>`)
+		if strings.TrimSpace(check.SummaryMessage) != "" {
+			b.WriteString(`<p>` + esc(check.SummaryMessage) + `</p>`)
+		} else {
+			b.WriteString(`<p>No issues detected.</p>`)
+		}
 	} else {
 		b.WriteString(`<div class="table-container"><table><tr><th>Namespace</th><th>Resource</th><th>Value</th><th>Message</th></tr>`)
 		for _, item := range check.Items {
@@ -948,6 +956,9 @@ func standardHeadingTooltip(check scan.CheckResult) string {
 func compatStandardStatusLine(check scan.CheckResult) string {
 	label := statusSubject(check)
 	if check.Total == 0 {
+		if strings.TrimSpace(check.SummaryMessage) != "" {
+			return `⚪ ` + esc(check.SummaryMessage)
+		}
 		return `✅ All ` + esc(label) + ` are healthy.`
 	}
 	return `⚠️ Total ` + esc(label) + ` with Issues: ` + esc(strconv.Itoa(check.Total))

@@ -229,6 +229,9 @@ func buildCompatCheckResult(check scan.CheckResult, metrics any) jsonCheckResult
 	}
 	if check.SummaryMessage != "" {
 		out.SummaryMessage = check.SummaryMessage
+		if check.Total == 0 {
+			out.Message = check.SummaryMessage
+		}
 	}
 	return out
 }
@@ -250,6 +253,12 @@ func recommendationPayload(check scan.CheckResult) any {
 func compatItems(check scan.CheckResult, metrics any) any {
 	if check.CompatItems != nil {
 		return check.CompatItems
+	}
+	if len(check.Items) == 0 && strings.TrimSpace(check.SummaryMessage) != "" && !strings.HasPrefix(check.ID, "AKS") {
+		return map[string]any{
+			"Status":  "Skipped",
+			"Message": strings.TrimSpace(check.SummaryMessage),
+		}
 	}
 	switch check.ID {
 	case "NODE001":
@@ -1094,6 +1103,9 @@ func compatRecommendationText(value any) string {
 }
 
 func compatTextLines(check jsonCheckResult) ([]string, bool) {
+	if check.Total == 0 && strings.TrimSpace(check.SummaryMessage) != "" {
+		return []string{textSanitize(check.SummaryMessage)}, false
+	}
 	switch check.ID {
 	case "NODE001":
 		rows := make([][]string, 0)

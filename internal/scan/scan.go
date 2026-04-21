@@ -127,7 +127,17 @@ func Run(opts Options) (Result, error) {
 		if check.Prometheus != nil {
 			result, err := runPrometheusCheck(check)
 			if err != nil {
-				return partialResultError(out, check.ID, err)
+				result := skippedCheckResult(check, err)
+				out.Checks = append(out.Checks, result)
+				emitProgress(opts.Progress, ProgressEvent{
+					Stage:     "result",
+					CheckID:   result.ID,
+					CheckName: result.Name,
+					Index:     current,
+					Total:     declarativeTotal,
+					Findings:  result.Total,
+				})
+				continue
 			}
 			out.Checks = append(out.Checks, result)
 			emitProgress(opts.Progress, ProgressEvent{
@@ -146,32 +156,34 @@ func Run(opts Options) (Result, error) {
 			var err error
 			items, err = getItems(ctx, client, cache, check.ResourceKind)
 			if err != nil {
-				return partialResultError(out, check.ID, err)
+				result := skippedCheckResult(check, err)
+				out.Checks = append(out.Checks, result)
+				emitProgress(opts.Progress, ProgressEvent{
+					Stage:     "result",
+					CheckID:   result.ID,
+					CheckName: result.Name,
+					Index:     current,
+					Total:     declarativeTotal,
+					Findings:  result.Total,
+				})
+				continue
 			}
 		}
 
-		result := CheckResult{
-			ID:                         check.ID,
-			Name:                       check.Name,
-			Category:                   check.Category,
-			Section:                    check.Section,
-			Severity:                   string(check.Severity),
-			Weight:                     check.Weight,
-			Description:                check.Description,
-			Recommendation:             check.Recommendation,
-			RecommendationHTML:         check.RecommendationHTML,
-			SpeechBubble:               append([]string(nil), check.SpeechBubble...),
-			URL:                        check.URL,
-			ResourceKind:               check.ResourceKind,
-			AutomaticRelevance:         check.AutomaticRelevance,
-			AutomaticScope:             check.AutomaticScope,
-			AutomaticReason:            check.AutomaticReason,
-			AutomaticAdmissionBehavior: check.AutomaticAdmissionBehavior,
-			AutomaticMutationOutcome:   check.AutomaticMutationOutcome,
-		}
+		result := baseCheckResult(check)
 
 		if findings, ok, err := executeNativeHandler(check, items, cache); err != nil {
-			return partialResultError(out, check.ID, err)
+			result = skippedCheckResult(check, err)
+			out.Checks = append(out.Checks, result)
+			emitProgress(opts.Progress, ProgressEvent{
+				Stage:     "result",
+				CheckID:   result.ID,
+				CheckName: result.Name,
+				Index:     current,
+				Total:     declarativeTotal,
+				Findings:  result.Total,
+			})
+			continue
 		} else if ok {
 			result.Items = findings
 			result.Total = len(result.Items)
@@ -222,7 +234,17 @@ func Run(opts Options) (Result, error) {
 		for _, item := range items {
 			eval, err := checks.EvaluateItem(check, item)
 			if err != nil {
-				return partialResultError(out, check.ID, err)
+				result = skippedCheckResult(check, err)
+				out.Checks = append(out.Checks, result)
+				emitProgress(opts.Progress, ProgressEvent{
+					Stage:     "result",
+					CheckID:   result.ID,
+					CheckName: result.Name,
+					Index:     current,
+					Total:     declarativeTotal,
+					Findings:  result.Total,
+				})
+				goto nextCheck
 			}
 			if !eval.Failed {
 				continue
@@ -246,15 +268,39 @@ func Run(opts Options) (Result, error) {
 			Total:     declarativeTotal,
 			Findings:  result.Total,
 		})
+	nextCheck:
 	}
 
 	sort.Slice(out.Checks, func(i, j int) bool { return out.Checks[i].ID < out.Checks[j].ID })
 	return out, nil
 }
 
-func partialResultError(out Result, checkID string, err error) (Result, error) {
-	sort.Slice(out.Checks, func(i, j int) bool { return out.Checks[i].ID < out.Checks[j].ID })
-	return out, fmt.Errorf("%s: %w", checkID, err)
+func baseCheckResult(check checks.Check) CheckResult {
+	return CheckResult{
+		ID:                         check.ID,
+		Name:                       check.Name,
+		Category:                   check.Category,
+		Section:                    check.Section,
+		Severity:                   string(check.Severity),
+		Weight:                     check.Weight,
+		Description:                check.Description,
+		Recommendation:             check.Recommendation,
+		RecommendationHTML:         check.RecommendationHTML,
+		SpeechBubble:               append([]string(nil), check.SpeechBubble...),
+		URL:                        check.URL,
+		ResourceKind:               check.ResourceKind,
+		AutomaticRelevance:         check.AutomaticRelevance,
+		AutomaticScope:             check.AutomaticScope,
+		AutomaticReason:            check.AutomaticReason,
+		AutomaticAdmissionBehavior: check.AutomaticAdmissionBehavior,
+		AutomaticMutationOutcome:   check.AutomaticMutationOutcome,
+	}
+}
+
+func skippedCheckResult(check checks.Check, err error) CheckResult {
+	result := baseCheckResult(check)
+	result.SummaryMessage = fmt.Sprintf("Unable to check due to: %v", err)
+	return result
 }
 
 func countDeclarativeChecks(checksList []checks.Check) int {
