@@ -98,6 +98,7 @@ Below is a categorized list of all GKE checks, ordered by ID and category.
 | GKEBP008 | Release Channel Configured          | Medium   |
 | GKEBP009 | Cluster Autoscaler Configured       | Medium   |
 | GKEBP010 | Binary Authorization Enabled        | High     |
+| GKEBP011 | Kubernetes Dashboard Disabled       | Medium   |
 
 ### Security
 
@@ -109,6 +110,11 @@ Below is a categorized list of all GKE checks, ordered by ID and category.
 | GKESEC004 | GKE Dataplane V2 (Cilium) Enabled           | Medium   |
 | GKESEC005 | Intranode Visibility Enabled                | Medium   |
 | GKESEC006 | Application-Layer Secrets Encryption        | High     |
+| GKESEC007 | Secure Boot Enabled on Node Pools           | High     |
+| GKESEC008 | Integrity Monitoring Enabled on Node Pools  | High     |
+| GKESEC009 | Custom Node Service Account Used            | High     |
+| GKESEC010 | Client Certificate Authentication Disabled  | High     |
+| GKESEC011 | Google Groups for RBAC Configured           | Medium   |
 
 ### Monitoring
 

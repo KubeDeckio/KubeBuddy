@@ -49,8 +49,14 @@ func TestRunGKECurrentSchemaFixtureFlagsExpectedFailures(t *testing.T) {
 		"GKEBP005":  false,
 		"GKEBP006":  false,
 		"GKEBP009":  false,
+		"GKEBP011":  false,
 		"GKESEC002": false,
 		"GKESEC004": false,
+		"GKESEC007": false,
+		"GKESEC008": false,
+		"GKESEC009": false,
+		"GKESEC010": false,
+		"GKESEC011": false,
 	}
 
 	for _, check := range result.Checks {
@@ -83,8 +89,14 @@ func TestRunGKECurrentSchemaFixturePassesExpectedChecks(t *testing.T) {
 		"GKEBP005":  false,
 		"GKEBP006":  false,
 		"GKEBP009":  false,
+		"GKEBP011":  false,
 		"GKESEC002": false,
 		"GKESEC004": false,
+		"GKESEC007": false,
+		"GKESEC008": false,
+		"GKESEC009": false,
+		"GKESEC010": false,
+		"GKESEC011": false,
 	}
 
 	for _, check := range result.Checks {

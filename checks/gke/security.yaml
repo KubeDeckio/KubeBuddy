@@ -112,3 +112,84 @@ checks:
     fail_message: Application-layer secrets encryption with a Cloud KMS key is not enabled. While GKE encrypts etcd data at rest by default, without application-layer encryption using a customer-managed key (CMEK), Google manages the encryption keys. This may not satisfy compliance requirements (PCI-DSS, HIPAA) that mandate customer-controlled key management.
     recommendation: Enable application-layer secrets encryption using 'gcloud container clusters update <cluster> --database-encryption-key=projects/<project>/locations/<location>/keyRings/<ring>/cryptoKeys/<key>'. First create a Cloud KMS key ring and crypto key, then grant the GKE service account the 'Cloud KMS CryptoKey Encrypter/Decrypter' role.
     url: https://cloud.google.com/kubernetes-engine/docs/how-to/encrypting-secrets
+
+  - id: GKESEC007
+    name: Secure Boot Enabled on Node Pools
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: nodePools[].config.shieldedInstanceConfig.enableSecureBoot
+    operator: not_contains
+    expected: false
+    fail_message: Secure Boot is not enabled on one or more node pools. Without Secure Boot, nodes are more exposed to boot-level malware, unsigned kernel modules, and tampering that can compromise the integrity of the node before Kubernetes controls are active.
+    recommendation: Enable Secure Boot on all supported node pools by updating the Shielded VM configuration. Use Shielded GKE Nodes together with Secure Boot to strengthen node integrity.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster
+
+  - id: GKESEC008
+    name: Integrity Monitoring Enabled on Node Pools
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: nodePools[].config.shieldedInstanceConfig.enableIntegrityMonitoring
+    operator: not_contains
+    expected: false
+    fail_message: Integrity Monitoring is not enabled on one or more node pools. Without integrity monitoring, you lose visibility into boot integrity issues and signs of node compromise, which weakens detection of tampering and reduces confidence in node trustworthiness.
+    recommendation: Enable integrity monitoring on all supported node pools as part of the Shielded VM configuration. Review integrity monitoring signals as part of your node security operations.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster
+
+  - id: GKESEC009
+    name: Custom Node Service Account Used
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: nodePools[].config.serviceAccount
+    operator: not_contains
+    expected: default
+    fail_message: One or more node pools use the default Compute Engine service account or do not specify a dedicated node service account. This can grant nodes broader IAM permissions than required and increases the blast radius if a node or system workload is compromised.
+    recommendation: Configure a dedicated, least-privilege IAM service account for each node pool instead of using the default Compute Engine service account. Grant only the permissions GKE needs to operate system components.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/service-accounts
+
+  - id: GKESEC010
+    name: Client Certificate Authentication Disabled
+    category: Security
+    severity: High
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: masterAuth.clientCertificateConfig.issueClientCertificate
+    operator: equals
+    expected: false
+    fail_message: Client certificate authentication is enabled for the cluster. Legacy client certificates increase the attack surface for Kubernetes API authentication and are not recommended for modern GKE access patterns.
+    recommendation: Disable client certificate issuance for cluster authentication and use supported identity-based access methods such as gcloud-managed OAuth credentials and RBAC-integrated Google identities.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster
+
+  - id: GKESEC011
+    name: Google Groups for RBAC Configured
+    category: Security
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      all:
+        - path: authenticatorGroupsConfig.enabled
+          operator: equals
+          expected: true
+        - path: authenticatorGroupsConfig.securityGroup
+          operator: not_equals
+          expected: null
+    operator: equals
+    expected: true
+    fail_message: Google Groups for RBAC is not configured. Without group-based authentication mapping, access is harder to govern consistently and user-to-role assignments are more likely to drift from centralized identity management.
+    recommendation: Configure Google Groups for RBAC so cluster access is managed through centrally governed groups instead of direct per-user bindings wherever possible.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster

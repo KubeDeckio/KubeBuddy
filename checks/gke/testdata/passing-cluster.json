@@ -26,6 +26,11 @@
     "evaluationMode": "PROJECT_SINGLETON_POLICY_ENFORCE"
   },
 
+  "authenticatorGroupsConfig": {
+    "enabled": true,
+    "securityGroup": "gke-security-groups@example.com"
+  },
+
   "privateClusterConfig": {
     "enablePrivateNodes": true,
     "enablePrivateEndpoint": false,
@@ -83,9 +88,18 @@
   },
 
   "addonsConfig": {
+    "kubernetesDashboard": {
+      "disabled": true
+    },
     "httpLoadBalancing": {},
     "dnsCacheConfig": {
       "enabled": true
+    }
+  },
+
+  "masterAuth": {
+    "clientCertificateConfig": {
+      "issueClientCertificate": false
     }
   },
 
@@ -95,7 +109,12 @@
       "config": {
         "machineType": "e2-standard-4",
         "diskSizeGb": 100,
-        "diskType": "pd-balanced"
+        "diskType": "pd-balanced",
+        "serviceAccount": "gke-nodes@my-project.iam.gserviceaccount.com",
+        "shieldedInstanceConfig": {
+          "enableSecureBoot": true,
+          "enableIntegrityMonitoring": true
+        }
       },
       "management": {
         "autoUpgrade": true,
@@ -113,7 +132,12 @@
       "config": {
         "machineType": "n2-highmem-8",
         "diskSizeGb": 200,
-        "diskType": "pd-ssd"
+        "diskType": "pd-ssd",
+        "serviceAccount": "gke-nodes@my-project.iam.gserviceaccount.com",
+        "shieldedInstanceConfig": {
+          "enableSecureBoot": true,
+          "enableIntegrityMonitoring": true
+        }
       },
       "management": {
         "autoUpgrade": true,

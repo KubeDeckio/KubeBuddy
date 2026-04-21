@@ -160,3 +160,18 @@ checks:
     fail_message: Binary Authorization is not enabled. Without it, any container image from any registry can be deployed to the cluster, including images with known vulnerabilities, unsigned images, or images from untrusted sources. This creates significant supply chain security risks and violates software provenance best practices.
     recommendation: Enable Binary Authorization using 'gcloud container clusters update <cluster> --binauthz-evaluation-mode=PROJECT_SINGLETON_POLICY_ENFORCE'. Create attestation policies that require images to be signed by trusted authorities before deployment. Integrate with Cloud Build for automated signing during CI/CD pipelines.
     url: https://cloud.google.com/binary-authorization/docs/overview
+
+  - id: GKEBP011
+    name: Kubernetes Dashboard Disabled
+    category: Best Practices
+    severity: Medium
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: addonsConfig.kubernetesDashboard.disabled
+    operator: equals
+    expected: true
+    fail_message: The Kubernetes Dashboard add-on is enabled. The dashboard increases the cluster attack surface and can expose sensitive operational data if it is deployed or accessed insecurely. Google recommends leaving the dashboard disabled on GKE.
+    recommendation: Disable the Kubernetes Dashboard add-on and use more controlled access patterns such as kubectl, Cloud Console, or approved observability tooling. Keep the dashboard disabled for standard GKE hardening.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster

@@ -182,6 +182,11 @@ func evaluateGKECheck(check checks.Check, document map[string]any, eval checks.E
 		ok := !strings.EqualFold(mode, "DISABLED") && mode != ""
 		return gkeBoolEval(!ok, ok), nil
 
+	case "GKEBP011":
+		// Kubernetes Dashboard disabled
+		ok := boolFromAny(mustResolve(document, "addonsConfig.kubernetesDashboard.disabled"))
+		return gkeBoolEval(!ok, ok), nil
+
 	case "GKESEC001":
 		// Private Nodes
 		ok := boolFromAny(mustResolve(document, "privateClusterConfig.enablePrivateNodes"))
@@ -213,6 +218,32 @@ func evaluateGKECheck(check checks.Check, document map[string]any, eval checks.E
 		// Application-Layer Secrets Encryption
 		state := strings.TrimSpace(stringifyLookup(document, "databaseEncryption.state"))
 		ok := strings.EqualFold(state, "ENCRYPTED")
+		return gkeBoolEval(!ok, ok), nil
+
+	case "GKESEC007":
+		// Secure Boot on all node pools
+		ok := gkeAllNodePoolsBool(document, "config.shieldedInstanceConfig.enableSecureBoot")
+		return gkeBoolEval(!ok, ok), nil
+
+	case "GKESEC008":
+		// Integrity Monitoring on all node pools
+		ok := gkeAllNodePoolsBool(document, "config.shieldedInstanceConfig.enableIntegrityMonitoring")
+		return gkeBoolEval(!ok, ok), nil
+
+	case "GKESEC009":
+		// Custom node service account on all node pools
+		ok := gkeAllNodePoolsCustomServiceAccount(document)
+		return gkeBoolEval(!ok, ok), nil
+
+	case "GKESEC010":
+		// Client certificate issuance disabled
+		ok := !boolFromAny(mustResolve(document, "masterAuth.clientCertificateConfig.issueClientCertificate"))
+		return gkeBoolEval(!ok, ok), nil
+
+	case "GKESEC011":
+		// Google Groups for RBAC configured
+		ok := boolFromAny(mustResolve(document, "authenticatorGroupsConfig.enabled")) &&
+			strings.TrimSpace(stringifyLookup(document, "authenticatorGroupsConfig.securityGroup")) != ""
 		return gkeBoolEval(!ok, ok), nil
 	}
 
@@ -252,6 +283,26 @@ func gkeAllNodePoolsBool(document map[string]any, path string) bool {
 	}
 	for _, pool := range pools {
 		if !boolFromAny(mustResolve(pool, path)) {
+			return false
+		}
+	}
+	return true
+}
+
+func gkeAllNodePoolsCustomServiceAccount(document map[string]any) bool {
+	pools := gkeNodePools(document)
+	if len(pools) == 0 {
+		return false
+	}
+	for _, pool := range pools {
+		serviceAccount := strings.TrimSpace(stringifyLookup(pool, "config.serviceAccount"))
+		if serviceAccount == "" {
+			return false
+		}
+		if strings.EqualFold(serviceAccount, "default") {
+			return false
+		}
+		if strings.HasSuffix(strings.ToLower(serviceAccount), "-compute@developer.gserviceaccount.com") {
 			return false
 		}
 	}

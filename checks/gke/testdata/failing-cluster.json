@@ -20,6 +20,11 @@
     "evaluationMode": "DISABLED"
   },
 
+  "authenticatorGroupsConfig": {
+    "enabled": false,
+    "securityGroup": ""
+  },
+
   "privateClusterConfig": {
     "enablePrivateNodes": false
   },
@@ -65,11 +70,20 @@
   },
 
   "addonsConfig": {
+    "kubernetesDashboard": {
+      "disabled": false
+    },
     "httpLoadBalancing": {
       "disabled": true
     },
     "dnsCacheConfig": {
       "enabled": false
+    }
+  },
+
+  "masterAuth": {
+    "clientCertificateConfig": {
+      "issueClientCertificate": true
     }
   },
 
@@ -79,7 +93,12 @@
       "config": {
         "machineType": "e2-medium",
         "diskSizeGb": 50,
-        "diskType": "pd-standard"
+        "diskType": "pd-standard",
+        "serviceAccount": "default",
+        "shieldedInstanceConfig": {
+          "enableSecureBoot": false,
+          "enableIntegrityMonitoring": false
+        }
       },
       "management": {
         "autoUpgrade": false,
