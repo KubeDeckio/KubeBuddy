@@ -123,13 +123,6 @@ jobs:
 
       - name: Build bundled native binaries for module package
         run: |
-          New-Item -ItemType Directory -Path ./bin/windows-amd64 -Force | Out-Null
-          New-Item -ItemType Directory -Path ./bin/windows-arm64 -Force | Out-Null
-          New-Item -ItemType Directory -Path ./bin/darwin-amd64 -Force | Out-Null
-          New-Item -ItemType Directory -Path ./bin/darwin-arm64 -Force | Out-Null
-          New-Item -ItemType Directory -Path ./bin/linux-amd64 -Force | Out-Null
-          New-Item -ItemType Directory -Path ./bin/linux-arm64 -Force | Out-Null
-
           $version = (Import-PowerShellDataFile ./KubeBuddy.psd1).ModuleVersion
           $ldflags = "-s -w -X github.com/KubeDeckio/KubeBuddy/internal/version.Version=v$version"
 
@@ -143,6 +136,7 @@ jobs:
           )
 
           foreach ($target in $targets) {
+            New-Item -ItemType Directory -Path (Split-Path $target.OUT) -Force | Out-Null
             Write-Host "Building $($target.GOOS)/$($target.GOARCH) -> $($target.OUT)"
             $env:CGO_ENABLED = "0"
             $env:GOOS = $target.GOOS
@@ -152,10 +146,37 @@ jobs:
           }
         shell: pwsh
 
+      - name: Stage module files for publishing
+        run: |
+          # Build a clean publish directory containing only the module files.
+          # Publishing the whole repo includes Go source, docs, etc. and exceeds
+          # the PSGallery package size limit (413 error).
+          $stagingDir = "$env:RUNNER_TEMP/KubeBuddy"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+          # Core module files
+          Copy-Item ./KubeBuddy.psd1  $stagingDir
+          Copy-Item ./KubeBuddy.psm1  $stagingDir
+          Copy-Item ./LICENSE          $stagingDir
+          Copy-Item ./Public           $stagingDir -Recurse
+          Copy-Item ./Private          $stagingDir -Recurse -ErrorAction SilentlyContinue
+
+          # Native binaries for all supported platforms
+          Copy-Item ./bin $stagingDir -Recurse
+
+          # Report the contents and total size
+          $totalMB = (Get-ChildItem $stagingDir -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host "Staging directory: $stagingDir"
+          Write-Host "Total staged size: $([math]::Round($totalMB, 1)) MB"
+          Get-ChildItem $stagingDir -Recurse | Select-Object FullName, Length
+
+          "STAGING_DIR=$stagingDir" | Out-File -FilePath $env:GITHUB_ENV -Append
+        shell: pwsh
+
       - name: Publish to PowerShell Gallery
         run: |
           Install-Module -Name PowerShellGet -Force -AllowClobber
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Publish-Module -Path ./ -NuGetApiKey $env:PSGALLERY_API_KEY -Repository PSGallery
+          Publish-Module -Path $env:STAGING_DIR -NuGetApiKey $env:PSGALLERY_API_KEY -Repository PSGallery
         env:
           PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
