@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+* **EKS best-practice checks (`scan-eks`)**
+  * Added 21 EKS-specific checks across four categories: Best Practices (8), Security (7), Monitoring (3), and Networking (3).
+  * Added the `scan-eks` CLI command for scanning EKS clusters from a local JSON file (`--input`) or live via the AWS default credential chain (`--cluster-name`, `--region`).
+  * Added live enrichment: `DescribeCluster`, `ListAddons`, `DescribeAddon`, `ListNodegroups`, and `DescribeNodegroup` are called to build a complete cluster document.
+  * Added an EKS Best Practices tab to the HTML report with pass/fail scoring and A–F rating.
+  * Added unit tests for the EKS scan engine covering failing/passing fixtures, config-based exclusion, category coverage, and helper functions.
+  * Added documentation at `docs/cli/eks-best-practice-checks.md`.
+  * Added `checks/eks/` declarative YAML check catalog with test fixtures.
+
 ## [0.0.28] - 2026-04-15
 
 ### Added

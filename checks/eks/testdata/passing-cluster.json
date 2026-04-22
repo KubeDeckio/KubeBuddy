@@ -1,0 +1,118 @@
+{
+  "name": "secure-eks-cluster",
+  "arn": "arn:aws:eks:us-east-1:123456789012:cluster/secure-eks-cluster",
+  "version": "1.31",
+  "platformVersion": "eks.8",
+  "status": "ACTIVE",
+  "roleArn": "arn:aws:iam::123456789012:role/eksClusterRole",
+
+  "identity": {
+    "oidc": {
+      "issuer": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B71EXAMPLE"
+    }
+  },
+
+  "resourcesVpcConfig": {
+    "subnetIds": ["subnet-aaa", "subnet-bbb", "subnet-ccc"],
+    "securityGroupIds": ["sg-custom-001"],
+    "clusterSecurityGroupId": "sg-cluster-managed",
+    "vpcId": "vpc-67890",
+    "endpointPublicAccess": false,
+    "endpointPrivateAccess": true,
+    "publicAccessCidrs": ["10.0.0.0/8"]
+  },
+
+  "kubernetesNetworkConfig": {
+    "serviceIpv4Cidr": "10.100.0.0/16",
+    "ipFamily": "ipv4"
+  },
+
+  "encryptionConfig": [
+    {
+      "resources": ["secrets"],
+      "provider": {
+        "keyArn": "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+      }
+    }
+  ],
+
+  "logging": {
+    "clusterLogging": [
+      {
+        "types": ["api", "audit", "authenticator", "controllerManager", "scheduler"],
+        "enabled": true
+      }
+    ]
+  },
+
+  "computeConfig": {
+    "enabled": true
+  },
+
+  "accessConfig": {
+    "authenticationMode": "API"
+  },
+
+  "tags": {
+    "Environment": "production",
+    "Team": "platform",
+    "CostCenter": "engineering"
+  },
+
+  "_nodeGroups": [
+    {
+      "nodegroupName": "main-nodes",
+      "instanceTypes": ["m6i.xlarge"],
+      "scalingConfig": {
+        "minSize": 2,
+        "maxSize": 10,
+        "desiredSize": 3
+      },
+      "amiType": "BOTTLEROCKET_x86_64"
+    },
+    {
+      "nodegroupName": "gpu-nodes",
+      "instanceTypes": ["g5.xlarge"],
+      "scalingConfig": {
+        "minSize": 0,
+        "maxSize": 5,
+        "desiredSize": 0
+      },
+      "amiType": "AL2023_x86_64_NVIDIA"
+    }
+  ],
+
+  "_addons": [
+    {
+      "addonName": "vpc-cni",
+      "addonVersion": "v1.18.5-eksbuild.1",
+      "status": "ACTIVE"
+    },
+    {
+      "addonName": "coredns",
+      "addonVersion": "v1.11.3-eksbuild.1",
+      "status": "ACTIVE"
+    },
+    {
+      "addonName": "kube-proxy",
+      "addonVersion": "v1.31.2-eksbuild.3",
+      "status": "ACTIVE"
+    },
+    {
+      "addonName": "eks-pod-identity-agent",
+      "addonVersion": "v1.3.4-eksbuild.1",
+      "status": "ACTIVE"
+    },
+    {
+      "addonName": "amazon-cloudwatch-observability",
+      "addonVersion": "v2.3.0-eksbuild.1",
+      "status": "ACTIVE"
+    }
+  ],
+
+  "_hasPodIdentityAgent": true,
+  "_hasCloudWatchObservability": true,
+  "_hasVpcCniAddon": true,
+  "_hasCoreDnsAddon": true,
+  "_hasKubeProxyAddon": true
+}

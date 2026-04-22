@@ -1,0 +1,120 @@
+checks:
+  - id: EKSBP001
+    name: IAM Roles for Service Accounts (IRSA) Enabled
+    category: Best Practices
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: identity.oidc.issuer
+    operator: not_equals
+    expected: null
+    fail_message: OIDC provider is not associated with this EKS cluster, which means IAM Roles for Service Accounts (IRSA) cannot be used. Without IRSA, pods must rely on the node's IAM role for AWS API access, granting overly broad permissions to all pods on a node and violating the principle of least privilege.
+    recommendation: Associate an OIDC provider using 'eksctl utils associate-iam-oidc-provider --cluster <cluster> --approve' or 'aws eks update-cluster-config'. Then create IAM roles with trust policies scoped to specific Kubernetes service accounts for fine-grained, per-pod AWS API access.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html
+
+  - id: EKSBP002
+    name: Platform Version Is Current
+    category: Best Practices
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: platformVersion
+    operator: not_equals
+    expected: null
+    fail_message: Unable to determine the EKS platform version. The platform version indicates whether the cluster is running the latest patches and security fixes for its Kubernetes version. An outdated platform version may be missing critical bug fixes, performance improvements, and security patches applied by AWS.
+    recommendation: Check the current platform version using 'aws eks describe-cluster --name <cluster> --query cluster.platformVersion'. If outdated, update the cluster using 'aws eks update-cluster-version --name <cluster> --kubernetes-version <version>'. AWS automatically updates platform versions for supported Kubernetes versions.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/platform-versions.html
+
+  - id: EKSBP003
+    name: Cluster Kubernetes Version Supported
+    category: Best Practices
+    severity: High
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: version
+    operator: not_equals
+    expected: null
+    fail_message: The cluster Kubernetes version could not be determined. Running an unsupported or end-of-life Kubernetes version means no security patches, no bug fixes, and potential API deprecation issues. AWS provides standard support for each Kubernetes version for approximately 14 months after release.
+    recommendation: Verify the Kubernetes version using 'aws eks describe-cluster --name <cluster> --query cluster.version'. Plan upgrades before version end-of-support using 'aws eks update-cluster-version'. Follow the EKS version calendar at https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html
+
+  - id: EKSBP004
+    name: Managed Node Groups Used
+    category: Best Practices
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: _nodeGroups
+    operator: greater_than
+    expected: 0
+    fail_message: No managed node groups were detected. Self-managed node groups require manual AMI updates, manual draining during upgrades, and custom launch template management. Managed node groups automate these operations, reducing operational overhead and ensuring nodes stay patched and compatible with the control plane version.
+    recommendation: Create managed node groups using 'eksctl create nodegroup --cluster <cluster> --name <name> --node-type <type> --nodes <count>' or the AWS Console. Managed node groups automate provisioning, upgrading, and graceful draining of nodes during Kubernetes version updates.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html
+
+  - id: EKSBP005
+    name: EKS Add-ons Managed by EKS
+    category: Best Practices
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: _addons
+    operator: greater_than
+    expected: 0
+    fail_message: No EKS-managed add-ons were detected. Self-managed add-ons (CoreDNS, kube-proxy, VPC CNI) require manual version tracking, compatibility verification, and update coordination. EKS-managed add-ons are automatically updated, ensuring compatibility with the cluster version and reducing the risk of version drift.
+    recommendation: Install EKS-managed add-ons using 'aws eks create-addon --cluster-name <cluster> --addon-name <name>' for vpc-cni, coredns, and kube-proxy at minimum. Use 'aws eks describe-addon-versions' to check compatible versions. Configure the PRESERVE conflict resolution policy for safe updates.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
+
+  - id: EKSBP006
+    name: EKS Auto Mode or Karpenter Configured
+    category: Best Practices
+    severity: Low
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: computeConfig.enabled
+    operator: equals
+    expected: true
+    fail_message: EKS Auto Mode is not enabled. Without EKS Auto Mode or a node provisioning controller like Karpenter, cluster autoscaling relies on Cluster Autoscaler which is slower to react, requires pre-defined node group configurations, and cannot optimize instance type selection based on pending pod requirements.
+    recommendation: Enable EKS Auto Mode during cluster creation or update. Alternatively, deploy Karpenter for intelligent, workload-driven node provisioning using 'helm install karpenter oci://public.ecr.aws/karpenter/karpenter'. Karpenter provisions right-sized nodes in seconds based on pending pod resource requirements.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/automode.html
+
+  - id: EKSBP007
+    name: Access Configuration Uses API Mode
+    category: Best Practices
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: accessConfig.authenticationMode
+    operator: not_equals
+    expected: CONFIG_MAP
+    fail_message: Cluster authentication is using the legacy CONFIG_MAP mode (aws-auth ConfigMap). This approach is error-prone, lacks audit trail for access changes, and requires manual YAML editing. A misconfigured aws-auth ConfigMap can lock out all users from the cluster.
+    recommendation: Migrate to API authentication mode using 'aws eks update-cluster-config --name <cluster> --access-config authenticationMode=API_AND_CONFIG_MAP'. Then transition fully to API mode by creating access entries with 'aws eks create-access-entry' and removing aws-auth ConfigMap entries.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/access-entries.html
+
+  - id: EKSBP008
+    name: Cluster Tags Applied
+    category: Best Practices
+    severity: Low
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: tags
+    operator: not_equals
+    expected: null
+    fail_message: No tags are applied to this EKS cluster. Without tags, it is difficult to implement cost allocation, enforce organizational policies, automate resource management, or identify cluster ownership. Tags are essential for multi-account governance and chargeback in enterprise environments.
+    recommendation: Apply tags using 'aws eks tag-resource --resource-arn <cluster-arn> --tags Environment=production,Team=platform,CostCenter=engineering'. Implement a tagging strategy that includes environment, team, cost center, and application identifiers for all EKS clusters and associated resources.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/eks-using-tags.html

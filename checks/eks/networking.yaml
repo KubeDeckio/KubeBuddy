@@ -1,0 +1,45 @@
+checks:
+  - id: EKSNET001
+    name: VPC CNI Managed Add-on Installed
+    category: Networking
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: _hasVpcCniAddon
+    operator: equals
+    expected: true
+    fail_message: The Amazon VPC CNI plugin is not installed as an EKS-managed add-on. Self-managed VPC CNI installations require manual version tracking, are prone to compatibility issues during cluster upgrades, and miss automatic security patches. The VPC CNI is critical for pod networking and IP address management.
+    recommendation: Install the VPC CNI as a managed add-on using 'aws eks create-addon --cluster-name <cluster> --addon-name vpc-cni --resolve-conflicts OVERWRITE'. The managed add-on ensures automatic updates, compatibility with the cluster version, and provides features like prefix delegation and security groups for pods.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/managing-vpc-cni.html
+
+  - id: EKSNET002
+    name: CoreDNS Managed Add-on Installed
+    category: Networking
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: _hasCoreDnsAddon
+    operator: equals
+    expected: true
+    fail_message: CoreDNS is not installed as an EKS-managed add-on. Self-managed CoreDNS requires manual version updates and compatibility checks during cluster upgrades. A misconfigured or outdated CoreDNS can cause DNS resolution failures, breaking service discovery and inter-pod communication across the entire cluster.
+    recommendation: Install CoreDNS as a managed add-on using 'aws eks create-addon --cluster-name <cluster> --addon-name coredns --resolve-conflicts OVERWRITE'. The managed version ensures automatic updates that are compatible with your cluster version and includes performance optimizations specific to EKS.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/managing-coredns.html
+
+  - id: EKSNET003
+    name: Kube-Proxy Managed Add-on Installed
+    category: Networking
+    severity: Medium
+    resource_kind: eksCluster
+    sources:
+      - eks.cluster
+    value:
+      path: _hasKubeProxyAddon
+    operator: equals
+    expected: true
+    fail_message: kube-proxy is not installed as an EKS-managed add-on. Self-managed kube-proxy requires manual version management and can become incompatible with the cluster version during upgrades. kube-proxy is essential for Kubernetes Service networking — a misconfigured version can break all Service-based traffic routing.
+    recommendation: Install kube-proxy as a managed add-on using 'aws eks create-addon --cluster-name <cluster> --addon-name kube-proxy --resolve-conflicts OVERWRITE'. The managed add-on handles version compatibility and updates automatically, ensuring Service networking remains functional across cluster upgrades.
+    url: https://docs.aws.amazon.com/eks/latest/userguide/managing-kube-proxy.html

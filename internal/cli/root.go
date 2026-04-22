@@ -64,6 +64,7 @@ behavior through the native runtime and wrapper surfaces.`),
 	cmd.AddCommand(newMenuCommand())
 	cmd.AddCommand(newScanCommand())
 	cmd.AddCommand(newAKSScanCommand())
+	cmd.AddCommand(newEKSScanCommand())
 	cmd.AddCommand(newRunCommand())
 	cmd.AddCommand(newRunEnvCommand())
 
@@ -240,6 +241,31 @@ func newAKSScanCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID for live collection.")
 	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group for live collection.")
 	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS cluster name for live collection.")
+	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
+	return cmd
+}
+
+func newEKSScanCommand() *cobra.Command {
+	opts := scan.EKSOptions{}
+	var outputMode string
+	cmd := &cobra.Command{
+		Use:   "scan-eks",
+		Short: "Run native EKS YAML checks against an EKS JSON document or live EKS cluster",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := scan.RunEKS(opts)
+			if err != nil {
+				return err
+			}
+			return output.WriteScanResultWithMetadata(cmd.OutOrStdout(), result, output.Mode(outputMode), output.Metadata{
+				ClusterName: opts.ClusterName,
+			})
+		},
+	}
+	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/eks", "Directory containing EKS check YAML files.")
+	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
+	cmd.Flags().StringVar(&opts.InputFile, "input", "", "Path to an EKS cluster JSON document (output of 'aws eks describe-cluster --name <cluster>').")
+	cmd.Flags().StringVar(&opts.Region, "region", "", "AWS region for live collection via default credential chain.")
+	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "EKS cluster name.")
 	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
 	return cmd
 }

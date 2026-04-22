@@ -1,0 +1,46 @@
+{
+  "name": "insecure-eks-cluster",
+  "arn": "arn:aws:eks:us-east-1:123456789012:cluster/insecure-eks-cluster",
+  "version": "1.28",
+  "platformVersion": "eks.5",
+  "status": "ACTIVE",
+  "roleArn": "arn:aws:iam::123456789012:role/eksClusterRole",
+
+  "resourcesVpcConfig": {
+    "subnetIds": ["subnet-aaa", "subnet-bbb"],
+    "securityGroupIds": [],
+    "clusterSecurityGroupId": "sg-cluster-default",
+    "vpcId": "vpc-12345",
+    "endpointPublicAccess": true,
+    "endpointPrivateAccess": false,
+    "publicAccessCidrs": ["0.0.0.0/0"]
+  },
+
+  "kubernetesNetworkConfig": {
+    "serviceIpv4Cidr": "10.100.0.0/16",
+    "ipFamily": "ipv4"
+  },
+
+  "logging": {
+    "clusterLogging": [
+      {
+        "types": ["api", "audit", "authenticator", "controllerManager", "scheduler"],
+        "enabled": false
+      }
+    ]
+  },
+
+  "tags": {},
+
+  "accessConfig": {
+    "authenticationMode": "CONFIG_MAP"
+  },
+
+  "_nodeGroups": [],
+  "_addons": [],
+  "_hasPodIdentityAgent": false,
+  "_hasCloudWatchObservability": false,
+  "_hasVpcCniAddon": false,
+  "_hasCoreDnsAddon": false,
+  "_hasKubeProxyAddon": false
+}
