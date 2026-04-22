@@ -269,24 +269,45 @@ func collectPrometheusMetrics(nodes []map[string]any, opts ClusterDataOptions) (
 	}
 	end := time.Now().UTC()
 	start := end.Add(-24 * time.Hour)
-	queries := map[string]string{
-		// node-exporter (OSS / AKS) → Anthos/Autopilot recording rules → cAdvisor + kube-state-metrics (GKE managed collection without node-exporter)
-		"NodeCpuUsagePercent": `((1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100)` +
-			` or ((1 - avg by(instance)(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)` +
-			` or (sum by(node)(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) / on(node) max by(node)(kube_node_status_allocatable{resource="cpu"}) * 100)`,
-		"NodeMemoryUsagePercent": `((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100)` +
-			` or ((1 - (kubernetes_io:anthos_node_memory_MemAvailable_bytes / kubernetes_io:anthos_node_memory_MemTotal_bytes)) * 100)` +
-			` or (sum by(node)(container_memory_working_set_bytes{container!="",pod!=""}) / on(node) max by(node)(kube_node_status_allocatable{resource="memory"}) * 100)`,
-		"NodeDiskUsagePercent": `(100 * (1 - (sum by(instance) (node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}))))` +
-			` or (100 * (1 - (sum by(instance) (kubernetes_io:anthos_node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (kubernetes_io:anthos_node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}))))`,
+	// Each key maps to an ordered list of query candidates.
+	// Queries are tried in order; the first that succeeds with non-empty results is used.
+	// This avoids a single compound OR that can fail on platforms where some metric names
+	// (e.g. kubernetes_io:anthos_*) are rejected by the query engine.
+	queryCandidates := map[string][]string{
+		// 1. node-exporter (OSS / AKS / GKE+node-exporter)
+		// 2. Anthos / Autopilot recording rules
+		// 3. cAdvisor + machine_cpu_cores from kubelet (GKE managed collection, no node-exporter)
+		"NodeCpuUsagePercent": {
+			`(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100`,
+			`(1 - avg by(instance)(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100`,
+			`sum by(node)(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) / on(node) machine_cpu_cores * 100`,
+		},
+		"NodeMemoryUsagePercent": {
+			`(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100`,
+			`(1 - (kubernetes_io:anthos_node_memory_MemAvailable_bytes / kubernetes_io:anthos_node_memory_MemTotal_bytes)) * 100`,
+			`sum by(node)(container_memory_working_set_bytes{container!="",pod!=""}) / on(node) machine_memory_bytes * 100`,
+		},
+		"NodeDiskUsagePercent": {
+			`100 * (1 - (sum by(instance) (node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"})))`,
+			`100 * (1 - (sum by(instance) (kubernetes_io:anthos_node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (kubernetes_io:anthos_node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"})))`,
+		},
 	}
 	results := map[string][]prom.Result{}
-	for key, query := range queries {
-		series, err := client.QueryRange(query, start.Format(time.RFC3339), end.Format(time.RFC3339), "15m", 2, 2)
-		if err != nil {
-			return nil, err
+	for key, candidates := range queryCandidates {
+		for i, query := range candidates {
+			series, err := client.QueryRange(query, start.Format(time.RFC3339), end.Format(time.RFC3339), "15m", 1, 1)
+			if err != nil {
+				fmt.Printf("[Prometheus] %s query[%d] failed: %v\n", key, i, err)
+				continue
+			}
+			if len(series) > 0 {
+				results[key] = series
+				break
+			}
 		}
-		results[key] = series
+		if results[key] == nil {
+			fmt.Printf("[Prometheus] %s: no data from any query candidate\n", key)
+		}
 	}
 
 	cluster := MetricsCluster{

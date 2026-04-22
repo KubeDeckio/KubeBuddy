@@ -295,7 +295,7 @@ func renderPage(page reportPage, snapshot reportSnapshot) string {
 	b.WriteString(`<h1>` + esc(page.Name) + `</h1>`)
 	b.WriteString(`<div class="table-container"><div class='table-container'>`)
 	for _, check := range page.Checks {
-		b.WriteString(renderLegacyStandardSection(check))
+		b.WriteString(renderStandardSection(check))
 	}
 	b.WriteString(`</div></div></div></div>`)
 	return b.String()
@@ -311,10 +311,10 @@ func renderNodesPage(page reportPage, snapshot reportSnapshot) string {
 		if !ok {
 			continue
 		}
-		b.WriteString(renderLegacyNodeSection(check, snapshot))
+		b.WriteString(renderNodeSection(check, snapshot))
 	}
 	if check, ok := findCheck(page.Checks, "PROM008"); ok {
-		b.WriteString(renderLegacyStandardSection(check))
+		b.WriteString(renderStandardSection(check))
 	}
 	for _, check := range page.Checks {
 		if check.ID == "NODE001" || check.ID == "NODE002" || check.ID == "NODE003" || check.ID == "PROM005" || check.ID == "PROM006" || check.ID == "PROM008" {
@@ -327,7 +327,7 @@ func renderNodesPage(page reportPage, snapshot reportSnapshot) string {
 	return b.String()
 }
 
-func renderLegacyNodeSection(check scan.CheckResult, snapshot reportSnapshot) string {
+func renderNodeSection(check scan.CheckResult, snapshot reportSnapshot) string {
 	var b strings.Builder
 	b.WriteString(`<div class='table-container'><h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatNodeHeading(check)) + ` ` + headingTooltip(check) + `</h2>`)
 	b.WriteString(`<p>` + compatNodeStatusLine(check) + `</p>`)
@@ -339,7 +339,7 @@ func renderLegacyNodeSection(check scan.CheckResult, snapshot reportSnapshot) st
 	}
 	if compatNodeTableNeeded(check, snapshot) {
 		b.WriteString(`<div class="collapsible-container"><details id='` + escAttr(check.ID) + `' style='margin:10px 0;'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show Findings</summary><div style='padding-top: 15px;'>`)
-		b.WriteString(renderLegacyNodeTable(check, snapshot))
+		b.WriteString(renderNodeTable(check, snapshot))
 		b.WriteString(`</div></details></div>`)
 	}
 	b.WriteString(`</div>`)
@@ -364,7 +364,7 @@ func renderRecommendationDetails(check scan.CheckResult) string {
 	return b.String()
 }
 
-func renderLegacyNodeTable(check scan.CheckResult, snapshot reportSnapshot) string {
+func renderNodeTable(check scan.CheckResult, snapshot reportSnapshot) string {
 	var b strings.Builder
 	switch check.ID {
 	case "NODE001":
@@ -871,57 +871,10 @@ func renderAKSRecommendationCell(check scan.CheckResult) string {
 }
 
 func renderCheckDetails(check scan.CheckResult) string {
-	var b strings.Builder
-	summaryText := fmt.Sprintf("Show %s - %s", check.ID, check.Name)
-	if check.Total == 0 {
-		if strings.TrimSpace(check.SummaryMessage) != "" {
-			summaryText = fmt.Sprintf("Show %s - %s (Skipped)", check.ID, check.Name)
-		} else {
-			summaryText = fmt.Sprintf("Show %s - %s (No issues detected)", check.ID, check.Name)
-		}
-	}
-	b.WriteString(`<div class="collapsible-container"><details id="` + escAttr(check.ID) + `"><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>` + esc(summaryText) + `</summary><div style='padding-top: 15px;'><div class="card">`)
-	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(check.Name) + `</h2>`)
-	b.WriteString(`<p><strong>Severity:</strong> ` + esc(check.Severity) + `</p>`)
-	if strings.TrimSpace(check.Description) != "" {
-		b.WriteString(`<p>` + esc(check.Description) + `</p>`)
-	}
-	if strings.TrimSpace(check.Recommendation) != "" {
-		aiSuffix := ""
-		if check.RecommendationSource == "AI" {
-			aiSuffix = ` <span class='ai-badge'>AI Generated</span>`
-		}
-		if strings.TrimSpace(check.RecommendationHTML) != "" {
-			b.WriteString(`<div class="recommendation-card"><div class="recommendation-banner"><span class="material-icons">tips_and_updates</span>Recommended Actions` + aiSuffix + `</div>` + check.RecommendationHTML + `</div>`)
-		} else {
-			b.WriteString(`<div class="recommendation-card"><div class="recommendation-banner"><span class="material-icons">tips_and_updates</span>Recommended Actions` + aiSuffix + `</div><ul><li>` + esc(check.Recommendation) + `</li></ul></div>`)
-		}
-	}
-	if strings.TrimSpace(check.URL) != "" {
-		b.WriteString(`<div class="recommendation-card"><ul><li><strong>Docs:</strong> <a href='` + escAttr(check.URL) + `' target='_blank'>Reference</a></li></ul></div>`)
-	}
-	if check.Total == 0 {
-		if strings.TrimSpace(check.SummaryMessage) != "" {
-			b.WriteString(renderSkippedNotice(check.SummaryMessage))
-		} else {
-			b.WriteString(`<p>No issues detected.</p>`)
-		}
-	} else {
-		b.WriteString(`<div class="table-container"><table><tr><th>Namespace</th><th>Resource</th><th>Value</th><th>Message</th></tr>`)
-		for _, item := range check.Items {
-			attrs := ``
-			if check.ID == "PROM007" {
-				attrs = ` data-sizing-profile="balanced"`
-			}
-			b.WriteString(`<tr` + attrs + `><td>` + esc(item.Namespace) + `</td><td>` + esc(item.Resource) + `</td><td>` + esc(item.Value) + `</td><td>` + esc(item.Message) + `</td></tr>`)
-		}
-		b.WriteString(`</table></div>`)
-	}
-	b.WriteString(`</div></div></details></div>`)
-	return b.String()
+	return renderStandardSection(check)
 }
 
-func renderLegacyStandardSection(check scan.CheckResult) string {
+func renderStandardSection(check scan.CheckResult) string {
 	var b strings.Builder
 	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatStandardHeading(check)) + ` ` + standardHeadingTooltip(check) + `</h2>`)
 	b.WriteString(`<p>` + compatStandardStatusLine(check) + `</p>`)
@@ -937,7 +890,7 @@ func renderLegacyStandardSection(check scan.CheckResult) string {
 	}
 	if compatStandardHasFindings(check) {
 		b.WriteString(`<div class="collapsible-container"><details id='` + escAttr(check.ID) + `' style='margin:10px 0;'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show Findings</summary><div style='padding-top: 15px;'>`)
-		b.WriteString(renderLegacyStandardFindingsTable(check))
+		b.WriteString(renderStandardFindingsTable(check))
 		b.WriteString(`</div></details></div>`)
 	}
 	b.WriteString(`</div>`)
@@ -1067,13 +1020,13 @@ func statusSubject(check scan.CheckResult) string {
 	}
 }
 
-func renderLegacyStandardFindingsTable(check scan.CheckResult) string {
+func renderStandardFindingsTable(check scan.CheckResult) string {
 	var b strings.Builder
 	switch check.ID {
 	case "PROM001", "PROM002", "PROM003", "PROM004":
 		b.WriteString(`<table><tr><th>MetricLabels</th><th>Average</th><th>Message</th></tr>`)
 		for _, item := range check.Items {
-			b.WriteString(`<tr><td>` + esc(promMetricLabels(item)) + `</td><td>` + esc(formatLegacyAverage(item.Value)) + `</td><td>` + esc(item.Message) + `</td></tr>`)
+			b.WriteString(`<tr><td>` + esc(promMetricLabels(item)) + `</td><td>` + esc(formatAverageValue(item.Value)) + `</td><td>` + esc(item.Message) + `</td></tr>`)
 		}
 		b.WriteString(`</table>`)
 		return b.String()
@@ -1108,7 +1061,7 @@ func promMetricLabels(item scan.Finding) string {
 	}
 }
 
-func formatLegacyAverage(raw string) string {
+func formatAverageValue(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return raw
