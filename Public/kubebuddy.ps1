@@ -119,7 +119,7 @@ function Invoke-KubeBuddyNativeCommand {
     }
 }
 
-function Move-KubeBuddyGeneratedReports {
+function Move-KubeBuddyGeneratedReport {
     param(
         [string]$OutputDirectory,
         [string]$BaseName,
@@ -287,6 +287,6 @@ function Invoke-KubeBuddy {
     }
 
     if ($reportBaseName) {
-        Move-KubeBuddyGeneratedReports -OutputDirectory $reportDirectory -BaseName $reportBaseName -Extensions $extensions
+        Move-KubeBuddyGeneratedReport -OutputDirectory $reportDirectory -BaseName $reportBaseName -Extensions $extensions
     }
 }
