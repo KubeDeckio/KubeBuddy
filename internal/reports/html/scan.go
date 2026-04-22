@@ -293,12 +293,11 @@ func renderPage(page reportPage, snapshot reportSnapshot) string {
 	var b strings.Builder
 	b.WriteString(`<div class="tab-content" id="` + escAttr(page.ID) + `"><div class="container">`)
 	b.WriteString(`<h1>` + esc(page.Name) + `</h1>`)
+	b.WriteString(`<div class="table-container">`)
 	for _, check := range page.Checks {
-		b.WriteString(`<div class="table-container">`)
 		b.WriteString(renderStandardSection(check))
-		b.WriteString(`</div>`)
 	}
-	b.WriteString(`</div></div>`)
+	b.WriteString(`</div></div></div>`)
 	return b.String()
 }
 
@@ -876,6 +875,7 @@ func renderCheckDetails(check scan.CheckResult) string {
 
 func renderStandardSection(check scan.CheckResult) string {
 	var b strings.Builder
+	b.WriteString(`<div class='table-container'>`)
 	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatStandardHeading(check)) + ` ` + standardHeadingTooltip(check) + `</h2>`)
 	b.WriteString(`<p>` + compatStandardStatusLine(check) + `</p>`)
 	if check.Total == 0 && strings.TrimSpace(check.SummaryMessage) != "" {
@@ -892,6 +892,7 @@ func renderStandardSection(check scan.CheckResult) string {
 		b.WriteString(renderStandardFindingsTable(check))
 		b.WriteString(`</div></details></div>`)
 	}
+	b.WriteString(`</div>`)
 	return b.String()
 }
 
@@ -1493,6 +1494,12 @@ type compatHTMLOverride struct {
 	Severity string
 	Weight   int
 	Total    *int
+}
+
+// CompatChecks applies the canonical weight/severity/total overrides used by the HTML
+// report so that any other reporter (e.g. JSON) can produce a consistent cluster score.
+func CompatChecks(checks []scan.CheckResult) []scan.CheckResult {
+	return compatHTMLChecks(checks)
 }
 
 func compatHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {

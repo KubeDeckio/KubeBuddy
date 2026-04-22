@@ -144,7 +144,7 @@ func buildJSONEnvelope(result scan.Result, metadata Metadata) jsonEnvelope {
 			PrometheusSnapshotStatus: resolved.PrometheusSnapshotStatus,
 			PrometheusSnapshotReason: resolved.PrometheusSnapshotReason,
 			AKS:                      resolved.AKS,
-			Score:                    clusterHealthScore(result.Checks),
+			Score:                    clusterHealthScore(reporthtml.CompatChecks(result.Checks)),
 		},
 		Checks:                checks,
 		AKSAutomaticReadiness: result.AutomaticReadiness,
@@ -873,7 +873,7 @@ func writeText(w io.Writer, result scan.Result, metadata Metadata) error {
 	if err := writeLine(""); err != nil {
 		return err
 	}
-	return writeLine("🩺 Cluster Health Score: %.0f / 100", clusterHealthScore(result.Checks))
+	return writeLine("🩺 Cluster Health Score: %.0f / 100", clusterHealthScore(reporthtml.CompatChecks(result.Checks)))
 }
 
 func writeCSV(w io.Writer, result scan.Result, metadata Metadata) error {
