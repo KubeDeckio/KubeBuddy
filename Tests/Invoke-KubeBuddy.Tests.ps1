@@ -6,7 +6,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
         Mock -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -MockWith { 0 }
         Mock -CommandName Test-Path -ModuleName KubeBuddy -MockWith { $true }
         Mock -CommandName New-Item -ModuleName KubeBuddy -MockWith { }
-        Mock -CommandName Move-KubeBuddyGeneratedReports -ModuleName KubeBuddy -MockWith { }
+        Mock -CommandName Move-KubeBuddyGeneratedReport -ModuleName KubeBuddy -MockWith { }
     }
 
     It 'forwards report flags to the native CLI' {
@@ -111,7 +111,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
     It 'renames generated reports when outputpath targets a file basename' {
         Invoke-KubeBuddy -HtmlReport -jsonReport -outputpath (Join-Path $PWD 'custom-report.html')
 
-        Assert-MockCalled -CommandName Move-KubeBuddyGeneratedReports -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Assert-MockCalled -CommandName Move-KubeBuddyGeneratedReport -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $OutputDirectory -eq $PWD.Path -and
             $BaseName -eq 'custom-report' -and
             $Extensions.Count -eq 2
