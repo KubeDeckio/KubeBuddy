@@ -179,6 +179,11 @@ func Execute(opts compat.RunOptions) error {
 		metadata.Snapshot = snapshot
 		if snapshot.Metrics != nil {
 			metadata.Metrics = snapshot.Metrics
+			metadata.PrometheusSnapshotStatus = "available"
+		} else if opts.IncludePrometheus && strings.TrimSpace(opts.PrometheusURL) != "" {
+			metadata.PrometheusSnapshotStatus = "unavailable"
+			metadata.PrometheusSnapshotReason = "Prometheus checks were enabled, but no usable node metric series were collected for the snapshot. This commonly means the cluster is new or the Prometheus workspace does not yet expose the required node-level metrics."
+			fmt.Printf("%s[Prometheus]%s Snapshot unavailable: no usable node metric series were collected for report metrics\n", colorGray, colorReset)
 		}
 	}
 	if opts.AKS || opts.UseAKSRestAPI {

@@ -36,6 +36,8 @@ type Metadata struct {
 	PrometheusURL            string
 	PrometheusMode           string
 	PrometheusBearerTokenEnv string
+	PrometheusSnapshotStatus string
+	PrometheusSnapshotReason string
 	AKS                      *AKSMetadata
 	Metrics                  any
 	Snapshot                 *kubernetes.ClusterData
@@ -61,6 +63,8 @@ type jsonMetadata struct {
 	ExcludeNamespacesEnabled bool                   `json:"excludeNamespacesEnabled"`
 	ExcludedNamespaces       []string               `json:"excludedNamespaces"`
 	PrometheusURL            string                 `json:"prometheusUrl,omitempty"`
+	PrometheusSnapshotStatus string                 `json:"prometheusSnapshotStatus,omitempty"`
+	PrometheusSnapshotReason string                 `json:"prometheusSnapshotReason,omitempty"`
 	AKS                      *AKSMetadata           `json:"aks,omitempty"`
 	AKSAutomaticSummary      *scan.AutomaticSummary `json:"aksAutomaticSummary,omitempty"`
 	Score                    float64                `json:"score"`
@@ -137,6 +141,8 @@ func buildJSONEnvelope(result scan.Result, metadata Metadata) jsonEnvelope {
 			ExcludeNamespacesEnabled: resolved.ExcludeNamespacesEnabled,
 			ExcludedNamespaces:       append([]string(nil), resolved.ExcludedNamespaces...),
 			PrometheusURL:            resolved.PrometheusURL,
+			PrometheusSnapshotStatus: resolved.PrometheusSnapshotStatus,
+			PrometheusSnapshotReason: resolved.PrometheusSnapshotReason,
 			AKS:                      resolved.AKS,
 			Score:                    clusterHealthScore(result.Checks),
 		},

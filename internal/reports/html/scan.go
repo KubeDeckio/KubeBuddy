@@ -293,11 +293,12 @@ func renderPage(page reportPage, snapshot reportSnapshot) string {
 	var b strings.Builder
 	b.WriteString(`<div class="tab-content" id="` + escAttr(page.ID) + `"><div class="container">`)
 	b.WriteString(`<h1>` + esc(page.Name) + `</h1>`)
-	b.WriteString(`<div class="table-container"><div class='table-container'>`)
 	for _, check := range page.Checks {
+		b.WriteString(`<div class="table-container">`)
 		b.WriteString(renderStandardSection(check))
+		b.WriteString(`</div>`)
 	}
-	b.WriteString(`</div></div></div></div>`)
+	b.WriteString(`</div></div>`)
 	return b.String()
 }
 
@@ -306,15 +307,12 @@ func renderNodesPage(page reportPage, snapshot reportSnapshot) string {
 	b.WriteString(`<div class="tab-content" id="nodes"><div class="container">`)
 	b.WriteString(`<h1>Node Conditions & Resources</h1>`)
 	b.WriteString(`<div class="table-container">`)
-	for _, id := range []string{"NODE001", "NODE002", "NODE003", "PROM005", "PROM006"} {
+	for _, id := range []string{"NODE001", "NODE002", "NODE003", "PROM005", "PROM006", "PROM008"} {
 		check, ok := findCheck(page.Checks, id)
 		if !ok {
 			continue
 		}
 		b.WriteString(renderNodeSection(check, snapshot))
-	}
-	if check, ok := findCheck(page.Checks, "PROM008"); ok {
-		b.WriteString(renderStandardSection(check))
 	}
 	for _, check := range page.Checks {
 		if check.ID == "NODE001" || check.ID == "NODE002" || check.ID == "NODE003" || check.ID == "PROM005" || check.ID == "PROM006" || check.ID == "PROM008" {
@@ -334,7 +332,7 @@ func renderNodeSection(check scan.CheckResult, snapshot reportSnapshot) string {
 	if check.ID == "PROM006" && strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient") {
 		b.WriteString(`<div class="skipped-notice">⚠️ Node-exporter is not deployed. Deploy node-exporter with a GMP <code>ClusterPodMonitoring</code> to enable node sizing insights. See: <a href="https://cloud.google.com/stackdriver/docs/managed-prometheus/setup-unmanaged" target="_blank">GMP node-exporter setup</a>.</div>`)
 	}
-	if check.ID == "NODE003" || check.ID == "PROM006" {
+	if check.ID == "NODE003" || check.ID == "PROM006" || check.ID == "PROM008" {
 		b.WriteString(renderRecommendationDetails(check))
 	}
 	if compatNodeTableNeeded(check, snapshot) {
@@ -462,6 +460,8 @@ func headingTooltip(check scan.CheckResult) string {
 		text = "Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours."
 	case "PROM006":
 		text = "Uses Prometheus p95 CPU and memory usage over a fixed 7-day window to highlight underutilized or saturated nodes and suggest sizing actions."
+	case "PROM008":
+		text = "Checks whether a node-exporter DaemonSet is deployed. Node-exporter is required for node-level CPU, memory, and disk metrics in Prometheus."
 	}
 	if text == "" {
 		return ""
@@ -884,7 +884,6 @@ func renderStandardSection(check scan.CheckResult) string {
 	if strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient prometheus history") {
 		b.WriteString(`<p>📅 ` + esc(check.SummaryMessage) + `</p>`)
 	}
-	b.WriteString(`<div class='table-container'>`)
 	if strings.TrimSpace(check.Recommendation) != "" || strings.TrimSpace(check.RecommendationHTML) != "" || strings.TrimSpace(check.URL) != "" {
 		b.WriteString(renderRecommendationDetails(check))
 	}
@@ -893,7 +892,6 @@ func renderStandardSection(check scan.CheckResult) string {
 		b.WriteString(renderStandardFindingsTable(check))
 		b.WriteString(`</div></details></div>`)
 	}
-	b.WriteString(`</div>`)
 	return b.String()
 }
 

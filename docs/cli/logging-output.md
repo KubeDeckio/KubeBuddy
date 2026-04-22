@@ -17,6 +17,7 @@ During a run, KubeBuddy shows:
 - major phases such as Kubernetes, AKS, Prometheus, AI, Radar, and report writing
 - per-check `Checking` and `Checked` lines
 - inline finding counts when a check returns results
+- explicit Prometheus snapshot status when Prometheus checks are enabled
 
 Example:
 
@@ -24,6 +25,7 @@ Example:
 [Starting] Preparing native KubeBuddy run
 [Kubernetes] [041/095] Checking PROM001 - High CPU Pods (Prometheus)
 [Kubernetes] [041/095] Checked PROM001 - High CPU Pods (Prometheus) (3 findings)
+[Prometheus] Snapshot unavailable: no usable node metric series were collected for report metrics
 [Reports] writing /path/to/kubebuddy-report-20260413-134408.html
 ```
 
@@ -65,6 +67,11 @@ Invoke-KubeBuddy -HtmlReport -jsonReport -OutputPath ./reports
 If `--output-path` or `-OutputPath` points to a directory, KubeBuddy writes timestamped report files there.
 
 If it points to a specific filename in the PowerShell wrapper, the wrapper renames the generated report to match the requested base name.
+
+When Prometheus is enabled but the report snapshot cannot be built, JSON output keeps `metrics: null` and records the reason in metadata:
+
+- `metadata.prometheusSnapshotStatus`
+- `metadata.prometheusSnapshotReason`
 
 ## Completion Output
 
