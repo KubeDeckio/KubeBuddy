@@ -1576,16 +1576,30 @@ func runPROM006(check checks.Check, item map[string]any, cache map[string][]map[
 		now = time.Now().UTC()
 	}
 	start := now.Add(-7 * 24 * time.Hour)
-	coverage, err := client.QueryRange(`((1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100) or ((1 - avg(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)`, start.Format(time.RFC3339), now.Format(time.RFC3339), "6h", int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	// Coverage check: try node-exporter metrics first (OSS/AKS), then Anthos recording rules, then cAdvisor+kube-state-metrics (GKE managed collection)
+	coverage, err := client.QueryRange(
+		`((1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100)`+
+			` or ((1 - avg(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)`+
+			` or sum(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m]))`,
+		start.Format(time.RFC3339), now.Format(time.RFC3339), "6h",
+		int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	coverageDays := maxCoverageDays(coverage)
 	if err != nil || coverageDays < 6.9 {
 		return []Finding{{Namespace: "(cluster)", Resource: "prometheus/node-sizing", Value: fmt.Sprintf("%.2f", coverageDays), Message: "Insufficient Prometheus history for node sizing recommendations"}}, nil
 	}
-	cpuSeries, err := client.Query(`(quantile_over_time(0.95, ((1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100)[7d:15m])) or (quantile_over_time(0.95, ((1 - avg by(instance)(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)[7d:15m]))`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	cpuSeries, err := client.Query(
+		`(quantile_over_time(0.95, ((1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100)[7d:15m]))`+
+			` or (quantile_over_time(0.95, ((1 - avg by(instance)(rate(kubernetes_io:anthos_node_cpu_seconds_total{mode="idle"}[5m]))) * 100)[7d:15m]))`+
+			` or (quantile_over_time(0.95, (sum by(node)(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) / on(node) max by(node)(kube_node_status_allocatable{resource="cpu"}) * 100)[7d:15m]))`,
+		int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {
 		return nil, err
 	}
-	memSeries, err := client.Query(`(quantile_over_time(0.95, ((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100)[7d:15m])) or (quantile_over_time(0.95, ((1 - (kubernetes_io:anthos_node_memory_MemAvailable_bytes / kubernetes_io:anthos_node_memory_MemTotal_bytes)) * 100)[7d:15m]))`, int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
+	memSeries, err := client.Query(
+		`(quantile_over_time(0.95, ((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100)[7d:15m]))`+
+			` or (quantile_over_time(0.95, ((1 - (kubernetes_io:anthos_node_memory_MemAvailable_bytes / kubernetes_io:anthos_node_memory_MemTotal_bytes)) * 100)[7d:15m]))`+
+			` or (quantile_over_time(0.95, (sum by(node)(container_memory_working_set_bytes{container!="",pod!=""}) / on(node) max by(node)(kube_node_status_allocatable{resource="memory"}) * 100)[7d:15m]))`,
+		int(numberThreshold("prometheus_query_retries", 2)), int(numberThreshold("prometheus_retry_delay_seconds", 2)))
 	if err != nil {
 		return nil, err
 	}

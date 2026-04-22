@@ -313,8 +313,11 @@ func renderNodesPage(page reportPage, snapshot reportSnapshot) string {
 		}
 		b.WriteString(renderLegacyNodeSection(check, snapshot))
 	}
+	if check, ok := findCheck(page.Checks, "PROM008"); ok {
+		b.WriteString(renderLegacyStandardSection(check))
+	}
 	for _, check := range page.Checks {
-		if check.ID == "NODE001" || check.ID == "NODE002" || check.ID == "NODE003" || check.ID == "PROM005" || check.ID == "PROM006" {
+		if check.ID == "NODE001" || check.ID == "NODE002" || check.ID == "NODE003" || check.ID == "PROM005" || check.ID == "PROM006" || check.ID == "PROM008" {
 			continue
 		}
 		b.WriteString(renderCheckDetails(check))
