@@ -36,6 +36,8 @@ type Metadata struct {
 	PrometheusURL            string
 	PrometheusMode           string
 	PrometheusBearerTokenEnv string
+	PrometheusSnapshotStatus string
+	PrometheusSnapshotReason string
 	AKS                      *AKSMetadata
 	Metrics                  any
 	Snapshot                 *kubernetes.ClusterData
@@ -61,6 +63,8 @@ type jsonMetadata struct {
 	ExcludeNamespacesEnabled bool                   `json:"excludeNamespacesEnabled"`
 	ExcludedNamespaces       []string               `json:"excludedNamespaces"`
 	PrometheusURL            string                 `json:"prometheusUrl,omitempty"`
+	PrometheusSnapshotStatus string                 `json:"prometheusSnapshotStatus,omitempty"`
+	PrometheusSnapshotReason string                 `json:"prometheusSnapshotReason,omitempty"`
 	AKS                      *AKSMetadata           `json:"aks,omitempty"`
 	AKSAutomaticSummary      *scan.AutomaticSummary `json:"aksAutomaticSummary,omitempty"`
 	Score                    float64                `json:"score"`
@@ -137,8 +141,10 @@ func buildJSONEnvelope(result scan.Result, metadata Metadata) jsonEnvelope {
 			ExcludeNamespacesEnabled: resolved.ExcludeNamespacesEnabled,
 			ExcludedNamespaces:       append([]string(nil), resolved.ExcludedNamespaces...),
 			PrometheusURL:            resolved.PrometheusURL,
+			PrometheusSnapshotStatus: resolved.PrometheusSnapshotStatus,
+			PrometheusSnapshotReason: resolved.PrometheusSnapshotReason,
 			AKS:                      resolved.AKS,
-			Score:                    clusterHealthScore(result.Checks),
+			Score:                    clusterHealthScore(reporthtml.CompatChecks(result.Checks)),
 		},
 		Checks:                checks,
 		AKSAutomaticReadiness: result.AutomaticReadiness,
@@ -229,6 +235,9 @@ func buildCompatCheckResult(check scan.CheckResult, metrics any) jsonCheckResult
 	}
 	if check.SummaryMessage != "" {
 		out.SummaryMessage = check.SummaryMessage
+		if check.Total == 0 {
+			out.Message = check.SummaryMessage
+		}
 	}
 	return out
 }
@@ -250,6 +259,12 @@ func recommendationPayload(check scan.CheckResult) any {
 func compatItems(check scan.CheckResult, metrics any) any {
 	if check.CompatItems != nil {
 		return check.CompatItems
+	}
+	if len(check.Items) == 0 && strings.TrimSpace(check.SummaryMessage) != "" && !strings.HasPrefix(check.ID, "AKS") {
+		return map[string]any{
+			"Status":  "Skipped",
+			"Message": strings.TrimSpace(check.SummaryMessage),
+		}
 	}
 	switch check.ID {
 	case "NODE001":
@@ -858,7 +873,7 @@ func writeText(w io.Writer, result scan.Result, metadata Metadata) error {
 	if err := writeLine(""); err != nil {
 		return err
 	}
-	return writeLine("🩺 Cluster Health Score: %.0f / 100", clusterHealthScore(result.Checks))
+	return writeLine("🩺 Cluster Health Score: %.0f / 100", clusterHealthScore(reporthtml.CompatChecks(result.Checks)))
 }
 
 func writeCSV(w io.Writer, result scan.Result, metadata Metadata) error {
@@ -1094,6 +1109,9 @@ func compatRecommendationText(value any) string {
 }
 
 func compatTextLines(check jsonCheckResult) ([]string, bool) {
+	if check.Total == 0 && strings.TrimSpace(check.SummaryMessage) != "" {
+		return []string{textSanitize(check.SummaryMessage)}, false
+	}
 	switch check.ID {
 	case "NODE001":
 		rows := make([][]string, 0)

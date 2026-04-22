@@ -12,6 +12,7 @@ type runtimeContext struct {
 	Prometheus        prometheusOptions
 	Excluded          map[string]struct{}
 	TrustedRegistries []string
+	AKSMode           bool
 	Now               time.Time
 	KubeClient        *kubeapi.Client
 	KubeContext       context.Context

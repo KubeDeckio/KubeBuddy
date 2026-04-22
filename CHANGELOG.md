@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+* **GKE support**
+  * 22 new GKE best practice checks across Best Practices, Security, Monitoring, and Networking categories.
+  * New `--gke` flag on the `run` command for live GKE cluster scanning via Application Default Credentials.
+  * `--input` flag for offline scanning from a previously collected GKE JSON snapshot.
+  * GKE tab in HTML reports with per-check pass/fail results, a cluster score, and an A–F letter rating.
+  * New documentation page covering GKE setup, required IAM permissions, and the full check catalog.
+
+* **Prometheus compatibility for GKE Managed Prometheus (GMP)**
+  * Prometheus metric collection (`--include-prometheus`) now works with GKE clusters using Google Managed Prometheus without node-exporter.
+  * When node-exporter is not deployed, CPU and memory metrics fall back to cAdvisor (`container_cpu_usage_seconds_total`, `container_memory_working_set_bytes`) and kubelet machine metrics (`machine_cpu_cores`, `machine_memory_bytes`), which are always available in GMP managed collection.
+  * Query fallback is applied at the Go level (node-exporter → Anthos recording rules → cAdvisor) so a missing or unsupported metric name on one provider never blocks results from another.
+  * PROM006 (Node Sizing) and the 24-hour metrics snapshot both use the same layered fallback strategy.
+  * Prometheus query failures are now logged clearly rather than silently producing `"metrics": null` in the JSON report.
+
+* **PROM008 – Node Exporter Not Deployed check**
+  * New check that flags when node-exporter is not found as a DaemonSet, explaining that PROM006 node sizing and node-level metrics depend on it.
+  * Includes platform-specific remediation guidance for GKE with GMP, OSS kube-prometheus-stack, and AKS Managed Prometheus.
+
+### Changed
+
+* **Each check now renders as its own card in HTML reports**
+  * Checks on all standard tabs (Security, Networking, Workloads, Pods, Configuration, Events, etc.) now each appear in a separate card, consistent with the layout already used on the Node Conditions tab.
+  * PROM008 on the Nodes tab now uses the same card layout and heading style as NODE001–PROM006 rather than a different fallback style.
+
 ## [0.0.28] - 2026-04-15
 
 ### Added

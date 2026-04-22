@@ -17,9 +17,11 @@ func TestWriteScanResultJSON(t *testing.T) {
 	err := WriteScanResultWithMetadata(&buf, scan.Result{
 		Checks: []scan.CheckResult{{ID: "X001", Name: "Check", Total: 1, Weight: 2}},
 	}, ModeJSON, Metadata{
-		ClusterName:       "docker-desktop",
-		KubernetesVersion: "v1.30.0",
-		GeneratedAt:       "2026-04-09T12:00:00Z",
+		ClusterName:              "docker-desktop",
+		KubernetesVersion:        "v1.30.0",
+		GeneratedAt:              "2026-04-09T12:00:00Z",
+		PrometheusSnapshotStatus: "unavailable",
+		PrometheusSnapshotReason: "Prometheus checks were enabled, but no usable node metric series were collected for the snapshot.",
 	})
 	if err != nil {
 		t.Fatalf("write json output: %v", err)
@@ -30,6 +32,16 @@ func TestWriteScanResultJSON(t *testing.T) {
 	}
 	if _, ok := payload["metadata"]; !ok {
 		t.Fatalf("expected metadata section, got %s", buf.String())
+	}
+	metadata, ok := payload["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected metadata object, got %s", buf.String())
+	}
+	if got := metadata["prometheusSnapshotStatus"]; got != "unavailable" {
+		t.Fatalf("expected prometheusSnapshotStatus=unavailable, got %#v", got)
+	}
+	if got := metadata["prometheusSnapshotReason"]; got == nil || got == "" {
+		t.Fatalf("expected prometheusSnapshotReason to be present, got %#v", got)
 	}
 	checks, ok := payload["checks"].(map[string]any)
 	if !ok || checks["X001"] == nil {

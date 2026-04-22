@@ -50,7 +50,14 @@ for target in "${targets[@]}"; do
   mkdir -p "${module_stage}/bin/${goos}-${goarch}"
   cp "${stage}/${binary_name}" "${module_stage}/bin/${goos}-${goarch}/${binary_name}"
 
-  tar -C "${OUT_DIR}" -czf "${OUT_DIR}/${artifact}.tar.gz" "${artifact}"
+  if [[ "${goos}" == "windows" ]]; then
+    (
+      cd "${OUT_DIR}"
+      zip -rq "${artifact}.zip" "${artifact}"
+    )
+  else
+    tar -C "${OUT_DIR}" -czf "${OUT_DIR}/${artifact}.tar.gz" "${artifact}"
+  fi
   rm -rf "${stage}"
 done
 
@@ -62,7 +69,7 @@ rm -rf "${module_stage}"
 
 (
   cd "${OUT_DIR}"
-  shasum -a 256 ./*.tar.gz > checksums.txt
+  shasum -a 256 ./*.tar.gz ./*.zip > checksums.txt
 )
 
 echo "Release artifacts written to ${OUT_DIR}"

@@ -9,6 +9,13 @@ layout: default
 
 KubeBuddy can enrich its cluster health reports by querying Prometheus directly, whether running in-cluster or as an external endpoint.
 
+Prometheus integration has two distinct outputs:
+
+- Prometheus-backed checks such as `PROM001` through `PROM008`
+- an optional 24-hour snapshot used for report metrics cards, charts, and JSON `metrics`
+
+These two paths are related but independent. It is possible for Prometheus-backed checks to run successfully while the 24-hour snapshot remains unavailable.
+
 ## 🔍 Why Integrate Prometheus?
 
 By pulling time-series data you can detect:
@@ -20,6 +27,27 @@ By pulling time-series data you can detect:
 - Node sizing opportunities (underutilized vs saturated nodes using p95 trends)
 - Pod/container sizing opportunities (p95-based request and memory limit recommendations)
 
+## Snapshot Behavior
+
+When `--include-prometheus` is enabled, KubeBuddy attempts to collect a separate 24-hour Prometheus snapshot for:
+
+- cluster CPU and memory trend cards in the HTML report
+- per-node CPU, memory, and disk trend cards in the HTML report
+- the top-level `metrics` object in JSON output
+
+This snapshot requires usable node-level metric series. If KubeBuddy can run Prometheus-backed checks but cannot build the snapshot, the report will still be generated:
+
+- Prometheus checks such as `PROM006` and `PROM007` continue to run
+- JSON `metrics` remains `null`
+- JSON metadata includes `prometheusSnapshotStatus` and `prometheusSnapshotReason`
+- console output includes a clear snapshot-unavailable message
+
+Common reasons the snapshot is unavailable:
+
+- the cluster is new and GMP/Prometheus has not populated node metrics yet
+- the Prometheus workspace does not expose the required node-level metrics
+- provider-specific metric families are present only partially
+
 ## ✅ Supported Prometheus Modes
 
 | Mode     | Description                                           | Auth Required | Typical Use Case                      |
@@ -28,6 +56,7 @@ By pulling time-series data you can detect:
 | `basic`  | External Prometheus with HTTP Basic auth              | ✅            | Behind an ingress or firewall         |
 | `bearer` | External Prometheus secured by bearer token           | ✅            | OAuth proxy, API gateway, etc.        |
 | `azure`  | Azure Monitor Managed Prometheus (AKS + Monitor)      | ✅ AAD token  | AKS + Azure Monitor workspace         |
+| `gcp`    | Google Managed Service for Prometheus                 | ✅ ADC token  | GKE + Cloud Monitoring                |
 
 ## 🔐 How to Authenticate
 
@@ -35,6 +64,7 @@ For the native Go CLI, the auth model is:
 
 - `local`: no extra auth inputs
 - `azure`: uses existing Azure auth from the current shell or environment
+- `gcp`: uses Google Application Default Credentials from the current shell or environment
 - `bearer`: uses `--prometheus-bearer-token-env` to read a bearer token from an environment variable
 - `basic`: reads `PROMETHEUS_USERNAME` and `PROMETHEUS_PASSWORD` from the environment
 
@@ -77,6 +107,24 @@ kubebuddy run \
   --prometheus-mode azure \
   --yes
 ```
+
+### Google Managed Service for Prometheus (ADC)
+
+Use Application Default Credentials from your current environment. Local shells often use `gcloud auth application-default login`; GKE, Cloud Run, and CI typically use attached service accounts or `GOOGLE_APPLICATION_CREDENTIALS`.
+
+```bash
+kubebuddy run \
+  --include-prometheus \
+  --prometheus-url "https://monitoring.googleapis.com/v1/projects/<project-id>/location/global/prometheus" \
+  --prometheus-mode gcp \
+  --yes
+```
+
+Notes for Google Managed Service for Prometheus:
+
+- KubeBuddy uses the GMP Prometheus-compatible API at `https://monitoring.googleapis.com/v1/projects/<project-id>/location/global/prometheus`
+- some Google-managed metric families require explicit label matchers such as `monitored_resource="k8s_node"`
+- new GKE clusters may expose Prometheus-backed checks before enough node-level series exist for the report snapshot
 
 ### Basic Auth
 
@@ -135,10 +183,26 @@ Invoke-KubeBuddy `
   -PrometheusMode azure
 ```
 
+### Google Managed Service for Prometheus (ADC)
+
+```powershell
+# Ensure Application Default Credentials are available
+Invoke-KubeBuddy `
+  -IncludePrometheus `
+  -PrometheusUrl "https://monitoring.googleapis.com/v1/projects/<project-id>/location/global/prometheus" `
+  -PrometheusMode gcp
+```
+
 ## 🧪 Example Query
 
 > p99 API-server latency over last hour
 > `histogram_quantile(0.99, rate(apiserver_request_duration_seconds_bucket[5m]))`
+
+For GMP, refresh your access token before manual testing:
+
+```bash
+TOKEN="$(gcloud auth print-access-token)"
+```
 
 
 ## ⏱️ Time-Window Configuration
@@ -209,6 +273,8 @@ Minimum data rule:
 - KubeBuddy requires at least **7 days of Prometheus history** before emitting node sizing recommendations.
 - If history is below 7 days, reports include an explicit **Insufficient Prometheus history** row instead of recommendations.
 
+This 7-day rule affects sizing recommendations only. It is separate from the 24-hour report snapshot described above.
+
 The check surfaces in the **Nodes** tab and in JSON/text output like any other check.
 
 In HTML reports, Overview now includes a **Rightsizing at a Glance** section that summarizes:
@@ -240,6 +306,8 @@ When Prometheus integration is enabled, KubeBuddy also runs `PROM007` for per-co
 Minimum data rule:
 - KubeBuddy requires at least **7 days of Prometheus history** before emitting pod sizing recommendations.
 - If history is below 7 days, reports include an explicit **Insufficient Prometheus history** row instead of recommendations.
+
+This 7-day rule does not by itself explain JSON `metrics: null`; that value indicates the separate snapshot collector could not build usable node-level metrics.
 
 ### Why CPU limit defaults to `none`
 

@@ -15,12 +15,15 @@ type RunOptions struct {
 	JSONReport                   bool
 	CSVReport                    bool
 	AKS                          bool
+	GKE                          bool
 	ExcludeNamespaces            bool
 	AdditionalExcludedNamespaces []string
 	Yes                          bool
 	SubscriptionID               string
 	ResourceGroup                string
 	ClusterName                  string
+	ProjectID                    string
+	Location                     string
 	OutputPath                   string
 	UseAKSRestAPI                bool
 	ConfigPath                   string
@@ -96,6 +99,7 @@ func BuildArgs(modulePath string, options RunOptions) []string {
 	addBool("jsonReport", options.JSONReport)
 	addBool("CsvReport", options.CSVReport)
 	addBool("Aks", options.AKS)
+	addBool("Gke", options.GKE)
 	addBool("ExcludeNamespaces", options.ExcludeNamespaces)
 	addBool("yes", options.Yes)
 	addBool("UseAksRestApi", options.UseAKSRestAPI)
@@ -108,6 +112,8 @@ func BuildArgs(modulePath string, options RunOptions) []string {
 	addString("SubscriptionId", options.SubscriptionID)
 	addString("ResourceGroup", options.ResourceGroup)
 	addString("ClusterName", options.ClusterName)
+	addString("ProjectId", options.ProjectID)
+	addString("Location", options.Location)
 	addString("outputpath", options.OutputPath)
 	addString("ConfigPath", options.ConfigPath)
 	addString("PrometheusUrl", options.PrometheusURL)

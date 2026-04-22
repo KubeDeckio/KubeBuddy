@@ -257,7 +257,7 @@ func showStorageMenu(t *tui, opts tuiOpts) {
 		{ID: "PVC003", Label: "Show ReadWriteMany PVCs on incompatible storage 🔒"},
 		{ID: "PVC004", Label: "Show unbound PersistentVolumeClaims ⛔"},
 		{ID: "SC001", Label: "Show deprecated StorageClass provisioners 📉"},
-		{ID: "SC002", Label: "Show StorageClasses that prevent volume expansion 🚫"},
+		{ID: "SC004", Label: "Show StorageClasses that prevent volume expansion 🚫"},
 		{ID: "SC003", Label: "Check high cluster-wide storage usage 📊"},
 	})
 }

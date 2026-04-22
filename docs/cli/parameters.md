@@ -71,8 +71,11 @@ Prometheus auth is a mix of flags and environment-driven credentials.
 | --- | --- |
 | `local` | No extra auth inputs |
 | `azure` | Existing Azure auth in the current environment |
+| `gcp` | Google Application Default Credentials in the current environment |
 | `bearer` | `--prometheus-bearer-token-env <ENV_NAME>` and the named env var must contain the token |
 | `basic` | `PROMETHEUS_USERNAME` and `PROMETHEUS_PASSWORD` environment variables |
+
+`--include-prometheus` enables both Prometheus-backed checks and the optional report metrics snapshot. If the checks can run but the snapshot cannot be built, JSON output will keep `metrics: null` and explain the reason in `metadata.prometheusSnapshotStatus` and `metadata.prometheusSnapshotReason`.
 
 ## `kubebuddy scan-aks`
 

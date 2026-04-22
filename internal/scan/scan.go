@@ -15,6 +15,7 @@ import (
 type Options struct {
 	ChecksDir                string
 	ConfigPath               string
+	AKSMode                  bool
 	ExcludeNamespaces        bool
 	ExcludedNamespaces       []string
 	IncludePrometheus        bool
@@ -87,6 +88,7 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, cfg.ExcludedChecks)
+	ruleSet.Checks = filterProviderSpecificChecks(ruleSet.Checks, opts)
 
 	cache := map[string][]map[string]any{}
 	client, err := kubeapi.New()
@@ -104,6 +106,7 @@ func Run(opts Options) (Result, error) {
 		},
 		Excluded:          excludedNamespaceSet(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.ExcludedNamespaces),
 		TrustedRegistries: append([]string(nil), cfg.TrustedRegistries...),
+		AKSMode:           opts.AKSMode,
 		KubeClient:        client,
 		KubeContext:       ctx,
 	})
@@ -127,7 +130,17 @@ func Run(opts Options) (Result, error) {
 		if check.Prometheus != nil {
 			result, err := runPrometheusCheck(check)
 			if err != nil {
-				return Result{}, fmt.Errorf("%s: %w", check.ID, err)
+				result := skippedCheckResult(check, err)
+				out.Checks = append(out.Checks, result)
+				emitProgress(opts.Progress, ProgressEvent{
+					Stage:     "result",
+					CheckID:   result.ID,
+					CheckName: result.Name,
+					Index:     current,
+					Total:     declarativeTotal,
+					Findings:  result.Total,
+				})
+				continue
 			}
 			out.Checks = append(out.Checks, result)
 			emitProgress(opts.Progress, ProgressEvent{
@@ -146,32 +159,34 @@ func Run(opts Options) (Result, error) {
 			var err error
 			items, err = getItems(ctx, client, cache, check.ResourceKind)
 			if err != nil {
-				return Result{}, fmt.Errorf("%s: %w", check.ID, err)
+				result := skippedCheckResult(check, err)
+				out.Checks = append(out.Checks, result)
+				emitProgress(opts.Progress, ProgressEvent{
+					Stage:     "result",
+					CheckID:   result.ID,
+					CheckName: result.Name,
+					Index:     current,
+					Total:     declarativeTotal,
+					Findings:  result.Total,
+				})
+				continue
 			}
 		}
 
-		result := CheckResult{
-			ID:                         check.ID,
-			Name:                       check.Name,
-			Category:                   check.Category,
-			Section:                    check.Section,
-			Severity:                   string(check.Severity),
-			Weight:                     check.Weight,
-			Description:                check.Description,
-			Recommendation:             check.Recommendation,
-			RecommendationHTML:         check.RecommendationHTML,
-			SpeechBubble:               append([]string(nil), check.SpeechBubble...),
-			URL:                        check.URL,
-			ResourceKind:               check.ResourceKind,
-			AutomaticRelevance:         check.AutomaticRelevance,
-			AutomaticScope:             check.AutomaticScope,
-			AutomaticReason:            check.AutomaticReason,
-			AutomaticAdmissionBehavior: check.AutomaticAdmissionBehavior,
-			AutomaticMutationOutcome:   check.AutomaticMutationOutcome,
-		}
+		result := baseCheckResult(check)
 
 		if findings, ok, err := executeNativeHandler(check, items, cache); err != nil {
-			return Result{}, fmt.Errorf("%s: %w", check.ID, err)
+			result = skippedCheckResult(check, err)
+			out.Checks = append(out.Checks, result)
+			emitProgress(opts.Progress, ProgressEvent{
+				Stage:     "result",
+				CheckID:   result.ID,
+				CheckName: result.Name,
+				Index:     current,
+				Total:     declarativeTotal,
+				Findings:  result.Total,
+			})
+			continue
 		} else if ok {
 			result.Items = findings
 			result.Total = len(result.Items)
@@ -222,7 +237,17 @@ func Run(opts Options) (Result, error) {
 		for _, item := range items {
 			eval, err := checks.EvaluateItem(check, item)
 			if err != nil {
-				return Result{}, fmt.Errorf("%s: %w", check.ID, err)
+				result = skippedCheckResult(check, err)
+				out.Checks = append(out.Checks, result)
+				emitProgress(opts.Progress, ProgressEvent{
+					Stage:     "result",
+					CheckID:   result.ID,
+					CheckName: result.Name,
+					Index:     current,
+					Total:     declarativeTotal,
+					Findings:  result.Total,
+				})
+				goto nextCheck
 			}
 			if !eval.Failed {
 				continue
@@ -246,10 +271,39 @@ func Run(opts Options) (Result, error) {
 			Total:     declarativeTotal,
 			Findings:  result.Total,
 		})
+	nextCheck:
 	}
 
 	sort.Slice(out.Checks, func(i, j int) bool { return out.Checks[i].ID < out.Checks[j].ID })
 	return out, nil
+}
+
+func baseCheckResult(check checks.Check) CheckResult {
+	return CheckResult{
+		ID:                         check.ID,
+		Name:                       check.Name,
+		Category:                   check.Category,
+		Section:                    check.Section,
+		Severity:                   string(check.Severity),
+		Weight:                     check.Weight,
+		Description:                check.Description,
+		Recommendation:             check.Recommendation,
+		RecommendationHTML:         check.RecommendationHTML,
+		SpeechBubble:               append([]string(nil), check.SpeechBubble...),
+		URL:                        check.URL,
+		ResourceKind:               check.ResourceKind,
+		AutomaticRelevance:         check.AutomaticRelevance,
+		AutomaticScope:             check.AutomaticScope,
+		AutomaticReason:            check.AutomaticReason,
+		AutomaticAdmissionBehavior: check.AutomaticAdmissionBehavior,
+		AutomaticMutationOutcome:   check.AutomaticMutationOutcome,
+	}
+}
+
+func skippedCheckResult(check checks.Check, err error) CheckResult {
+	result := baseCheckResult(check)
+	result.SummaryMessage = fmt.Sprintf("Unable to check due to: %v", err)
+	return result
 }
 
 func countDeclarativeChecks(checksList []checks.Check) int {
@@ -373,6 +427,21 @@ func filterExcludedChecks(checksList []checks.Check, excluded []string) []checks
 	filtered := make([]checks.Check, 0, len(checksList))
 	for _, check := range checksList {
 		if _, ok := excludedSet[strings.ToUpper(strings.TrimSpace(check.ID))]; ok {
+			continue
+		}
+		filtered = append(filtered, check)
+	}
+	return filtered
+}
+
+func filterProviderSpecificChecks(checksList []checks.Check, opts Options) []checks.Check {
+	filtered := make([]checks.Check, 0, len(checksList))
+	prometheusEnabled := opts.IncludePrometheus && strings.TrimSpace(opts.PrometheusURL) != ""
+	for _, check := range checksList {
+		if check.ID == "SC002" && !opts.AKSMode {
+			continue
+		}
+		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(check.ID)), "PROM") && !prometheusEnabled {
 			continue
 		}
 		filtered = append(filtered, check)

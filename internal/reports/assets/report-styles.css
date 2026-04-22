@@ -3125,10 +3125,12 @@ html[data-kb-theme="radar"] .aks-filter-btn.is-active {
   box-shadow: 0 0 0 1px rgba(0, 194, 255, 0.25), 0 6px 16px rgba(0, 194, 255, 0.2);
 }
 
-#aks[data-aks-filter="failed"] tr.aks-pass-row {
+#aks[data-provider-filter="failed"] tr.aks-pass-row,
+#gke[data-provider-filter="failed"] tr.aks-pass-row {
   display: none !important;
 }
 
-#aks[data-aks-filter="all"] tr.aks-pass-row {
+#aks[data-provider-filter="all"] tr.aks-pass-row,
+#gke[data-provider-filter="all"] tr.aks-pass-row {
   display: table-row !important;
 }

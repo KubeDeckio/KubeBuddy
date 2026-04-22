@@ -72,7 +72,7 @@ func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	clusterName := reportClusterName(title, result)
 	snapshot := collectSnapshot(opts)
 	htmlChecks := compatHTMLChecks(result.Checks)
-	pages, aksPage := buildPages(scan.Result{Checks: htmlChecks, AutomaticReadiness: result.AutomaticReadiness})
+	pages, aksPage, gkePage := buildPages(scan.Result{Checks: htmlChecks, AutomaticReadiness: result.AutomaticReadiness})
 	overviewChecks := overviewChecks(htmlChecks)
 	totalChecks := len(overviewChecks)
 	passedChecks := passedChecks(overviewChecks)
@@ -100,6 +100,9 @@ func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	}
 	if len(aksPage.Checks) > 0 {
 		body.WriteString(`<li class="tab" data-tab="aks" data-tooltip="AKS Best Practices">AKS Best Practices</li>`)
+	}
+	if len(gkePage.Checks) > 0 {
+		body.WriteString(`<li class="tab" data-tab="gke" data-tooltip="GKE Best Practices">GKE Best Practices</li>`)
 	}
 	body.WriteString(`</ul></div></div>`)
 	body.WriteString(`<div id="navDrawer" class="nav-drawer"><div class="nav-header"><h3>Menu</h3><button id="navClose" class="nav-close">×</button></div><ul class="nav-items"></ul></div>`)
@@ -154,6 +157,9 @@ func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	}
 	if len(aksPage.Checks) > 0 {
 		body.WriteString(renderAKSPage(aksPage, result.AutomaticReadiness))
+	}
+	if len(gkePage.Checks) > 0 {
+		body.WriteString(renderGKEPage(gkePage))
 	}
 
 	body.WriteString(`</div>`)
@@ -287,11 +293,11 @@ func renderPage(page reportPage, snapshot reportSnapshot) string {
 	var b strings.Builder
 	b.WriteString(`<div class="tab-content" id="` + escAttr(page.ID) + `"><div class="container">`)
 	b.WriteString(`<h1>` + esc(page.Name) + `</h1>`)
-	b.WriteString(`<div class="table-container"><div class='table-container'>`)
+	b.WriteString(`<div class="table-container">`)
 	for _, check := range page.Checks {
-		b.WriteString(renderLegacyStandardSection(check))
+		b.WriteString(renderStandardSection(check))
 	}
-	b.WriteString(`</div></div></div></div>`)
+	b.WriteString(`</div></div></div>`)
 	return b.String()
 }
 
@@ -300,15 +306,15 @@ func renderNodesPage(page reportPage, snapshot reportSnapshot) string {
 	b.WriteString(`<div class="tab-content" id="nodes"><div class="container">`)
 	b.WriteString(`<h1>Node Conditions & Resources</h1>`)
 	b.WriteString(`<div class="table-container">`)
-	for _, id := range []string{"NODE001", "NODE002", "NODE003", "PROM005", "PROM006"} {
+	for _, id := range []string{"NODE001", "NODE002", "NODE003", "PROM005", "PROM006", "PROM008"} {
 		check, ok := findCheck(page.Checks, id)
 		if !ok {
 			continue
 		}
-		b.WriteString(renderLegacyNodeSection(check, snapshot))
+		b.WriteString(renderNodeSection(check, snapshot))
 	}
 	for _, check := range page.Checks {
-		if check.ID == "NODE001" || check.ID == "NODE002" || check.ID == "NODE003" || check.ID == "PROM005" || check.ID == "PROM006" {
+		if check.ID == "NODE001" || check.ID == "NODE002" || check.ID == "NODE003" || check.ID == "PROM005" || check.ID == "PROM006" || check.ID == "PROM008" {
 			continue
 		}
 		b.WriteString(renderCheckDetails(check))
@@ -318,19 +324,19 @@ func renderNodesPage(page reportPage, snapshot reportSnapshot) string {
 	return b.String()
 }
 
-func renderLegacyNodeSection(check scan.CheckResult, snapshot reportSnapshot) string {
+func renderNodeSection(check scan.CheckResult, snapshot reportSnapshot) string {
 	var b strings.Builder
 	b.WriteString(`<div class='table-container'><h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatNodeHeading(check)) + ` ` + headingTooltip(check) + `</h2>`)
 	b.WriteString(`<p>` + compatNodeStatusLine(check) + `</p>`)
 	if check.ID == "PROM006" && strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient") {
-		b.WriteString(`<p>📅 ` + esc(check.SummaryMessage) + `</p>`)
+		b.WriteString(`<div class="skipped-notice">⚠️ Node-exporter is not deployed. Deploy node-exporter with a GMP <code>ClusterPodMonitoring</code> to enable node sizing insights. See: <a href="https://cloud.google.com/stackdriver/docs/managed-prometheus/setup-unmanaged" target="_blank">GMP node-exporter setup</a>.</div>`)
 	}
-	if check.ID == "NODE003" || check.ID == "PROM006" {
+	if check.ID == "NODE003" || check.ID == "PROM006" || check.ID == "PROM008" {
 		b.WriteString(renderRecommendationDetails(check))
 	}
 	if compatNodeTableNeeded(check, snapshot) {
 		b.WriteString(`<div class="collapsible-container"><details id='` + escAttr(check.ID) + `' style='margin:10px 0;'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show Findings</summary><div style='padding-top: 15px;'>`)
-		b.WriteString(renderLegacyNodeTable(check, snapshot))
+		b.WriteString(renderNodeTable(check, snapshot))
 		b.WriteString(`</div></details></div>`)
 	}
 	b.WriteString(`</div>`)
@@ -355,7 +361,7 @@ func renderRecommendationDetails(check scan.CheckResult) string {
 	return b.String()
 }
 
-func renderLegacyNodeTable(check scan.CheckResult, snapshot reportSnapshot) string {
+func renderNodeTable(check scan.CheckResult, snapshot reportSnapshot) string {
 	var b strings.Builder
 	switch check.ID {
 	case "NODE001":
@@ -426,6 +432,9 @@ func compatNodeStatusLine(check scan.CheckResult) string {
 			return `⚠️ Total Nodes with Issues: ` + esc(fmt.Sprintf("%d", check.Total))
 		}
 	case "PROM006":
+		if strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient") {
+			return `⚠️ Node-exporter metrics unavailable — node sizing requires node-exporter to be deployed.`
+		}
 		if check.Total == 0 {
 			return `✅ All Nodes are healthy.`
 		}
@@ -450,6 +459,8 @@ func headingTooltip(check scan.CheckResult) string {
 		text = "Checks if CPU requests on nodes exceed allocatable capacity over the last 24 hours."
 	case "PROM006":
 		text = "Uses Prometheus p95 CPU and memory usage over a fixed 7-day window to highlight underutilized or saturated nodes and suggest sizing actions."
+	case "PROM008":
+		text = "Checks whether a node-exporter DaemonSet is deployed. Node-exporter is required for node-level CPU, memory, and disk metrics in Prometheus."
 	}
 	if text == "" {
 		return ""
@@ -578,6 +589,20 @@ func nodeIssueSummary(node map[string]any) string {
 	return strings.Join(issues, " | ")
 }
 
+func metricDisplay(avg float64, series []kubernetes.MetricPoint) string {
+	if len(series) == 0 {
+		return "N/A"
+	}
+	return fmt.Sprintf("%.2f%%", avg)
+}
+
+func metricClassWithData(avg float64, series []kubernetes.MetricPoint, warning, critical float64) string {
+	if len(series) == 0 {
+		return "default"
+	}
+	return metricClass(avg, warning, critical)
+}
+
 func nodePodCount(snapshot reportSnapshot, name string) (int, int) {
 	pods := snapshot.AllPodObjects
 	if len(pods) == 0 {
@@ -616,15 +641,15 @@ func renderNodeCards(snapshot reportSnapshot) string {
 		kernel := lookupString(node, "status.nodeInfo.kernelVersion")
 		kubelet := lookupString(node, "status.nodeInfo.kubeletVersion")
 		runtime := lookupString(node, "status.nodeInfo.containerRuntimeVersion")
-		cpuClass := metricClass(metrics.CPUAvg, 50, 75)
-		memClass := metricClass(metrics.MemAvg, 50, 75)
-		diskClass := metricClass(metrics.DiskAvg, 75, 90)
+		cpuClass := metricClassWithData(metrics.CPUAvg, metrics.CPUSeries, 50, 75)
+		memClass := metricClassWithData(metrics.MemAvg, metrics.MemSeries, 50, 75)
+		diskClass := metricClassWithData(metrics.DiskAvg, metrics.DiskSeries, 75, 90)
 		content := `<div class='recommendation-card node-card'><div style='padding: 15px;'><p><strong>OS:</strong> ` + esc(osImage) + `<br><strong>Kernel:</strong> ` + esc(kernel) + `<br><strong>Kubelet:</strong> ` + esc(kubelet) + `<br><strong>Runtime:</strong> ` + esc(runtime) + `</p><div class='hero-metrics'>` +
-			metricCard(cpuClass, "CPU", fmt.Sprintf("%.2f%%", metrics.CPUAvg)) +
-			metricCard(memClass, "Memory", fmt.Sprintf("%.2f%%", metrics.MemAvg)) +
-			metricCard(diskClass, "Disk", fmt.Sprintf("%.2f%%", metrics.DiskAvg)) +
+			metricCard(cpuClass, "CPU", metricDisplay(metrics.CPUAvg, metrics.CPUSeries)) +
+			metricCard(memClass, "Memory", metricDisplay(metrics.MemAvg, metrics.MemSeries)) +
+			metricCard(diskClass, "Disk", metricDisplay(metrics.DiskAvg, metrics.DiskSeries)) +
 			`</div><div class='chart-wrapper row-3'><div class='chart-item'><h3>CPU Usage (%)</h3><canvas class='node-chart' data-values='` + escAttr(toJSON(metrics.CPUSeries)) + `'></canvas></div><div class='chart-item'><h3>Memory Usage (%)</h3><canvas class='node-chart' data-values='` + escAttr(toJSON(metrics.MemSeries)) + `'></canvas></div><div class='chart-item'><h3>Disk Usage (%)</h3><canvas class='node-chart' data-values='` + escAttr(toJSON(metrics.DiskSeries)) + `'></canvas></div></div></div></div>`
-		summary := `<summary class="node-summary collapsible-arrow"><span class="summary-inner"><span class="node-name">Node: ` + esc(metrics.NodeName) + `</span><span class="summary-metrics"><span class="metric-badge ` + cpuClass + `">CPU: ` + esc(fmt.Sprintf("%.2f%%", metrics.CPUAvg)) + `</span><span class="metric-badge ` + memClass + `">Mem: ` + esc(fmt.Sprintf("%.2f%%", metrics.MemAvg)) + `</span><span class="metric-badge ` + diskClass + `">Disk: ` + esc(fmt.Sprintf("%.2f%%", metrics.DiskAvg)) + `</span></span></span></summary>`
+		summary := `<summary class="node-summary collapsible-arrow"><span class="summary-inner"><span class="node-name">Node: ` + esc(metrics.NodeName) + `</span><span class="summary-metrics"><span class="metric-badge ` + cpuClass + `">CPU: ` + esc(metricDisplay(metrics.CPUAvg, metrics.CPUSeries)) + `</span><span class="metric-badge ` + memClass + `">Mem: ` + esc(metricDisplay(metrics.MemAvg, metrics.MemSeries)) + `</span><span class="metric-badge ` + diskClass + `">Disk: ` + esc(metricDisplay(metrics.DiskAvg, metrics.DiskSeries)) + `</span></span></span></summary>`
 		b.WriteString(`<div class="collapsible-container"><details id="` + escAttr(nodeID) + `">` + summary + `<div style='padding-top: 15px;'>` + content + `</div></details></div>`)
 	}
 	b.WriteString(`</div><div id="nodeCardPagination" class="table-pagination"></div></div>`)
@@ -697,6 +722,72 @@ func renderAKSPage(page reportPage, readiness *scan.AutomaticReadiness) string {
 	if readiness != nil {
 		b.WriteString(`<h2>AKS Automatic Migration Readiness</h2>`)
 		b.WriteString(scan.AutomaticReadinessHTML(readiness))
+	}
+	b.WriteString(`</div></div></div>`)
+	return b.String()
+}
+
+func renderGKEPage(page reportPage) string {
+	passed := 0
+	for _, check := range page.Checks {
+		if check.Total == 0 {
+			passed++
+		}
+	}
+	failed := len(page.Checks) - passed
+	rating := aksRating(passed, failed)
+	var b strings.Builder
+	b.WriteString(`<div class="tab-content" id="gke"><div class="container">`)
+	b.WriteString(`<h1>GKE Best Practices Results</h1>`)
+	b.WriteString(`<div class="hero-metrics">`)
+	b.WriteString(metricCard("normal", "✅ Passed", fmt.Sprintf("%d", passed)))
+	b.WriteString(metricCard("critical", "❌ Failed", fmt.Sprintf("%d", failed)))
+	b.WriteString(metricCard("default", "📊 Total Checks", fmt.Sprintf("%d", len(page.Checks))))
+	b.WriteString(metricCard("default", "🎯 Score", fmt.Sprintf("%.2f%%", aksScore(passed, len(page.Checks)))))
+	b.WriteString(metricCard(ratingClass(rating), "⭐ Rating", rating))
+	b.WriteString(`</div><div class="table-container">`)
+	b.WriteString(`<div class="aks-filter-bar" role="group" aria-label="GKE check filter">`)
+	b.WriteString(`<button type="button" class="aks-filter-btn is-active" id="gkeFilterFailed" data-filter-mode="failed" aria-pressed="true" onclick="setGKEFilter('failed')">Failed Checks Only</button>`)
+	b.WriteString(`<button type="button" class="aks-filter-btn" id="gkeFilterAll" data-filter-mode="all" aria-pressed="false" onclick="setGKEFilter('all')">All Checks</button>`)
+	b.WriteString(`</div>`)
+	categories := groupByCategory(page.Checks)
+	for _, category := range categories {
+		sort.Slice(category.Checks, func(i, j int) bool {
+			iFailed := category.Checks[i].Total > 0
+			jFailed := category.Checks[j].Total > 0
+			if iFailed != jFailed {
+				return iFailed
+			}
+			return category.Checks[i].ID < category.Checks[j].ID
+		})
+		failures := 0
+		for _, check := range category.Checks {
+			if check.Total > 0 {
+				failures++
+			}
+		}
+		b.WriteString(`<div class="collapsible-container"><details id='gkeCategory_` + escAttr(compatAKSCategoryID(category.Name)) + `'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show ` + category.Name + ` (` + esc(fmt.Sprintf("%d/%d failed", failures, len(category.Checks))) + `)</summary><div style='padding-top: 15px;'>`)
+		b.WriteString(`<table><thead><tr><th>ID</th><th>Check</th><th>Severity</th><th>Category</th><th>Status</th><th>Observed Value</th><th>Fail Message</th><th>Recommendation</th><th>URL</th></tr></thead><tbody>`)
+		for _, check := range category.Checks {
+			status := "PASS"
+			icon := "✅"
+			value := ""
+			failMessage := "No issues detected."
+			rowClass := ` class="aks-pass-row"`
+			if check.Total > 0 {
+				status = "FAIL"
+				icon = "❌"
+				value = firstFindingValue(check)
+				failMessage = firstFindingMessage(check)
+				rowClass = ""
+			}
+			b.WriteString(`<tr` + rowClass + `><td>` + esc(check.ID) + `</td><td>` + esc(check.Name) + `</td><td>` + esc(check.Severity) + `</td><td>` + check.Category + `</td><td>` + icon + ` ` + status + `</td><td>` + formatAKSCellText(value) + `</td><td>` + formatAKSCellText(failMessage) + `</td><td>` + renderAKSRecommendationCell(check) + `</td><td>`)
+			if strings.TrimSpace(check.URL) != "" {
+				b.WriteString(`<a href='` + escAttr(check.URL) + `' target='_blank'>Learn More</a>`)
+			}
+			b.WriteString(`</td></tr>`)
+		}
+		b.WriteString(`</tbody></table></div></details></div>`)
 	}
 	b.WriteString(`</div></div></div>`)
 	return b.String()
@@ -779,62 +870,26 @@ func renderAKSRecommendationCell(check scan.CheckResult) string {
 }
 
 func renderCheckDetails(check scan.CheckResult) string {
-	var b strings.Builder
-	summaryText := fmt.Sprintf("Show %s - %s", check.ID, check.Name)
-	if check.Total == 0 {
-		summaryText = fmt.Sprintf("Show %s - %s (No issues detected)", check.ID, check.Name)
-	}
-	b.WriteString(`<div class="collapsible-container"><details id="` + escAttr(check.ID) + `"><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>` + esc(summaryText) + `</summary><div style='padding-top: 15px;'><div class="card">`)
-	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(check.Name) + `</h2>`)
-	b.WriteString(`<p><strong>Severity:</strong> ` + esc(check.Severity) + `</p>`)
-	if strings.TrimSpace(check.Description) != "" {
-		b.WriteString(`<p>` + esc(check.Description) + `</p>`)
-	}
-	if strings.TrimSpace(check.Recommendation) != "" {
-		aiSuffix := ""
-		if check.RecommendationSource == "AI" {
-			aiSuffix = ` <span class='ai-badge'>AI Generated</span>`
-		}
-		if strings.TrimSpace(check.RecommendationHTML) != "" {
-			b.WriteString(`<div class="recommendation-card"><div class="recommendation-banner"><span class="material-icons">tips_and_updates</span>Recommended Actions` + aiSuffix + `</div>` + check.RecommendationHTML + `</div>`)
-		} else {
-			b.WriteString(`<div class="recommendation-card"><div class="recommendation-banner"><span class="material-icons">tips_and_updates</span>Recommended Actions` + aiSuffix + `</div><ul><li>` + esc(check.Recommendation) + `</li></ul></div>`)
-		}
-	}
-	if strings.TrimSpace(check.URL) != "" {
-		b.WriteString(`<div class="recommendation-card"><ul><li><strong>Docs:</strong> <a href='` + escAttr(check.URL) + `' target='_blank'>Reference</a></li></ul></div>`)
-	}
-	if check.Total == 0 {
-		b.WriteString(`<p>No issues detected.</p>`)
-	} else {
-		b.WriteString(`<div class="table-container"><table><tr><th>Namespace</th><th>Resource</th><th>Value</th><th>Message</th></tr>`)
-		for _, item := range check.Items {
-			attrs := ``
-			if check.ID == "PROM007" {
-				attrs = ` data-sizing-profile="balanced"`
-			}
-			b.WriteString(`<tr` + attrs + `><td>` + esc(item.Namespace) + `</td><td>` + esc(item.Resource) + `</td><td>` + esc(item.Value) + `</td><td>` + esc(item.Message) + `</td></tr>`)
-		}
-		b.WriteString(`</table></div>`)
-	}
-	b.WriteString(`</div></div></details></div>`)
-	return b.String()
+	return renderStandardSection(check)
 }
 
-func renderLegacyStandardSection(check scan.CheckResult) string {
+func renderStandardSection(check scan.CheckResult) string {
 	var b strings.Builder
+	b.WriteString(`<div class='table-container'>`)
 	b.WriteString(`<h2 id='` + escAttr(check.ID) + `'>` + esc(check.ID) + ` - ` + esc(compatStandardHeading(check)) + ` ` + standardHeadingTooltip(check) + `</h2>`)
 	b.WriteString(`<p>` + compatStandardStatusLine(check) + `</p>`)
+	if check.Total == 0 && strings.TrimSpace(check.SummaryMessage) != "" {
+		b.WriteString(renderSkippedNotice(check.SummaryMessage))
+	}
 	if strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient prometheus history") {
 		b.WriteString(`<p>📅 ` + esc(check.SummaryMessage) + `</p>`)
 	}
-	b.WriteString(`<div class='table-container'>`)
 	if strings.TrimSpace(check.Recommendation) != "" || strings.TrimSpace(check.RecommendationHTML) != "" || strings.TrimSpace(check.URL) != "" {
 		b.WriteString(renderRecommendationDetails(check))
 	}
 	if compatStandardHasFindings(check) {
 		b.WriteString(`<div class="collapsible-container"><details id='` + escAttr(check.ID) + `' style='margin:10px 0;'><summary style='font-size:16px; cursor:pointer; color:var(--brand-blue); font-weight:bold;'>Show Findings</summary><div style='padding-top: 15px;'>`)
-		b.WriteString(renderLegacyStandardFindingsTable(check))
+		b.WriteString(renderStandardFindingsTable(check))
 		b.WriteString(`</div></details></div>`)
 	}
 	b.WriteString(`</div>`)
@@ -876,9 +931,20 @@ func standardHeadingTooltip(check scan.CheckResult) string {
 func compatStandardStatusLine(check scan.CheckResult) string {
 	label := statusSubject(check)
 	if check.Total == 0 {
+		if strings.TrimSpace(check.SummaryMessage) != "" {
+			return `⚪ Check could not be completed`
+		}
 		return `✅ All ` + esc(label) + ` are healthy.`
 	}
 	return `⚠️ Total ` + esc(label) + ` with Issues: ` + esc(strconv.Itoa(check.Total))
+}
+
+func renderSkippedNotice(message string) string {
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return ""
+	}
+	return `<div style="margin:0.75rem 0 1rem;padding:0.9rem 1rem;border-radius:12px;border:1px solid rgba(255,196,92,0.35);background:linear-gradient(180deg, rgba(255,196,92,0.14), rgba(255,196,92,0.08));color:#ffe7ad;"><strong style="display:block;margin-bottom:0.35rem;color:#ffd36b;">Unable to complete this check</strong><span style="line-height:1.6;">` + esc(trimmed) + `</span></div>`
 }
 
 func statusSubject(check scan.CheckResult) string {
@@ -953,13 +1019,13 @@ func statusSubject(check scan.CheckResult) string {
 	}
 }
 
-func renderLegacyStandardFindingsTable(check scan.CheckResult) string {
+func renderStandardFindingsTable(check scan.CheckResult) string {
 	var b strings.Builder
 	switch check.ID {
 	case "PROM001", "PROM002", "PROM003", "PROM004":
 		b.WriteString(`<table><tr><th>MetricLabels</th><th>Average</th><th>Message</th></tr>`)
 		for _, item := range check.Items {
-			b.WriteString(`<tr><td>` + esc(promMetricLabels(item)) + `</td><td>` + esc(formatLegacyAverage(item.Value)) + `</td><td>` + esc(item.Message) + `</td></tr>`)
+			b.WriteString(`<tr><td>` + esc(promMetricLabels(item)) + `</td><td>` + esc(formatAverageValue(item.Value)) + `</td><td>` + esc(item.Message) + `</td></tr>`)
 		}
 		b.WriteString(`</table>`)
 		return b.String()
@@ -994,7 +1060,7 @@ func promMetricLabels(item scan.Finding) string {
 	}
 }
 
-func formatLegacyAverage(raw string) string {
+func formatAverageValue(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return raw
@@ -1060,7 +1126,7 @@ func formatCompatAvailableDays(value any) string {
 	}
 }
 
-func buildPages(result scan.Result) ([]reportPage, reportPage) {
+func buildPages(result scan.Result) ([]reportPage, reportPage, reportPage) {
 	order := []reportPage{
 		{ID: "nodes", Name: "Nodes"},
 		{ID: "namespaces", Name: "Namespaces"},
@@ -1078,10 +1144,16 @@ func buildPages(result scan.Result) ([]reportPage, reportPage) {
 		index[page.ID] = i
 	}
 	aksPage := reportPage{ID: "aks", Name: "AKS Best Practices"}
+	gkePage := reportPage{ID: "gke", Name: "GKE Best Practices"}
 	for _, check := range result.Checks {
 		if strings.HasPrefix(check.ID, "AKS") {
 			aksPage.Checks = append(aksPage.Checks, check)
 			aksPage.Findings += check.Total
+			continue
+		}
+		if strings.HasPrefix(check.ID, "GKE") {
+			gkePage.Checks = append(gkePage.Checks, check)
+			gkePage.Findings += check.Total
 			continue
 		}
 		pageID := sectionID(check.Section, check.Category)
@@ -1097,7 +1169,7 @@ func buildPages(result scan.Result) ([]reportPage, reportPage) {
 		}
 		pages = append(pages, page)
 	}
-	return pages, aksPage
+	return pages, aksPage, gkePage
 }
 
 func sectionID(section string, category string) string {
@@ -1409,7 +1481,7 @@ func compatSectionRank(section string) int {
 func overviewChecks(checks []scan.CheckResult) []scan.CheckResult {
 	filtered := make([]scan.CheckResult, 0, len(checks))
 	for _, check := range checks {
-		if strings.HasPrefix(check.ID, "AKS") {
+		if strings.HasPrefix(check.ID, "AKS") || strings.HasPrefix(check.ID, "GKE") {
 			continue
 		}
 		filtered = append(filtered, check)
@@ -1422,6 +1494,12 @@ type compatHTMLOverride struct {
 	Severity string
 	Weight   int
 	Total    *int
+}
+
+// CompatChecks applies the canonical weight/severity/total overrides used by the HTML
+// report so that any other reporter (e.g. JSON) can produce a consistent cluster score.
+func CompatChecks(checks []scan.CheckResult) []scan.CheckResult {
+	return compatHTMLChecks(checks)
 }
 
 func compatHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {

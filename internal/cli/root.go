@@ -64,6 +64,7 @@ behavior through the native runtime and wrapper surfaces.`),
 	cmd.AddCommand(newMenuCommand())
 	cmd.AddCommand(newScanCommand())
 	cmd.AddCommand(newAKSScanCommand())
+	cmd.AddCommand(newGKEScanCommand())
 	cmd.AddCommand(newRunCommand())
 	cmd.AddCommand(newRunEnvCommand())
 
@@ -207,7 +208,7 @@ func newScanCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&opts.ExcludedNamespaces, "additional-excluded-namespaces", nil, "Additional namespaces to exclude.")
 	cmd.Flags().BoolVar(&opts.IncludePrometheus, "include-prometheus", false, "Include Prometheus data in the native scan.")
 	cmd.Flags().StringVar(&opts.PrometheusURL, "prometheus-url", "", "Prometheus URL.")
-	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode.")
+	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode (local, basic, bearer, azure, gcp).")
 	cmd.Flags().StringVar(&opts.PrometheusBearerTokenEnv, "prometheus-bearer-token-env", "", "Environment variable containing the bearer token.")
 	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
 	return cmd
@@ -240,6 +241,32 @@ func newAKSScanCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID for live collection.")
 	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group for live collection.")
 	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS cluster name for live collection.")
+	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
+	return cmd
+}
+
+func newGKEScanCommand() *cobra.Command {
+	opts := scan.GKEOptions{}
+	var outputMode string
+	cmd := &cobra.Command{
+		Use:   "scan-gke",
+		Short: "Run native GKE YAML checks against a GKE JSON document",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			result, err := scan.RunGKE(opts)
+			if err != nil {
+				return err
+			}
+			return output.WriteScanResultWithMetadata(cmd.OutOrStdout(), result, output.Mode(outputMode), output.Metadata{
+				ClusterName: opts.ClusterName,
+			})
+		},
+	}
+	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/gke", "Directory containing GKE check YAML files.")
+	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
+	cmd.Flags().StringVar(&opts.InputFile, "input", "", "Path to a GKE cluster JSON document (output of 'gcloud container clusters describe <cluster> --format json').")
+	cmd.Flags().StringVar(&opts.ProjectID, "project-id", "", "GCP project ID for live collection via Application Default Credentials.")
+	cmd.Flags().StringVar(&opts.Location, "location", "", "GKE cluster zone or region for live collection.")
+	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "GKE cluster name.")
 	cmd.Flags().StringVar(&outputMode, "output", "text", "Output format: text, json, csv, or html.")
 	return cmd
 }
@@ -278,19 +305,22 @@ func newRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.JSONReport, "json-report", false, "Generate the JSON report.")
 	cmd.Flags().BoolVar(&opts.CSVReport, "csv-report", false, "Generate the CSV report.")
 	cmd.Flags().BoolVar(&opts.AKS, "aks", false, "Enable AKS mode.")
+	cmd.Flags().BoolVar(&opts.GKE, "gke", false, "Enable GKE mode.")
 	cmd.Flags().BoolVar(&opts.ExcludeNamespaces, "exclude-namespaces", false, "Exclude configured namespaces.")
 	cmd.Flags().StringSliceVar(&opts.AdditionalExcludedNamespaces, "additional-excluded-namespaces", nil, "Additional namespaces to exclude.")
 	cmd.Flags().BoolVar(&opts.Yes, "yes", false, "Skip interactive confirmation prompts.")
 	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID.")
 	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group.")
-	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS cluster name.")
+	cmd.Flags().StringVar(&opts.ClusterName, "cluster-name", "", "AKS or GKE cluster name.")
+	cmd.Flags().StringVar(&opts.ProjectID, "project-id", "", "GCP project ID for GKE live collection.")
+	cmd.Flags().StringVar(&opts.Location, "location", "", "GKE zone or region for live collection.")
 	cmd.Flags().StringVar(&opts.OutputPath, "outputpath", "", "Report output path.")
 	cmd.Flags().StringVar(&opts.OutputPath, "output-path", "", "Report output path.")
 	cmd.Flags().BoolVar(&opts.UseAKSRestAPI, "use-aks-rest-api", false, "Use the AKS REST API path.")
 	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
 	cmd.Flags().BoolVar(&opts.IncludePrometheus, "include-prometheus", false, "Include Prometheus data.")
 	cmd.Flags().StringVar(&opts.PrometheusURL, "prometheus-url", "", "Prometheus URL.")
-	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode.")
+	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode (local, basic, bearer, azure, gcp).")
 	cmd.Flags().StringVar(&opts.PrometheusBearerTokenEnv, "prometheus-bearer-token-env", "", "Environment variable containing the bearer token.")
 	cmd.Flags().BoolVar(&opts.RadarUpload, "radar-upload", false, "Upload the JSON scan to Radar.")
 	cmd.Flags().BoolVar(&opts.RadarCompare, "radar-compare", false, "Compare the uploaded run in Radar.")

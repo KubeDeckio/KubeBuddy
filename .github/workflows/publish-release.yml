@@ -71,6 +71,7 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           files: |
             dist/*.tar.gz
+            dist/*.zip
             dist/checksums.txt
           generate_release_notes: true
 

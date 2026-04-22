@@ -184,7 +184,6 @@ Each table includes:
 | PVC003 | ReadWriteMany PVCs on Incompatible Storage | Detects PVCs requesting ReadWriteMany access mode where the underlying storage is typically block-based and does not support concurrent writes from multiple nodes. | High     | 5      |
 | PVC004 | Unbound Persistent Volume Claims           | Detects Persistent Volume Claims that are in a Pending phase and have not been bound to a Persistent Volume.                                                        | High     | 3      |
 | SC001  | Deprecated StorageClass Provisioners       | Detects StorageClasses using deprecated or legacy in-tree provisioners, which should be migrated to CSI drivers.                                                    | High     | 4      |
-| SC002  | AKS Azure In-Tree Storage Provisioners     | Detects Azure in-tree storage provisioners that are not AKS Automatic compatible.                                                                                   | High     | 4      |
 | SC004  | StorageClass Prevents Volume Expansion     | Identifies StorageClasses that do not permit volume expansion, which can limit dynamic scaling of stateful applications.                                           | Medium   | 2      |
 | SC003  | High Cluster Storage Usage                 | Monitors the overall percentage of used storage across the cluster.                                                                                                 | Warning  | 4      |
 

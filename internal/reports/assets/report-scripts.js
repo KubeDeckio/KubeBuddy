@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded, initializing charts');
     initReportThemePicker();
     initializeAKSFilter();
+    initializeGKEFilter();
 
     let lightbox = document.querySelector('.chart-lightbox');
     if (!lightbox) {
@@ -157,7 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } catch (e) {
             console.error(`Failed to render line chart (${label}):`, e);
-            canvas.insertAdjacentHTML('afterend', `<p class="warning">⚠️ Failed to render ${label}</p>`);
+            const message = e && e.message === 'Empty data'
+                ? `⚠️ No Prometheus data available for ${label}`
+                : `⚠️ Failed to render ${label}`;
+            canvas.insertAdjacentHTML('afterend', `<p class="warning">${message}</p>`);
             return null;
         }
     }
@@ -1282,12 +1286,13 @@ function initReportThemePicker() {
     }
 }
 
-function applyAKSFilter(mode) {
-    const aksTab = document.getElementById('aks');
-    if (!aksTab) return;
+function applyProviderFilter(tabId, mode) {
+    const tab = document.getElementById(tabId);
+    if (!tab) return;
 
-    const failedBtn = document.getElementById('aksFilterFailed');
-    const allBtn = document.getElementById('aksFilterAll');
+    const providerKey = tabId.toLowerCase();
+    const failedBtn = document.getElementById(providerKey + 'FilterFailed');
+    const allBtn = document.getElementById(providerKey + 'FilterAll');
     if (failedBtn) {
         const active = mode === 'failed';
         failedBtn.classList.toggle('is-active', active);
@@ -1298,25 +1303,36 @@ function applyAKSFilter(mode) {
         allBtn.classList.toggle('is-active', active);
         allBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
-    if (aksTab) {
-        aksTab.setAttribute('data-aks-filter', mode);
-    }
+    tab.setAttribute('data-provider-filter', mode);
 }
 
-function initializeAKSFilter() {
-    const aksTab = document.getElementById('aks');
-    if (!aksTab) return;
-    const initialMode = aksTab.getAttribute('data-aks-filter') || 'failed';
-    applyAKSFilter(initialMode);
+function initializeProviderFilter(tabId) {
+    const tab = document.getElementById(tabId);
+    if (!tab) return;
 
-    aksTab.querySelectorAll('details').forEach(function(details) {
+    const initialMode = tab.getAttribute('data-provider-filter') || 'failed';
+    applyProviderFilter(tabId, initialMode);
+
+    tab.querySelectorAll('details').forEach(function(details) {
         details.addEventListener('toggle', function() {
-            const currentMode = aksTab.getAttribute('data-aks-filter') || 'failed';
-            applyAKSFilter(currentMode);
+            const currentMode = tab.getAttribute('data-provider-filter') || 'failed';
+            applyProviderFilter(tabId, currentMode);
         });
     });
 }
 
+function initializeAKSFilter() {
+    initializeProviderFilter('aks');
+}
+
+function initializeGKEFilter() {
+    initializeProviderFilter('gke');
+}
+
 window.setAKSFilter = function(mode) {
-    applyAKSFilter(mode === 'all' ? 'all' : 'failed');
+    applyProviderFilter('aks', mode === 'all' ? 'all' : 'failed');
+};
+
+window.setGKEFilter = function(mode) {
+    applyProviderFilter('gke', mode === 'all' ? 'all' : 'failed');
 };

@@ -168,6 +168,12 @@ Below is a categorized list of key AKS checks, ordered by **ID and Category**.
 
 ### Best Practices
 
+AKS runs also include one AKS-specific compatibility check from the shared Kubernetes catalog:
+
+| ID     | Check                                 | Severity |
+|--------|----------------------------------------|----------|
+| SC002  | AKS Azure In-Tree Storage Provisioners | High     |
+
 | ID        | Check                                     | Severity |
 |-----------|-------------------------------------------|----------|
 | AKSBP001  | Allowed Container Images Policy           | High     |

@@ -68,3 +68,51 @@ func TestFilterExcludedChecks(t *testing.T) {
 		t.Fatalf("unexpected remaining check: %s", filtered[0].ID)
 	}
 }
+
+func TestFilterProviderSpecificChecks(t *testing.T) {
+	t.Helper()
+
+	input := []checks.Check{
+		{ID: "SC001"},
+		{ID: "SC002"},
+		{ID: "SC004"},
+	}
+
+	generic := filterProviderSpecificChecks(input, Options{})
+	if len(generic) != 2 {
+		t.Fatalf("expected 2 generic checks after filtering, got %d", len(generic))
+	}
+	for _, check := range generic {
+		if check.ID == "SC002" {
+			t.Fatalf("SC002 should be hidden for non-AKS runs")
+		}
+	}
+
+	aks := filterProviderSpecificChecks(input, Options{AKSMode: true})
+	if len(aks) != 3 {
+		t.Fatalf("expected AKS runs to retain SC002, got %d checks", len(aks))
+	}
+}
+
+func TestFilterProviderSpecificChecksHidesPrometheusChecksWhenDisabled(t *testing.T) {
+	t.Helper()
+
+	input := []checks.Check{
+		{ID: "NS001"},
+		{ID: "PROM001"},
+		{ID: "PROM006"},
+	}
+
+	filtered := filterProviderSpecificChecks(input, Options{})
+	if len(filtered) != 1 {
+		t.Fatalf("expected only non-prometheus checks to remain, got %d", len(filtered))
+	}
+	if filtered[0].ID != "NS001" {
+		t.Fatalf("unexpected remaining check: %s", filtered[0].ID)
+	}
+
+	enabled := filterProviderSpecificChecks(input, Options{IncludePrometheus: true, PrometheusURL: "https://prom.example"})
+	if len(enabled) != 3 {
+		t.Fatalf("expected prometheus-enabled runs to retain all checks, got %d", len(enabled))
+	}
+}

@@ -1,0 +1,45 @@
+checks:
+  - id: GKENET001
+    name: Gateway API Controller Enabled
+    category: Networking
+    severity: Low
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: networkConfig.gatewayApiConfig.channel
+    operator: not_equals
+    expected: CHANNEL_DISABLED
+    fail_message: The GKE Gateway API controller is disabled. Without it, the cluster cannot use the Kubernetes Gateway API for advanced traffic routing, traffic splitting, header-based routing, or multi-cluster networking. Teams must rely on legacy Ingress resources which lack fine-grained traffic management capabilities.
+    recommendation: Enable the Gateway API controller using 'gcloud container clusters update <cluster> --gateway-api=standard'. This enables the GKE Gateway controller which provisions Google Cloud Load Balancers using Gateway, HTTPRoute, and GRPCRoute resources for advanced L7 traffic management.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/deploying-gateways
+
+  - id: GKENET002
+    name: HTTP Load Balancing (GKE Ingress) Enabled
+    category: Networking
+    severity: Low
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: addonsConfig.httpLoadBalancing.disabled
+    operator: not_equals
+    expected: true
+    fail_message: HTTP Load Balancing add-on is disabled. Without it, the GKE Ingress controller is unavailable, preventing native integration with Google Cloud Load Balancing, automatic SSL certificate provisioning via Google-managed certificates, and Cloud CDN/Cloud Armor integration for DDoS protection and WAF capabilities.
+    recommendation: Enable HTTP Load Balancing using 'gcloud container clusters update <cluster> --update-addons=HttpLoadBalancing=ENABLED'. This enables the GKE Ingress controller, which provisions Google Cloud HTTP(S) Load Balancers with automatic health checking, SSL termination, and integration with Cloud Armor for application-layer security.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/ingress-features
+
+  - id: GKENET003
+    name: DNS Caching Enabled
+    category: Networking
+    severity: Low
+    resource_kind: gkeCluster
+    sources:
+      - gke.cluster
+    value:
+      path: addonsConfig.dnsCacheConfig.enabled
+    operator: equals
+    expected: true
+    fail_message: NodeLocal DNSCache is not enabled. Without DNS caching, all DNS queries from pods traverse the network to kube-dns/CoreDNS pods, increasing DNS latency, creating potential bottlenecks under high query volume, and making workloads more susceptible to DNS resolution failures during CoreDNS pod disruptions.
+    recommendation: Enable NodeLocal DNSCache using 'gcloud container clusters update <cluster> --update-addons=NodeLocalDNS=ENABLED'. This runs a DNS cache on each node, reducing DNS latency, improving reliability during CoreDNS disruptions, and decreasing the number of connections to upstream DNS servers.
+    url: https://cloud.google.com/kubernetes-engine/docs/how-to/nodelocal-dns-cache

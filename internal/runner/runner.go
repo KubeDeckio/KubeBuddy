@@ -45,6 +45,8 @@ func Execute(opts compat.RunOptions) error {
 
 	result := scan.Result{}
 	var snapshot *kubernetes.ClusterData
+	var collectorErr error
+	var kubernetesErr error
 	clusterReachable := kubernetesReachable()
 	if clusterReachable {
 		printPhase("Collector", "Building native cluster snapshot")
@@ -58,6 +60,7 @@ func Execute(opts compat.RunOptions) error {
 			Progress:                 collectorProgress,
 		})
 		if err != nil {
+			collectorErr = err
 			fmt.Printf("%s[Collector]%s Snapshot skipped: %v\n", colorGray, colorReset, err)
 		} else {
 			snapshot = &collected
@@ -68,7 +71,7 @@ func Execute(opts compat.RunOptions) error {
 			}
 		}
 	}
-	if !(opts.AKS || opts.UseAKSRestAPI) || clusterReachable {
+	if !(opts.AKS || opts.GKE || opts.UseAKSRestAPI) || clusterReachable {
 		printPhase("Kubernetes", "Running Kubernetes checks")
 		if opts.IncludePrometheus && opts.PrometheusURL != "" {
 			fmt.Printf("[Prometheus] enabled via %s (%s)\n", opts.PrometheusURL, firstNonEmpty(opts.PrometheusMode, "default"))
@@ -78,6 +81,7 @@ func Execute(opts compat.RunOptions) error {
 		result, err = scan.Run(scan.Options{
 			ChecksDir:                "checks/kubernetes",
 			ConfigPath:               opts.ConfigPath,
+			AKSMode:                  opts.AKS || opts.UseAKSRestAPI,
 			ExcludeNamespaces:        opts.ExcludeNamespaces,
 			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
 			IncludePrometheus:        opts.IncludePrometheus,
@@ -87,16 +91,19 @@ func Execute(opts compat.RunOptions) error {
 			Progress:                 logCheckProgress("Kubernetes"),
 		})
 		if err != nil {
-			if !(opts.AKS || opts.UseAKSRestAPI) {
+			kubernetesErr = err
+			if !(opts.AKS || opts.GKE || opts.UseAKSRestAPI) {
 				return err
 			}
 			fmt.Printf("%s[Kubernetes]%s skipped: %v\n", colorGray, colorReset, err)
-			result = scan.Result{}
+			if len(result.Checks) > 0 {
+				fmt.Printf("%s[Kubernetes]%s Retaining %d completed checks collected before the error\n", colorGray, colorReset, len(result.Checks))
+			}
 		} else {
 			fmt.Printf("%s[Kubernetes]%s Completed %d checks with %d findings in %s\n", colorGreen, colorReset, len(result.Checks), findingsCount(result), time.Since(start).Round(time.Second))
 		}
 	} else {
-		fmt.Printf("%s[Kubernetes]%s Skipped: cluster API unreachable, continuing with AKS-only flow\n", colorGray, colorReset)
+		fmt.Printf("%s[Kubernetes]%s Skipped: cluster API unreachable, continuing with provider-only flow\n", colorGray, colorReset)
 	}
 	if opts.AKS || opts.UseAKSRestAPI {
 		printPhase("AKS", "Running AKS checks")
@@ -120,8 +127,27 @@ func Execute(opts compat.RunOptions) error {
 			fmt.Printf("%s[AKS]%s Automatic readiness: %s (%d blockers, %d warnings)\n", colorMagenta, colorReset, result.AutomaticReadiness.Summary.StatusLabel, result.AutomaticReadiness.Summary.BlockerCount, result.AutomaticReadiness.Summary.WarningCount)
 		}
 	}
+	if opts.GKE {
+		printPhase("GKE", "Running GKE checks")
+		start := time.Now()
+		gkeResult, err := scan.RunGKE(scan.GKEOptions{
+			ChecksDir:   "checks/gke",
+			ConfigPath:  opts.ConfigPath,
+			ProjectID:   opts.ProjectID,
+			Location:    opts.Location,
+			ClusterName: opts.ClusterName,
+			Progress:    logCheckProgress("GKE"),
+		})
+		if err != nil {
+			return err
+		}
+		result.Checks = append(result.Checks, gkeResult.Checks...)
+		sort.Slice(result.Checks, func(i, j int) bool { return result.Checks[i].ID < result.Checks[j].ID })
+		fmt.Printf("%s[GKE]%s Completed %d checks with %d findings in %s\n", colorGreen, colorReset, len(gkeResult.Checks), findingsCount(gkeResult), time.Since(start).Round(time.Second))
+	}
 	if len(result.Checks) == 0 {
-		return fmt.Errorf("no checks executed")
+		result.Checks = append(result.Checks, runtimeDiagnosticCheck(clusterReachable, collectorErr, kubernetesErr))
+		fmt.Printf("%s[Runtime]%s No checks executed; writing diagnostic report instead\n", colorYellow, colorReset)
 	}
 	printPhase("AI", "Checking AI enrichment")
 	if enrichWithAI(&result) == 0 {
@@ -153,6 +179,11 @@ func Execute(opts compat.RunOptions) error {
 		metadata.Snapshot = snapshot
 		if snapshot.Metrics != nil {
 			metadata.Metrics = snapshot.Metrics
+			metadata.PrometheusSnapshotStatus = "available"
+		} else if opts.IncludePrometheus && strings.TrimSpace(opts.PrometheusURL) != "" {
+			metadata.PrometheusSnapshotStatus = "unavailable"
+			metadata.PrometheusSnapshotReason = "Prometheus checks were enabled, but no usable node metric series were collected for the snapshot. This commonly means the cluster is new or the Prometheus workspace does not yet expose the required node-level metrics."
+			fmt.Printf("%s[Prometheus]%s Snapshot unavailable: no usable node metric series were collected for report metrics\n", colorGray, colorReset)
 		}
 	}
 	if opts.AKS || opts.UseAKSRestAPI {
@@ -208,6 +239,34 @@ func Execute(opts compat.RunOptions) error {
 	return nil
 }
 
+func runtimeDiagnosticCheck(clusterReachable bool, collectorErr error, kubernetesErr error) scan.CheckResult {
+	lines := make([]string, 0, 3)
+	if !clusterReachable {
+		lines = append(lines, "cluster API was unreachable")
+	}
+	if collectorErr != nil {
+		lines = append(lines, "snapshot collection failed: "+collectorErr.Error())
+	}
+	if kubernetesErr != nil {
+		lines = append(lines, "kubernetes scan failed: "+kubernetesErr.Error())
+	}
+	if len(lines) == 0 {
+		lines = append(lines, "KubeBuddy did not execute any checks for an unknown reason")
+	}
+
+	return scan.CheckResult{
+		ID:                 "RUN001",
+		Name:               "Run Diagnostics",
+		Category:           "Runtime",
+		Section:            "Runtime",
+		Severity:           "Warning",
+		Description:        "Explains why KubeBuddy could not execute the expected checks for this run.",
+		Recommendation:     "Review cluster connectivity, kubeconfig permissions, and API access. Retry the run after correcting the reported issue.",
+		RecommendationHTML: "<div class=\"recommendation-content\"><ul><li>Check cluster connectivity and kubeconfig context.</li><li>Verify the identity running KubeBuddy can list the required Kubernetes resources.</li><li>Retry the scan after resolving the runtime issue.</li></ul></div>",
+		SummaryMessage:     "Unable to execute checks due to: " + strings.Join(lines, "; "),
+	}
+}
+
 func effectiveExcludedNamespaces(enabled bool, configured []string, extra []string) []string {
 	if !enabled {
 		return nil
@@ -238,6 +297,7 @@ func printPhase(name string, message string) {
 
 func collectorProgress(current, total int, kind string) {
 	const barWidth = 25
+	const clearLine = "\x1b[K"
 	filled := 0
 	if total > 0 {
 		filled = (current * barWidth) / total
@@ -245,12 +305,12 @@ func collectorProgress(current, total int, kind string) {
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
 	if kind == "" {
 		// final call — move to next line so subsequent output isn't overwritten
-		fmt.Printf("\r%s[Collector]%s [%s] %d/%d complete                    \n",
-			colorGreen, colorReset, bar, current, total)
+		fmt.Printf("\r%s[Collector]%s [%s] %d/%d complete%s\n",
+			colorGreen, colorReset, bar, current, total, clearLine)
 		return
 	}
-	fmt.Printf("\r%s[Collector]%s [%s] %2d/%d  Gathering %-22s",
-		colorCyan, colorReset, bar, current, total, kind)
+	fmt.Printf("\r%s[Collector]%s [%s] %2d/%d  Gathering %-22s%s",
+		colorCyan, colorReset, bar, current, total, kind, clearLine)
 }
 
 func kubernetesReachable() bool {

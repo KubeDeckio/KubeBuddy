@@ -92,6 +92,8 @@ type MetricPoint struct {
 	Value     float64 `json:"value"`
 }
 
+type queryRangeFunc func(query, start, end, step string, retries int, retryDelaySeconds int) ([]prom.Result, error)
+
 func CollectClusterData(opts ClusterDataOptions) (ClusterData, error) {
 	out := ClusterData{
 		CustomResourcesByKind: map[string][]map[string]any{},
@@ -173,6 +175,8 @@ func CollectClusterData(opts ClusterDataOptions) (ClusterData, error) {
 		metrics, err := collectPrometheusMetrics(out.Nodes, opts)
 		if err == nil {
 			out.Metrics = metrics
+		} else {
+			fmt.Printf("[Prometheus] Metrics collection failed: %v\n", err)
 		}
 	}
 	return out, nil
@@ -265,20 +269,44 @@ func collectPrometheusMetrics(nodes []map[string]any, opts ClusterDataOptions) (
 	if err != nil {
 		return nil, err
 	}
+	return collectPrometheusMetricsWithQuery(nodes, client.QueryRange)
+}
+
+func collectPrometheusMetricsWithQuery(nodes []map[string]any, queryRange queryRangeFunc) (*ClusterMetrics, error) {
 	end := time.Now().UTC()
 	start := end.Add(-24 * time.Hour)
-	queries := map[string]string{
-		"NodeCpuUsagePercent":    `(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100`,
-		"NodeMemoryUsagePercent": `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100`,
-		"NodeDiskUsagePercent":   `100 * (1 - (sum by(instance)(node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance)(node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"})))`,
+	// Each key maps to an ordered list of query candidates.
+	// Queries are tried in order; the first that succeeds with non-empty results is used.
+	// This avoids a single compound OR that can fail on platforms where some metric names
+	// (e.g. kubernetes_io:anthos_*) are rejected by the query engine.
+	queryCandidates := map[string][]string{
+		// 1. node-exporter (OSS / AKS / GKE+node-exporter)
+		// 2. Anthos / Autopilot recording rules
+		// 3. cAdvisor + machine_cpu_cores from kubelet (GKE managed collection, no node-exporter)
+		"NodeCpuUsagePercent": {
+			`(1 - avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100`,
+			`(1 - avg by(instance)(rate(kubernetes_io:anthos_node_cpu_seconds_total{monitored_resource="k8s_node",mode="idle"}[5m]))) * 100`,
+			`sum by(node)(rate(container_cpu_usage_seconds_total{container!="",pod!=""}[5m])) / on(node) machine_cpu_cores * 100`,
+		},
+		"NodeMemoryUsagePercent": {
+			`(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100`,
+			`(1 - (kubernetes_io:anthos_node_memory_MemAvailable_bytes{monitored_resource="k8s_node"} / kubernetes_io:anthos_node_memory_MemTotal_bytes{monitored_resource="k8s_node"})) * 100`,
+			`sum by(node)(container_memory_working_set_bytes{container!="",pod!=""}) / on(node) machine_memory_bytes * 100`,
+		},
+		"NodeDiskUsagePercent": {
+			`100 * (1 - (sum by(instance) (node_filesystem_avail_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (node_filesystem_size_bytes{fstype!~"tmpfs|aufs|squashfs", device!~"^$"})))`,
+			`100 * (1 - (sum by(instance) (kubernetes_io:anthos_node_filesystem_avail_bytes{monitored_resource="k8s_node",fstype!~"tmpfs|aufs|squashfs", device!~"^$"}) / sum by(instance) (kubernetes_io:anthos_node_filesystem_size_bytes{monitored_resource="k8s_node",fstype!~"tmpfs|aufs|squashfs", device!~"^$"})))`,
+		},
 	}
 	results := map[string][]prom.Result{}
-	for key, query := range queries {
-		series, err := client.QueryRange(query, start.Format(time.RFC3339), end.Format(time.RFC3339), "15m", 2, 2)
-		if err != nil {
-			return nil, err
+	for key, candidates := range queryCandidates {
+		series := queryFirstAvailableRange(queryRange, key, candidates, start, end)
+		if len(series) > 0 {
+			results[key] = series
 		}
-		results[key] = series
+		if results[key] == nil {
+			fmt.Printf("[Prometheus] %s: no data from any query candidate\n", key)
+		}
 	}
 
 	cluster := MetricsCluster{
@@ -308,6 +336,20 @@ func collectPrometheusMetrics(nodes []map[string]any, opts ClusterDataOptions) (
 	}
 	sort.Slice(nodeMetrics, func(i, j int) bool { return nodeMetrics[i].NodeName < nodeMetrics[j].NodeName })
 	return &ClusterMetrics{Cluster: cluster, Nodes: nodeMetrics}, nil
+}
+
+func queryFirstAvailableRange(queryRange queryRangeFunc, key string, candidates []string, start time.Time, end time.Time) []prom.Result {
+	for i, query := range candidates {
+		series, err := queryRange(query, start.Format(time.RFC3339), end.Format(time.RFC3339), "15m", 1, 1)
+		if err != nil {
+			fmt.Printf("[Prometheus] %s query[%d] failed: %v\n", key, i, err)
+			continue
+		}
+		if len(series) > 0 {
+			return series
+		}
+	}
+	return nil
 }
 
 func averageAcrossSeries(series []prom.Result) float64 {
@@ -354,14 +396,33 @@ func averageTimeSeries(series []prom.Result) []MetricPoint {
 func metricSeriesForNode(series []prom.Result, aliases []string) []MetricPoint {
 	for _, alias := range aliases {
 		for _, entry := range series {
-			instance := strings.ToLower(strings.TrimSpace(entry.Metric["instance"]))
-			host := strings.Split(instance, ":")[0]
-			if alias == host || alias == strings.Split(host, ".")[0] || strings.Contains(host, alias) {
+			if metricMatchesNodeAlias(entry.Metric, alias) {
 				return toMetricPoints(entry.Values)
 			}
 		}
 	}
 	return nil
+}
+
+func metricMatchesNodeAlias(labels map[string]string, alias string) bool {
+	candidates := []string{
+		labels["node"],
+		labels["nodename"],
+		labels["kubernetes_node"],
+		labels["instance"],
+	}
+	for _, candidate := range candidates {
+		value := strings.ToLower(strings.TrimSpace(candidate))
+		if value == "" {
+			continue
+		}
+		host := strings.Split(value, ":")[0]
+		shortHost := strings.Split(host, ".")[0]
+		if alias == host || alias == shortHost || strings.Contains(host, alias) || strings.Contains(alias, host) {
+			return true
+		}
+	}
+	return false
 }
 
 func toMetricPoints(values [][]any) []MetricPoint {
