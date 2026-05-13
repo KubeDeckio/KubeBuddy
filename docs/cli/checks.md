@@ -173,6 +173,9 @@ Each table includes:
 | SEC021 | Host Ports in Pod Specs               | Detects containers that bind host ports directly on the node.           | Critical | 4      |
 | SEC022 | Non-Existent Secret References        | Flags pods referencing Secrets that do not exist.                       | Critical | 4      |
 | SEC023 | Disallowed Sysctls                    | Detects sysctls outside the Kubernetes baseline allowlist.              | Critical | 3      |
+| SEC024 | ValidatingAdmissionPolicy Ignore Failure Policy | Flags policies where `failurePolicy: Ignore` silently allows requests when CEL evaluation fails. | High | 4 |
+| SEC025 | ValidatingAdmissionPolicy With No Binding | Detects `ValidatingAdmissionPolicy` resources with no associated binding, meaning the policy is never enforced. | Warning | 3 |
+| SEC026 | ValidatingAdmissionPolicy With No Validation Rules | Detects `ValidatingAdmissionPolicy` resources with an empty `spec.validations` list — the policy enforces nothing. | Medium | 2 |
 
 ### Storage
 

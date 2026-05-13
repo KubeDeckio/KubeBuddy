@@ -382,7 +382,9 @@ func normalizedKind(kind string) string {
 
 func isClusterScoped(kind string) bool {
 	switch kind {
-	case "nodes", "namespaces", "persistentvolumes", "storageclasses":
+	case "nodes", "namespaces", "persistentvolumes", "storageclasses",
+		"validatingadmissionpolicies", "validatingadmissionpolicybindings",
+		"validatingadmissionpolicy", "validatingadmissionpolicybinding":
 		return true
 	default:
 		return false

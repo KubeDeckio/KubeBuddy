@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+* **Validating Admission Policy checks (SEC024–SEC026)**
+  * `ValidatingAdmissionPolicy` and `ValidatingAdmissionPolicyBinding` resources are now collected as part of the standard Kubernetes data collection pass.
+  * **SEC024** – Flags `ValidatingAdmissionPolicy` resources with `spec.failurePolicy: Ignore`. When CEL evaluation errors occur the admission request is silently allowed, bypassing enforcement.
+  * **SEC025** – Flags `ValidatingAdmissionPolicy` resources that have no associated `ValidatingAdmissionPolicyBinding`. Without a binding the policy is never applied to any resource.
+  * **SEC026** – Flags `ValidatingAdmissionPolicy` resources with an empty `spec.validations` list. A policy with no CEL rules enforces nothing and is a no-op.
+  * Both resource types are treated as cluster-scoped and are silently skipped on clusters that do not support them (pre-1.26).
+
 ## [0.0.29] - 2026-04-22
 
 ### Added

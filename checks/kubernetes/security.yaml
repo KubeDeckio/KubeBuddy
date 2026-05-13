@@ -510,3 +510,64 @@ checks:
   operator: exists
   speech_bubble:
   - Remove non-baseline sysctls or redesign the workload to avoid kernel tuning inside the pod.
+- id: SEC024
+  name: ValidatingAdmissionPolicy Using Ignore Failure Policy
+  category: Policy Enforcement
+  section: Security
+  resource_kind: ValidatingAdmissionPolicy
+  severity: High
+  weight: 4
+  description: Detects ValidatingAdmissionPolicies where failurePolicy is set to Ignore. When a CEL expression fails to evaluate, the admission request is silently allowed through rather than blocked, bypassing policy enforcement.
+  fail_message: ValidatingAdmissionPolicy has failurePolicy set to Ignore.
+  recommendation: "Set spec.failurePolicy to Fail so that policy evaluation errors block the admission request rather than silently allowing it."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/
+  value:
+    path: spec.failurePolicy
+  operator: equals
+  expected: "Ignore"
+  speech_bubble:
+  - "\U0001F916 ValidatingAdmissionPolicies with failurePolicy: Ignore silently allow requests when evaluation errors occur."
+  - "\U0001F4CC Set failurePolicy: Fail to ensure CEL evaluation errors block the request."
+  - "\u26A0\uFE0F Ignoring failures can quietly weaken your admission controls."
+- id: SEC025
+  name: ValidatingAdmissionPolicy With No Binding
+  category: Policy Enforcement
+  section: Security
+  resource_kind: ValidatingAdmissionPolicy
+  severity: Warning
+  weight: 3
+  description: Detects ValidatingAdmissionPolicies that have no associated ValidatingAdmissionPolicyBinding. Without a binding, the policy is never applied to any resource and provides no enforcement.
+  fail_message: ValidatingAdmissionPolicy has no ValidatingAdmissionPolicyBinding and is never enforced.
+  recommendation: "Create a ValidatingAdmissionPolicyBinding that references this policy, or remove the policy if it is no longer needed."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/
+  native_handler: SEC025
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - "\U0001F916 A ValidatingAdmissionPolicy without a binding is never enforced."
+  - "\U0001F4CC Create a ValidatingAdmissionPolicyBinding to activate this policy."
+  - "\u26A0\uFE0F Unenforced policies provide no protection."
+- id: SEC026
+  name: ValidatingAdmissionPolicy With No Validation Rules
+  category: Policy Enforcement
+  section: Security
+  resource_kind: ValidatingAdmissionPolicy
+  severity: Medium
+  weight: 2
+  description: Detects ValidatingAdmissionPolicies that have an empty spec.validations list. A policy with no CEL validation rules cannot enforce any constraints and is effectively a no-op.
+  fail_message: ValidatingAdmissionPolicy has no CEL validation rules defined.
+  recommendation: "Add one or more CEL expressions to spec.validations, or remove the policy if it is not needed."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/
+  value:
+    count_where:
+      path: spec.validations
+      where:
+        path: expression
+        operator: exists
+  operator: equals
+  expected: 0
+  speech_bubble:
+  - "\U0001F916 A ValidatingAdmissionPolicy with no validation rules enforces nothing."
+  - "\U0001F4CC Add CEL expressions to spec.validations to define the admission constraints."
+  - "\u26A0\uFE0F Empty policies waste cluster resources and create a false sense of security."

@@ -27,40 +27,42 @@ type ClusterDataOptions struct {
 }
 
 type ClusterData struct {
-	Context                  string
-	KubernetesVersion        string
-	Summary                  Summary
-	TopNodes                 []string
-	Nodes                    []map[string]any
-	Pods                     []map[string]any
-	AllPods                  []map[string]any
-	Namespaces               []map[string]any
-	Events                   []map[string]any
-	AllEvents                []map[string]any
-	Deployments              []map[string]any
-	DaemonSets               []map[string]any
-	StatefulSets             []map[string]any
-	Jobs                     []map[string]any
-	AllJobs                  []map[string]any
-	CronJobs                 []map[string]any
-	Services                 []map[string]any
-	Ingresses                []map[string]any
-	EndpointSlices           []map[string]any
-	ConfigMaps               []map[string]any
-	Secrets                  []map[string]any
-	PersistentVolumes        []map[string]any
-	PersistentClaims         []map[string]any
-	NetworkPolicies          []map[string]any
-	ReplicaSets              []map[string]any
-	PodDisruptionBudgets     []map[string]any
-	HorizontalPodAutoscalers []map[string]any
-	Roles                    []map[string]any
-	RoleBindings             []map[string]any
-	ClusterRoles             []map[string]any
-	ClusterRoleBindings      []map[string]any
-	ServiceAccounts          []map[string]any
-	CustomResourcesByKind    map[string][]map[string]any
-	Metrics                  *ClusterMetrics
+	Context                           string
+	KubernetesVersion                 string
+	Summary                           Summary
+	TopNodes                          []string
+	Nodes                             []map[string]any
+	Pods                              []map[string]any
+	AllPods                           []map[string]any
+	Namespaces                        []map[string]any
+	Events                            []map[string]any
+	AllEvents                         []map[string]any
+	Deployments                       []map[string]any
+	DaemonSets                        []map[string]any
+	StatefulSets                      []map[string]any
+	Jobs                              []map[string]any
+	AllJobs                           []map[string]any
+	CronJobs                          []map[string]any
+	Services                          []map[string]any
+	Ingresses                         []map[string]any
+	EndpointSlices                    []map[string]any
+	ConfigMaps                        []map[string]any
+	Secrets                           []map[string]any
+	PersistentVolumes                 []map[string]any
+	PersistentClaims                  []map[string]any
+	NetworkPolicies                   []map[string]any
+	ReplicaSets                       []map[string]any
+	PodDisruptionBudgets              []map[string]any
+	HorizontalPodAutoscalers          []map[string]any
+	Roles                             []map[string]any
+	RoleBindings                      []map[string]any
+	ClusterRoles                      []map[string]any
+	ClusterRoleBindings               []map[string]any
+	ServiceAccounts                   []map[string]any
+	ValidatingAdmissionPolicies       []map[string]any
+	ValidatingAdmissionPolicyBindings []map[string]any
+	CustomResourcesByKind             map[string][]map[string]any
+	Metrics                           *ClusterMetrics
 }
 
 type ClusterMetrics struct {
@@ -138,6 +140,8 @@ func CollectClusterData(opts ClusterDataOptions) (ClusterData, error) {
 		{"clusterroles", &out.ClusterRoles},
 		{"clusterrolebindings", &out.ClusterRoleBindings},
 		{"serviceaccounts", &out.ServiceAccounts},
+		{"validatingadmissionpolicies", &out.ValidatingAdmissionPolicies},
+		{"validatingadmissionpolicybindings", &out.ValidatingAdmissionPolicyBindings},
 	}
 	for i, load := range loads {
 		if opts.Progress != nil {
@@ -146,7 +150,7 @@ func CollectClusterData(opts ClusterDataOptions) (ClusterData, error) {
 		items, err := getItemsWithClient(ctx, client, cache, load.key)
 		if err != nil {
 			switch load.key {
-			case "ingresses", "cronjobs", "endpointslices", "horizontalpodautoscalers", "poddisruptionbudgets":
+			case "ingresses", "cronjobs", "endpointslices", "horizontalpodautoscalers", "poddisruptionbudgets", "validatingadmissionpolicies", "validatingadmissionpolicybindings":
 				continue
 			}
 			return ClusterData{}, fmt.Errorf("collect %s: %w", load.key, err)
@@ -606,7 +610,9 @@ func normalizedKind(kind string) string {
 
 func isClusterScoped(kind string) bool {
 	switch kind {
-	case "nodes", "namespaces", "persistentvolumes", "storageclasses", "clusterroles", "clusterrolebindings":
+	case "nodes", "namespaces", "persistentvolumes", "storageclasses", "clusterroles", "clusterrolebindings",
+		"validatingadmissionpolicies", "validatingadmissionpolicybindings",
+		"validatingadmissionpolicy", "validatingadmissionpolicybinding":
 		return true
 	default:
 		return false

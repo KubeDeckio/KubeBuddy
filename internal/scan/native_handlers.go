@@ -51,6 +51,7 @@ var nativeHandlers = map[string]nativeHandler{
 	"SEC021":          runSEC021,
 	"SEC022":          runSEC022,
 	"SEC023":          runSEC023,
+	"SEC025":          runSEC025,
 	"SEC016":          runSEC016,
 	"SEC017":          runSEC017,
 	"SEC019":          runSEC019,
@@ -778,6 +779,31 @@ func runSEC016(check checks.Check, item map[string]any, cache map[string][]map[s
 		})
 	}
 	return findings, nil
+}
+
+func runSEC025(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	vapName := stringifyLookup(item, "metadata.name")
+	if vapName == "" {
+		return nil, nil
+	}
+
+	bindings, err := getCachedItems(cache, "validatingadmissionpolicybindings")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, binding := range bindings {
+		if stringifyLookup(binding, "spec.policyName") == vapName {
+			return nil, nil
+		}
+	}
+
+	return []Finding{
+		{
+			Resource: "ValidatingAdmissionPolicy/" + vapName,
+			Message:  fmt.Sprintf("ValidatingAdmissionPolicy %q has no ValidatingAdmissionPolicyBinding and is never enforced.", vapName),
+		},
+	}, nil
 }
 
 func runSEC023(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
