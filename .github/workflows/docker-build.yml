@@ -75,7 +75,7 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/kubectl $IMAGE_NAME:${{ steps.meta.outputs.TAG }} version --client=true --output=yaml
 
       - name: Scan image for vulnerabilities (block on CRITICAL)
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
           TRIVY_DISABLE_VEX_NOTICE: "true"
