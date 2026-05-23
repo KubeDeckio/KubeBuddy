@@ -41,7 +41,8 @@ func Execute(opts compat.RunOptions) error {
 	if opts.ConfigPath != "" {
 		cfg = config.Load(opts.ConfigPath)
 	}
-	effectiveExcluded := effectiveExcludedNamespaces(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.AdditionalExcludedNamespaces)
+	namespaceExclusionsEnabled := opts.ExcludeNamespaces || hasNonEmptyNamespace(opts.AdditionalExcludedNamespaces)
+	effectiveExcluded := effectiveExcludedNamespaces(namespaceExclusionsEnabled, cfg.ExcludedNamespaces, opts.AdditionalExcludedNamespaces)
 
 	result := scan.Result{}
 	var snapshot *kubernetes.ClusterData
@@ -51,7 +52,7 @@ func Execute(opts compat.RunOptions) error {
 	if clusterReachable {
 		printPhase("Collector", "Building native cluster snapshot")
 		collected, err := kubernetes.CollectClusterData(kubernetes.ClusterDataOptions{
-			ExcludeNamespaces:        opts.ExcludeNamespaces,
+			ExcludeNamespaces:        namespaceExclusionsEnabled,
 			ExcludedNamespaces:       effectiveExcluded,
 			IncludePrometheus:        opts.IncludePrometheus,
 			PrometheusURL:            opts.PrometheusURL,
@@ -82,7 +83,7 @@ func Execute(opts compat.RunOptions) error {
 			ChecksDir:                "checks/kubernetes",
 			ConfigPath:               opts.ConfigPath,
 			AKSMode:                  opts.AKS || opts.UseAKSRestAPI,
-			ExcludeNamespaces:        opts.ExcludeNamespaces,
+			ExcludeNamespaces:        namespaceExclusionsEnabled,
 			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
 			IncludePrometheus:        opts.IncludePrometheus,
 			PrometheusURL:            opts.PrometheusURL,
@@ -169,7 +170,7 @@ func Execute(opts compat.RunOptions) error {
 	actionPlanPath := ""
 	metadata := output.Metadata{
 		ClusterName:              opts.ClusterName,
-		ExcludeNamespacesEnabled: opts.ExcludeNamespaces,
+		ExcludeNamespacesEnabled: namespaceExclusionsEnabled,
 		ExcludedNamespaces:       append([]string(nil), effectiveExcluded...),
 		PrometheusURL:            opts.PrometheusURL,
 		PrometheusMode:           opts.PrometheusMode,
@@ -268,7 +269,7 @@ func runtimeDiagnosticCheck(clusterReachable bool, collectorErr error, kubernete
 }
 
 func effectiveExcludedNamespaces(enabled bool, configured []string, extra []string) []string {
-	if !enabled {
+	if !enabled && !hasNonEmptyNamespace(extra) {
 		return nil
 	}
 	set := scanExcludedNamespaceSet(configured, extra)
@@ -278,6 +279,15 @@ func effectiveExcludedNamespaces(enabled bool, configured []string, extra []stri
 	}
 	sort.Strings(out)
 	return out
+}
+
+func hasNonEmptyNamespace(values []string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func scanExcludedNamespaceSet(configured []string, extra []string) map[string]struct{} {

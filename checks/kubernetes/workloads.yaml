@@ -79,3 +79,23 @@ checks:
   - "\U0001F916 Some Pods are automounting API credentials."
   - "\U0001F4CC This can be a security risk if Pods are compromised."
   - "\u26A0\uFE0F Set automountServiceAccountToken to false unless needed."
+- id: POD009
+  name: Unhealthy Allocated Device Resources
+  section: Pods
+  category: Workloads
+  resource_kind: Pod
+  severity: High
+  weight: 3
+  description: Detects pods whose allocated device resources report Unhealthy or Unknown status.
+  fail_message: Pod has allocated device resources reporting Unhealthy or Unknown.
+  recommendation: "Inspect the device plugin or DRA driver, check node hardware health, and reschedule affected workloads if needed."
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Run <code>kubectl describe pod &lt;pod&gt; -n &lt;namespace&gt;</code> and review allocated resource health.</li>\n    <li>Check device plugin or DRA driver logs on the node hosting the pod.</li>\n    <li>Drain or cordon nodes with unhealthy accelerators until hardware or driver issues are resolved.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/
+  native_handler: POD009
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - "\U0001F916 A pod has allocated hardware resources reporting unhealthy or unknown."
+  - "\U0001F4CC Check the node device plugin or DRA driver."
+  - "\u26A0\uFE0F Accelerator workloads may crash or perform poorly until fixed."

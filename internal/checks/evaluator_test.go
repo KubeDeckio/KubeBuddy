@@ -104,6 +104,51 @@ func TestEvaluateItemSupportsCoalesceAndBooleanPredicates(t *testing.T) {
 	}
 }
 
+func TestEvaluateItemTreatsMissingServiceAccountNameAsDefault(t *testing.T) {
+	t.Helper()
+
+	check := Check{
+		ID:       "SEC015",
+		Operator: OperatorNotEquals,
+		Value: &Expression{
+			Coalesce: []*Expression{
+				{Path: "spec.serviceAccountName"},
+				{Value: "default"},
+			},
+		},
+		Expected: "default",
+	}
+	item := map[string]any{"spec": map[string]any{}}
+
+	got, err := EvaluateItem(check, item)
+	if err != nil {
+		t.Fatalf("evaluate missing serviceAccountName item: %v", err)
+	}
+	if !got.Failed {
+		t.Fatalf("expected missing serviceAccountName to be treated as default")
+	}
+}
+
+func TestEvaluateItemTreatsMissingServiceAccountAutomountAsEnabled(t *testing.T) {
+	t.Helper()
+
+	check := Check{
+		ID:       "SEC018",
+		Operator: OperatorNotEquals,
+		Value:    &Expression{Path: "automountServiceAccountToken"},
+		Expected: "true,null",
+	}
+	item := map[string]any{}
+
+	got, err := EvaluateItem(check, item)
+	if err != nil {
+		t.Fatalf("evaluate missing service account automount item: %v", err)
+	}
+	if !got.Failed {
+		t.Fatalf("expected missing automountServiceAccountToken to be treated as enabled")
+	}
+}
+
 func TestEvaluateItemSupportsCountWhere(t *testing.T) {
 	t.Helper()
 

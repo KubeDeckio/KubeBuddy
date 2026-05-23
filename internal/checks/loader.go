@@ -3,7 +3,9 @@ package checks
 import (
 	"fmt"
 	"html"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -33,6 +35,7 @@ type rawCheck struct {
 	Category                   string         `yaml:"Category"`
 	Section                    string         `yaml:"Section"`
 	Severity                   string         `yaml:"Severity"`
+	CheckType                  string         `yaml:"CheckType"`
 	Weight                     int            `yaml:"Weight"`
 	Description                string         `yaml:"Description"`
 	FailMessage                string         `yaml:"FailMessage"`
@@ -59,6 +62,7 @@ func (r rawCheck) normalize() Check {
 		Category:                   strings.TrimSpace(r.Category),
 		Section:                    strings.TrimSpace(r.Section),
 		Severity:                   Severity(normalizeSeverity(r.Severity)),
+		CheckType:                  normalizeCheckType(r.CheckType),
 		Weight:                     r.Weight,
 		Description:                strings.TrimSpace(r.Description),
 		FailMessage:                strings.TrimSpace(r.FailMessage),
@@ -94,11 +98,15 @@ func LoadFile(path string) (RuleSet, error) {
 	if err != nil {
 		return RuleSet{}, err
 	}
+	return loadRuleSet(path, data)
+}
 
+func loadRuleSet(path string, data []byte) (RuleSet, error) {
 	var direct RuleSet
 	if err := yaml.Unmarshal(data, &direct); err == nil && looksLikeModernRuleSet(direct) {
 		for i := range direct.Checks {
 			direct.Checks[i].ID = strings.TrimSpace(direct.Checks[i].ID)
+			direct.Checks[i].CheckType = normalizeCheckType(direct.Checks[i].CheckType)
 			hydrateRecommendationVariants(&direct.Checks[i])
 			if err := direct.Checks[i].Validate(); err != nil {
 				return RuleSet{}, fmt.Errorf("%s: %w", path, err)
@@ -145,6 +153,45 @@ func LoadDir(dir string) (RuleSet, error) {
 	out := RuleSet{}
 	for _, path := range files {
 		fileChecks, err := LoadFile(path)
+		if err != nil {
+			return RuleSet{}, err
+		}
+		out.Checks = append(out.Checks, fileChecks.Checks...)
+	}
+
+	return out, nil
+}
+
+func LoadFSDir(fsys fs.FS, dir string) (RuleSet, error) {
+	cleanDir := path.Clean(strings.Trim(filepath.ToSlash(dir), "/"))
+	if cleanDir == "." {
+		cleanDir = ""
+	}
+
+	entries, err := fs.ReadDir(fsys, cleanDir)
+	if err != nil {
+		return RuleSet{}, err
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		switch strings.ToLower(path.Ext(entry.Name())) {
+		case ".yaml", ".yml":
+			files = append(files, path.Join(cleanDir, entry.Name()))
+		}
+	}
+	sort.Strings(files)
+
+	out := RuleSet{}
+	for _, file := range files {
+		data, err := fs.ReadFile(fsys, file)
+		if err != nil {
+			return RuleSet{}, err
+		}
+		fileChecks, err := loadRuleSet(file, data)
 		if err != nil {
 			return RuleSet{}, err
 		}
@@ -333,6 +380,17 @@ func normalizeSeverity(value string) string {
 		return string(SeverityLow)
 	default:
 		return strings.TrimSpace(value)
+	}
+}
+
+func normalizeCheckType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "finding", "check":
+		return ""
+	case "advisory", "advice":
+		return "advisory"
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
 	}
 }
 

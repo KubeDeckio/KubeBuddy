@@ -4,10 +4,45 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	bundled "github.com/KubeDeckio/KubeBuddy/checks"
 )
 
+type CatalogSource string
+
+const (
+	CatalogSourceFilesystem CatalogSource = "filesystem"
+	CatalogSourceEmbedded   CatalogSource = "embedded"
+	CatalogSourceEmpty      CatalogSource = "empty"
+)
+
+type Catalog struct {
+	RuleSet RuleSet
+	Source  CatalogSource
+}
+
 func LoadCatalog(primaryDir string) (RuleSet, error) {
-	return LoadMergedDirs(primaryDir)
+	catalog, err := LoadCatalogWithSource(primaryDir)
+	return catalog.RuleSet, err
+}
+
+func LoadCatalogWithSource(primaryDir string) (Catalog, error) {
+	ruleSet, err := LoadMergedDirs(primaryDir)
+	if err != nil {
+		return Catalog{}, err
+	}
+	if len(ruleSet.Checks) > 0 {
+		return Catalog{RuleSet: ruleSet, Source: CatalogSourceFilesystem}, nil
+	}
+	ruleSet, err = loadBundledCatalog(primaryDir)
+	if err != nil {
+		return Catalog{}, err
+	}
+	source := CatalogSourceEmbedded
+	if len(ruleSet.Checks) == 0 {
+		source = CatalogSourceEmpty
+	}
+	return Catalog{RuleSet: ruleSet, Source: source}, nil
 }
 
 func LoadMergedDirs(dirs ...string) (RuleSet, error) {
@@ -50,4 +85,20 @@ func dirExists(path string) bool {
 		return false
 	}
 	return info.IsDir()
+}
+
+func loadBundledCatalog(primaryDir string) (RuleSet, error) {
+	switch normalizeCatalogDir(primaryDir) {
+	case "aks", "gke", "kubernetes":
+		return LoadFSDir(bundled.FS, normalizeCatalogDir(primaryDir))
+	default:
+		return RuleSet{}, nil
+	}
+}
+
+func normalizeCatalogDir(dir string) string {
+	trimmed := strings.Trim(strings.ReplaceAll(strings.TrimSpace(dir), "\\", "/"), "/")
+	trimmed = strings.TrimPrefix(trimmed, "./")
+	trimmed = strings.TrimPrefix(trimmed, "checks/")
+	return trimmed
 }

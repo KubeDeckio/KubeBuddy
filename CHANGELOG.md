@@ -8,12 +8,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
+* **Kubernetes best-practice checks for current platform risks**
+  * **NET019** – Flags Services that use `spec.externalIPs`, which can bypass normal load balancer ownership and create traffic interception risk.
+  * **NET020** – Detects Ingress-NGINX controller components so teams can review maintenance and Gateway API migration plans.
+  * **POD009** – Flags pods whose allocated device resources report `Unhealthy` or `Unknown` status.
+  * **PVC005** – Detects PVC volume expansion failure signals from claim status and resize events.
+  * **RBAC005** – Flags bound Roles and ClusterRoles that grant broad `nodes/proxy` kubelet access.
+  * **SEC027** – Flags pods using legacy `gitRepo` volumes.
+  * **SEC028** – Flags Pods and ServiceAccounts using `imagePullSecrets` so long-lived registry credentials can be reviewed and rotated.
+
+* **Embedded check catalog fallback**
+  * The native binary now embeds the default Kubernetes, AKS, and GKE check catalogs so fresh PowerShell Gallery and standalone binary installs can run even if external `checks/` files are missing.
+  * `kubebuddy checks` now reports whether the active catalog was loaded from the filesystem or the embedded fallback.
+
+* **Advisory check metadata**
+  * Added `check_type: advisory` support for softer review items such as Ingress-NGINX detection and image pull secret review.
+
 * **Validating Admission Policy checks (SEC024–SEC026)**
   * `ValidatingAdmissionPolicy` and `ValidatingAdmissionPolicyBinding` resources are now collected as part of the standard Kubernetes data collection pass.
   * **SEC024** – Flags `ValidatingAdmissionPolicy` resources with `spec.failurePolicy: Ignore`. When CEL evaluation errors occur the admission request is silently allowed, bypassing enforcement.
   * **SEC025** – Flags `ValidatingAdmissionPolicy` resources that have no associated `ValidatingAdmissionPolicyBinding`. Without a binding the policy is never applied to any resource.
   * **SEC026** – Flags `ValidatingAdmissionPolicy` resources with an empty `spec.validations` list. A policy with no CEL rules enforces nothing and is a no-op.
   * Both resource types are treated as cluster-scoped and are silently skipped on clusters that do not support them (pre-1.26).
+
+### Changed
+
+* Added `aks-command` to the default namespace exclusion list.
+* Consolidated default namespace exclusions so the collector and config loader share the same source of truth.
+* Reduced noise for **SEC028** by flagging direct Pod `imagePullSecrets` and the default ServiceAccount only.
+* Reduced RBAC false positives by ignoring Kubernetes default/system bindings, excluded-namespace ServiceAccount subjects, and valid RoleBindings to existing ClusterRoles.
+* Fixed namespace exclusion handling so additional excluded namespaces enable filtering for the run and collector filtering respects the resolved config list instead of re-adding defaults.
+* Fixed **SEC015** so pods that omit `spec.serviceAccountName` are treated as using the default ServiceAccount.
+* Fixed **SEC018** so ServiceAccounts that omit `automountServiceAccountToken` are treated as token automounting being enabled.
 
 ## [0.0.29] - 2026-04-22
 

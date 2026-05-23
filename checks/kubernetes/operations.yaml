@@ -357,6 +357,26 @@ checks:
   - "- roles that aren\u2019t used"
   - '- roles that define no rules'
   - "\u26A0\uFE0F These are usually safe to delete and clean up."
+- id: RBAC005
+  name: Kubelet Proxy RBAC Access
+  category: RBAC
+  section: Security
+  resource_kind: ClusterRole
+  severity: High
+  weight: 4
+  description: Detects bound Roles or ClusterRoles that grant access to the broad nodes/proxy kubelet subresource.
+  fail_message: RBAC grants kubelet proxy access.
+  recommendation: "Replace broad nodes/proxy grants with least-privilege kubelet subresource permissions required by the workload."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/kubelet-authn-authz/
+  native_handler: RBAC005
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Reduce Kubelet Proxy Permissions</h4>\n  <ul>\n    <li>Review bound Roles and ClusterRoles that grant <code>nodes/proxy</code>.</li>\n    <li>Use fine-grained kubelet API subresources such as <code>nodes/log</code>, <code>nodes/metrics</code>, or <code>nodes/stats</code> where possible.</li>\n    <li>Limit subjects and verbs to the smallest scope needed by observability or operations tooling.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - "\U0001F916 A bound RBAC role grants nodes/proxy access."
+  - "\U0001F4CC That is broader than most observability tools need."
+  - "\u26A0\uFE0F Prefer fine-grained kubelet subresource permissions."
 - id: WRK001
   name: DaemonSets Not Fully Running
   category: Workloads

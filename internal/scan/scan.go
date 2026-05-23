@@ -36,6 +36,7 @@ type CheckResult struct {
 	Category                   string
 	Section                    string
 	Severity                   string
+	CheckType                  string
 	Weight                     int
 	Description                string
 	Recommendation             string
@@ -285,6 +286,7 @@ func baseCheckResult(check checks.Check) CheckResult {
 		Category:                   check.Category,
 		Section:                    check.Section,
 		Severity:                   string(check.Severity),
+		CheckType:                  check.CheckType,
 		Weight:                     check.Weight,
 		Description:                check.Description,
 		Recommendation:             check.Recommendation,
@@ -330,7 +332,7 @@ func usesSyntheticInput(check checks.Check) bool {
 		return true
 	}
 	switch check.NativeHandler {
-	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "NODE002", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "NET004", "NET013", "NET018":
+	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "RBAC005", "SEC028", "NODE002", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "NET004", "NET013", "NET018", "NET020":
 		return true
 	default:
 		return false
@@ -401,7 +403,7 @@ func namespaceOf(item map[string]any) string {
 }
 
 func excludedNamespaceSet(enabled bool, configured []string, extra []string) map[string]struct{} {
-	if !enabled {
+	if !enabled && !hasNonEmptyNamespace(extra) {
 		return nil
 	}
 	names := append(append([]string{}, configured...), extra...)
@@ -413,6 +415,15 @@ func excludedNamespaceSet(enabled bool, configured []string, extra []string) map
 		}
 	}
 	return out
+}
+
+func hasNonEmptyNamespace(values []string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func filterExcludedChecks(checksList []checks.Check, excluded []string) []checks.Check {

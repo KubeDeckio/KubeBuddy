@@ -365,6 +365,47 @@ checks:
   - "\U0001F916 Multiple Services are targeting the same exact selector."
   - "\U0001F4CC AKS Automatic can reject that pattern during admission."
   - "\u26A0\uFE0F Give each Service a distinct selector or consolidate duplicates."
+- id: NET019
+  name: Services Using External IPs
+  category: Networking
+  section: Networking
+  resource_kind: Service
+  severity: High
+  weight: 4
+  description: Detects Services that use spec.externalIPs, which can bypass normal load balancer ownership and create traffic interception risk.
+  fail_message: Service uses spec.externalIPs.
+  recommendation: "Remove spec.externalIPs and expose traffic through a LoadBalancer Service, Gateway API, or a controlled ingress/load-balancer implementation."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
+  value:
+    path: spec.externalIPs
+  operator: not_equals
+  expected: null
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Review Service External IPs</h4>\n  <ul>\n    <li>Remove <code>spec.externalIPs</code> unless the routing ownership and network controls are explicitly managed.</li>\n    <li>Prefer LoadBalancer Services, Gateway API, or a maintained load-balancer controller such as MetalLB where appropriate.</li>\n    <li>Audit firewall and routing rules for any Service that currently relies on external IPs.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - This Service defines external IPs directly.
+  - That can bypass normal load balancer ownership.
+  - Prefer LoadBalancer, Gateway API, or controlled ingress.
+- id: NET020
+  name: Ingress-NGINX Controller Detected
+  category: Networking
+  section: Networking
+  resource_kind: Deployment
+  severity: Low
+  check_type: advisory
+  weight: 1
+  description: Detects Ingress-NGINX controller components so teams can review maintenance and migration plans.
+  fail_message: Ingress-NGINX controller component detected.
+  recommendation: "Review Ingress-NGINX usage and plan migration to Gateway API or another actively maintained ingress controller where appropriate."
+  url: https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/
+  native_handler: NET020
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Review Ingress-NGINX Usage</h4>\n  <ul>\n    <li>Inventory IngressClasses and controller deployments that use Ingress-NGINX.</li>\n    <li>Plan a migration path to Gateway API or another actively maintained ingress controller.</li>\n    <li>Validate behavior differences in a staging environment before routing production traffic.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Ingress-NGINX components are present.
+  - Review whether this controller is still the right ingress path.
+  - Gateway API is the preferred migration direction.
 - id: PV001
   name: Orphaned Persistent Volumes
   category: Volumes
@@ -461,7 +502,7 @@ checks:
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   value:
     path: status.phase
-  operator: equals
+  operator: not_equals
   expected: Pending
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F6AB Troubleshoot Unbound PVCs</h4>\n  <ul>\n    <li><strong>Describe PVC:</strong> Use <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> to see events and reasons for Pending.</li>\n    <li><strong>Check StorageClass:</strong> Ensure the specified StorageClass exists and is correctly configured.</li>\n    <li><strong>Review Provisioner:</strong> Verify the storage provisioner is running and healthy.</li>\n  </ul>\n</div>"
   speech_bubble:
@@ -469,6 +510,26 @@ checks:
   - But it's stuck in 'Pending'.
   - Check StorageClass, PVs, or your provisioner.
   - It needs help to get bound!
+- id: PVC005
+  name: PVC Expansion Failures
+  category: Volumes
+  section: Storage
+  resource_kind: PersistentVolumeClaim
+  severity: High
+  weight: 3
+  description: Detects PersistentVolumeClaims with failed volume expansion status or resize failure events.
+  fail_message: PVC has volume expansion failure signals.
+  recommendation: "Investigate failed volume expansion events, verify the StorageClass supports expansion, and confirm the CSI driver can complete controller and node resize operations."
+  url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#expanding-persistent-volumes-claims
+  native_handler: PVC005
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Troubleshoot PVC Expansion</h4>\n  <ul>\n    <li>Run <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> and inspect resize events.</li>\n    <li>Check that the StorageClass has <code>allowVolumeExpansion: true</code>.</li>\n    <li>Verify the CSI driver and node plugin are healthy and support online/offline resize for the volume type.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - This PVC shows resize failure signals.
+  - Check events, StorageClass expansion support, and CSI health.
+  - Storage might need manual recovery before the claim can resize.
 - id: SC001
   name: Deprecated StorageClass Provisioners
   category: StorageClasses

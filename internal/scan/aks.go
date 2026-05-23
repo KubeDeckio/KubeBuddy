@@ -37,7 +37,7 @@ func RunAKS(opts AKSOptions) (Result, error) {
 	}
 	cfg := config.Load(opts.ConfigPath)
 
-	ruleSet, err := checks.LoadDir(opts.ChecksDir)
+	ruleSet, err := checks.LoadCatalog(opts.ChecksDir)
 	if err != nil {
 		return Result{}, err
 	}
@@ -78,6 +78,7 @@ func RunAKS(opts AKSOptions) (Result, error) {
 			Category:                   check.Category,
 			Section:                    check.Section,
 			Severity:                   string(check.Severity),
+			CheckType:                  check.CheckType,
 			Weight:                     check.Weight,
 			Description:                check.Description,
 			Recommendation:             check.Recommendation,

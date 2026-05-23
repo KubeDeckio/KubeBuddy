@@ -42,6 +42,8 @@ Each table includes:
 - **Severity** – Low / Medium / High / Warning / Info
 - **Weight** – Contribution to health score
 
+Some low-severity checks are marked as advisories in the check catalog. Advisories surface useful review items without implying the resource is immediately broken.
+
 ### Performance
 
 | ID      | Name                                | Description                                                                             | Severity | Weight |
@@ -93,6 +95,8 @@ Each table includes:
 | NET016 | Gateway API Readiness Conditions | Detects Gateway resources that are not accepted or programmed. | High | 3 |
 | NET017 | Gateway TLS Secret and Cross-Namespace ReferenceGrant Validation | Validates Gateway `certificateRefs` against existing Secrets and ReferenceGrants. | High | 3 |
 | NET018 | Duplicate Service Selectors | Detects multiple Services in the same namespace with identical selectors. | Warning | 3 |
+| NET019 | Services Using External IPs | Detects Services that use `spec.externalIPs`, which can bypass normal load balancer ownership and create traffic interception risk. | High | 4 |
+| NET020 | Ingress-NGINX Controller Detected | Detects Ingress-NGINX controller components so teams can review maintenance and migration plans. | Low | 1 |
 | PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours. | Medium | 2 |
 
 ### Nodes
@@ -136,6 +140,7 @@ Each table includes:
 | POD005 | CrashLoopBackOff          | Pods stuck restarting in CrashLoopBackOff.             | High     | 3      |
 | POD006 | Leftover Debug Pods       | Debug pods not cleaned up.                             | Medium   | 2      |
 | POD007 | Images Using `latest` Tag | Risk of inconsistent deployments due to floating tags. | Low      | 1      |
+| POD009 | Unhealthy Allocated Device Resources | Detects pods whose allocated device resources report `Unhealthy` or `Unknown` status. | High | 3 |
 
 ### RBAC
 
@@ -145,6 +150,7 @@ Each table includes:
 | RBAC002 | Overexposed Roles        | Roles with overly broad permissions. | High     | 3      |
 | RBAC003 | Orphaned ServiceAccounts | Not in use; can be removed.          | Medium   | 2      |
 | RBAC004 | Ineffective Roles        | Unused roles cluttering the system.  | Medium   | 2      |
+| RBAC005 | Kubelet Proxy RBAC Access | Bound Roles or ClusterRoles that grant broad `nodes/proxy` kubelet access. | High | 4 |
 
 ### Security
 
@@ -176,6 +182,8 @@ Each table includes:
 | SEC024 | ValidatingAdmissionPolicy Ignore Failure Policy | Flags policies where `failurePolicy: Ignore` silently allows requests when CEL evaluation fails. | High | 4 |
 | SEC025 | ValidatingAdmissionPolicy With No Binding | Detects `ValidatingAdmissionPolicy` resources with no associated binding, meaning the policy is never enforced. | Warning | 3 |
 | SEC026 | ValidatingAdmissionPolicy With No Validation Rules | Detects `ValidatingAdmissionPolicy` resources with an empty `spec.validations` list — the policy enforces nothing. | Medium | 2 |
+| SEC027 | GitRepo Volume Usage                  | Detects pods that use the legacy `gitRepo` volume source.                 | High     | 3      |
+| SEC028 | Image Pull Secrets in Use             | Flags Pods or ServiceAccounts that reference imagePullSecrets for credential rotation review. | Low | 1 |
 
 ### Storage
 
@@ -186,6 +194,7 @@ Each table includes:
 | PVC002 | PVCs Using Default StorageClass            | Detects PVCs that do not explicitly specify a storageClassName.                                                                                                     | Low      | 1      |
 | PVC003 | ReadWriteMany PVCs on Incompatible Storage | Detects PVCs requesting ReadWriteMany access mode where the underlying storage is typically block-based and does not support concurrent writes from multiple nodes. | High     | 5      |
 | PVC004 | Unbound Persistent Volume Claims           | Detects Persistent Volume Claims that are in a Pending phase and have not been bound to a Persistent Volume.                                                        | High     | 3      |
+| PVC005 | PVC Expansion Failures                     | Detects PersistentVolumeClaims with failed volume expansion status or resize failure events.                                                                         | High     | 3      |
 | SC001  | Deprecated StorageClass Provisioners       | Detects StorageClasses using deprecated or legacy in-tree provisioners, which should be migrated to CSI drivers.                                                    | High     | 4      |
 | SC004  | StorageClass Prevents Volume Expansion     | Identifies StorageClasses that do not permit volume expansion, which can limit dynamic scaling of stateful applications.                                           | Medium   | 2      |
 | SC003  | High Cluster Storage Usage                 | Monitors the overall percentage of used storage across the cluster.                                                                                                 | Warning  | 4      |

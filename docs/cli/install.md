@@ -30,6 +30,16 @@ Invoke-KubeBuddy
 
 The PSGallery module bundles the native binary for supported platforms. You do not need to install the Go binary separately for normal use.
 
+## Bundled Checks
+
+The native binary includes a built-in copy of the default check catalog. When a `checks/` directory is present next to the binary or in the working tree, KubeBuddy loads those filesystem checks first. If the external files are missing, it falls back to the embedded catalog, which keeps PowerShell Gallery and standalone binary installs working on fresh machines.
+
+You can inspect the active catalog source with:
+
+```bash
+kubebuddy checks
+```
+
 ## Build From Source
 
 ```bash

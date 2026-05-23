@@ -421,7 +421,9 @@ checks:
   recommendation_html: "<ul>\n  <li>Create and bind a custom ServiceAccount per application.</li>\n  <li>Avoid using the <code>default</code> ServiceAccount unless absolutely necessary.</li>\n</ul>\n"
   url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
   value:
-    path: spec.serviceAccountName
+    coalesce:
+    - path: spec.serviceAccountName
+    - value: default
   operator: not_equals
   expected: default
   speech_bubble:
@@ -464,7 +466,7 @@ checks:
   value:
     path: automountServiceAccountToken
   operator: not_equals
-  expected: true
+  expected: true,null
   speech_bubble:
   - "\U0001F916 Some ServiceAccounts enable API credential automounting."
   - "\U0001F4CC This affects all Pods using these ServiceAccounts."
@@ -571,3 +573,42 @@ checks:
   - "\U0001F916 A ValidatingAdmissionPolicy with no validation rules enforces nothing."
   - "\U0001F4CC Add CEL expressions to spec.validations to define the admission constraints."
   - "\u26A0\uFE0F Empty policies waste cluster resources and create a false sense of security."
+- id: SEC027
+  name: GitRepo Volume Usage
+  category: Pod Security
+  section: Security
+  resource_kind: Pod
+  severity: High
+  weight: 3
+  description: Detects pods that use the legacy gitRepo volume source, which clones repository contents into a pod volume.
+  fail_message: Pod uses a gitRepo volume.
+  recommendation: "Replace gitRepo volumes with an init container, git-sync sidecar, or build-time artifact packaging."
+  recommendation_html: "<ul>\n  <li>Remove <code>gitRepo</code> volume sources from Pod specs.</li>\n  <li>Use an init container or a maintained sync tool to fetch repository content if runtime checkout is required.</li>\n  <li>Prefer immutable images or packaged artifacts for application code.</li>\n</ul>"
+  url: https://kubernetes.io/docs/concepts/storage/volumes/#gitrepo
+  native_handler: SEC027
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Replace gitRepo volumes with init containers, sync tooling, or immutable images.
+- id: SEC028
+  name: Image Pull Secrets in Use
+  category: Security
+  section: Security
+  resource_kind: Pod
+  severity: Low
+  check_type: advisory
+  weight: 1
+  description: Flags Pods or ServiceAccounts that reference imagePullSecrets, which may represent long-lived registry credentials that need rotation.
+  fail_message: Workload uses imagePullSecrets.
+  recommendation: "Review imagePullSecrets for least privilege and rotation. Where supported, prefer short-lived registry credentials or workload identity based image pulls."
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Verify each referenced image pull Secret is scoped to the smallest namespace and registry access needed.</li>\n    <li>Rotate long-lived registry credentials regularly and remove unused pull secrets.</li>\n    <li>Where supported, prefer short-lived credentials or workload identity based image pulls.</li>\n  </ul>\n</div>\n"
+  url: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
+  native_handler: SEC028
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Image pull secrets can become long-lived registry credentials.
+  - Review scope and rotation for every pull secret.
+  - Prefer short-lived identity-based pulls where supported.

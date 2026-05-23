@@ -44,3 +44,15 @@ func TestRadarSettingsMergeConfigAndFlags(t *testing.T) {
 		t.Fatalf("unexpected timeout/retries: %#v", settings)
 	}
 }
+
+func TestEffectiveExcludedNamespacesAdditionalNamespacesEnableFiltering(t *testing.T) {
+	t.Helper()
+
+	excluded := effectiveExcludedNamespaces(false, []string{"kube-system"}, []string{"custom-ns"})
+	if len(excluded) != 2 {
+		t.Fatalf("expected configured and additional namespaces, got %#v", excluded)
+	}
+	if excluded[0] != "custom-ns" || excluded[1] != "kube-system" {
+		t.Fatalf("unexpected namespaces: %#v", excluded)
+	}
+}

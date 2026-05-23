@@ -52,6 +52,18 @@ func TestFilterExcludedItems(t *testing.T) {
 	}
 }
 
+func TestExcludedNamespaceSetAdditionalNamespacesEnableFiltering(t *testing.T) {
+	t.Helper()
+
+	excluded := excludedNamespaceSet(false, []string{"kube-system"}, []string{"custom-ns"})
+	if _, ok := excluded["custom-ns"]; !ok {
+		t.Fatalf("expected additional namespace to enable filtering: %#v", excluded)
+	}
+	if _, ok := excluded["kube-system"]; !ok {
+		t.Fatalf("expected configured namespaces to be included with additional namespace: %#v", excluded)
+	}
+}
+
 func TestFilterExcludedChecks(t *testing.T) {
 	t.Helper()
 

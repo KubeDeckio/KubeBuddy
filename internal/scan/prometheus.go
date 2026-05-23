@@ -18,6 +18,7 @@ func runPrometheusCheck(check checks.Check) (CheckResult, error) {
 		Category:                   check.Category,
 		Section:                    check.Section,
 		Severity:                   string(check.Severity),
+		CheckType:                  check.CheckType,
 		Weight:                     check.Weight,
 		Description:                check.Description,
 		Recommendation:             check.Recommendation,

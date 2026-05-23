@@ -499,13 +499,8 @@ func parseTopNodesMetrics(metrics map[string]kubeapi.NodeMetric) []string {
 }
 
 func excludedNamespaceSet(extra []string) map[string]struct{} {
-	names := append([]string{
-		"kube-system", "kube-public", "kube-node-lease",
-		"local-path-storage", "kube-flannel",
-		"tigera-operator", "calico-system", "coredns", "aks-istio-system", "gatekeeper-system",
-	}, extra...)
 	out := map[string]struct{}{}
-	for _, ns := range names {
+	for _, ns := range extra {
 		ns = strings.ToLower(strings.TrimSpace(ns))
 		if ns != "" {
 			out[ns] = struct{}{}

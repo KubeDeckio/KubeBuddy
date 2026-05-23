@@ -46,6 +46,7 @@ for target in "${targets[@]}"; do
 
   cp README.md "${stage}/README.md"
   cp LICENSE "${stage}/LICENSE"
+  cp -R checks "${stage}/checks"
 
   mkdir -p "${module_stage}/bin/${goos}-${goarch}"
   cp "${stage}/${binary_name}" "${module_stage}/bin/${goos}-${goarch}/${binary_name}"
@@ -64,6 +65,8 @@ done
 cp KubeBuddy.psd1 "${module_stage}/KubeBuddy.psd1"
 cp KubeBuddy.psm1 "${module_stage}/KubeBuddy.psm1"
 cp Public/kubebuddy.ps1 "${module_stage}/Public/kubebuddy.ps1"
+cp LICENSE "${module_stage}/LICENSE"
+cp -R checks "${module_stage}/checks"
 tar -C "${OUT_DIR}" -czf "${OUT_DIR}/kubebuddy-psgallery-${TAG}.tar.gz" "KubeBuddy-psgallery"
 rm -rf "${module_stage}"
 

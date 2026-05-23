@@ -160,6 +160,7 @@ jobs:
           Copy-Item ./LICENSE          $stagingDir
           Copy-Item ./Public           $stagingDir -Recurse
           Copy-Item ./Private          $stagingDir -Recurse -ErrorAction SilentlyContinue
+          Copy-Item ./checks           $stagingDir -Recurse
 
           # Native binaries for all supported platforms
           Copy-Item ./bin $stagingDir -Recurse

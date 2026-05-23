@@ -176,6 +176,8 @@ You can extend the configured list at runtime with:
 - CLI: `--additional-excluded-namespaces istio-system,azure-monitor`
 - PowerShell: `-AdditionalExcludedNamespaces "istio-system","azure-monitor"`
 
+Providing additional excluded namespaces also enables namespace exclusion for that run.
+
 Example:
 
 ```yaml
@@ -198,6 +200,7 @@ Default exclusions, when no config file overrides them, are:
 - `calico-system`
 - `coredns`
 - `aks-istio-system`
+- `aks-command`
 - `gatekeeper-system`
 
 ## Trusted Registries
@@ -278,7 +281,7 @@ Invoke-KubeBuddy -ConfigPath ~/.kube/kubebuddy-config.yaml -ExcludeNamespaces -j
 
 ## Practical Notes
 
-- `excluded_namespaces` is only applied when you opt into namespace exclusion with the relevant flag or switch.
+- `excluded_namespaces` is applied when you opt into namespace exclusion with the relevant flag or switch, or when you provide additional excluded namespaces for a run.
 - `trusted_registries` affects `SEC014`.
 - `excluded_checks` applies to both Kubernetes and AKS catalogs.
 - Radar config values act as defaults; CLI and wrapper flags override them.

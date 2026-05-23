@@ -79,3 +79,15 @@ func TestCollectPrometheusMetricsWithQueryKeepsPartialResults(t *testing.T) {
 		t.Fatalf("expected no disk series when disk metrics are unavailable, got %d points", len(metrics.Nodes[0].DiskSeries))
 	}
 }
+
+func TestExcludedNamespaceSetUsesProvidedEffectiveList(t *testing.T) {
+	t.Helper()
+
+	excluded := excludedNamespaceSet([]string{"custom-ns"})
+	if _, ok := excluded["custom-ns"]; !ok {
+		t.Fatalf("expected custom namespace to be excluded: %#v", excluded)
+	}
+	if _, ok := excluded["kube-system"]; ok {
+		t.Fatalf("collector should not re-add default namespaces after config resolution: %#v", excluded)
+	}
+}

@@ -43,6 +43,7 @@ type Check struct {
 	Category                   string         `yaml:"category"`
 	Section                    string         `yaml:"section"`
 	Severity                   Severity       `yaml:"severity"`
+	CheckType                  string         `yaml:"check_type,omitempty"`
 	Weight                     int            `yaml:"weight"`
 	Description                string         `yaml:"description"`
 	FailMessage                string         `yaml:"fail_message"`

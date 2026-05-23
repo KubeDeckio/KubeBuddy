@@ -22,7 +22,7 @@ Full report workflow.
 | `--yes` | Skip interactive confirmation prompts |
 | `--config-path` | KubeBuddy config file path for thresholds, excluded namespaces, trusted registries, excluded checks, and Radar defaults |
 | `--exclude-namespaces` | Exclude configured namespaces |
-| `--additional-excluded-namespaces` | Additional namespaces to exclude |
+| `--additional-excluded-namespaces` | Additional namespaces to exclude; also enables namespace exclusion for the run |
 | `--include-prometheus` | Include Prometheus data |
 | `--prometheus-url` | Prometheus URL |
 | `--prometheus-mode` | Prometheus auth mode |
@@ -56,7 +56,7 @@ Direct Kubernetes scan output.
 | `--checks-dir` | Directory containing Kubernetes check YAML files |
 | `--config-path` | KubeBuddy config file path for thresholds, excluded namespaces, trusted registries, and excluded checks |
 | `--exclude-namespaces` | Exclude configured namespaces |
-| `--additional-excluded-namespaces` | Additional namespaces to exclude |
+| `--additional-excluded-namespaces` | Additional namespaces to exclude; also enables namespace exclusion for the run |
 | `--include-prometheus` | Include Prometheus data |
 | `--prometheus-url` | Prometheus URL |
 | `--prometheus-mode` | Prometheus auth mode |

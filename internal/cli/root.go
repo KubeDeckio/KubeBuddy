@@ -125,12 +125,13 @@ func newChecksCommand() *cobra.Command {
 			if strings.TrimSpace(checksDir) == "" {
 				checksDir = "checks/kubernetes"
 			}
-			ruleSet, err := checks.LoadCatalog(checksDir)
+			catalog, err := checks.LoadCatalogWithSource(checksDir)
 			if err != nil {
 				return err
 			}
 
-			inv := checks.Summarize(ruleSet)
+			inv := checks.Summarize(catalog.RuleSet)
+			fmt.Fprintf(cmd.OutOrStdout(), "source: %s\n", catalog.Source)
 			fmt.Fprintf(cmd.OutOrStdout(), "total: %d\n", inv.Total)
 			fmt.Fprintf(cmd.OutOrStdout(), "declarative: %d\n", inv.Declarative)
 			fmt.Fprintf(cmd.OutOrStdout(), "prometheus: %d\n", inv.Prometheus)
@@ -197,7 +198,7 @@ func newScanCommand() *cobra.Command {
 				PrometheusURL:            opts.PrometheusURL,
 				PrometheusMode:           opts.PrometheusMode,
 				PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
-				ExcludeNamespacesEnabled: opts.ExcludeNamespaces,
+				ExcludeNamespacesEnabled: opts.ExcludeNamespaces || hasNonEmptyNamespace(opts.ExcludedNamespaces),
 				ExcludedNamespaces:       effectiveExcludedNamespaces(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.ExcludedNamespaces),
 			})
 		},
@@ -272,7 +273,7 @@ func newGKEScanCommand() *cobra.Command {
 }
 
 func effectiveExcludedNamespaces(enabled bool, configured []string, extra []string) []string {
-	if !enabled {
+	if !enabled && !hasNonEmptyNamespace(extra) {
 		return nil
 	}
 	set := map[string]struct{}{}
@@ -288,6 +289,15 @@ func effectiveExcludedNamespaces(enabled bool, configured []string, extra []stri
 	}
 	sort.Strings(out)
 	return out
+}
+
+func hasNonEmptyNamespace(values []string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func newRunCommand() *cobra.Command {
