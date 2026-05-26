@@ -23,6 +23,7 @@ Full report workflow.
 | `--config-path` | KubeBuddy config file path for thresholds, excluded namespaces, trusted registries, excluded checks, and Radar defaults |
 | `--exclude-namespaces` | Exclude configured namespaces |
 | `--additional-excluded-namespaces` | Additional namespaces to exclude; also enables namespace exclusion for the run |
+| `--excluded-checks` | Comma-separated check IDs to exclude for this run |
 | `--include-prometheus` | Include Prometheus data |
 | `--prometheus-url` | Prometheus URL |
 | `--prometheus-mode` | Prometheus auth mode |
@@ -32,6 +33,9 @@ Full report workflow.
 | `--resource-group` | AKS resource group |
 | `--cluster-name` | AKS cluster name |
 | `--use-aks-rest-api` | Use the AKS REST API path |
+| `--gke` | Enable GKE mode |
+| `--project-id` | GCP project ID for GKE live collection |
+| `--location` | GKE zone or region |
 | `--radar-upload` | Upload JSON scan results to Radar |
 | `--radar-compare` | Compare the uploaded run in Radar |
 | `--radar-fetch-config` | Fetch Radar cluster config before running |
@@ -57,6 +61,7 @@ Direct Kubernetes scan output.
 | `--config-path` | KubeBuddy config file path for thresholds, excluded namespaces, trusted registries, and excluded checks |
 | `--exclude-namespaces` | Exclude configured namespaces |
 | `--additional-excluded-namespaces` | Additional namespaces to exclude; also enables namespace exclusion for the run |
+| `--excluded-checks` | Comma-separated check IDs to exclude for this scan |
 | `--include-prometheus` | Include Prometheus data |
 | `--prometheus-url` | Prometheus URL |
 | `--prometheus-mode` | Prometheus auth mode |
@@ -85,10 +90,26 @@ AKS YAML checks against a live AKS cluster or AKS JSON document.
 | --- | --- |
 | `--checks-dir` | Directory containing AKS check YAML files |
 | `--config-path` | KubeBuddy config file path for excluded AKS checks and shared defaults |
+| `--excluded-checks` | Comma-separated AKS check IDs to exclude for this scan |
 | `--input` | Path to an AKS cluster JSON document |
 | `--subscription-id` | AKS subscription ID |
 | `--resource-group` | AKS resource group |
 | `--cluster-name` | AKS cluster name |
+| `--output` | Output format: `text`, `json`, `csv`, or `html` |
+
+## `kubebuddy scan-gke`
+
+GKE YAML checks against a live GKE cluster or GKE JSON document.
+
+| Flag | Description |
+| --- | --- |
+| `--checks-dir` | Directory containing GKE check YAML files |
+| `--config-path` | KubeBuddy config file path for excluded GKE checks and shared defaults |
+| `--excluded-checks` | Comma-separated GKE check IDs to exclude for this scan |
+| `--input` | Path to a GKE cluster JSON document |
+| `--project-id` | GCP project ID for live collection |
+| `--location` | GKE cluster zone or region |
+| `--cluster-name` | GKE cluster name |
 | `--output` | Output format: `text`, `json`, `csv`, or `html` |
 
 ## `kubebuddy checks`
@@ -125,6 +146,7 @@ Container-oriented entrypoint that reads configuration from environment variable
 | `KUBEBUDDY_CONFIG_PATH` | Optional KubeBuddy config file path |
 | `EXCLUDE_NAMESPACES` | Enable configured namespace exclusions |
 | `ADDITIONAL_EXCLUDED_NAMESPACES` | Comma-separated additional namespaces to exclude |
+| `EXCLUDED_CHECKS` | Comma-separated check IDs to exclude |
 | `INCLUDE_PROMETHEUS` | Enable Prometheus-backed checks |
 | `PROMETHEUS_URL` | Prometheus endpoint URL |
 | `PROMETHEUS_MODE` | Prometheus auth mode such as `azure` or `bearer` |

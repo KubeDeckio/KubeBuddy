@@ -31,6 +31,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * **SEC026** – Flags `ValidatingAdmissionPolicy` resources with an empty `spec.validations` list. A policy with no CEL rules enforces nothing and is a no-op.
   * Both resource types are treated as cluster-scoped and are silently skipped on clusters that do not support them (pre-1.26).
 
+* **Runtime check exclusions**
+  * Added `--excluded-checks` to `kubebuddy run`, `kubebuddy scan`, `kubebuddy scan-aks`, and `kubebuddy scan-gke` for comma-separated one-off check exclusions.
+  * Added `-ExcludedChecks` to the PowerShell wrapper and `EXCLUDED_CHECKS` to Docker/container env mode.
+  * Runtime exclusions are merged with `excluded_checks` from `kubebuddy-config.yaml`, and JSON report metadata now includes the applied `excludedChecks` list.
+
 ### Changed
 
 * Added `aks-command` to the default namespace exclusion list.

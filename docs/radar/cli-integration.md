@@ -52,6 +52,17 @@ kubebuddy run \
   --output-path ./reports
 ```
 
+Exclude checks for this run while still using the fetched profile:
+
+```bash
+kubebuddy run \
+  --radar-fetch-config \
+  --radar-config-id "ccfg_12345678-1234-1234-1234-123456789abc" \
+  --excluded-checks SEC014,WRK011 \
+  --html-report \
+  --yes
+```
+
 ## PowerShell CLI Usage
 
 Upload JSON run:
@@ -87,6 +98,15 @@ Invoke-KubeBuddy `
   -RadarConfigId "ccfg_12345678-1234-1234-1234-123456789abc"
 ```
 
+Exclude checks for this run while still using the fetched profile:
+
+```powershell
+Invoke-KubeBuddy `
+  -RadarFetchConfig `
+  -RadarConfigId "ccfg_12345678-1234-1234-1234-123456789abc" `
+  -ExcludedChecks "SEC014","WRK011"
+```
+
 ## Docker Entrypoint Usage (`kubebuddy run-env`)
 
 Use these env vars:
@@ -97,6 +117,7 @@ Use these env vars:
 -e RADAR_COMPARE="true" \
 -e RADAR_FETCH_CONFIG="true" \
 -e RADAR_CONFIG_ID="ccfg_12345678-1234-1234-1234-123456789abc" \
+-e EXCLUDED_CHECKS="SEC014,WRK011" \
 -e RADAR_ENVIRONMENT="prod" \
 -e KUBEBUDDY_RADAR_API_USER="<wordpress-username>" \
 -e KUBEBUDDY_RADAR_API_PASSWORD="<wordpress-app-password>"
@@ -106,6 +127,7 @@ Validation rules:
 
 - `RADAR_UPLOAD`/`RADAR_COMPARE` requires `JSON_REPORT=true`
 - `RADAR_FETCH_CONFIG=true` fetches the saved Radar cluster profile and applies it to the native run before checks start
+- `EXCLUDED_CHECKS` merges comma-separated runtime check exclusions with any fetched profile exclusions
 
 ## Direct API Example (for debugging)
 

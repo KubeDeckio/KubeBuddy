@@ -81,6 +81,21 @@ func TestFilterExcludedChecks(t *testing.T) {
 	}
 }
 
+func TestEffectiveExcludedChecksMergesConfigAndRuntime(t *testing.T) {
+	t.Helper()
+
+	excluded := effectiveExcludedChecks([]string{"sec014", "WRK011"}, []string{"SEC014", "akssec001"})
+	expected := []string{"AKSSEC001", "SEC014", "WRK011"}
+	if len(excluded) != len(expected) {
+		t.Fatalf("expected %d checks, got %#v", len(expected), excluded)
+	}
+	for i := range expected {
+		if excluded[i] != expected[i] {
+			t.Fatalf("unexpected excluded checks: %#v", excluded)
+		}
+	}
+}
+
 func TestFilterProviderSpecificChecks(t *testing.T) {
 	t.Helper()
 

@@ -18,6 +18,7 @@ type Options struct {
 	AKSMode                  bool
 	ExcludeNamespaces        bool
 	ExcludedNamespaces       []string
+	ExcludedChecks           []string
 	IncludePrometheus        bool
 	PrometheusURL            string
 	PrometheusMode           string
@@ -88,7 +89,7 @@ func Run(opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, cfg.ExcludedChecks)
+	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, effectiveExcludedChecks(cfg.ExcludedChecks, opts.ExcludedChecks))
 	ruleSet.Checks = filterProviderSpecificChecks(ruleSet.Checks, opts)
 
 	cache := map[string][]map[string]any{}
@@ -445,6 +446,22 @@ func filterExcludedChecks(checksList []checks.Check, excluded []string) []checks
 		filtered = append(filtered, check)
 	}
 	return filtered
+}
+
+func effectiveExcludedChecks(configured []string, runtime []string) []string {
+	set := map[string]struct{}{}
+	for _, id := range append(append([]string{}, configured...), runtime...) {
+		trimmed := strings.ToUpper(strings.TrimSpace(id))
+		if trimmed != "" {
+			set[trimmed] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for id := range set {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func filterProviderSpecificChecks(checksList []checks.Check, opts Options) []checks.Check {

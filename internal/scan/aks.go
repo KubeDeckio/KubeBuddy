@@ -28,6 +28,7 @@ type AKSOptions struct {
 	SubscriptionID string
 	ResourceGroup  string
 	ClusterName    string
+	ExcludedChecks []string
 	Progress       func(ProgressEvent)
 }
 
@@ -41,7 +42,7 @@ func RunAKS(opts AKSOptions) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, cfg.ExcludedChecks)
+	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, effectiveExcludedChecks(cfg.ExcludedChecks, opts.ExcludedChecks))
 
 	document, err := loadAKSDocument(opts)
 	if err != nil {

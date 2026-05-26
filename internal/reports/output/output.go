@@ -33,6 +33,7 @@ type Metadata struct {
 	GeneratedAt              string
 	ExcludeNamespacesEnabled bool
 	ExcludedNamespaces       []string
+	ExcludedChecks           []string
 	PrometheusURL            string
 	PrometheusMode           string
 	PrometheusBearerTokenEnv string
@@ -62,6 +63,7 @@ type jsonMetadata struct {
 	GeneratedAt              string                 `json:"generatedAt"`
 	ExcludeNamespacesEnabled bool                   `json:"excludeNamespacesEnabled"`
 	ExcludedNamespaces       []string               `json:"excludedNamespaces"`
+	ExcludedChecks           []string               `json:"excludedChecks"`
 	PrometheusURL            string                 `json:"prometheusUrl,omitempty"`
 	PrometheusSnapshotStatus string                 `json:"prometheusSnapshotStatus,omitempty"`
 	PrometheusSnapshotReason string                 `json:"prometheusSnapshotReason,omitempty"`
@@ -140,6 +142,7 @@ func buildJSONEnvelope(result scan.Result, metadata Metadata) jsonEnvelope {
 			GeneratedAt:              resolved.GeneratedAt,
 			ExcludeNamespacesEnabled: resolved.ExcludeNamespacesEnabled,
 			ExcludedNamespaces:       append([]string(nil), resolved.ExcludedNamespaces...),
+			ExcludedChecks:           append([]string(nil), resolved.ExcludedChecks...),
 			PrometheusURL:            resolved.PrometheusURL,
 			PrometheusSnapshotStatus: resolved.PrometheusSnapshotStatus,
 			PrometheusSnapshotReason: resolved.PrometheusSnapshotReason,
@@ -184,6 +187,9 @@ func resolveMetadata(metadata Metadata, result scan.Result) Metadata {
 		} else {
 			resolved.ExcludedNamespaces = []string{}
 		}
+	}
+	if resolved.ExcludedChecks == nil {
+		resolved.ExcludedChecks = []string{}
 	}
 	return resolved
 }

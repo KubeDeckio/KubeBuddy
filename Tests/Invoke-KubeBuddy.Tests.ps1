@@ -43,6 +43,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
             -ClusterName 'cluster' `
             -ExcludeNamespaces `
             -AdditionalExcludedNamespaces 'team-a', 'team-b' `
+            -ExcludedChecks 'SEC014', 'WRK011' `
             -IncludePrometheus `
             -PrometheusUrl 'https://example.test' `
             -PrometheusMode 'azure' `
@@ -64,7 +65,10 @@ Describe 'Invoke-KubeBuddy wrapper' {
             $Arguments -contains 'azure' -and
             $Arguments -contains '--prometheus-bearer-token-env' -and
             $Arguments -contains 'PROM_TOKEN' -and
-            ($Arguments | Where-Object { $_ -eq '--additional-excluded-namespaces' }).Count -eq 2
+            ($Arguments | Where-Object { $_ -eq '--additional-excluded-namespaces' }).Count -eq 2 -and
+            ($Arguments | Where-Object { $_ -eq '--excluded-checks' }).Count -eq 2 -and
+            $Arguments -contains 'SEC014' -and
+            $Arguments -contains 'WRK011'
         }
     }
 

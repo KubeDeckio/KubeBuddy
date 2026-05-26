@@ -155,6 +155,14 @@ inside the image and maps the environment variables below onto the same runtime.
 | `TXT_REPORT`  | `"true"` for plain text   |
 | `JSON_REPORT` | `"true"` for JSON output  |
 
+### 🧪 Scan Filters (Optional)
+
+| Variable                         | Description                                      |
+| -------------------------------- | ------------------------------------------------ |
+| `EXCLUDE_NAMESPACES`             | `"true"` to apply configured namespace exclusions |
+| `ADDITIONAL_EXCLUDED_NAMESPACES` | Comma-separated additional namespaces to exclude |
+| `EXCLUDED_CHECKS`                | Comma-separated check IDs to exclude, for example `SEC014,WRK011` |
+
 ### 📡 KubeBuddy Radar (Pro, Optional)
 
 | Variable                 | Description                                                                 |
@@ -237,6 +245,7 @@ The container image is Go-native and does not require the PowerShell runtime. Fo
 | Variable             | Description                               |
 | -------------------- | ----------------------------------------- |
 | `EXCLUDE_NAMESPACES` | `"true"` to skip system namespaces        |
+| `EXCLUDED_CHECKS`    | Comma-separated check IDs to exclude      |
 | `TERM`               | `"xterm"` to prevent CLI rendering issues |
 
 

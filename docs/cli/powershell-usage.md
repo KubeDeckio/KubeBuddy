@@ -59,6 +59,7 @@ The following table provides a quick reference for common PowerShell wrapper com
 | Generate reports with custom path | `Invoke-KubeBuddy -HtmlReport -OutputPath ./custom-report` |
 | Use cluster-specific config file | `Invoke-KubeBuddy -HtmlReport -ConfigPath ~/.kube/kubebuddy-config-prod.yaml` |
 | Exclude configured + extra namespaces | `Invoke-KubeBuddy -HtmlReport -ExcludeNamespaces -AdditionalExcludedNamespaces "azure-monitor","istio-system"` |
+| Exclude checks for one run | `Invoke-KubeBuddy -HtmlReport -ExcludedChecks "SEC014","WRK011"` |
 | Run AKS best-practice checks | `Invoke-KubeBuddy -Aks -SubscriptionId <subscriptionID> -ResourceGroup <resourceGroup> -ClusterName <clusterName>` |
 | Run AKS best practices check and HTML report | `Invoke-KubeBuddy -HtmlReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
 | Run AKS best practices check and text report | `Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup $ResourceGroup -ClusterName $ClusterName` |
@@ -301,6 +302,7 @@ Invoke-KubeBuddy -txtReport -Aks -SubscriptionId $SubscriptionId -ResourceGroup 
 | `-ClusterName`           | String   | (None)                               | AKS cluster name (used with `-Aks`).                                                         |
 | `-ExcludeNamespaces`     | Switch   | (N/A)                                | Applies namespace exclusions from `kubebuddy-config.yaml` (`excluded_namespaces`).          |
 | `-AdditionalExcludedNamespaces` | String[] | (None)                         | Adds extra namespaces to exclude at runtime; implies `-ExcludeNamespaces`.                   |
+| `-ExcludedChecks`        | String[] | (None)                            | Adds check IDs to exclude at runtime, merged with `excluded_checks` from config.              |
 | `-HtmlReport`            | Switch   | (N/A)                                | Generates an HTML report in `-OutputPath`.                                                   |
 | `-JsonReport`            | Switch   | (N/A)                                | Generates a JSON report in `-OutputPath`.                                                    |
 | `-txtReport`             | Switch   | (N/A)                                | Generates a text report in `-OutputPath`.                                                    |

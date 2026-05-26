@@ -278,6 +278,17 @@ excluded_checks:
   - SEC014
 ```
 
+You can also exclude checks for a single run without editing the config file:
+
+```bash
+./kubebuddy run --html-report --excluded-checks SEC014,WRK011 --yes
+./kubebuddy scan --output json --excluded-checks SEC014,WRK011
+```
+
+```powershell
+Invoke-KubeBuddy -HtmlReport -ExcludedChecks "SEC014","WRK011"
+```
+
 This file should be placed at:
 ```
 ~/.kube/kubebuddy-config.yaml

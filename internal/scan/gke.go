@@ -18,13 +18,14 @@ import (
 
 // GKEOptions holds the parameters needed to run a GKE best-practice scan.
 type GKEOptions struct {
-	ChecksDir   string
-	ConfigPath  string
-	InputFile   string
-	ProjectID   string
-	Location    string
-	ClusterName string
-	Progress    func(ProgressEvent)
+	ChecksDir      string
+	ConfigPath     string
+	InputFile      string
+	ProjectID      string
+	Location       string
+	ClusterName    string
+	ExcludedChecks []string
+	Progress       func(ProgressEvent)
 }
 
 // RunGKE executes GKE-specific best-practice checks against a cluster document.
@@ -40,7 +41,7 @@ func RunGKE(opts GKEOptions) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, cfg.ExcludedChecks)
+	ruleSet.Checks = filterExcludedChecks(ruleSet.Checks, effectiveExcludedChecks(cfg.ExcludedChecks, opts.ExcludedChecks))
 
 	document, err := loadGKEDocument(opts)
 	if err != nil {

@@ -43,6 +43,7 @@ func Execute(opts compat.RunOptions) error {
 	}
 	namespaceExclusionsEnabled := opts.ExcludeNamespaces || hasNonEmptyNamespace(opts.AdditionalExcludedNamespaces)
 	effectiveExcluded := effectiveExcludedNamespaces(namespaceExclusionsEnabled, cfg.ExcludedNamespaces, opts.AdditionalExcludedNamespaces)
+	effectiveChecks := effectiveExcludedChecks(cfg.ExcludedChecks, opts.ExcludedChecks)
 
 	result := scan.Result{}
 	var snapshot *kubernetes.ClusterData
@@ -85,6 +86,7 @@ func Execute(opts compat.RunOptions) error {
 			AKSMode:                  opts.AKS || opts.UseAKSRestAPI,
 			ExcludeNamespaces:        namespaceExclusionsEnabled,
 			ExcludedNamespaces:       opts.AdditionalExcludedNamespaces,
+			ExcludedChecks:           opts.ExcludedChecks,
 			IncludePrometheus:        opts.IncludePrometheus,
 			PrometheusURL:            opts.PrometheusURL,
 			PrometheusMode:           opts.PrometheusMode,
@@ -112,6 +114,7 @@ func Execute(opts compat.RunOptions) error {
 		aksResult, err := scan.RunAKS(scan.AKSOptions{
 			ChecksDir:      "checks/aks",
 			ConfigPath:     opts.ConfigPath,
+			ExcludedChecks: opts.ExcludedChecks,
 			SubscriptionID: opts.SubscriptionID,
 			ResourceGroup:  opts.ResourceGroup,
 			ClusterName:    opts.ClusterName,
@@ -132,12 +135,13 @@ func Execute(opts compat.RunOptions) error {
 		printPhase("GKE", "Running GKE checks")
 		start := time.Now()
 		gkeResult, err := scan.RunGKE(scan.GKEOptions{
-			ChecksDir:   "checks/gke",
-			ConfigPath:  opts.ConfigPath,
-			ProjectID:   opts.ProjectID,
-			Location:    opts.Location,
-			ClusterName: opts.ClusterName,
-			Progress:    logCheckProgress("GKE"),
+			ChecksDir:      "checks/gke",
+			ConfigPath:     opts.ConfigPath,
+			ExcludedChecks: opts.ExcludedChecks,
+			ProjectID:      opts.ProjectID,
+			Location:       opts.Location,
+			ClusterName:    opts.ClusterName,
+			Progress:       logCheckProgress("GKE"),
 		})
 		if err != nil {
 			return err
@@ -172,6 +176,7 @@ func Execute(opts compat.RunOptions) error {
 		ClusterName:              opts.ClusterName,
 		ExcludeNamespacesEnabled: namespaceExclusionsEnabled,
 		ExcludedNamespaces:       append([]string(nil), effectiveExcluded...),
+		ExcludedChecks:           append([]string(nil), effectiveChecks...),
 		PrometheusURL:            opts.PrometheusURL,
 		PrometheusMode:           opts.PrometheusMode,
 		PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
@@ -276,6 +281,22 @@ func effectiveExcludedNamespaces(enabled bool, configured []string, extra []stri
 	out := make([]string, 0, len(set))
 	for ns := range set {
 		out = append(out, ns)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func effectiveExcludedChecks(configured []string, runtime []string) []string {
+	set := map[string]struct{}{}
+	for _, id := range append(append([]string{}, configured...), runtime...) {
+		trimmed := strings.ToUpper(strings.TrimSpace(id))
+		if trimmed != "" {
+			set[trimmed] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for id := range set {
+		out = append(out, id)
 	}
 	sort.Strings(out)
 	return out

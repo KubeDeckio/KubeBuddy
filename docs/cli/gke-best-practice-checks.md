@@ -68,6 +68,12 @@ kubebuddy scan-gke --input cluster.json --output html   # HTML report with GKE t
 kubebuddy scan-gke --input cluster.json --output csv    # CSV output
 ```
 
+Exclude GKE checks for one run:
+
+```bash
+kubebuddy scan-gke --input cluster.json --excluded-checks GKESEC001,GKEMON001
+```
+
 ### Command Flags
 
 | Flag             | Description                                                     |
@@ -78,6 +84,7 @@ kubebuddy scan-gke --input cluster.json --output csv    # CSV output
 | `--cluster-name` | GKE cluster name                                                |
 | `--checks-dir`   | Directory containing GKE check YAML files (default: `checks/gke`) |
 | `--config-path`  | Path to KubeBuddy config file                                   |
+| `--excluded-checks` | Comma-separated GKE check IDs to exclude for this scan       |
 | `--output`       | Output format: `text`, `json`, `csv`, or `html`                 |
 
 ## Checks Overview

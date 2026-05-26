@@ -18,6 +18,7 @@ type RunOptions struct {
 	GKE                          bool
 	ExcludeNamespaces            bool
 	AdditionalExcludedNamespaces []string
+	ExcludedChecks               []string
 	Yes                          bool
 	SubscriptionID               string
 	ResourceGroup                string
@@ -109,6 +110,7 @@ func BuildArgs(modulePath string, options RunOptions) []string {
 	addBool("RadarFetchConfig", options.RadarFetchConfig)
 
 	addStringSlice("AdditionalExcludedNamespaces", options.AdditionalExcludedNamespaces)
+	addStringSlice("ExcludedChecks", options.ExcludedChecks)
 	addString("SubscriptionId", options.SubscriptionID)
 	addString("ResourceGroup", options.ResourceGroup)
 	addString("ClusterName", options.ClusterName)

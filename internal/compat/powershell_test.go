@@ -17,6 +17,7 @@ func TestBuildArgs(t *testing.T) {
 		ResourceGroup:    "rg",
 		SubscriptionID:   "sub",
 		RadarFetchConfig: true,
+		ExcludedChecks:   []string{"SEC014", "WRK011"},
 	})
 
 	command := strings.Join(args, " ")
@@ -30,6 +31,7 @@ func TestBuildArgs(t *testing.T) {
 		"$params.ResourceGroup = 'rg'",
 		"$params.SubscriptionId = 'sub'",
 		"$params.RadarFetchConfig = $true",
+		"$params.ExcludedChecks = @('SEC014','WRK011')",
 		"Invoke-KubeBuddy @params",
 	} {
 		if !strings.Contains(command, expected) {

@@ -40,6 +40,8 @@ Invoke-KubeBuddy `
 ```
 
 Explicit CLI flags still override fetched config values for that run.
+Runtime `-ExcludedChecks`, `--excluded-checks`, and Docker `EXCLUDED_CHECKS`
+values are merged with the profile's `excluded_checks` list.
 
 ## API endpoints
 

@@ -200,6 +200,7 @@ func newScanCommand() *cobra.Command {
 				PrometheusBearerTokenEnv: opts.PrometheusBearerTokenEnv,
 				ExcludeNamespacesEnabled: opts.ExcludeNamespaces || hasNonEmptyNamespace(opts.ExcludedNamespaces),
 				ExcludedNamespaces:       effectiveExcludedNamespaces(opts.ExcludeNamespaces, cfg.ExcludedNamespaces, opts.ExcludedNamespaces),
+				ExcludedChecks:           effectiveExcludedChecks(cfg.ExcludedChecks, opts.ExcludedChecks),
 			})
 		},
 	}
@@ -207,6 +208,7 @@ func newScanCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
 	cmd.Flags().BoolVar(&opts.ExcludeNamespaces, "exclude-namespaces", false, "Exclude configured namespaces.")
 	cmd.Flags().StringSliceVar(&opts.ExcludedNamespaces, "additional-excluded-namespaces", nil, "Additional namespaces to exclude.")
+	cmd.Flags().StringSliceVar(&opts.ExcludedChecks, "excluded-checks", nil, "Comma-separated check IDs to exclude.")
 	cmd.Flags().BoolVar(&opts.IncludePrometheus, "include-prometheus", false, "Include Prometheus data in the native scan.")
 	cmd.Flags().StringVar(&opts.PrometheusURL, "prometheus-url", "", "Prometheus URL.")
 	cmd.Flags().StringVar(&opts.PrometheusMode, "prometheus-mode", "", "Prometheus auth mode (local, basic, bearer, azure, gcp).")
@@ -228,6 +230,10 @@ func newAKSScanCommand() *cobra.Command {
 			}
 			return output.WriteScanResultWithMetadata(cmd.OutOrStdout(), result, output.Mode(outputMode), output.Metadata{
 				ClusterName: opts.ClusterName,
+				ExcludedChecks: effectiveExcludedChecks(
+					config.Load(opts.ConfigPath).ExcludedChecks,
+					opts.ExcludedChecks,
+				),
 				AKS: &output.AKSMetadata{
 					SubscriptionID: opts.SubscriptionID,
 					ResourceGroup:  opts.ResourceGroup,
@@ -238,6 +244,7 @@ func newAKSScanCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/aks", "Directory containing AKS check YAML files.")
 	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
+	cmd.Flags().StringSliceVar(&opts.ExcludedChecks, "excluded-checks", nil, "Comma-separated check IDs to exclude.")
 	cmd.Flags().StringVar(&opts.InputFile, "input", "", "Path to an AKS cluster JSON document.")
 	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID for live collection.")
 	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group for live collection.")
@@ -259,11 +266,16 @@ func newGKEScanCommand() *cobra.Command {
 			}
 			return output.WriteScanResultWithMetadata(cmd.OutOrStdout(), result, output.Mode(outputMode), output.Metadata{
 				ClusterName: opts.ClusterName,
+				ExcludedChecks: effectiveExcludedChecks(
+					config.Load(opts.ConfigPath).ExcludedChecks,
+					opts.ExcludedChecks,
+				),
 			})
 		},
 	}
 	cmd.Flags().StringVar(&opts.ChecksDir, "checks-dir", "checks/gke", "Directory containing GKE check YAML files.")
 	cmd.Flags().StringVar(&opts.ConfigPath, "config-path", "", "KubeBuddy config file path.")
+	cmd.Flags().StringSliceVar(&opts.ExcludedChecks, "excluded-checks", nil, "Comma-separated check IDs to exclude.")
 	cmd.Flags().StringVar(&opts.InputFile, "input", "", "Path to a GKE cluster JSON document (output of 'gcloud container clusters describe <cluster> --format json').")
 	cmd.Flags().StringVar(&opts.ProjectID, "project-id", "", "GCP project ID for live collection via Application Default Credentials.")
 	cmd.Flags().StringVar(&opts.Location, "location", "", "GKE cluster zone or region for live collection.")
@@ -286,6 +298,22 @@ func effectiveExcludedNamespaces(enabled bool, configured []string, extra []stri
 	out := make([]string, 0, len(set))
 	for ns := range set {
 		out = append(out, ns)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func effectiveExcludedChecks(configured []string, runtime []string) []string {
+	set := map[string]struct{}{}
+	for _, id := range append(append([]string{}, configured...), runtime...) {
+		trimmed := strings.ToUpper(strings.TrimSpace(id))
+		if trimmed != "" {
+			set[trimmed] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for id := range set {
+		out = append(out, id)
 	}
 	sort.Strings(out)
 	return out
@@ -318,6 +346,7 @@ func newRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.GKE, "gke", false, "Enable GKE mode.")
 	cmd.Flags().BoolVar(&opts.ExcludeNamespaces, "exclude-namespaces", false, "Exclude configured namespaces.")
 	cmd.Flags().StringSliceVar(&opts.AdditionalExcludedNamespaces, "additional-excluded-namespaces", nil, "Additional namespaces to exclude.")
+	cmd.Flags().StringSliceVar(&opts.ExcludedChecks, "excluded-checks", nil, "Comma-separated check IDs to exclude.")
 	cmd.Flags().BoolVar(&opts.Yes, "yes", false, "Skip interactive confirmation prompts.")
 	cmd.Flags().StringVar(&opts.SubscriptionID, "subscription-id", "", "AKS subscription ID.")
 	cmd.Flags().StringVar(&opts.ResourceGroup, "resource-group", "", "AKS resource group.")

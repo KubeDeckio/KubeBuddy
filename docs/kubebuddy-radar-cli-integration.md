@@ -112,6 +112,16 @@ Invoke-KubeBuddy `
   -OutputPath ./reports
 ```
 
+Fetch a Radar cluster config and exclude checks for just this run:
+
+```powershell
+Invoke-KubeBuddy `
+  -RadarFetchConfig `
+  -RadarConfigId "ccfg_12345678-1234-1234-1234-123456789abc" `
+  -HtmlReport `
+  -ExcludedChecks "SEC014","WRK011"
+```
+
 Use custom Radar endpoint and custom credential env-var names:
 
 ```powershell
@@ -133,6 +143,7 @@ When running the container image, configure Radar via env vars:
 -e RADAR_COMPARE="true" \
 -e RADAR_FETCH_CONFIG="true" \
 -e RADAR_CONFIG_ID="ccfg_12345678-1234-1234-1234-123456789abc" \
+-e EXCLUDED_CHECKS="SEC014,WRK011" \
 -e RADAR_ENVIRONMENT="prod" \
 -e KUBEBUDDY_RADAR_API_USER="<wordpress-username>" \
 -e KUBEBUDDY_RADAR_API_PASSWORD="<wordpress-app-password>"
@@ -142,6 +153,7 @@ Rules enforced by the Go-native container entrypoint:
 
 - `RADAR_UPLOAD=true` or `RADAR_COMPARE=true` requires `JSON_REPORT=true`
 - `RADAR_FETCH_CONFIG=true` fetches the saved Radar cluster profile and applies it to the native run before checks start
+- `EXCLUDED_CHECKS` adds comma-separated runtime check exclusions on top of any fetched profile exclusions
 
 ## Config File Defaults (`kubebuddy-config.yaml`)
 
@@ -184,6 +196,7 @@ The CLI can:
 - fetch the profile with `--radar-fetch-config --radar-config-id` or `-RadarFetchConfig -RadarConfigId`
 - apply the fetched YAML config to the run
 - keep explicit CLI flags as the highest-precedence overrides
+- merge runtime `--excluded-checks`, `-ExcludedChecks`, or `EXCLUDED_CHECKS` values with profile-managed `excluded_checks`
 
 ## Radar UI Output
 

@@ -57,6 +57,7 @@ func Load() (compat.RunOptions, error) {
 		PrometheusMode:               os.Getenv("PROMETHEUS_MODE"),
 		PrometheusBearerTokenEnv:     os.Getenv("PROMETHEUS_BEARER_TOKEN_ENV"),
 		AdditionalExcludedNamespaces: splitCSVEnv("ADDITIONAL_EXCLUDED_NAMESPACES"),
+		ExcludedChecks:               splitCSVEnv("EXCLUDED_CHECKS"),
 		OutputPath:                   "/app/Reports",
 		Yes:                          true,
 	}

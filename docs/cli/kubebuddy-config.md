@@ -225,6 +225,9 @@ Registry matching is prefix-based. If `trusted_registries` is not defined, KubeB
 ## Excluded Checks
 
 `excluded_checks` disables matching checks in both Kubernetes and AKS runs.
+For one-off runs, use `--excluded-checks SEC014,WRK011` or the PowerShell
+`-ExcludedChecks "SEC014","WRK011"` parameter. Runtime values are added to the
+configured list.
 
 Example:
 
@@ -268,20 +271,21 @@ Native CLI:
 
 ```bash
 kubebuddy run --config-path ~/.kube/kubebuddy-config.yaml --html-report --yes
-kubebuddy scan --config-path ~/.kube/kubebuddy-config.yaml --exclude-namespaces --output json
-kubebuddy scan-aks --config-path ~/.kube/kubebuddy-config.yaml --subscription-id <sub> --resource-group <rg> --cluster-name <cluster> --output json
+kubebuddy scan --config-path ~/.kube/kubebuddy-config.yaml --exclude-namespaces --excluded-checks SEC014,WRK011 --output json
+kubebuddy scan-aks --config-path ~/.kube/kubebuddy-config.yaml --excluded-checks AKSSEC001 --subscription-id <sub> --resource-group <rg> --cluster-name <cluster> --output json
 ```
 
 PowerShell wrapper:
 
 ```powershell
 Invoke-KubeBuddy -ConfigPath ~/.kube/kubebuddy-config.yaml -HtmlReport
-Invoke-KubeBuddy -ConfigPath ~/.kube/kubebuddy-config.yaml -ExcludeNamespaces -jsonReport
+Invoke-KubeBuddy -ConfigPath ~/.kube/kubebuddy-config.yaml -ExcludeNamespaces -ExcludedChecks "SEC014","WRK011" -jsonReport
 ```
 
 ## Practical Notes
 
 - `excluded_namespaces` is applied when you opt into namespace exclusion with the relevant flag or switch, or when you provide additional excluded namespaces for a run.
 - `trusted_registries` affects `SEC014`.
-- `excluded_checks` applies to both Kubernetes and AKS catalogs.
+- `excluded_checks` applies to Kubernetes, AKS, and GKE catalogs.
+- Runtime `--excluded-checks`, `-ExcludedChecks`, and `EXCLUDED_CHECKS` values are merged with config-file exclusions.
 - Radar config values act as defaults; CLI and wrapper flags override them.

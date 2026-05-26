@@ -158,6 +158,7 @@ function Invoke-KubeBuddy {
         [switch]$Gke,
         [switch]$ExcludeNamespaces,
         [string[]]$AdditionalExcludedNamespaces,
+        [string[]]$ExcludedChecks,
         [switch]$yes,
         [string]$SubscriptionId,
         [string]$ResourceGroup,
@@ -268,6 +269,11 @@ function Invoke-KubeBuddy {
     foreach ($namespace in @($AdditionalExcludedNamespaces)) {
         if ($namespace) {
             $arguments += @("--additional-excluded-namespaces", $namespace)
+        }
+    }
+    foreach ($checkId in @($ExcludedChecks)) {
+        if ($checkId) {
+            $arguments += @("--excluded-checks", $checkId)
         }
     }
     $arguments += @("--output-path", $reportDirectory)
