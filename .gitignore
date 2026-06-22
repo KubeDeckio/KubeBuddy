@@ -2,3 +2,7 @@ tmp/
 reports/
 .venv/
 site/
+
+# Headlamp plugin build/dependency output
+headlamp-plugin/node_modules/
+headlamp-plugin/dist/
