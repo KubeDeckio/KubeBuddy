@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "KubeBuddy Kubernetes checks for Headlamp",
   "scripts": {
-    "generate:checks": "node scripts/generate-check-catalog.mjs",
+    "validate:native-handlers": "node scripts/validate-native-handlers.mjs",
+    "generate:checks": "node scripts/generate-check-catalog.mjs && npm run validate:native-handlers",
     "prestart": "npm run generate:checks",
     "start": "headlamp-plugin start",
     "prebuild": "npm run generate:checks",

@@ -56,6 +56,7 @@ import {
 type Severity = 'high' | 'warning' | 'medium' | 'low';
 type CheckStatus = 'passed' | 'failed' | 'skipped';
 type StatusFilter = CheckStatus | 'all';
+type SeverityFilter = Severity | 'all';
 
 type Finding = {
   resource: string;
@@ -163,9 +164,9 @@ const SCORE_FRESH_MS = 10 * 60 * 1000;
 const CHECKS_PER_SCAN_STEP = 2;
 const SCAN_STEP_DELAY_MS = 25;
 const KUBEBUDDY_ICON = {
-  width: 432,
-  height: 432,
-  body: '<ellipse fill="currentColor" cx="181.8" cy="219.7" rx="16.9" ry="21.9"/><ellipse fill="currentColor" cx="254" cy="219.7" rx="16.9" ry="21.9"/><path fill="currentColor" d="M80.2,193.6v50.6c0,9,7.3,16.2,16.2,16.2h0v-83h0C87.5,177.4,80.2,184.7,80.2,193.6z"/><path fill="currentColor" d="M72.3,191.1c-4.6,0-8.4,3.8-8.4,8.4v35.4c0,4.6,3.8,8.4,8.4,8.4c0.3,0,0.6-0.3,0.6-0.6v-51C72.9,191.4,72.6,191.1,72.3,191.1z"/><path fill="currentColor" d="M341.8,177.4L341.8,177.4l0,83h0c9,0,16.2-7.3,16.2-16.2v-50.6C358,184.7,350.8,177.4,341.8,177.4z"/><path fill="currentColor" d="M366.1,191.1c-0.3,0-0.6,0.3-0.6,0.6v51c0,0.3,0.3,0.6,0.6,0.6c4.6,0,8.4-3.8,8.4-8.4v-35.4C374.4,194.9,370.7,191.1,366.1,191.1z"/><path fill="currentColor" d="M286.8,123l17.3-33.8c2.9-5.7,0.3-12.6-5.9-15.3c-6.2-2.7-13.6-0.2-16.5,5.5l0,0l-18.5,36c-1.7,3.3-5.1,5.4-8.8,5.4h-70.4c-3.5,0-6.6-1.9-8.2-5l-18.6-36.4c-2.9-5.7-10.3-8.2-16.5-5.5c-6.2,2.7-8.8,9.6-5.9,15.3l17.2,33.6c-27.3,7-47.5,31.8-47.5,61.3v68.2c0,35,28.3,63.3,63.3,63.3h25.3c2.6,0,4.6,2.1,4.6,4.6v40.9c0,6.6,7.3,10.5,12.8,6.8l90.4-60.3l0,0c19.5-10.8,32.7-31.6,32.7-55.4v-68.2C333.7,154.8,313.8,130.2,286.8,123z M304.9,247.6c0,20.6-16.7,37.3-37.3,37.3h-99.4c-20.6,0-37.3-16.7-37.3-37.3v-58.8c0-20.6,16.7-37.3,37.3-37.3h3.1c0,0.1,0,0.2,0,0.3c0,9.8,21.4,17.8,47.7,17.8c26.4,0,47.7-8,47.7-17.8c0-0.1,0-0.2,0-0.3h0.8c20.6,0,37.3,16.7,37.3,37.3V247.6z"/>',
+  width: 320,
+  height: 320,
+  body: '<g transform="translate(-59 -59)"><ellipse fill="currentColor" cx="181.8" cy="219.7" rx="16.9" ry="21.9"/><ellipse fill="currentColor" cx="254" cy="219.7" rx="16.9" ry="21.9"/><path fill="currentColor" d="M80.2,193.6v50.6c0,9,7.3,16.2,16.2,16.2h0v-83h0C87.5,177.4,80.2,184.7,80.2,193.6z"/><path fill="currentColor" d="M72.3,191.1c-4.6,0-8.4,3.8-8.4,8.4v35.4c0,4.6,3.8,8.4,8.4,8.4c0.3,0,0.6-0.3,0.6-0.6v-51C72.9,191.4,72.6,191.1,72.3,191.1z"/><path fill="currentColor" d="M341.8,177.4L341.8,177.4l0,83h0c9,0,16.2-7.3,16.2-16.2v-50.6C358,184.7,350.8,177.4,341.8,177.4z"/><path fill="currentColor" d="M366.1,191.1c-0.3,0-0.6,0.3-0.6,0.6v51c0,0.3,0.3,0.6,0.6,0.6c4.6,0,8.4-3.8,8.4-8.4v-35.4C374.4,194.9,370.7,191.1,366.1,191.1z"/><path fill="currentColor" d="M286.8,123l17.3-33.8c2.9-5.7,0.3-12.6-5.9-15.3c-6.2-2.7-13.6-0.2-16.5,5.5l0,0l-18.5,36c-1.7,3.3-5.1,5.4-8.8,5.4h-70.4c-3.5,0-6.6-1.9-8.2-5l-18.6-36.4c-2.9-5.7-10.3-8.2-16.5-5.5c-6.2,2.7-8.8,9.6-5.9,15.3l17.2,33.6c-27.3,7-47.5,31.8-47.5,61.3v68.2c0,35,28.3,63.3,63.3,63.3h25.3c2.6,0,4.6,2.1,4.6,4.6v40.9c0,6.6,7.3,10.5,12.8,6.8l90.4-60.3l0,0c19.5-10.8,32.7-31.6,32.7-55.4v-68.2C333.7,154.8,313.8,130.2,286.8,123z M304.9,247.6c0,20.6-16.7,37.3-37.3,37.3h-99.4c-20.6,0-37.3-16.7-37.3-37.3v-58.8c0-20.6,16.7-37.3,37.3-37.3h3.1c0,0.1,0,0.2,0,0.3c0,9.8,21.4,17.8,47.7,17.8c26.4,0,47.7-8,47.7-17.8c0-0.1,0-0.2,0-0.3h0.8c20.6,0,37.3,16.7,37.3,37.3V247.6z"/></g>',
 };
 
 type StoredScore = {
@@ -467,6 +468,84 @@ function storeReport(clusterKey: string, checks: CheckResult[], config: KubeBudd
   storeScore(clusterKey, checks);
 
   return storedReport;
+}
+
+function csvValue(value: unknown): string {
+  const text = value === null || value === undefined ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function exportReportCsv(clusterKey: string, report: StoredReport): void {
+  const headers = [
+    'cluster',
+    'completed_at',
+    'check_id',
+    'check_name',
+    'section',
+    'severity',
+    'status',
+    'finding_count',
+    'resource',
+    'namespace',
+    'kind',
+    'api_version',
+    'details',
+    'recommendation',
+    'docs',
+  ];
+  const rows = report.checks.flatMap(check => {
+    const base = [
+      clusterKey,
+      report.completedAt,
+      check.id,
+      check.name,
+      reportSectionLabel(check.section),
+      check.severity,
+      check.status,
+      check.findings.length,
+    ];
+
+    if (check.findings.length === 0) {
+      return [[
+        ...base,
+        '',
+        '',
+        '',
+        '',
+        check.skippedReason || '',
+        check.recommendation,
+        check.docs || '',
+      ]];
+    }
+
+    return check.findings.map(finding => [
+      ...base,
+      finding.resource,
+      finding.namespace || '',
+      finding.kind || '',
+      finding.apiVersion || '',
+      finding.details,
+      check.recommendation,
+      check.docs || '',
+    ]);
+  });
+
+  const csv = [
+    headers.map(csvValue).join(','),
+    ...rows.map(row => row.map(csvValue).join(',')),
+  ].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeCluster = clusterKey.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'cluster';
+  const completedAt = report.completedAt.replace(/[:.]/g, '-');
+
+  link.href = url;
+  link.download = `kubebuddy-${safeCluster}-${completedAt}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function findingKey(finding: Finding): string {
@@ -888,10 +967,22 @@ function scoreBadgeColor(score: number, theme: Theme): string {
   }
 
   if (score >= 70) {
-    return theme.palette.mode === 'dark' ? '#b45309' : '#d97706';
+    return theme.palette.warning.main;
   }
 
   return theme.palette.error.main;
+}
+
+function scoreBadgeContrastColor(score: number, theme: Theme): string {
+  if (score >= 90) {
+    return theme.palette.success.contrastText;
+  }
+
+  if (score >= 70) {
+    return theme.palette.warning.contrastText;
+  }
+
+  return theme.palette.error.contrastText;
 }
 
 function severityColor(severity: Severity): 'error' | 'warning' | 'info' | 'success' {
@@ -2069,7 +2160,7 @@ function KubeBuddyScoreBadgeContent({ clusterKey }: { clusterKey: string }) {
             pl: 0.35,
             pr: 0.8,
           },
-          color: '#fff',
+          color: scoreBadgeContrastColor(storedScore.value, theme),
           '&:hover': {
             bgcolor: scoreBadgeColor(storedScore.value, theme),
             filter: 'brightness(0.95)',
@@ -2234,6 +2325,37 @@ function RecommendationContent({ check, finding }: { check: CheckResult; finding
   );
 }
 
+function buildAIPrompt(check: CheckResult, finding: Finding, clusterKey: string): string {
+  const recommendation = replaceRecommendationPlaceholders(check.recommendation, finding);
+  const docs = check.docs ? `\nDocumentation: ${check.docs}` : '';
+  const namespace = finding.namespace || 'cluster scoped';
+  const resourceKind = finding.kind || check.resourceKind;
+
+  return [
+    'You are helping troubleshoot a Kubernetes issue found by KubeBuddy in Headlamp.',
+    '',
+    'Please explain the likely cause, give safe verification steps, and suggest a practical fix.',
+    'Prefer read-only kubectl commands first. Call out any risky or disruptive action before suggesting it.',
+    '',
+    `Cluster: ${clusterKey}`,
+    `Check: ${check.id} - ${check.name}`,
+    `Section: ${reportSectionLabel(check.section)}`,
+    `Severity: ${check.severity}`,
+    `Status: ${check.status}`,
+    `Description: ${check.description}`,
+    `Finding: ${finding.details}`,
+    '',
+    'Affected resource:',
+    `- Name: ${finding.resource}`,
+    `- Kind: ${resourceKind}`,
+    `- Namespace: ${namespace}`,
+    finding.apiVersion ? `- API version: ${finding.apiVersion}` : '',
+    '',
+    `KubeBuddy recommendation: ${recommendation}`,
+    docs,
+  ].filter(Boolean).join('\n');
+}
+
 function DrawerSectionHeading({ children }: { children: React.ReactNode }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center">
@@ -2272,22 +2394,33 @@ function FindingDetailsDrawer({
 }) {
   const history = useHistory();
   const location = useLocation();
+  const [aiPromptCopied, setAiPromptCopied] = React.useState(false);
+  const clusterKey = clusterKeyFromPath(location.pathname);
   const resourceKind = finding?.kind || check.resourceKind;
   const namespaceLabel = finding?.namespace || 'Cluster scoped';
   const severityLabel = check.severity.charAt(0).toUpperCase() + check.severity.slice(1);
+  const copyAIPrompt = React.useCallback(async () => {
+    if (!finding) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(buildAIPrompt(check, finding, clusterKey));
+    setAiPromptCopied(true);
+    window.setTimeout(() => setAiPromptCopied(false), 1800);
+  }, [check, clusterKey, finding]);
   const openInHeadlamp = React.useCallback(() => {
     if (!finding?.link) {
       return;
     }
 
-    storeReturnTarget(clusterKeyFromPath(location.pathname), {
+    storeReturnTarget(clusterKey, {
       checkId: check.id,
       section: check.section,
       findingKey: findingKey(finding),
     });
     onClose();
     history.push(finding.link);
-  }, [check.id, check.section, finding, history, location.pathname, onClose]);
+  }, [check.id, check.section, clusterKey, finding, history, onClose]);
 
   return (
     <Drawer
@@ -2375,20 +2508,21 @@ function FindingDetailsDrawer({
             </Paper>
           </Stack>
 
-          {(finding.link || check.docs) && (
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
-              {finding.link && (
-                <Button onClick={openInHeadlamp} variant="contained">
-                  View Resource
-                </Button>
-              )}
-              {check.docs && (
-                <Button href={check.docs} target="_blank" rel="noreferrer" variant="outlined">
-                  Kubernetes Docs
-                </Button>
-              )}
-            </Stack>
-          )}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap">
+            {finding.link && (
+              <Button onClick={openInHeadlamp} variant="contained">
+                View Resource
+              </Button>
+            )}
+            <Button onClick={copyAIPrompt} variant="outlined">
+              {aiPromptCopied ? 'Copied' : 'Copy AI Prompt'}
+            </Button>
+            {check.docs && (
+              <Button href={check.docs} target="_blank" rel="noreferrer" variant="outlined">
+                Kubernetes Docs
+              </Button>
+            )}
+          </Stack>
         </Stack>
       )}
     </Drawer>
@@ -2682,47 +2816,96 @@ function SectionTabLabel({ label, failedCount }: { label: string; failedCount: n
   );
 }
 
-function StatusSegmentedFilter({
-  counts,
+function CheckFilterBar({
+  severity,
+  severityCounts,
   status,
-  onChange,
+  statusCounts,
+  onClearAll,
+  onSeverityChange,
+  onStatusChange,
 }: {
-  counts: Record<StatusFilter, number>;
+  severity: SeverityFilter;
+  severityCounts: Record<SeverityFilter, number>;
   status: StatusFilter;
-  onChange: (status: StatusFilter) => void;
+  statusCounts: Record<StatusFilter, number>;
+  onClearAll: () => void;
+  onSeverityChange: (severity: SeverityFilter) => void;
+  onStatusChange: (status: StatusFilter) => void;
 }) {
-  const items: { label: string; value: StatusFilter }[] = [
-    { label: `All ${counts.all}`, value: 'all' },
-    { label: `Failed ${counts.failed}`, value: 'failed' },
-    { label: `Passed ${counts.passed}`, value: 'passed' },
-    { label: `Skipped ${counts.skipped}`, value: 'skipped' },
+  const statusItems: { label: string; value: StatusFilter; color: 'primary' | 'error' | 'success' | 'warning' }[] = [
+    { label: `Failed ${statusCounts.failed}`, value: 'failed', color: 'error' },
+    { label: `Passed ${statusCounts.passed}`, value: 'passed', color: 'success' },
+    { label: `Skipped ${statusCounts.skipped}`, value: 'skipped', color: 'warning' },
   ];
+  const severityItems: { label: string; value: SeverityFilter; color: 'primary' | 'error' | 'warning' | 'info' | 'success' }[] = [
+    { label: `High ${severityCounts.high}`, value: 'high', color: 'error' },
+    { label: `Warning ${severityCounts.warning}`, value: 'warning', color: 'warning' },
+    { label: `Medium ${severityCounts.medium}`, value: 'medium', color: 'info' },
+    { label: `Low ${severityCounts.low}`, value: 'low', color: 'success' },
+  ];
+
+  const renderItem = <T extends StatusFilter | SeverityFilter>(
+    item: { label: string; value: T; color: 'primary' | 'error' | 'success' | 'warning' | 'info' },
+    selectedValue: T,
+    onClick: (value: T) => void
+  ) => (
+    <Button
+      color={item.color}
+      key={item.value}
+      onClick={() => onClick(item.value)}
+      size="small"
+      variant={selectedValue === item.value ? 'contained' : 'text'}
+      sx={{ minHeight: 30, textTransform: 'none', whiteSpace: 'nowrap' }}
+    >
+      {item.label}
+    </Button>
+  );
 
   return (
     <Stack
       direction="row"
       flexWrap="wrap"
-      spacing={0.75}
+      spacing={1.25}
+      useFlexGap
       sx={theme => ({
+        alignItems: 'center',
         border: `1px solid ${theme.palette.divider}`,
         borderRadius: 1,
         display: 'inline-flex',
         p: 0.5,
-        width: 'fit-content',
       })}
     >
-      {items.map(item => (
+      <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, px: 0.75 }}>
+          Status
+        </Typography>
         <Button
-          color={item.value === 'failed' ? 'error' : item.value === 'passed' ? 'success' : item.value === 'skipped' ? 'warning' : 'primary'}
-          key={item.value}
-          onClick={() => onChange(item.value)}
+          color="primary"
+          onClick={onClearAll}
           size="small"
-          variant={status === item.value ? 'contained' : 'text'}
-          sx={{ minHeight: 30, textTransform: 'none' }}
+          variant={status === 'all' && severity === 'all' ? 'contained' : 'text'}
+          sx={{ minHeight: 30, textTransform: 'none', whiteSpace: 'nowrap' }}
         >
-          {item.label}
+          All {statusCounts.all}
         </Button>
-      ))}
+        {statusItems.map(item => renderItem(item, status, onStatusChange))}
+      </Stack>
+      <Box
+        aria-hidden="true"
+        sx={theme => ({
+          alignSelf: 'stretch',
+          borderLeft: `1px solid ${theme.palette.divider}`,
+          display: { xs: 'none', sm: 'block' },
+          minHeight: 28,
+        })}
+      />
+      <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, px: 0.75 }}>
+          Severity
+        </Typography>
+        {severityItems.map(item => renderItem(item, severity, onSeverityChange))}
+      </Stack>
     </Stack>
   );
 }
@@ -2846,6 +3029,7 @@ function NamespaceExclusionsControl({
 
 function NamespaceExclusionsSummary({ namespaces }: { namespaces: string[] }) {
   const visibleNamespaces = namespaces.slice(0, 8);
+  const hiddenNamespaces = namespaces.slice(8);
   const remaining = Math.max(0, namespaces.length - visibleNamespaces.length);
 
   return (
@@ -2863,7 +3047,11 @@ function NamespaceExclusionsSummary({ namespaces }: { namespaces: string[] }) {
           {visibleNamespaces.map(namespace => (
             <Chip key={namespace} label={namespace} size="small" variant="outlined" />
           ))}
-          {remaining > 0 && <Chip label={`+${remaining} more`} size="small" />}
+          {remaining > 0 && (
+            <Tooltip title={hiddenNamespaces.join(', ')}>
+              <Chip label={`+${remaining} more`} size="small" />
+            </Tooltip>
+          )}
           {namespaces.length === 0 && <Chip label="None" size="small" variant="outlined" />}
         </Stack>
       </Stack>
@@ -3112,6 +3300,7 @@ function KubeBuddyScanResults({
   const navigationGuard = useScanNavigationGuard(scanning);
   const [section, setSection] = React.useState(returnTarget?.section || 'All');
   const [status, setStatus] = React.useState<StatusFilter>('all');
+  const [severity, setSeverity] = React.useState<SeverityFilter>('all');
   const sections = ['All', ...Array.from(new Set(checks.map(check => check.section))).sort((left, right) => {
     const leftLabel = reportSectionLabel(left);
     const rightLabel = reportSectionLabel(right);
@@ -3136,8 +3325,10 @@ function KubeBuddyScanResults({
     [checks]
   );
   const sectionChecks = section === 'All' ? checks : checks.filter(check => check.section === section);
-  const visibleChecks =
+  const statusFilteredChecks =
     status === 'all' ? sectionChecks : sectionChecks.filter(check => check.status === status);
+  const visibleChecks =
+    severity === 'all' ? statusFilteredChecks : statusFilteredChecks.filter(check => check.severity === severity);
   const statusCounts = React.useMemo<Record<StatusFilter, number>>(
     () => ({
       all: sectionChecks.length,
@@ -3147,9 +3338,20 @@ function KubeBuddyScanResults({
     }),
     [sectionChecks]
   );
+  const severityCounts = React.useMemo<Record<SeverityFilter, number>>(
+    () => ({
+      all: statusFilteredChecks.length,
+      high: statusFilteredChecks.filter(check => check.severity === 'high').length,
+      warning: statusFilteredChecks.filter(check => check.severity === 'warning').length,
+      medium: statusFilteredChecks.filter(check => check.severity === 'medium').length,
+      low: statusFilteredChecks.filter(check => check.severity === 'low').length,
+    }),
+    [statusFilteredChecks]
+  );
 
   React.useEffect(() => {
     setStatus('all');
+    setSeverity('all');
   }, [section]);
 
   React.useEffect(() => {
@@ -3260,7 +3462,18 @@ function KubeBuddyScanResults({
             <Typography variant="body2" color="text.secondary">
               Showing {visibleChecks.length} of {sectionChecks.length} checks in {section === 'All' ? 'all sections' : reportSectionLabel(section)}
             </Typography>
-            <StatusSegmentedFilter counts={statusCounts} status={status} onChange={setStatus} />
+            <CheckFilterBar
+              severity={severity}
+              severityCounts={severityCounts}
+              status={status}
+              statusCounts={statusCounts}
+              onClearAll={() => {
+                setStatus('all');
+                setSeverity('all');
+              }}
+              onSeverityChange={setSeverity}
+              onStatusChange={setStatus}
+            />
           </Stack>
           <Stack spacing={2}>
             {visibleChecks.map(check => (
@@ -3338,15 +3551,29 @@ function KubeBuddyDashboard() {
             <Typography variant="body2" color="text.secondary">
               Start a scan when you want a fresh score, findings, and recommendations from the resources Headlamp can already see.
             </Typography>
+            <Link href="https://kubebuddy.io/cli/checks/" target="_blank" rel="noreferrer" variant="body2">
+              View KubeBuddy check catalog
+            </Link>
           </Box>
           {hasScan && (
-            <Button
-              variant="contained"
-              onClick={startScan}
-              sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' }, whiteSpace: 'nowrap' }}
-            >
-              Run Scan Again
-            </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' } }}>
+              {storedReport && !scanRun && (
+                <Button
+                  variant="outlined"
+                  onClick={() => exportReportCsv(clusterKey, storedReport)}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  Export CSV
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                onClick={startScan}
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                Run Scan Again
+              </Button>
+            </Stack>
           )}
         </Stack>
 
@@ -3398,6 +3625,9 @@ function KubeBuddyConfigPage() {
           <Typography variant="body2" color="text.secondary">
             Namespace exclusions stay on the scan page. These settings cover trusted registries and thresholds.
           </Typography>
+          <Link href="https://kubebuddy.io/cli/checks/" target="_blank" rel="noreferrer" variant="body2">
+            View KubeBuddy check catalog
+          </Link>
         </Box>
         <KubeBuddyAdvancedConfigControl config={config} onChange={updateConfig} />
       </Stack>
@@ -3422,9 +3652,16 @@ registerSidebarEntry({
   url: '/kubebuddy/config',
 });
 
+registerSidebarEntry({
+  parent: 'kubebuddy',
+  name: 'kubebuddy-scan',
+  label: 'Scan',
+  url: '/kubebuddy',
+});
+
 registerRoute({
   path: '/kubebuddy',
-  sidebar: 'kubebuddy',
+  sidebar: 'kubebuddy-scan',
   name: 'kubebuddy',
   exact: true,
   component: KubeBuddyDashboard,
