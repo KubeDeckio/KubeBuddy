@@ -17,13 +17,12 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Collapse,
-  Divider,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Divider,
   Drawer,
   FormControlLabel,
   IconButton,
@@ -31,6 +30,7 @@ import {
   Link,
   Paper,
   Stack,
+  SvgIcon,
   Tab,
   Table,
   TableBody,
@@ -38,6 +38,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Tabs,
   TextField,
   Tooltip,
@@ -222,10 +223,6 @@ function normalizeNamespaceList(namespaces: string[]): string[] {
         .filter(Boolean)
     )
   ).sort();
-}
-
-function parseNamespaceInput(input: string): string[] {
-  return normalizeNamespaceList(input.split(/[\s,]+/));
 }
 
 function readExcludedNamespaces(clusterKey: string): string[] {
@@ -780,6 +777,22 @@ function uid(resource: any): string | undefined {
 
 function link(resource: any): string | undefined {
   return resource?.getDetailsLink?.();
+}
+
+function DocsIcon(props: React.ComponentProps<typeof SvgIcon>) {
+  return (
+    <SvgIcon fontSize="small" viewBox="0 0 24 24" {...props}>
+      <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6Zm-1 7V3.5L18.5 9H13Zm-5 4h8v2H8v-2Zm0 4h8v2H8v-2Zm0-8h3v2H8V9Z" />
+    </SvgIcon>
+  );
+}
+
+function ExpandDownIcon(props: React.ComponentProps<typeof SvgIcon>) {
+  return (
+    <SvgIcon fontSize="small" viewBox="0 0 24 24" {...props}>
+      <path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6 1.4-1.4Z" />
+    </SvgIcon>
+  );
 }
 
 function namespaceSet(namespaces: string[]): Set<string> {
@@ -1578,7 +1591,7 @@ function usedServiceAccountKeys(resources: ResourceStates): Set<string> {
   return used;
 }
 
-function orphanedRolesFindings(resources: ResourceStates, config: KubeBuddyConfig): Finding[] {
+function orphanedRolesFindings(resources: ResourceStates): Finding[] {
   const usedRoles = new Set<string>();
   const findings: Finding[] = [];
 
@@ -2529,6 +2542,19 @@ function FindingDetailsDrawer({
   );
 }
 
+type FindingsSortColumn = 'resource' | 'namespace' | 'details';
+type FindingsSortDirection = 'asc' | 'desc';
+
+function findingSortValue(check: CheckResult, finding: Finding, column: FindingsSortColumn): string {
+  if (column === 'resource') {
+    return `${finding.resource} ${finding.kind || check.resourceKind}`.toLowerCase();
+  }
+  if (column === 'namespace') {
+    return (finding.namespace || 'cluster scoped').toLowerCase();
+  }
+  return finding.details.toLowerCase();
+}
+
 function FindingsTable({
   check,
   findings,
@@ -2538,11 +2564,41 @@ function FindingsTable({
   findings: Finding[];
   returnFindingKey?: string;
 }) {
+  const [sortColumn, setSortColumn] = React.useState<FindingsSortColumn>('resource');
+  const [sortDirection, setSortDirection] = React.useState<FindingsSortDirection>('asc');
   const restoredFinding = React.useMemo(
     () => findings.find(item => returnFindingKey && findingKey(item) === returnFindingKey) || null,
     [findings, returnFindingKey]
   );
   const [selectedFinding, setSelectedFinding] = React.useState<Finding | null>(restoredFinding);
+  const sortedFindings = React.useMemo(() => {
+    return [...findings].sort((left, right) => {
+      const comparison = findingSortValue(check, left, sortColumn).localeCompare(
+        findingSortValue(check, right, sortColumn),
+        undefined,
+        { numeric: true, sensitivity: 'base' }
+      );
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [check, findings, sortColumn, sortDirection]);
+  const requestSort = (column: FindingsSortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortColumn(column);
+    setSortDirection('asc');
+  };
+  const sortLabel = (column: FindingsSortColumn, label: string) => (
+    <TableSortLabel
+      active={sortColumn === column}
+      direction={sortColumn === column ? sortDirection : 'asc'}
+      onClick={() => requestSort(column)}
+    >
+      {label}
+    </TableSortLabel>
+  );
 
   React.useEffect(() => {
     if (restoredFinding) {
@@ -2570,6 +2626,13 @@ function FindingsTable({
             color: theme.palette.text.primary,
             fontWeight: 800,
           },
+          '& .MuiTableSortLabel-root': {
+            color: `${theme.palette.text.primary} !important`,
+            fontWeight: 800,
+          },
+          '& .MuiTableSortLabel-icon': {
+            color: `${theme.palette.text.secondary} !important`,
+          },
           '& .MuiTableBody-root .MuiTableRow-root': {
             cursor: 'pointer',
           },
@@ -2584,13 +2647,19 @@ function FindingsTable({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Resource</TableCell>
-              <TableCell>Namespace</TableCell>
-              <TableCell>Details</TableCell>
+              <TableCell sortDirection={sortColumn === 'resource' ? sortDirection : false}>
+                {sortLabel('resource', 'Resource')}
+              </TableCell>
+              <TableCell sortDirection={sortColumn === 'namespace' ? sortDirection : false}>
+                {sortLabel('namespace', 'Namespace')}
+              </TableCell>
+              <TableCell sortDirection={sortColumn === 'details' ? sortDirection : false}>
+                {sortLabel('details', 'Details')}
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {findings.map((item, index) => (
+            {sortedFindings.map((item, index) => (
               <TableRow
                 hover
                 key={`${item.resource}-${item.namespace || 'cluster'}-${index}`}
@@ -2702,22 +2771,13 @@ function CheckCard({ check, returnFindingKey }: { check: CheckResult; returnFind
           })}
           tabIndex={0}
         >
-          <Stack direction="row" spacing={1} sx={{ minWidth: 0 }}>
-            <IconButton
-              aria-expanded={open}
-              aria-label={`${open ? 'Collapse' : 'Expand'} ${check.id}`}
-              onClick={event => {
-                event.stopPropagation();
-                toggleOpen();
-              }}
-              size="small"
-              sx={{ alignSelf: 'flex-start', mt: 0.25 }}
-            >
-              {open ? '-' : '+'}
-            </IconButton>
+          <Stack direction="row" spacing={1.25} sx={{ minWidth: 0, flex: 1 }}>
             <Box sx={{ minWidth: 0 }}>
               <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
-                <Typography variant="h6">{check.id} - {check.name}</Typography>
+                <Typography variant="h6" sx={{ overflowWrap: 'anywhere' }}>
+                  {check.name}
+                </Typography>
+                <Chip size="small" variant="outlined" label={check.id} />
                 <Chip
                   size="small"
                   color={skipped ? 'default' : failed ? severityColor(check.severity) : 'success'}
@@ -2729,26 +2789,48 @@ function CheckCard({ check, returnFindingKey }: { check: CheckResult; returnFind
               <Typography variant="body2" color="text.secondary">{check.description}</Typography>
             </Box>
           </Stack>
-          {check.docs && (
-            <Button
-              size="small"
-              href={check.docs}
-              target="_blank"
-              rel="noreferrer"
-              onClick={event => event.stopPropagation()}
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              Docs
-            </Button>
-          )}
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ alignSelf: 'flex-start' }}>
+            {check.docs && (
+              <Tooltip title="Open documentation">
+                <IconButton
+                  aria-label={`Open documentation for ${check.id}`}
+                  href={check.docs}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={event => event.stopPropagation()}
+                  size="small"
+                >
+                  <DocsIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={open ? 'Collapse findings' : 'Expand findings'}>
+              <IconButton
+                aria-expanded={open}
+                aria-label={`${open ? 'Collapse' : 'Expand'} ${check.id}`}
+                onClick={event => {
+                  event.stopPropagation();
+                  toggleOpen();
+                }}
+                size="small"
+              >
+                <ExpandDownIcon
+                  fontSize="small"
+                  sx={{
+                    transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                  }}
+                />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Stack>
-        <Collapse in={open} unmountOnExit>
+        {open && (
           <Stack spacing={1.5}>
             {failed && <Alert severity={alertSeverity} sx={findingAlertSx}>{check.recommendation}</Alert>}
             {skipped && <Alert severity="info" sx={skippedAlertSx}>{check.skippedReason}</Alert>}
             {!skipped && <FindingsTable check={check} findings={check.findings} returnFindingKey={returnFindingKey} />}
           </Stack>
-        </Collapse>
+        )}
       </Stack>
     </Paper>
   );
@@ -2996,7 +3078,9 @@ function NamespaceExclusionsControl({
               Skip system namespaces and any extra namespaces you select before scanning.
             </Typography>
           </Box>
-          <Chip label={`${config.excludedNamespaces.length} excluded`} size="small" />
+          <Tooltip title={config.excludedNamespaces.length ? config.excludedNamespaces.join(', ') : 'No namespaces excluded'}>
+            <Chip label={`${config.excludedNamespaces.length} excluded`} size="small" />
+          </Tooltip>
         </Stack>
         <FormControlLabel
           control={
@@ -3056,6 +3140,156 @@ function NamespaceExclusionsSummary({ namespaces }: { namespaces: string[] }) {
         </Stack>
       </Stack>
     </Paper>
+  );
+}
+
+function severityRank(severity: Severity): number {
+  const ranks: Record<Severity, number> = {
+    high: 0,
+    warning: 1,
+    medium: 2,
+    low: 3,
+  };
+
+  return ranks[severity];
+}
+
+function ReportSummary({
+  checks,
+  excludedNamespaces,
+  onOpenSection,
+}: {
+  checks: CheckResult[];
+  excludedNamespaces: string[];
+  onOpenSection: (section: string) => void;
+}) {
+  const failedChecks = React.useMemo(
+    () =>
+      checks
+        .filter(check => check.status === 'failed')
+        .sort((left, right) => {
+          const severityDelta = severityRank(left.severity) - severityRank(right.severity);
+          return severityDelta || right.weight - left.weight || left.id.localeCompare(right.id);
+        }),
+    [checks]
+  );
+  const sectionBreakdown = React.useMemo(
+    () =>
+      Array.from(new Set(checks.map(check => check.section)))
+        .map(section => {
+          const sectionChecks = checks.filter(check => check.section === section);
+          return {
+            failed: sectionChecks.filter(check => check.status === 'failed').length,
+            label: reportSectionLabel(section),
+            section,
+            total: sectionChecks.length,
+          };
+        })
+        .sort((left, right) => right.failed - left.failed || reportSectionRank(left.label) - reportSectionRank(right.label)),
+    [checks]
+  );
+  const topFailedChecks = failedChecks.slice(0, 6);
+
+  return (
+    <Stack spacing={2}>
+      <ScoreHero checks={checks} />
+      <NamespaceExclusionsSummary namespaces={excludedNamespaces} />
+
+      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2}>
+        <Paper variant="outlined" sx={{ flex: 1, p: 2 }}>
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Highest priority failed checks
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Start with checks that have higher severity and score weight.
+              </Typography>
+            </Box>
+            {topFailedChecks.length ? (
+              <Stack spacing={1}>
+                {topFailedChecks.map(check => (
+                  <Stack
+                    key={check.id}
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                    justifyContent="space-between"
+                    sx={theme => ({
+                      border: `1px solid ${theme.palette.divider}`,
+                      borderRadius: 1,
+                      p: 1,
+                    })}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+                        <Chip size="small" variant="outlined" label={check.id} />
+                        <Chip size="small" color={severityColor(check.severity)} label={check.severity} />
+                        <Chip size="small" variant="outlined" label={`${check.findings.length} findings`} />
+                      </Stack>
+                      <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5, overflowWrap: 'anywhere' }}>
+                        {check.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {reportSectionLabel(check.section)}
+                      </Typography>
+                    </Box>
+                    <Button size="small" onClick={() => onOpenSection(check.section)}>
+                      View
+                    </Button>
+                  </Stack>
+                ))}
+              </Stack>
+            ) : (
+              <Alert severity="success">No failed checks in this scan.</Alert>
+            )}
+          </Stack>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ flex: 1, p: 2 }}>
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Section breakdown
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Failed checks by report section.
+              </Typography>
+            </Box>
+            <Stack spacing={1}>
+              {sectionBreakdown.map(item => (
+                <Stack
+                  key={item.section}
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
+                  <Button
+                    size="small"
+                    onClick={() => onOpenSection(item.section)}
+                    sx={{ justifyContent: 'flex-start', minWidth: 0, textAlign: 'left' }}
+                  >
+                    {item.label}
+                  </Button>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Chip
+                      color={item.failed > 0 ? 'error' : 'success'}
+                      label={`${item.failed} failed`}
+                      size="small"
+                      variant={item.failed > 0 ? 'filled' : 'outlined'}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {item.total} checks
+                    </Typography>
+                  </Stack>
+                </Stack>
+              ))}
+            </Stack>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -3281,11 +3515,13 @@ function useScanNavigationGuard(scanning: boolean): JSX.Element {
 function KubeBuddyScanResults({
   clusterKey,
   config,
+  excludedNamespaces,
   initialReport,
   onScanComplete,
 }: {
   clusterKey: string;
   config: KubeBuddyConfig;
+  excludedNamespaces: string[];
   initialReport?: StoredReport | null;
   onScanComplete?: (report: StoredReport) => void;
 }) {
@@ -3298,10 +3534,10 @@ function KubeBuddyScanResults({
     config
   );
   const navigationGuard = useScanNavigationGuard(scanning);
-  const [section, setSection] = React.useState(returnTarget?.section || 'All');
+  const [section, setSection] = React.useState(returnTarget?.section || 'Summary');
   const [status, setStatus] = React.useState<StatusFilter>('all');
   const [severity, setSeverity] = React.useState<SeverityFilter>('all');
-  const sections = ['All', ...Array.from(new Set(checks.map(check => check.section))).sort((left, right) => {
+  const sections = ['Summary', 'All', ...Array.from(new Set(checks.map(check => check.section))).sort((left, right) => {
     const leftLabel = reportSectionLabel(left);
     const rightLabel = reportSectionLabel(right);
     const rankDelta = reportSectionRank(leftLabel) - reportSectionRank(rightLabel);
@@ -3324,7 +3560,8 @@ function KubeBuddyScanResults({
       ),
     [checks]
   );
-  const sectionChecks = section === 'All' ? checks : checks.filter(check => check.section === section);
+  const detailSection = section === 'Summary' ? 'All' : section;
+  const sectionChecks = detailSection === 'All' ? checks : checks.filter(check => check.section === detailSection);
   const statusFilteredChecks =
     status === 'all' ? sectionChecks : sectionChecks.filter(check => check.status === status);
   const visibleChecks =
@@ -3431,8 +3668,6 @@ function KubeBuddyScanResults({
         </Paper>
       ) : (
         <>
-          <ScoreHero checks={checks} />
-
           <Tabs
             allowScrollButtonsMobile
             scrollButtons="auto"
@@ -3452,41 +3687,51 @@ function KubeBuddyScanResults({
             {sections.map(item => (
               <Tab
                 key={item}
-                label={<SectionTabLabel label={reportSectionLabel(item)} failedCount={failedCountsBySection[item] || 0} />}
+                label={<SectionTabLabel label={reportSectionLabel(item)} failedCount={item === 'Summary' ? failedCountsBySection.All || 0 : failedCountsBySection[item] || 0} />}
                 value={item}
               />
             ))}
           </Tabs>
 
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
-            <Typography variant="body2" color="text.secondary">
-              Showing {visibleChecks.length} of {sectionChecks.length} checks in {section === 'All' ? 'all sections' : reportSectionLabel(section)}
-            </Typography>
-            <CheckFilterBar
-              severity={severity}
-              severityCounts={severityCounts}
-              status={status}
-              statusCounts={statusCounts}
-              onClearAll={() => {
-                setStatus('all');
-                setSeverity('all');
-              }}
-              onSeverityChange={setSeverity}
-              onStatusChange={setStatus}
+          {section === 'Summary' ? (
+            <ReportSummary
+              checks={checks}
+              excludedNamespaces={excludedNamespaces}
+              onOpenSection={nextSection => setSection(nextSection)}
             />
-          </Stack>
-          <Stack spacing={2}>
-            {visibleChecks.map(check => (
-              <CheckCard
-                check={check}
-                key={check.id}
-                returnFindingKey={returnTarget?.checkId === check.id ? returnTarget.findingKey : undefined}
-              />
-            ))}
-            {visibleChecks.length === 0 && (
-              <Alert severity="info">No checks match the selected filters.</Alert>
-            )}
-          </Stack>
+          ) : (
+            <>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  Showing {visibleChecks.length} of {sectionChecks.length} checks in {detailSection === 'All' ? 'all sections' : reportSectionLabel(detailSection)}
+                </Typography>
+                <CheckFilterBar
+                  severity={severity}
+                  severityCounts={severityCounts}
+                  status={status}
+                  statusCounts={statusCounts}
+                  onClearAll={() => {
+                    setStatus('all');
+                    setSeverity('all');
+                  }}
+                  onSeverityChange={setSeverity}
+                  onStatusChange={setStatus}
+                />
+              </Stack>
+              <Stack spacing={2}>
+                {visibleChecks.map(check => (
+                  <CheckCard
+                    check={check}
+                    key={check.id}
+                    returnFindingKey={returnTarget?.checkId === check.id ? returnTarget.findingKey : undefined}
+                  />
+                ))}
+                {visibleChecks.length === 0 && (
+                  <Alert severity="info">No checks match the selected filters.</Alert>
+                )}
+              </Stack>
+            </>
+          )}
         </>
       )}
     </Stack>
@@ -3500,10 +3745,14 @@ function KubeBuddyDashboard() {
   const [config, setConfig] = React.useState<KubeBuddyConfig>(() => readKubeBuddyConfig(clusterKey));
   const [scanRun, setScanRun] = React.useState(0);
   const hasScan = Boolean(scanRun || storedReport);
-  const showNamespaceSummary = Boolean(storedReport && !scanRun);
+  const reportExcludedNamespaces = storedReport?.config?.excludedNamespaces || storedReport?.excludedNamespaces || config.excludedNamespaces;
   const startScan = React.useCallback(() => {
     setStoredReport(null);
     setScanRun(run => run + 1);
+  }, []);
+  const prepareNewScan = React.useCallback(() => {
+    setStoredReport(null);
+    setScanRun(0);
   }, []);
   const handleScanComplete = React.useCallback((report: StoredReport) => {
     setStoredReport(report);
@@ -3568,18 +3817,16 @@ function KubeBuddyDashboard() {
               )}
               <Button
                 variant="contained"
-                onClick={startScan}
+                onClick={storedReport && !scanRun ? prepareNewScan : startScan}
                 sx={{ whiteSpace: 'nowrap' }}
               >
-                Run Scan Again
+                {storedReport && !scanRun ? 'Configure New Scan' : 'Run Scan Again'}
               </Button>
             </Stack>
           )}
         </Stack>
 
-        {showNamespaceSummary ? (
-          <NamespaceExclusionsSummary namespaces={storedReport?.config?.excludedNamespaces || storedReport?.excludedNamespaces || []} />
-        ) : (
+        {!storedReport && !scanRun && (
           <NamespaceExclusionsControl config={config} onChange={updateConfig} />
         )}
 
@@ -3587,6 +3834,7 @@ function KubeBuddyDashboard() {
           <KubeBuddyScanResults
             clusterKey={clusterKey}
             config={config}
+            excludedNamespaces={reportExcludedNamespaces}
             initialReport={scanRun ? null : storedReport}
             key={scanRun || `stored-${storedReport?.completedAt}`}
             onScanComplete={handleScanComplete}
