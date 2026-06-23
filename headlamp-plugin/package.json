@@ -2,6 +2,16 @@
   "name": "kubebuddy-headlamp-plugin",
   "version": "0.1.0",
   "description": "KubeBuddy Kubernetes checks for Headlamp",
+  "author": {
+    "name": "KubeDeck",
+    "url": "https://kubedeck.io"
+  },
+  "homepage": "https://kubebuddy.kubedeck.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KubeDeckio/KubeBuddy.git",
+    "directory": "headlamp-plugin"
+  },
   "scripts": {
     "validate:native-handlers": "node scripts/validate-native-handlers.mjs",
     "generate:checks": "node scripts/generate-check-catalog.mjs && npm run validate:native-handlers",
@@ -41,6 +51,8 @@
     "yaml": "^2.8.1"
   },
   "overrides": {
+    "form-data": "4.0.6",
+    "undici": "7.28.0",
     "typescript": "5.6.2"
   }
 }

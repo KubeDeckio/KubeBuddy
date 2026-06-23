@@ -458,11 +458,11 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Review Service External IPs</h4>\n  <ul>\n    <li>Remove <code>spec.externalIPs</code> unless the routing ownership and network controls are explicitly managed.</li>\n    <li>Prefer LoadBalancer Services, Gateway API, or a maintained load-balancer controller such as MetalLB where appropriate.</li>\n    <li>Audit firewall and routing rules for any Service that currently relies on external IPs.</li>\n  </ul>\n</div>",
     "url": "https://kubernetes.io/docs/concepts/services-networking/service/#external-ips",
     "resourceKind": "Service",
+    "nativeHandler": "NET019",
     "value": {
       "path": "spec.externalIPs"
     },
-    "operator": "not_equals",
-    "expected": null,
+    "operator": "exists",
     "sourceFile": "network-storage.yaml"
   },
   {
@@ -623,26 +623,6 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     },
     "operator": "not_contains",
     "expected": "kubernetes.io/",
-    "sourceFile": "network-storage.yaml"
-  },
-  {
-    "id": "SC002",
-    "name": "AKS Azure In-Tree Storage Provisioners",
-    "category": "StorageClasses",
-    "section": "Storage",
-    "severity": "High",
-    "weight": 4,
-    "description": "Detects Azure in-tree storage provisioners that are not AKS Automatic compatible.",
-    "failMessage": "StorageClass uses an Azure in-tree provisioner.",
-    "recommendation": "Migrate Azure storage classes to CSI drivers. Use disk.csi.azure.com or file.csi.azure.com instead of kubernetes.io/azure-disk and kubernetes.io/azure-file.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>🔄 Migrate Azure StorageClasses to CSI</h4>\n  <ul>\n    <li>Create replacement StorageClasses that use <code>disk.csi.azure.com</code> or <code>file.csi.azure.com</code>.</li>\n    <li>Move PVCs and workloads off the in-tree StorageClass before migrating to AKS Automatic.</li>\n    <li>Validate reclaim policies, SKU, and mount options during the migration.</li>\n  </ul>\n</div>",
-    "url": "https://learn.microsoft.com/azure/aks/csi-storage-drivers",
-    "resourceKind": "StorageClass",
-    "nativeHandler": "SC002_AKS",
-    "value": {
-      "path": "provisioner"
-    },
-    "operator": "exists",
     "sourceFile": "network-storage.yaml"
   },
   {

@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.31] - 2026-06-23
+
+### Added
+
+* **KubeBuddy Headlamp plugin**
+  * Added the first KubeBuddy Headlamp plugin release.
+  * Runs Kubernetes checks from inside Headlamp using the active cluster resources Headlamp can already read.
+  * Provides a summary score, severity counts, namespace exclusions, grouped finding cards, recommendations, and resource links.
+  * Supports JSON report export and CSV findings export.
+  * Supports importing and exporting browser-supported `kubebuddy-config.yaml` settings.
+  * Publishes with the main KubeBuddy release and records both the plugin package version and the KubeBuddy checks version included in the plugin.
+* Added Headlamp plugin documentation covering install, scope, configuration, exports, and release versioning.
+
+### Fixed
+
+* Fixed **NET019** so Services that omit `spec.externalIPs` no longer fail the external IP check.
+
+### Changed
+
+* Updated Headlamp plugin npm dependency overrides:
+  * Bumped `form-data` from `4.0.5` to `4.0.6`.
+  * Bumped `undici` from `7.27.2` to `7.28.0`.
+
 ## [0.0.30] - 2026-05-26
 
 ### Added

@@ -28,6 +28,8 @@ import {
   IconButton,
   LinearProgress,
   Link,
+  Menu,
+  MenuItem,
   Paper,
   Stack,
   SvgIcon,
@@ -37,6 +39,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TableSortLabel,
   Tabs,
@@ -47,6 +50,7 @@ import {
 import type { Theme } from '@mui/material/styles';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
+import YAML from 'yaml';
 import {
   GeneratedCheck,
   GeneratedExpression,
@@ -68,6 +72,7 @@ type Finding = {
   commandName?: string;
   commandNamespace?: string;
   details: string;
+  message?: string;
   link?: string;
 };
 
@@ -123,6 +128,7 @@ type KubeBuddyConfig = {
   excludedNamespaces: string[];
   excludedChecks: string[];
   trustedRegistries: string[];
+  rawYaml?: string;
   thresholds: {
     restartsWarning: number;
     restartsCritical: number;
@@ -209,6 +215,10 @@ function excludedNamespacesStorageKey(clusterKey: string): string {
 
 function configStorageKey(clusterKey: string): string {
   return `kubebuddy:config:${clusterKey}`;
+}
+
+function configYamlStorageKey(clusterKey: string): string {
+  return `kubebuddy:config-yaml:${clusterKey}`;
 }
 
 function returnTargetStorageKey(clusterKey: string): string {
@@ -353,6 +363,7 @@ function normalizeKubeBuddyConfig(config: Partial<KubeBuddyConfig>): KubeBuddyCo
     trustedRegistries: Array.isArray(config.trustedRegistries)
       ? normalizeRegistries(config.trustedRegistries)
       : defaults.trustedRegistries,
+    rawYaml: typeof config.rawYaml === 'string' ? config.rawYaml : undefined,
     thresholds: {
       ...defaults.thresholds,
       ...(config.thresholds || {}),
@@ -362,8 +373,65 @@ function normalizeKubeBuddyConfig(config: Partial<KubeBuddyConfig>): KubeBuddyCo
   return normalized;
 }
 
+function cliYamlToConfig(rawYaml: string): KubeBuddyConfig {
+  const parsed = YAML.parse(rawYaml) || {};
+  const thresholds = parsed.thresholds || {};
+
+  return normalizeKubeBuddyConfig({
+    excludedNamespaces: Array.isArray(parsed.excluded_namespaces)
+      ? parsed.excluded_namespaces.map(String)
+      : undefined,
+    excludedChecks: Array.isArray(parsed.excluded_checks)
+      ? parsed.excluded_checks.map(String)
+      : undefined,
+    trustedRegistries: Array.isArray(parsed.trusted_registries)
+      ? parsed.trusted_registries.map(String)
+      : undefined,
+    rawYaml,
+    thresholds: {
+      restartsWarning: Number(thresholds.restarts_warning) || DEFAULT_THRESHOLDS.restartsWarning,
+      restartsCritical: Number(thresholds.restarts_critical) || DEFAULT_THRESHOLDS.restartsCritical,
+      podAgeWarning: Number(thresholds.pod_age_warning) || DEFAULT_THRESHOLDS.podAgeWarning,
+      stuckJobHours: Number(thresholds.stuck_job_hours) || DEFAULT_THRESHOLDS.stuckJobHours,
+      podsPerNodeCritical: Number(thresholds.pods_per_node_critical) || DEFAULT_THRESHOLDS.podsPerNodeCritical,
+    },
+  });
+}
+
+function configToCliYaml(config: KubeBuddyConfig): string {
+  const normalized = normalizeKubeBuddyConfig(config);
+  const parsed = normalized.rawYaml ? YAML.parse(normalized.rawYaml) || {} : {};
+
+  parsed.thresholds = {
+    ...(parsed.thresholds || {}),
+    restarts_warning: normalized.thresholds.restartsWarning,
+    restarts_critical: normalized.thresholds.restartsCritical,
+    pod_age_warning: normalized.thresholds.podAgeWarning,
+    stuck_job_hours: normalized.thresholds.stuckJobHours,
+    pods_per_node_critical: normalized.thresholds.podsPerNodeCritical,
+  };
+  parsed.excluded_namespaces = normalized.excludedNamespaces;
+  parsed.trusted_registries = normalized.trustedRegistries;
+  parsed.excluded_checks = normalized.excludedChecks;
+
+  if (!parsed.radar) {
+    parsed.radar = {
+      enabled: false,
+      api_base_url: 'https://radar.kubebuddy.io/api/kb-radar/v1',
+      environment: 'prod',
+      api_user_env: 'KUBEBUDDY_RADAR_API_USER',
+      api_password_env: 'KUBEBUDDY_RADAR_API_PASSWORD',
+      upload_timeout_seconds: 30,
+      upload_retries: 2,
+    };
+  }
+
+  return YAML.stringify(parsed);
+}
+
 function readKubeBuddyConfig(clusterKey: string): KubeBuddyConfig {
   const defaults = defaultKubeBuddyConfig();
+  const rawYaml = window.localStorage.getItem(configYamlStorageKey(clusterKey)) || undefined;
 
   try {
     const value = window.localStorage.getItem(configStorageKey(clusterKey));
@@ -371,11 +439,12 @@ function readKubeBuddyConfig(clusterKey: string): KubeBuddyConfig {
       return normalizeKubeBuddyConfig({
         ...defaults,
         excludedNamespaces: readExcludedNamespaces(clusterKey),
+        rawYaml,
       });
     }
 
     const parsed = JSON.parse(value) as Partial<KubeBuddyConfig>;
-    return normalizeKubeBuddyConfig(parsed);
+    return normalizeKubeBuddyConfig({ ...parsed, rawYaml: parsed.rawYaml || rawYaml });
   } catch {
     return defaults;
   }
@@ -393,8 +462,12 @@ function storeKubeBuddyConfig(clusterKey: string, config: KubeBuddyConfig): void
     },
   });
 
-  window.localStorage.setItem(configStorageKey(clusterKey), JSON.stringify(normalized));
-  storeExcludedNamespaces(clusterKey, normalized.excludedNamespaces);
+  const rawYaml = configToCliYaml(normalized);
+  const stored = { ...normalized, rawYaml };
+
+  window.localStorage.setItem(configStorageKey(clusterKey), JSON.stringify(stored));
+  window.localStorage.setItem(configYamlStorageKey(clusterKey), rawYaml);
+  storeExcludedNamespaces(clusterKey, stored.excludedNamespaces);
 }
 
 function readStoredScore(clusterKey: string): StoredScore | null {
@@ -472,6 +545,43 @@ function csvValue(value: unknown): string {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function downloadTextFile(filename: string, content: string, type: string): void {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function reportExportPrefix(clusterKey: string, completedAt: string): string {
+  const safeCluster = clusterKey.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'cluster';
+  const safeCompletedAt = completedAt.replace(/[:.]/g, '-');
+
+  return `kubebuddy-${safeCluster}-${safeCompletedAt}`;
+}
+
+function exportReportJson(clusterKey: string, report: StoredReport): void {
+  const payload = {
+    cluster: clusterKey,
+    completedAt: report.completedAt,
+    score: scoreChecks(report.checks),
+    excludedNamespaces: report.excludedNamespaces || [],
+    config: report.config,
+    checks: report.checks,
+  };
+
+  downloadTextFile(
+    `${reportExportPrefix(clusterKey, report.completedAt)}.json`,
+    JSON.stringify(payload, null, 2),
+    'application/json;charset=utf-8'
+  );
+}
+
 function exportReportCsv(clusterKey: string, report: StoredReport): void {
   const headers = [
     'cluster',
@@ -486,6 +596,7 @@ function exportReportCsv(clusterKey: string, report: StoredReport): void {
     'namespace',
     'kind',
     'api_version',
+    'message',
     'details',
     'recommendation',
     'docs',
@@ -510,6 +621,7 @@ function exportReportCsv(clusterKey: string, report: StoredReport): void {
         '',
         '',
         check.skippedReason || '',
+        check.skippedReason || '',
         check.recommendation,
         check.docs || '',
       ]];
@@ -521,6 +633,7 @@ function exportReportCsv(clusterKey: string, report: StoredReport): void {
       finding.namespace || '',
       finding.kind || '',
       finding.apiVersion || '',
+      findingMessage(check, finding),
       finding.details,
       check.recommendation,
       check.docs || '',
@@ -531,18 +644,46 @@ function exportReportCsv(clusterKey: string, report: StoredReport): void {
     headers.map(csvValue).join(','),
     ...rows.map(row => row.map(csvValue).join(',')),
   ].join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeCluster = clusterKey.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'cluster';
-  const completedAt = report.completedAt.replace(/[:.]/g, '-');
 
-  link.href = url;
-  link.download = `kubebuddy-${safeCluster}-${completedAt}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  downloadTextFile(`${reportExportPrefix(clusterKey, report.completedAt)}.csv`, csv, 'text/csv;charset=utf-8');
+}
+
+function ReportExportButton({ clusterKey, report }: { clusterKey: string; report: StoredReport }) {
+  const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
+  const open = Boolean(anchorEl);
+  const closeMenu = () => setAnchorEl(null);
+  const exportJson = () => {
+    exportReportJson(clusterKey, report);
+    closeMenu();
+  };
+  const exportCsv = () => {
+    exportReportCsv(clusterKey, report);
+    closeMenu();
+  };
+
+  return (
+    <>
+      <Button
+        aria-controls={open ? 'kubebuddy-export-menu' : undefined}
+        aria-expanded={open ? 'true' : undefined}
+        aria-haspopup="menu"
+        onClick={event => setAnchorEl(event.currentTarget)}
+        sx={{ whiteSpace: 'nowrap' }}
+        variant="outlined"
+      >
+        Export
+      </Button>
+      <Menu
+        anchorEl={anchorEl}
+        id="kubebuddy-export-menu"
+        onClose={closeMenu}
+        open={open}
+      >
+        <MenuItem onClick={exportJson}>JSON report</MenuItem>
+        <MenuItem onClick={exportCsv}>CSV findings</MenuItem>
+      </Menu>
+    </>
+  );
 }
 
 function findingKey(finding: Finding): string {
@@ -813,7 +954,7 @@ function filterResourceState<T>(state: ResourceState<T>, excludedNamespaces: Set
   };
 }
 
-function finding(resource: any, details: string): Finding {
+function finding(resource: any, details: string, message = details): Finding {
   return {
     resource: name(resource),
     namespace: namespace(resource),
@@ -823,6 +964,7 @@ function finding(resource: any, details: string): Finding {
     commandName: name(resource),
     commandNamespace: namespace(resource),
     details,
+    message,
     link: link(resource),
   };
 }
@@ -950,8 +1092,14 @@ function scoreChecks(checks: CheckResult[]): Score {
   const scoreableChecks = checks.filter(check => check.status !== 'skipped');
   const failedChecks = scoreableChecks.filter(check => check.status === 'failed');
   const totalWeight = scoreableChecks.reduce((total, check) => total + check.weight, 0);
-  const failedWeight = failedChecks.reduce((total, check) => total + check.weight, 0);
-  const value = totalWeight === 0 ? 100 : Math.round(100 - (failedWeight / totalWeight) * 100);
+  const earnedWeight = scoreableChecks.reduce((total, check) => {
+    if (check.weight <= 0) {
+      return total;
+    }
+    return total + check.weight / (check.findings.length + 1);
+  }, 0);
+  const failedWeight = Math.max(0, totalWeight - earnedWeight);
+  const value = totalWeight === 0 ? 100 : Math.round((earnedWeight / totalWeight) * 100);
 
   return {
     value,
@@ -1750,6 +1898,10 @@ const nativeHandlers: Record<string, NativeHandler> = {
     });
     return [...grouped.values()].filter(group => group.length > 1).flatMap(group => group.map(service => finding(service, `Duplicate selector also used by ${group.map(name).join(', ')}`)));
   },
+  NET019: resources => resources.service.data.filter(service => {
+    const externalIPs = json(service)?.spec?.externalIPs;
+    return Array.isArray(externalIPs) && externalIPs.length > 0;
+  }).map(service => finding(service, `externalIPs: ${json(service)?.spec?.externalIPs.join(', ')}`)),
   NET020: resources => [...resources.deployment.data, ...resources.daemonset.data, ...resources.statefulset.data, ...resources.pod.data, ...resources.service.data].filter(item => /ingress-nginx/i.test(JSON.stringify(json(item)))).map(item => finding(item, 'Ingress NGINX detected')),
   NODE001: resources => resources.node.data.filter(item => !nodeReady(item)).map(item => finding(item, 'Ready condition is not True')),
   NODE002: emptyHandler,
@@ -1844,7 +1996,7 @@ function evaluateCheck(check: GeneratedCheck, resources: ResourceStates, config:
   const findings = items.flatMap(resource => {
     const value = resolveExpression(json(resource), check.value);
     return evaluateOperator(check.operator || 'exists', value, check.expected)
-      ? [finding(resource, valueDetails(check, value))]
+      ? [finding(resource, valueDetails(check, value), check.failMessage)]
       : [];
   });
 
@@ -2542,7 +2694,7 @@ function FindingDetailsDrawer({
   );
 }
 
-type FindingsSortColumn = 'resource' | 'namespace' | 'details';
+type FindingsSortColumn = 'resource' | 'namespace' | 'message';
 type FindingsSortDirection = 'asc' | 'desc';
 
 function findingSortValue(check: CheckResult, finding: Finding, column: FindingsSortColumn): string {
@@ -2552,7 +2704,11 @@ function findingSortValue(check: CheckResult, finding: Finding, column: Findings
   if (column === 'namespace') {
     return (finding.namespace || 'cluster scoped').toLowerCase();
   }
-  return finding.details.toLowerCase();
+  return findingMessage(check, finding).toLowerCase();
+}
+
+function findingMessage(check: CheckResult, finding: Finding): string {
+  return finding.message || check.failMessage || finding.details || '';
 }
 
 function FindingsTable({
@@ -2566,11 +2722,15 @@ function FindingsTable({
 }) {
   const [sortColumn, setSortColumn] = React.useState<FindingsSortColumn>('resource');
   const [sortDirection, setSortDirection] = React.useState<FindingsSortDirection>('asc');
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [isSortPending, setIsSortPending] = React.useState(false);
+  const sortTimerRef = React.useRef<number | null>(null);
   const restoredFinding = React.useMemo(
     () => findings.find(item => returnFindingKey && findingKey(item) === returnFindingKey) || null,
     [findings, returnFindingKey]
   );
-  const [selectedFinding, setSelectedFinding] = React.useState<Finding | null>(restoredFinding);
+  const [selectedFinding, setSelectedFinding] = React.useState<Finding | null>(null);
   const sortedFindings = React.useMemo(() => {
     return [...findings].sort((left, right) => {
       const comparison = findingSortValue(check, left, sortColumn).localeCompare(
@@ -2581,14 +2741,35 @@ function FindingsTable({
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [check, findings, sortColumn, sortDirection]);
+  const pagedFindings = React.useMemo(
+    () => sortedFindings.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [page, rowsPerPage, sortedFindings]
+  );
   const requestSort = (column: FindingsSortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'));
-      return;
+    if (sortTimerRef.current) {
+      window.clearTimeout(sortTimerRef.current);
     }
 
-    setSortColumn(column);
-    setSortDirection('asc');
+    setIsSortPending(true);
+    sortTimerRef.current = window.setTimeout(() => {
+      if (sortColumn === column) {
+        setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortColumn(column);
+        setSortDirection('asc');
+      }
+      setPage(0);
+
+      setIsSortPending(false);
+      sortTimerRef.current = null;
+    }, 30);
+  };
+  const handlePageChange = (_event: unknown, nextPage: number) => {
+    setPage(nextPage);
+  };
+  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(Number.parseInt(event.target.value, 10));
+    setPage(0);
   };
   const sortLabel = (column: FindingsSortColumn, label: string) => (
     <TableSortLabel
@@ -2600,11 +2781,30 @@ function FindingsTable({
     </TableSortLabel>
   );
 
+  React.useEffect(
+    () => () => {
+      if (sortTimerRef.current) {
+        window.clearTimeout(sortTimerRef.current);
+      }
+    },
+    []
+  );
   React.useEffect(() => {
-    if (restoredFinding) {
-      setSelectedFinding(restoredFinding);
+    const maxPage = Math.max(0, Math.ceil(sortedFindings.length / rowsPerPage) - 1);
+    if (page > maxPage) {
+      setPage(maxPage);
     }
-  }, [restoredFinding]);
+  }, [page, rowsPerPage, sortedFindings.length]);
+  React.useEffect(() => {
+    if (!restoredFinding) {
+      return;
+    }
+
+    const restoredIndex = sortedFindings.findIndex(item => findingKey(item) === findingKey(restoredFinding));
+    if (restoredIndex >= 0) {
+      setPage(Math.floor(restoredIndex / rowsPerPage));
+    }
+  }, [restoredFinding, rowsPerPage, sortedFindings]);
 
   if (findings.length === 0) {
     return <Typography color="success.main">No issues detected.</Typography>;
@@ -2612,11 +2812,17 @@ function FindingsTable({
 
   return (
     <>
+      {isSortPending && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ color: 'text.secondary' }}>
+          <CircularProgress size={16} />
+          <Typography variant="body2">Sorting findings</Typography>
+        </Stack>
+      )}
       <TableContainer
         component={Paper}
         variant="outlined"
         sx={theme => ({
-          bgcolor: theme.palette.background.default,
+          bgcolor: theme.palette.background.paper,
           borderColor: theme.palette.divider,
           '& .MuiTableCell-root': {
             borderColor: theme.palette.divider,
@@ -2639,9 +2845,6 @@ function FindingsTable({
           '& .MuiTableBody-root .MuiTableRow-root:hover': {
             bgcolor: theme.palette.action.selected,
           },
-          '& .MuiTableBody-root .MuiTableRow-root:nth-of-type(odd)': {
-            bgcolor: theme.palette.action.hover,
-          },
         })}
       >
         <Table size="small">
@@ -2653,17 +2856,18 @@ function FindingsTable({
               <TableCell sortDirection={sortColumn === 'namespace' ? sortDirection : false}>
                 {sortLabel('namespace', 'Namespace')}
               </TableCell>
-              <TableCell sortDirection={sortColumn === 'details' ? sortDirection : false}>
-                {sortLabel('details', 'Details')}
+              <TableCell sortDirection={sortColumn === 'message' ? sortDirection : false}>
+                {sortLabel('message', 'Message')}
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedFindings.map((item, index) => (
+            {pagedFindings.map((item, index) => (
               <TableRow
                 hover
-                key={`${item.resource}-${item.namespace || 'cluster'}-${index}`}
+                key={`${item.resource}-${item.namespace || 'cluster'}-${page}-${index}`}
                 onClick={() => setSelectedFinding(item)}
+                selected={Boolean(restoredFinding && findingKey(item) === findingKey(restoredFinding))}
                 tabIndex={0}
                 onKeyDown={event => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -2690,11 +2894,22 @@ function FindingsTable({
                   </Stack>
                 </TableCell>
                 <TableCell>{item.namespace || '-'}</TableCell>
-                <TableCell>{item.details}</TableCell>
+                <TableCell>{findingMessage(check, item) || '-'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        {sortedFindings.length > 10 && (
+          <TablePagination
+            component="div"
+            count={sortedFindings.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+          />
+        )}
       </TableContainer>
       <FindingDetailsDrawer
         check={check}
@@ -2705,16 +2920,34 @@ function FindingsTable({
   );
 }
 
-function CheckCard({ check, returnFindingKey }: { check: CheckResult; returnFindingKey?: string }) {
+function CheckCard({
+  check,
+  returnFindingKey,
+  targeted,
+}: {
+  check: CheckResult;
+  returnFindingKey?: string;
+  targeted?: boolean;
+}) {
   const failed = check.status === 'failed';
   const skipped = check.status === 'skipped';
   const alertSeverity = severityColor(check.severity);
-  const [open, setOpen] = React.useState(failed || Boolean(returnFindingKey));
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = React.useState(Boolean(returnFindingKey || targeted));
   React.useEffect(() => {
-    if (returnFindingKey) {
+    if (returnFindingKey || targeted) {
       setOpen(true);
     }
-  }, [returnFindingKey]);
+  }, [returnFindingKey, targeted]);
+  React.useEffect(() => {
+    if (!targeted || !cardRef.current) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      cardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  }, [targeted]);
   const findingAlertSx = (theme: Theme) => ({
     bgcolor: theme.palette.action.hover,
     border: `1px solid ${theme.palette.divider}`,
@@ -2746,7 +2979,15 @@ function CheckCard({ check, returnFindingKey }: { check: CheckResult; returnFind
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: 2 }}>
+    <Paper
+      ref={cardRef}
+      variant="outlined"
+      sx={theme => ({
+        borderColor: targeted ? theme.palette.primary.main : undefined,
+        boxShadow: targeted ? `0 0 0 1px ${theme.palette.primary.main}` : undefined,
+        p: 2,
+      })}
+    >
       <Stack spacing={1.5}>
         <Stack
           direction="row"
@@ -2784,7 +3025,6 @@ function CheckCard({ check, returnFindingKey }: { check: CheckResult; returnFind
                   label={skipped ? 'skipped' : failed ? check.severity : 'passed'}
                 />
                 <Chip size="small" variant="outlined" label={`${check.findings.length} findings`} />
-                {check.nativeHandler && <Chip size="small" variant="outlined" label={check.nativeHandler} />}
               </Stack>
               <Typography variant="body2" color="text.secondary">{check.description}</Typography>
             </Box>
@@ -3158,10 +3398,12 @@ function ReportSummary({
   checks,
   excludedNamespaces,
   onOpenSection,
+  onOpenCheck,
 }: {
   checks: CheckResult[];
   excludedNamespaces: string[];
   onOpenSection: (section: string) => void;
+  onOpenCheck: (check: CheckResult) => void;
 }) {
   const failedChecks = React.useMemo(
     () =>
@@ -3234,7 +3476,7 @@ function ReportSummary({
                         {reportSectionLabel(check.section)}
                       </Typography>
                     </Box>
-                    <Button size="small" onClick={() => onOpenSection(check.section)}>
+                    <Button size="small" onClick={() => onOpenCheck(check)}>
                       View
                     </Button>
                   </Stack>
@@ -3399,6 +3641,95 @@ function KubeBuddyAdvancedConfigControl({
   );
 }
 
+function KubeBuddyYamlConfigControl({
+  config,
+  onChange,
+}: {
+  config: KubeBuddyConfig;
+  onChange: (config: KubeBuddyConfig) => void;
+}) {
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [importedSummary, setImportedSummary] = React.useState<string | null>(null);
+
+  const applyYaml = React.useCallback(
+    (nextYaml: string) => {
+      try {
+        const nextConfig = cliYamlToConfig(nextYaml);
+
+        onChange(nextConfig);
+        setError(null);
+        setImportedSummary(
+          `${nextConfig.excludedNamespaces.length} namespaces, ${nextConfig.excludedChecks.length} excluded checks, ${nextConfig.trustedRegistries.length} trusted registries`
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unable to parse YAML.');
+        setImportedSummary(null);
+      }
+    },
+    [onChange]
+  );
+  const importYamlFile = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => applyYaml(String(reader.result || ''));
+      reader.onerror = () => setError('Unable to read the selected file.');
+      reader.readAsText(file);
+      event.target.value = '';
+    },
+    [applyYaml]
+  );
+  const exportYaml = React.useCallback(() => {
+    const content = configToCliYaml(config);
+
+    downloadTextFile('kubebuddy-config.yaml', content, 'application/x-yaml;charset=utf-8');
+  }, [config]);
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Stack spacing={1.5}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+              kubebuddy-config.yaml
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Import a CLI config into the controls below, or export the current settings as YAML.
+            </Typography>
+          </Box>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button variant="outlined" onClick={() => fileInputRef.current?.click()}>
+              Import YAML
+            </Button>
+            <Button variant="outlined" onClick={exportYaml}>
+              Export YAML
+            </Button>
+          </Stack>
+        </Stack>
+        <input
+          accept=".yaml,.yml,text/yaml,application/x-yaml"
+          hidden
+          onChange={importYamlFile}
+          ref={fileInputRef}
+          type="file"
+        />
+        {error && <Alert severity="error">{error}</Alert>}
+        {importedSummary && (
+          <Alert severity="info">
+            Imported YAML into the settings below: {importedSummary}. Review the values, then save the config.
+          </Alert>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
 function ScanLogPanel({ logs }: { logs: ScanLogEntry[] }) {
   const logRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -3535,8 +3866,14 @@ function KubeBuddyScanResults({
   );
   const navigationGuard = useScanNavigationGuard(scanning);
   const [section, setSection] = React.useState(returnTarget?.section || 'Summary');
+  const [renderedSection, setRenderedSection] = React.useState(returnTarget?.section || 'Summary');
+  const [targetCheckId, setTargetCheckId] = React.useState<string | null>(returnTarget?.checkId || null);
   const [status, setStatus] = React.useState<StatusFilter>('all');
+  const [renderedStatus, setRenderedStatus] = React.useState<StatusFilter>('all');
   const [severity, setSeverity] = React.useState<SeverityFilter>('all');
+  const [renderedSeverity, setRenderedSeverity] = React.useState<SeverityFilter>('all');
+  const [isViewPending, setIsViewPending] = React.useState(false);
+  const viewTimerRef = React.useRef<number | null>(null);
   const sections = ['Summary', 'All', ...Array.from(new Set(checks.map(check => check.section))).sort((left, right) => {
     const leftLabel = reportSectionLabel(left);
     const rightLabel = reportSectionLabel(right);
@@ -3560,12 +3897,12 @@ function KubeBuddyScanResults({
       ),
     [checks]
   );
-  const detailSection = section === 'Summary' ? 'All' : section;
+  const detailSection = renderedSection === 'Summary' ? 'All' : renderedSection;
   const sectionChecks = detailSection === 'All' ? checks : checks.filter(check => check.section === detailSection);
   const statusFilteredChecks =
-    status === 'all' ? sectionChecks : sectionChecks.filter(check => check.status === status);
+    renderedStatus === 'all' ? sectionChecks : sectionChecks.filter(check => check.status === renderedStatus);
   const visibleChecks =
-    severity === 'all' ? statusFilteredChecks : statusFilteredChecks.filter(check => check.severity === severity);
+    renderedSeverity === 'all' ? statusFilteredChecks : statusFilteredChecks.filter(check => check.severity === renderedSeverity);
   const statusCounts = React.useMemo<Record<StatusFilter, number>>(
     () => ({
       all: sectionChecks.length,
@@ -3586,10 +3923,69 @@ function KubeBuddyScanResults({
     [statusFilteredChecks]
   );
 
-  React.useEffect(() => {
+  const deferViewRender = React.useCallback((render: () => void) => {
+    if (viewTimerRef.current) {
+      window.clearTimeout(viewTimerRef.current);
+    }
+
+    setIsViewPending(true);
+    viewTimerRef.current = window.setTimeout(() => {
+      render();
+      setIsViewPending(false);
+      viewTimerRef.current = null;
+    }, 30);
+  }, []);
+  const changeSection = React.useCallback(
+    (nextSection: string, nextTargetCheckId: string | null = null) => {
+      setSection(nextSection);
+      setStatus('all');
+      setSeverity('all');
+      setTargetCheckId(nextTargetCheckId);
+      deferViewRender(() => {
+        setRenderedSection(nextSection);
+        setRenderedStatus('all');
+        setRenderedSeverity('all');
+      });
+    },
+    [deferViewRender]
+  );
+  const openCheckFromSummary = React.useCallback(
+    (check: CheckResult) => {
+      changeSection(check.section, check.id);
+    },
+    [changeSection]
+  );
+  const changeStatus = React.useCallback(
+    (nextStatus: StatusFilter) => {
+      setStatus(nextStatus);
+      deferViewRender(() => setRenderedStatus(nextStatus));
+    },
+    [deferViewRender]
+  );
+  const changeSeverity = React.useCallback(
+    (nextSeverity: SeverityFilter) => {
+      setSeverity(nextSeverity);
+      deferViewRender(() => setRenderedSeverity(nextSeverity));
+    },
+    [deferViewRender]
+  );
+  const clearFilters = React.useCallback(() => {
     setStatus('all');
     setSeverity('all');
-  }, [section]);
+    deferViewRender(() => {
+      setRenderedStatus('all');
+      setRenderedSeverity('all');
+    });
+  }, [deferViewRender]);
+
+  React.useEffect(
+    () => () => {
+      if (viewTimerRef.current) {
+        window.clearTimeout(viewTimerRef.current);
+      }
+    },
+    []
+  );
 
   React.useEffect(() => {
     if (!usingStoredReport && !loading && !scanning && checks.length > 0) {
@@ -3673,7 +4069,7 @@ function KubeBuddyScanResults({
             scrollButtons="auto"
             value={section}
             variant="scrollable"
-            onChange={(_, value) => setSection(value)}
+            onChange={(_, value) => changeSection(value)}
             sx={{
               borderBottom: theme => `1px solid ${theme.palette.divider}`,
               minHeight: 42,
@@ -3687,17 +4083,30 @@ function KubeBuddyScanResults({
             {sections.map(item => (
               <Tab
                 key={item}
-                label={<SectionTabLabel label={reportSectionLabel(item)} failedCount={item === 'Summary' ? failedCountsBySection.All || 0 : failedCountsBySection[item] || 0} />}
+                label={<SectionTabLabel label={reportSectionLabel(item)} failedCount={item === 'Summary' ? 0 : failedCountsBySection[item] || 0} />}
                 value={item}
               />
             ))}
           </Tabs>
 
-          {section === 'Summary' ? (
+          {isViewPending ? (
+            <Paper variant="outlined" sx={{ p: 3 }}>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <CircularProgress size={22} />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body1">Loading checks</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Preparing the selected report view.
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          ) : renderedSection === 'Summary' ? (
             <ReportSummary
               checks={checks}
               excludedNamespaces={excludedNamespaces}
-              onOpenSection={nextSection => setSection(nextSection)}
+              onOpenCheck={openCheckFromSummary}
+              onOpenSection={changeSection}
             />
           ) : (
             <>
@@ -3710,12 +4119,9 @@ function KubeBuddyScanResults({
                   severityCounts={severityCounts}
                   status={status}
                   statusCounts={statusCounts}
-                  onClearAll={() => {
-                    setStatus('all');
-                    setSeverity('all');
-                  }}
-                  onSeverityChange={setSeverity}
-                  onStatusChange={setStatus}
+                  onClearAll={clearFilters}
+                  onSeverityChange={changeSeverity}
+                  onStatusChange={changeStatus}
                 />
               </Stack>
               <Stack spacing={2}>
@@ -3724,6 +4130,7 @@ function KubeBuddyScanResults({
                     check={check}
                     key={check.id}
                     returnFindingKey={returnTarget?.checkId === check.id ? returnTarget.findingKey : undefined}
+                    targeted={targetCheckId === check.id}
                   />
                 ))}
                 {visibleChecks.length === 0 && (
@@ -3761,13 +4168,14 @@ function KubeBuddyDashboard() {
   const updateConfig = React.useCallback(
     (nextConfig: KubeBuddyConfig) => {
       const normalizedConfig = normalizeKubeBuddyConfig(nextConfig);
+      const configWithYaml = { ...normalizedConfig, rawYaml: configToCliYaml(normalizedConfig) };
 
-      setConfig(normalizedConfig);
-      storeKubeBuddyConfig(clusterKey, normalizedConfig);
+      setConfig(configWithYaml);
+      storeKubeBuddyConfig(clusterKey, configWithYaml);
 
       if (
         storedReport &&
-        JSON.stringify(normalizedConfig) !==
+        JSON.stringify(configWithYaml) !==
           JSON.stringify(normalizeKubeBuddyConfig(storedReport.config || {
             ...defaultKubeBuddyConfig(),
             excludedNamespaces: storedReport.excludedNamespaces || DEFAULT_EXCLUDED_NAMESPACES,
@@ -3788,7 +4196,7 @@ function KubeBuddyDashboard() {
 
   return (
     <SectionBox title="KubeBuddy">
-      <Stack spacing={2.5}>
+      <Stack spacing={2.5} sx={{ pb: { xs: 6, md: 8 } }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           justifyContent="space-between"
@@ -3807,13 +4215,7 @@ function KubeBuddyDashboard() {
           {hasScan && (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' } }}>
               {storedReport && !scanRun && (
-                <Button
-                  variant="outlined"
-                  onClick={() => exportReportCsv(clusterKey, storedReport)}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Export CSV
-                </Button>
+                <ReportExportButton clusterKey={clusterKey} report={storedReport} />
               )}
               <Button
                 variant="contained"
@@ -3851,32 +4253,70 @@ function KubeBuddyConfigPage() {
   const location = useLocation();
   const clusterKey = clusterKeyFromPath(location.pathname);
   const [config, setConfig] = React.useState<KubeBuddyConfig>(() => readKubeBuddyConfig(clusterKey));
+  const [savedConfig, setSavedConfig] = React.useState<KubeBuddyConfig>(() => readKubeBuddyConfig(clusterKey));
+  const [saved, setSaved] = React.useState(false);
 
   const updateConfig = React.useCallback(
     (nextConfig: KubeBuddyConfig) => {
       const normalizedConfig = normalizeKubeBuddyConfig(nextConfig);
-      setConfig(normalizedConfig);
-      storeKubeBuddyConfig(clusterKey, normalizedConfig);
+      const configWithYaml = { ...normalizedConfig, rawYaml: configToCliYaml(normalizedConfig) };
+
+      setConfig(configWithYaml);
     },
-    [clusterKey]
+    []
+  );
+  const saveConfig = React.useCallback(() => {
+    storeKubeBuddyConfig(clusterKey, config);
+    setSavedConfig(config);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 1800);
+  }, [clusterKey, config]);
+  const resetConfig = React.useCallback(() => {
+    setConfig(savedConfig);
+    setSaved(false);
+  }, [savedConfig]);
+  const hasChanges = React.useMemo(
+    () => JSON.stringify(normalizeKubeBuddyConfig(config)) !== JSON.stringify(normalizeKubeBuddyConfig(savedConfig)),
+    [config, savedConfig]
   );
 
   React.useEffect(() => {
-    setConfig(readKubeBuddyConfig(clusterKey));
+    const storedConfig = readKubeBuddyConfig(clusterKey);
+
+    setConfig(storedConfig);
+    setSavedConfig(storedConfig);
+    setSaved(false);
   }, [clusterKey]);
 
   return (
     <SectionBox title="KubeBuddy Config">
-      <Stack spacing={2.5}>
-        <Box>
-          <Typography variant="body1">Configure KubeBuddy scan behavior for this Headlamp cluster.</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Namespace exclusions stay on the scan page. These settings cover trusted registries and thresholds.
-          </Typography>
-          <Link href="https://kubebuddy.io/cli/checks/" target="_blank" rel="noreferrer" variant="body2">
-            View KubeBuddy check catalog
-          </Link>
-        </Box>
+      <Stack spacing={2.5} sx={{ pb: { xs: 6, md: 8 } }}>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          justifyContent="space-between"
+          spacing={2}
+          alignItems={{ xs: 'stretch', md: 'flex-start' }}
+        >
+          <Box>
+            <Typography variant="body1">Configure KubeBuddy scan behavior for this Headlamp cluster.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Namespace exclusions stay on the scan page. These settings cover the CLI-compatible config for browser scans.
+            </Typography>
+            <Link href="https://kubebuddy.io/cli/checks/" target="_blank" rel="noreferrer" variant="body2">
+              View KubeBuddy check catalog
+            </Link>
+          </Box>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: { xs: 'stretch', md: 'flex-start' } }}>
+            <Button disabled={!hasChanges} onClick={resetConfig} variant="outlined">
+              Reset
+            </Button>
+            <Button disabled={!hasChanges} onClick={saveConfig} variant="contained">
+              Save Config
+            </Button>
+          </Stack>
+        </Stack>
+        {saved && <Alert severity="success">Configuration saved.</Alert>}
+        <KubeBuddyYamlConfigControl config={config} onChange={updateConfig} />
         <KubeBuddyAdvancedConfigControl config={config} onChange={updateConfig} />
       </Stack>
     </SectionBox>

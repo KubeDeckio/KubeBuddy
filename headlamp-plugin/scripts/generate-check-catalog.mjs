@@ -11,6 +11,11 @@ const outputPath = path.join(pluginRoot, 'src', 'generated', 'checkCatalog.ts');
 const yamlFiles = (await readdir(checksRoot))
   .filter(file => file.endsWith('.yaml') && file !== 'prometheus.yaml')
   .sort();
+const excludedCheckIds = new Set([
+  // The CLI includes SC002 only in AKS mode. The Headlamp plugin runs the
+  // generic Kubernetes browser-safe check set, so keep counts aligned.
+  'SC002',
+]);
 
 function toCheck(raw, sourceFile) {
   return {
@@ -40,6 +45,10 @@ for (const file of yamlFiles) {
   const raw = await readFile(path.join(checksRoot, file), 'utf8');
   const parsed = YAML.parse(raw);
   for (const check of parsed?.checks || []) {
+    if (excludedCheckIds.has(String(check.id || '').toUpperCase())) {
+      continue;
+    }
+
     checks.push(toCheck(check, file));
   }
 }

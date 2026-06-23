@@ -1,0 +1,72 @@
+version: 0.1.0
+name: kubebuddy-headlamp-plugin
+category: security
+displayName: KubeBuddy
+createdAt: "2026-06-23T00:00:00Z"
+description: >
+  KubeBuddy checks for Headlamp. This plugin evaluates Kubernetes resources
+  visible to Headlamp and includes KubeBuddy checks from v0.0.31.
+logoURL: https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/main/images/KubeBuddy.png
+homeURL: https://kubebuddy.kubedeck.io
+keywords:
+  - headlamp
+  - headlamp-plugin
+  - kubebuddy
+  - kubernetes
+  - security
+  - troubleshooting
+  - cluster-health
+links:
+  - name: Documentation
+    url: https://kubebuddy.kubedeck.io
+  - name: Source
+    url: https://github.com/KubeDeckio/KubeBuddy
+  - name: Releases
+    url: https://github.com/KubeDeckio/KubeBuddy/releases
+install: |
+  Install from Headlamp Desktop:
+
+  1. Open Headlamp Desktop.
+  2. Go to Plugin Catalog.
+  3. Search for KubeBuddy.
+  4. Open the plugin details page and click Install.
+  5. Restart Headlamp if prompted.
+  6. Open KubeBuddy from the cluster sidebar.
+
+  Install in-cluster with the Headlamp plugin manager:
+
+  ```yaml
+  config:
+    watchPlugins: true
+
+  pluginsManager:
+    enabled: true
+    configContent: |
+      plugins:
+        - name: kubebuddy-headlamp-plugin
+          source: https://artifacthub.io/packages/headlamp/kubebuddy/kubebuddy-headlamp-plugin
+          version: 0.1.0
+      installOptions:
+        parallel: true
+        maxConcurrent: 2
+  ```
+
+  Install with the Headlamp plugin CLI:
+
+  ```bash
+  npx @kinvolk/headlamp-plugin install https://artifacthub.io/packages/headlamp/kubebuddy/kubebuddy-headlamp-plugin
+  ```
+changes:
+  - kind: added
+    description: Initial Headlamp plugin release with browser-side Kubernetes checks, summary scoring, findings, CSV and JSON export, and YAML config import/export.
+maintainers:
+  - name: Richard Hooper
+    email: richard.hooper@pixelrobots.co.uk
+provider:
+  name: KubeDeck
+annotations:
+  headlamp/plugin/archive-url: "https://github.com/KubeDeckio/KubeBuddy/releases/download/v0.0.31/kubebuddy-headlamp-plugin-0.1.0.tar.gz"
+  headlamp/plugin/archive-checksum: "SHA256:cdb30c75a261a1ab2560983a33a5fdd122cb8af01703cf3afa9c6503109c8b9b"
+  headlamp/plugin/version-compat: ">=0.22"
+  headlamp/plugin/distro-compat: "in-cluster,web,docker-desktop,desktop"
+  kubebuddy.io/checks-version: "v0.0.31"

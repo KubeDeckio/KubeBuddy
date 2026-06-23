@@ -67,6 +67,7 @@ edit_uri: edit/main/docs/
 
 nav:
   - Home: index.md
+  - Headlamp Plugin: headlamp-plugin.md
   - CLI: 
       - Overview: cli/index.md
       - Install: cli/install.md

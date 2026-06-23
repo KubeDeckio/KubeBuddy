@@ -10,6 +10,10 @@ on:
         description: Release tag to publish, for example v0.0.4
         required: true
         type: string
+      headlamp_plugin_version:
+        description: Optional Headlamp plugin version to publish, for example 0.1.0. Defaults to headlamp-plugin/package.json.
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -51,6 +55,55 @@ jobs:
           esac
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: headlamp-plugin/package-lock.json
+
+      - name: Prepare Headlamp plugin metadata
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          HEADLAMP_PLUGIN_VERSION: ${{ github.event.inputs.headlamp_plugin_version }}
+        run: |
+          args=("${TAG}")
+          if [ -n "${HEADLAMP_PLUGIN_VERSION}" ]; then
+            args+=("--plugin-version=${HEADLAMP_PLUGIN_VERSION}")
+          fi
+          node scripts/prepare-headlamp-plugin-release.mjs "${args[@]}"
+
+      - name: Install Headlamp plugin dependencies
+        working-directory: headlamp-plugin
+        run: npm ci
+
+      - name: Lint Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run lint
+
+      - name: Typecheck Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run tsc
+
+      - name: Build Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run build
+
+      - name: Package Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run package
+
+      - name: Update Headlamp plugin Artifact Hub checksum
+        shell: bash
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          plugin_version="$(node -p "require('./headlamp-plugin/package.json').version")"
+          tarball="headlamp-plugin/kubebuddy-headlamp-plugin-${plugin_version}.tar.gz"
+          checksum="$(sha256sum "$tarball" | awk '{print $1}')"
+          node scripts/prepare-headlamp-plugin-release.mjs "${TAG}" "--plugin-version=${plugin_version}" "--checksum=${checksum}"
 
       - name: Set up Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
@@ -73,7 +126,40 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/checksums.txt
+            headlamp-plugin/kubebuddy-headlamp-plugin-*.tar.gz
           generate_release_notes: true
+
+      - name: Push Headlamp plugin release metadata to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          tmp_dir="$(mktemp -d)"
+          cp headlamp-plugin/package.json "$tmp_dir/package.json"
+          cp headlamp-plugin/package-lock.json "$tmp_dir/package-lock.json"
+          cp headlamp-plugin/artifacthub-pkg.yml "$tmp_dir/artifacthub-pkg.yml"
+          cp headlamp-plugin/README.md "$tmp_dir/README.md"
+
+          git fetch origin main
+          git switch -C release-headlamp-plugin-metadata origin/main
+
+          cp "$tmp_dir/package.json" headlamp-plugin/package.json
+          cp "$tmp_dir/package-lock.json" headlamp-plugin/package-lock.json
+          cp "$tmp_dir/artifacthub-pkg.yml" headlamp-plugin/artifacthub-pkg.yml
+          cp "$tmp_dir/README.md" headlamp-plugin/README.md
+
+          git add headlamp-plugin/package.json \
+            headlamp-plugin/package-lock.json \
+            headlamp-plugin/artifacthub-pkg.yml \
+            headlamp-plugin/README.md
+
+          if git diff --cached --quiet; then
+            echo "No Headlamp plugin release metadata changes to commit"
+          else
+            git commit -m "plugin: Prepare Headlamp metadata for ${{ steps.meta.outputs.tag }}"
+            git push origin HEAD:main
+          fi
 
   check-latest:
     needs: build-and-release

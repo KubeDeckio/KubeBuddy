@@ -15,6 +15,7 @@ KubeBuddy now ships as a **Go-first release**:
 - native `kubebuddy` binaries for macOS, Linux, and Windows
 - a hardened container image
 - a backwards-compatible PowerShell Gallery wrapper that bundles and forwards to the native binary
+- a Headlamp plugin built from the same Kubernetes check catalog as the release
 
 ## Release Outputs
 
@@ -27,9 +28,12 @@ Each tagged release should publish:
 - `kubebuddy_<version>_windows_amd64.zip`
 - `kubebuddy_<version>_windows_arm64.zip`
 - `kubebuddy-psgallery-v<version>.tar.gz`
+- `kubebuddy-headlamp-plugin-<plugin-version>.tar.gz`
 - `checksums.txt`
 
 The PowerShell Gallery package remains a wrapper surface, but it now bundles the native binaries for supported platforms so `Invoke-KubeBuddy` works immediately after install.
+
+The Headlamp plugin has its own package version, starting at `0.1.0`, but it is released with the main KubeBuddy tag because the plugin check catalog is generated from `checks/kubernetes/*`. Artifact Hub metadata should state both the plugin version and the KubeBuddy checks version included in the package.
 
 ## Build Artifacts Locally
 
@@ -57,6 +61,8 @@ That writes release artifacts to `./dist`.
    - update the Homebrew tap formula
    - publish the PowerShell Gallery wrapper module
    - build and push the container image
+   - build and attach the Headlamp plugin package
+   - update the Headlamp plugin Artifact Hub metadata
 
 If you trigger the release workflows manually, provide the full tag such as `v0.0.4` in the workflow input.
 
@@ -67,6 +73,11 @@ Before tagging, validate:
 ```bash
 go test ./...
 docker build -t kubebuddy-release-smoke .
+cd headlamp-plugin
+npm ci
+npm exec tsc -- --noEmit
+npm run build
+npm run package
 ```
 
 Recommended smoke tests:

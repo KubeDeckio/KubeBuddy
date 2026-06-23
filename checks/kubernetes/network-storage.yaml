@@ -376,10 +376,10 @@ checks:
   fail_message: Service uses spec.externalIPs.
   recommendation: "Remove spec.externalIPs and expose traffic through a LoadBalancer Service, Gateway API, or a controlled ingress/load-balancer implementation."
   url: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
+  native_handler: NET019
   value:
     path: spec.externalIPs
-  operator: not_equals
-  expected: null
+  operator: exists
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Review Service External IPs</h4>\n  <ul>\n    <li>Remove <code>spec.externalIPs</code> unless the routing ownership and network controls are explicitly managed.</li>\n    <li>Prefer LoadBalancer Services, Gateway API, or a maintained load-balancer controller such as MetalLB where appropriate.</li>\n    <li>Audit firewall and routing rules for any Service that currently relies on external IPs.</li>\n  </ul>\n</div>"
   speech_bubble:
   - This Service defines external IPs directly.
