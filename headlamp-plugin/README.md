@@ -7,6 +7,10 @@ Includes KubeBuddy checks from v0.0.31.
 
 The plugin uses Kubernetes resource data already available to Headlamp and evaluates browser-safe KubeBuddy checks in the current Headlamp page. It shows a summary score, failed checks, recommendations, affected resources, and export options without installing anything into the cluster.
 
+## Screenshot
+
+![KubeBuddy Headlamp plugin scan summary](https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/refs/heads/main/docs/images/headlamp-plugin-scan.png)
+
 ## Install
 
 Install from Headlamp Desktop:

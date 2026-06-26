@@ -2197,9 +2197,13 @@ func runCFG001(check checks.Check, item map[string]any, cache map[string][]map[s
 	}}, nil
 }
 
+func isIgnoredDuplicateConfigMapName(name string) bool {
+	return name == "kube-root-ca.crt" || name == "kube-root-ca" || name == "istio-ca-root"
+}
+
 func runCFG002(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	name := strings.TrimSpace(stringifyLookup(item, "metadata.name"))
-	if name == "kube-root-ca" || name == "istio-ca-root" {
+	if isIgnoredDuplicateConfigMapName(name) {
 		return nil, nil
 	}
 	all, err := getCachedItems(cache, "configmaps")
@@ -2208,7 +2212,8 @@ func runCFG002(check checks.Check, item map[string]any, cache map[string][]map[s
 	}
 	var namespaces []string
 	for _, cm := range all {
-		if stringifyLookup(cm, "metadata.name") == name && name != "kube-root-ca" && name != "istio-ca-root" {
+		cmName := strings.TrimSpace(stringifyLookup(cm, "metadata.name"))
+		if cmName == name && !isIgnoredDuplicateConfigMapName(cmName) {
 			namespaces = append(namespaces, namespaceOf(cm))
 		}
 	}

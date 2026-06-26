@@ -155,6 +155,46 @@ func TestRunSEC014UsesConfiguredTrustedRegistries(t *testing.T) {
 	}
 }
 
+func TestRunCFG002IgnoresKubeRootCAConfigMap(t *testing.T) {
+	t.Helper()
+
+	check := checks.Check{ID: "CFG002", NativeHandler: "CFG002"}
+	ignored := map[string]any{"metadata": map[string]any{"name": "kube-root-ca.crt", "namespace": "default"}}
+	duplicate := map[string]any{"metadata": map[string]any{"name": "app-settings", "namespace": "default"}}
+	cache := map[string][]map[string]any{
+		"configmaps": {
+			ignored,
+			{"metadata": map[string]any{"name": "kube-root-ca.crt", "namespace": "apps"}},
+			duplicate,
+			{"metadata": map[string]any{"name": "app-settings", "namespace": "apps"}},
+		},
+	}
+
+	ignoredFindings, ok, err := executeNativeHandler(check, []map[string]any{ignored}, cache)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected native handler to be registered")
+	}
+	if len(ignoredFindings) != 0 {
+		t.Fatalf("expected kube-root-ca.crt to be ignored, got %+v", ignoredFindings)
+	}
+
+	duplicateFindings, ok, err := executeNativeHandler(check, []map[string]any{duplicate}, cache)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected native handler to be registered")
+	}
+	if len(duplicateFindings) != 1 {
+		t.Fatalf("expected normal duplicate ConfigMap finding, got %d", len(duplicateFindings))
+	}
+	if duplicateFindings[0].Resource != "configmap/app-settings" {
+		t.Fatalf("unexpected finding: %+v", duplicateFindings[0])
+	}
+}
 func TestNewRiskHandlers(t *testing.T) {
 	tests := []struct {
 		name     string

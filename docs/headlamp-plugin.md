@@ -8,6 +8,10 @@ The KubeBuddy Headlamp plugin lets you run Kubernetes checks from inside Headlam
 
 The plugin is released with the main KubeBuddy release so the Headlamp checks stay aligned with the Kubernetes check catalog in the repo.
 
+## Screenshot
+
+![KubeBuddy Headlamp plugin scan summary](images/headlamp-plugin-scan.png)
+
 ## Versioning
 
 The Headlamp plugin has its own plugin package version, but each published package states which KubeBuddy release/checks it includes.
