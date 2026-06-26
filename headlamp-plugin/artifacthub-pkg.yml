@@ -7,7 +7,7 @@ description: >
   KubeBuddy checks for Headlamp. This plugin evaluates Kubernetes resources
   visible to Headlamp and includes KubeBuddy checks from v0.0.31.
 logoURL: https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/main/images/KubeBuddy.png
-homeURL: https://kubebuddy.kubedeck.io
+homeURL: https://kubebuddy.io
 keywords:
   - headlamp
   - headlamp-plugin
@@ -18,7 +18,7 @@ keywords:
   - cluster-health
 links:
   - name: Documentation
-    url: https://kubebuddy.kubedeck.io
+    url: https://kubebuddy.io
   - name: Source
     url: https://github.com/KubeDeckio/KubeBuddy
   - name: Releases
