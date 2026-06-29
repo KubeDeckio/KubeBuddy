@@ -74,6 +74,13 @@ type Finding = {
   details: string;
   message?: string;
   link?: string;
+  yamlPath?: string;
+  yamlSnippet?: string;
+};
+
+type FindingOptions = {
+  yamlPath?: string;
+  yamlValue?: unknown;
 };
 
 type CheckResult = {
@@ -167,7 +174,8 @@ type ResourceStateEntry = ResourceState & {
   label: string;
 };
 const SCORE_UPDATED_EVENT = 'kubebuddy-score-updated';
-const SCORE_FRESH_MS = 10 * 60 * 1000;
+const SCORE_FRESH_MS = 24 * 60 * 60 * 1000;
+const SCORE_HISTORY_LIMIT = 30;
 const CHECKS_PER_SCAN_STEP = 2;
 const SCAN_STEP_DELAY_MS = 25;
 const KUBEBUDDY_ICON = {
@@ -181,6 +189,12 @@ type StoredScore = {
   failed: number;
   total: number;
   completedAt: string;
+};
+
+type StoredScoreHistoryPoint = StoredScore & {
+  passed: number;
+  skipped: number;
+  findings: number;
 };
 
 type StoredReport = {
@@ -203,6 +217,10 @@ function clusterKeyFromPath(pathname: string): string {
 
 function scoreStorageKey(clusterKey: string): string {
   return `kubebuddy:score:${clusterKey}`;
+}
+
+function scoreHistoryStorageKey(clusterKey: string): string {
+  return `kubebuddy:score-history:${clusterKey}`;
 }
 
 function reportStorageKey(clusterKey: string): string {
@@ -511,31 +529,75 @@ function readStoredReport(clusterKey: string): StoredReport | null {
   }
 }
 
-function storeScore(clusterKey: string, checks: CheckResult[]): StoredScore {
+function readStoredScoreHistory(clusterKey: string): StoredScoreHistoryPoint[] {
+  try {
+    const value = window.localStorage.getItem(scoreHistoryStorageKey(clusterKey));
+    if (!value) {
+      return [];
+    }
+
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter(point =>
+        typeof point.value === 'number' &&
+        typeof point.failed === 'number' &&
+        typeof point.passed === 'number' &&
+        typeof point.skipped === 'number' &&
+        typeof point.total === 'number' &&
+        typeof point.findings === 'number' &&
+        typeof point.completedAt === 'string'
+      )
+      .slice(-SCORE_HISTORY_LIMIT) as StoredScoreHistoryPoint[];
+  } catch {
+    return [];
+  }
+}
+
+function appendStoredScoreHistory(clusterKey: string, point: StoredScoreHistoryPoint): StoredScoreHistoryPoint[] {
+  const history = [...readStoredScoreHistory(clusterKey), point].slice(-SCORE_HISTORY_LIMIT);
+
+  window.localStorage.setItem(scoreHistoryStorageKey(clusterKey), JSON.stringify(history));
+
+  return history;
+}
+
+function storeScore(clusterKey: string, checks: CheckResult[], completedAt = new Date().toISOString()): StoredScore {
   const score = scoreChecks(checks);
+  const findings = checks.reduce((total, check) => total + check.findings.length, 0);
   const storedScore: StoredScore = {
     value: score.value,
     failed: score.failed,
     total: score.total,
-    completedAt: new Date().toISOString(),
+    completedAt,
   };
 
   window.localStorage.setItem(scoreStorageKey(clusterKey), JSON.stringify(storedScore));
+  appendStoredScoreHistory(clusterKey, {
+    ...storedScore,
+    passed: score.passed,
+    skipped: score.skipped,
+    findings,
+  });
   window.dispatchEvent(new CustomEvent(SCORE_UPDATED_EVENT, { detail: { clusterKey } }));
 
   return storedScore;
 }
 
 function storeReport(clusterKey: string, checks: CheckResult[], config: KubeBuddyConfig): StoredReport {
+  const completedAt = new Date().toISOString();
   const storedReport: StoredReport = {
     checks,
-    completedAt: new Date().toISOString(),
+    completedAt,
     excludedNamespaces: normalizeNamespaceList(config.excludedNamespaces),
     config,
   };
 
   window.localStorage.setItem(reportStorageKey(clusterKey), JSON.stringify(storedReport));
-  storeScore(clusterKey, checks);
+  storeScore(clusterKey, checks, completedAt);
 
   return storedReport;
 }
@@ -596,8 +658,11 @@ function exportReportCsv(clusterKey: string, report: StoredReport): void {
     'namespace',
     'kind',
     'api_version',
+    'evidence',
     'message',
     'details',
+    'yaml_path',
+    'yaml_snippet',
     'recommendation',
     'docs',
   ];
@@ -620,8 +685,11 @@ function exportReportCsv(clusterKey: string, report: StoredReport): void {
         '',
         '',
         '',
+        '',
         check.skippedReason || '',
         check.skippedReason || '',
+        '',
+        '',
         check.recommendation,
         check.docs || '',
       ]];
@@ -633,8 +701,11 @@ function exportReportCsv(clusterKey: string, report: StoredReport): void {
       finding.namespace || '',
       finding.kind || '',
       finding.apiVersion || '',
+      evidenceLabel(finding),
       findingMessage(check, finding),
       finding.details,
+      finding.yamlPath || '',
+      finding.yamlSnippet || '',
       check.recommendation,
       check.docs || '',
     ]);
@@ -920,6 +991,67 @@ function link(resource: any): string | undefined {
   return resource?.getDetailsLink?.();
 }
 
+function pathSegments(path: string): string[] {
+  return path.split('.').filter(Boolean);
+}
+
+function valueAtPath(value: any, path: string | undefined): unknown {
+  if (!path) {
+    return value;
+  }
+
+  return pathSegments(path).reduce((current, segment) => {
+    if (current === null || current === undefined) {
+      return undefined;
+    }
+
+    const key = segment.replace(/\[[^\]]+\]$/, '');
+    return current?.[key];
+  }, value);
+}
+
+function yamlSnippetFromPath(path: string, value: unknown): string {
+  const snippet = pathSegments(path).reduceRight<unknown>((current, segment) => {
+    const match = segment.match(/^([^\[]+)\[([^=\]]+)=([^\]]+)\]$/);
+    if (match) {
+      const [, listName, selectorKeyName, selectorValue] = match;
+      return { [listName]: [{ [selectorKeyName]: selectorValue, ...(current as Record<string, unknown>) }] };
+    }
+
+    return { [segment]: current };
+  }, value);
+
+  return YAML.stringify(snippet).trim();
+}
+
+function expressionYamlPath(expression: GeneratedExpression | undefined): string | undefined {
+  if (!expression) {
+    return undefined;
+  }
+
+  if (expression.path) {
+    return expression.path;
+  }
+
+  if (expression.exists) {
+    return expression.exists;
+  }
+
+  if (expression.len) {
+    return expressionYamlPath(expression.len);
+  }
+
+  if (expression.count_where?.path) {
+    return expression.count_where.path;
+  }
+
+  if (expression.coalesce?.length) {
+    return expression.coalesce.map(expressionYamlPath).find(Boolean);
+  }
+
+  return undefined;
+}
+
 function DocsIcon(props: React.ComponentProps<typeof SvgIcon>) {
   return (
     <SvgIcon fontSize="small" viewBox="0 0 24 24" {...props}>
@@ -954,7 +1086,11 @@ function filterResourceState<T>(state: ResourceState<T>, excludedNamespaces: Set
   };
 }
 
-function finding(resource: any, details: string, message = details): Finding {
+function finding(resource: any, details: string, message?: string, options: FindingOptions = {}): Finding {
+  const yamlPath = options.yamlPath;
+  const yamlValue = yamlPath ? options.yamlValue ?? valueAtPath(json(resource), yamlPath) : undefined;
+  const yamlSnippetValue = yamlValue === undefined ? '<missing>' : yamlValue;
+
   return {
     resource: name(resource),
     namespace: namespace(resource),
@@ -966,6 +1102,8 @@ function finding(resource: any, details: string, message = details): Finding {
     details,
     message,
     link: link(resource),
+    yamlPath,
+    yamlSnippet: yamlPath ? yamlSnippetFromPath(yamlPath, yamlSnippetValue) : undefined,
   };
 }
 
@@ -986,6 +1124,19 @@ function podImages(pod: any): string[] {
 function containers(pod: any, includeInit = true): any[] {
   const spec = json(pod)?.spec || {};
   return includeInit ? [...(spec.initContainers || []), ...(spec.containers || [])] : spec.containers || [];
+}
+
+function containerYamlOptions(pod: any, container: any, fieldPath: string, yamlValue = valueAtPath(container, fieldPath)): FindingOptions {
+  const spec = json(pod)?.spec || {};
+  const listName = (spec.initContainers || []).some((item: any) => item === container)
+    ? 'initContainers'
+    : 'containers';
+  const yamlPath = `spec.${listName}[name=${container.name || 'unknown'}].${fieldPath}`;
+
+  return {
+    yamlPath,
+    yamlValue,
+  };
 }
 
 function selectorKey(selector: unknown): string {
@@ -1346,29 +1497,57 @@ function emptyHandler(): Finding[] {
 function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[]> {
   const pods = resources.pod.data;
   return {
-    SEC002: pods.filter(pod => json(pod)?.spec?.hostPID || json(pod)?.spec?.hostNetwork).map(pod => finding(pod, 'hostPID or hostNetwork enabled')),
-    SEC003: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.runAsUser === 0 || json(pod)?.spec?.securityContext?.runAsUser === 0).map(container => finding(pod, `Container ${container.name} can run as root`))),
-    SEC004: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.privileged).map(container => finding(pod, `Container ${container.name} is privileged`))),
-    SEC005: pods.filter(pod => json(pod)?.spec?.hostIPC).map(pod => finding(pod, 'hostIPC enabled')),
+    SEC002: pods.filter(pod => json(pod)?.spec?.hostPID || json(pod)?.spec?.hostNetwork).map(pod => {
+      const yamlPath = json(pod)?.spec?.hostPID ? 'spec.hostPID' : 'spec.hostNetwork';
+      return finding(pod, 'hostPID or hostNetwork enabled', 'hostPID or hostNetwork enabled', { yamlPath });
+    }),
+    SEC003: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.runAsUser === 0 || json(pod)?.spec?.securityContext?.runAsUser === 0).map(container => {
+      const options = container?.securityContext?.runAsUser === 0
+        ? containerYamlOptions(pod, container, 'securityContext.runAsUser')
+        : { yamlPath: 'spec.securityContext.runAsUser' };
+      return finding(pod, `Container ${container.name} can run as root`, `Container ${container.name} can run as root`, options);
+    })),
+    SEC004: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.privileged).map(container => finding(
+      pod,
+      `Container ${container.name} is privileged`,
+      `Container ${container.name} is privileged`,
+      containerYamlOptions(pod, container, 'securityContext.privileged')
+    ))),
+    SEC005: pods.filter(pod => json(pod)?.spec?.hostIPC).map(pod => finding(pod, 'hostIPC enabled', 'hostIPC enabled', { yamlPath: 'spec.hostIPC' })),
     SEC006: pods.flatMap(pod => containers(pod, false).filter(container => {
       const context = container?.securityContext;
       return !context || context.runAsNonRoot !== true || context.readOnlyRootFilesystem !== true || context.allowPrivilegeEscalation !== false;
-    }).map(container => finding(pod, `Container ${container.name} missing hardened securityContext`))),
-    SEC008: pods.flatMap(pod => containers(pod).flatMap(container => (container.env || []).filter((env: any) => env?.valueFrom?.secretKeyRef?.name).map((env: any) => finding(pod, `Secret exposed through env ${env.name} in ${container.name}`)))),
-    SEC009: pods.flatMap(pod => containers(pod, false).filter(container => !(container?.securityContext?.capabilities?.drop || []).includes('ALL')).map(container => finding(pod, `Container ${container.name} does not drop ALL capabilities`))),
-    SEC010: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.hostPath?.path).map((volume: any) => finding(pod, `hostPath volume ${volume.name}: ${volume.hostPath.path}`))),
-    SEC011: pods.flatMap(pod => containers(pod, false).filter(container => container?.securityContext?.runAsUser === 0).map(container => finding(pod, `Container ${container.name} runs as UID 0`))),
-    SEC012: pods.flatMap(pod => containers(pod, false).filter(container => (container?.securityContext?.capabilities?.add || []).length > 0).map(container => finding(pod, `Container ${container.name} adds capabilities`))),
-    SEC013: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.emptyDir).map((volume: any) => finding(pod, `emptyDir volume ${volume.name}`))),
-    SEC016: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.windowsOptions?.hostProcess).map(container => finding(pod, `Windows HostProcess container ${container.name}`))),
-    SEC017: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.procMount === 'Unmasked').map(container => finding(pod, `Container ${container.name} uses Unmasked procMount`))),
+    }).map(container => finding(pod, `Container ${container.name} missing hardened securityContext`, `Container ${container.name} missing hardened securityContext`, containerYamlOptions(pod, container, 'securityContext', container.securityContext || {})))),
+    SEC008: pods.flatMap(pod => containers(pod).flatMap(container => (container.env || []).filter((env: any) => env?.valueFrom?.secretKeyRef?.name).map((env: any) => finding(
+      pod,
+      `Secret exposed through env ${env.name} in ${container.name}`,
+      `Secret exposed through env ${env.name} in ${container.name}`,
+      containerYamlOptions(pod, container, `env[name=${env.name || 'unknown'}].valueFrom.secretKeyRef`, env.valueFrom.secretKeyRef)
+    )))),
+    SEC009: pods.flatMap(pod => containers(pod, false).filter(container => !(container?.securityContext?.capabilities?.drop || []).includes('ALL')).map(container => finding(pod, `Container ${container.name} does not drop ALL capabilities`, `Container ${container.name} does not drop ALL capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.drop', container?.securityContext?.capabilities?.drop || [])))),
+    SEC010: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.hostPath?.path).map((volume: any) => finding(pod, `hostPath volume ${volume.name}: ${volume.hostPath.path}`, `hostPath volume ${volume.name}: ${volume.hostPath.path}`, { yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].hostPath`, yamlValue: volume.hostPath }))),
+    SEC011: pods.flatMap(pod => containers(pod, false).filter(container => container?.securityContext?.runAsUser === 0).map(container => finding(pod, `Container ${container.name} runs as UID 0`, `Container ${container.name} runs as UID 0`, containerYamlOptions(pod, container, 'securityContext.runAsUser')))),
+    SEC012: pods.flatMap(pod => containers(pod, false).filter(container => (container?.securityContext?.capabilities?.add || []).length > 0).map(container => finding(pod, `Container ${container.name} adds capabilities`, `Container ${container.name} adds capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.add')))),
+    SEC013: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.emptyDir).map((volume: any) => finding(pod, `emptyDir volume ${volume.name}`, `emptyDir volume ${volume.name}`, { yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].emptyDir`, yamlValue: volume.emptyDir }))),
+    SEC016: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.windowsOptions?.hostProcess).map(container => finding(pod, `Windows HostProcess container ${container.name}`, `Windows HostProcess container ${container.name}`, containerYamlOptions(pod, container, 'securityContext.windowsOptions.hostProcess')))),
+    SEC017: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.procMount === 'Unmasked').map(container => finding(pod, `Container ${container.name} uses Unmasked procMount`, `Container ${container.name} uses Unmasked procMount`, containerYamlOptions(pod, container, 'securityContext.procMount')))),
     SEC019: pods.flatMap(pod => Object.entries(objectAnnotations(pod)).filter(([key, value]) => key.startsWith('container.apparmor.security.beta.kubernetes.io/') && !['runtime/default'].includes(String(value)) && !String(value).startsWith('localhost/')).map(([, value]) => finding(pod, `Unsupported AppArmor value ${value}`))),
-    SEC020: pods.flatMap(pod => containers(pod).filter(container => !container?.securityContext?.seccompProfile?.type && !json(pod)?.spec?.securityContext?.seccompProfile?.type).map(container => finding(pod, `Container ${container.name} has no seccomp profile`))),
-    SEC021: pods.flatMap(pod => containers(pod).filter(container => (container.ports || []).some((port: any) => Number(port.hostPort) > 0)).map(container => finding(pod, `Container ${container.name} uses hostPort`))),
-    SEC022: pods.filter(pod => serviceAccountName(pod) === 'default').map(pod => finding(pod, 'Uses default ServiceAccount')),
-    SEC023: pods.flatMap(pod => containers(pod).filter(container => Object.keys(container.resources || {}).length === 0).map(container => finding(pod, `Container ${container.name} has no resources set`))),
-    SEC027: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.allowPrivilegeEscalation !== false).map(container => finding(pod, `Container ${container.name} allows privilege escalation or does not disable it`))),
-    SEC028: pods.filter(pod => json(pod)?.spec?.hostUsers === true).map(pod => finding(pod, 'hostUsers enabled')),
+    SEC020: pods.flatMap(pod => containers(pod).filter(container => !container?.securityContext?.seccompProfile?.type && !json(pod)?.spec?.securityContext?.seccompProfile?.type).map(container => finding(pod, `Container ${container.name} has no seccomp profile`, `Container ${container.name} has no seccomp profile`, containerYamlOptions(pod, container, 'securityContext.seccompProfile', container?.securityContext?.seccompProfile || {})))),
+    SEC021: pods.flatMap(pod => containers(pod).filter(container => (container.ports || []).some((port: any) => Number(port.hostPort) > 0)).map(container => finding(pod, `Container ${container.name} uses hostPort`, `Container ${container.name} uses hostPort`, containerYamlOptions(pod, container, 'ports', container.ports)))),
+    SEC022: pods.filter(pod => serviceAccountName(pod) === 'default').map(pod => finding(pod, 'Uses default ServiceAccount', 'Uses default ServiceAccount', { yamlPath: 'spec.serviceAccountName', yamlValue: serviceAccountName(pod) })),
+    SEC023: pods.flatMap(pod => containers(pod).filter(container => Object.keys(container.resources || {}).length === 0).map(container => finding(pod, `Container ${container.name} has no resources set`, `Container ${container.name} has no resources set`, containerYamlOptions(pod, container, 'resources', container.resources || {})))),
+    SEC027: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.allowPrivilegeEscalation !== false).map(container => {
+      const fieldPath = container?.securityContext?.allowPrivilegeEscalation === undefined
+        ? 'securityContext'
+        : 'securityContext.allowPrivilegeEscalation';
+      return finding(
+        pod,
+        `Container ${container.name} allows privilege escalation or does not disable it`,
+        `Container ${container.name} allows privilege escalation or does not disable it`,
+        containerYamlOptions(pod, container, fieldPath, valueAtPath(container, fieldPath) || {})
+      );
+    })),
+    SEC028: pods.filter(pod => json(pod)?.spec?.hostUsers === true).map(pod => finding(pod, 'hostUsers enabled', 'hostUsers enabled', { yamlPath: 'spec.hostUsers' })),
   };
 }
 
@@ -1995,8 +2174,9 @@ function evaluateCheck(check: GeneratedCheck, resources: ResourceStates, config:
 
   const findings = items.flatMap(resource => {
     const value = resolveExpression(json(resource), check.value);
+    const yamlPath = expressionYamlPath(check.value);
     return evaluateOperator(check.operator || 'exists', value, check.expected)
-      ? [finding(resource, valueDetails(check, value), check.failMessage)]
+      ? [finding(resource, valueDetails(check, value), check.failMessage, { yamlPath, yamlValue: value })]
       : [];
   });
 
@@ -2336,17 +2516,22 @@ function KubeBuddyScoreBadgeContent({ clusterKey }: { clusterKey: string }) {
   );
 }
 
-function ScoreHero({ checks }: { checks: CheckResult[] }) {
+function ScoreHero({
+  checks,
+  clusterKey,
+  completedAt,
+}: {
+  checks: CheckResult[];
+  clusterKey: string;
+  completedAt?: string;
+}) {
   const score = scoreChecks(checks);
-  const high = checks.filter(check => check.status === 'failed' && check.severity === 'high').length;
-  const warning = checks.filter(check => check.status === 'failed' && check.severity === 'warning').length;
   const scoreColorName = scoreColor(score.value);
+  const scannedAt = completedAt ? formatTrendTimestamp(completedAt) : undefined;
   const metricCards = [
     { label: 'Passed', value: score.passed, color: 'success.main' },
     { label: 'Failed', value: score.failed, color: 'error.main' },
     { label: 'Skipped', value: score.skipped, color: 'warning.main' },
-    { label: 'High', value: high, color: 'error.main' },
-    { label: 'Warning', value: warning, color: 'warning.main' },
   ];
 
   return (
@@ -2387,11 +2572,17 @@ function ScoreHero({ checks }: { checks: CheckResult[] }) {
             <Typography variant="body2" color="text.secondary">
               Weighted health score from {score.total} evaluated checks.
             </Typography>
+            {scannedAt && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                Scan ran {scannedAt}
+              </Typography>
+            )}
           </Box>
         </Stack>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={1.5}
+          alignItems="stretch"
           sx={{ flex: 1 }}
         >
           {metricCards.map(card => (
@@ -2399,21 +2590,193 @@ function ScoreHero({ checks }: { checks: CheckResult[] }) {
               key={card.label}
               variant="outlined"
               sx={theme => ({
+                alignItems: 'center',
                 flex: 1,
+                justifyContent: 'center',
                 minWidth: 120,
-                p: 1.5,
+                minHeight: 146,
+                p: 2,
                 borderColor: theme.palette.divider,
+                display: 'flex',
+                textAlign: 'center',
               })}
             >
-              <Typography variant="caption" color="text.secondary">
-                {card.label}
-              </Typography>
-              <Typography variant="h5" sx={{ color: card.color, fontWeight: 800 }}>
-                {card.value}
-              </Typography>
+              <Stack spacing={0.5} alignItems="center" justifyContent="center">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: 0.2, textTransform: 'uppercase' }}
+                >
+                  {card.label}
+                </Typography>
+                <Typography
+                  variant="h3"
+                  sx={{
+                    color: card.color,
+                    fontSize: { xs: '2.25rem', md: '2.65rem' },
+                    fontWeight: 900,
+                    lineHeight: 1,
+                  }}
+                >
+                  {card.value}
+                </Typography>
+              </Stack>
             </Paper>
           ))}
+          <ScoreTrend clusterKey={clusterKey} />
         </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function formatTrendTimestamp(completedAt: string): string {
+  const date = new Date(completedAt);
+  if (Number.isNaN(date.getTime())) {
+    return completedAt;
+  }
+
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function ScoreTrend({ clusterKey }: { clusterKey: string }) {
+  const [history, setHistory] = React.useState<StoredScoreHistoryPoint[]>(() => readStoredScoreHistory(clusterKey));
+
+  React.useEffect(() => {
+    const updateHistory = () => setHistory(readStoredScoreHistory(clusterKey));
+
+    updateHistory();
+    window.addEventListener(SCORE_UPDATED_EVENT, updateHistory);
+    window.addEventListener('storage', updateHistory);
+
+    return () => {
+      window.removeEventListener(SCORE_UPDATED_EVENT, updateHistory);
+      window.removeEventListener('storage', updateHistory);
+    };
+  }, [clusterKey]);
+
+  if (!history.length) {
+    return null;
+  }
+
+  const width = 440;
+  const height = 112;
+  const paddingX = 30;
+  const rightPadding = 14;
+  const paddingY = 16;
+  const chartWidth = width - paddingX - rightPadding;
+  const chartHeight = height - paddingY * 2;
+  const latest = history[history.length - 1];
+  const previous = history.length > 1 ? history[history.length - 2] : null;
+  const delta = previous ? latest.value - previous.value : null;
+  const localScanLabel = `${history.length} local ${history.length === 1 ? 'scan' : 'scans'}`;
+  const points = history.map((point, index) => {
+    const x = history.length === 1
+      ? paddingX
+      : paddingX + (index / (history.length - 1)) * chartWidth;
+    const y = paddingY + ((100 - point.value) / 100) * chartHeight;
+
+    return { ...point, x, y };
+  });
+
+  return (
+    <Paper
+      variant="outlined"
+      sx={theme => ({
+        borderColor: theme.palette.divider,
+        flex: { xs: '1 1 auto', sm: 1.8 },
+        minWidth: { xs: '100%', sm: 280 },
+        p: 1.5,
+      })}
+    >
+      <Stack spacing={0.75}>
+        <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="flex-start">
+          <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+            <Tooltip title="Stored only in this browser's local cache for the active Headlamp cluster. Clearing browser data or using another machine will not keep this trend.">
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800 }}>
+                Score trend
+              </Typography>
+            </Tooltip>
+            <Chip label={localScanLabel} size="small" variant="outlined" />
+          </Stack>
+          {delta !== null && (
+            <Typography
+              variant="body2"
+              sx={theme => ({
+                color: delta >= 0 ? theme.palette.success.main : theme.palette.error.main,
+                fontWeight: 900,
+              })}
+            >
+              {delta >= 0 ? '+' : ''}{delta}
+            </Typography>
+          )}
+        </Stack>
+
+        <Box
+          component="svg"
+          role="img"
+          aria-label={`KubeBuddy score trend for ${clusterKey}`}
+          viewBox={`0 0 ${width} ${height}`}
+          sx={{ display: 'block', height: 90, width: '100%' }}
+        >
+          <line x1={paddingX} x2={width - rightPadding} y1={paddingY} y2={paddingY} stroke="currentColor" strokeOpacity="0.18" />
+          <line x1={paddingX} x2={width - rightPadding} y1={paddingY + chartHeight * 0.3} y2={paddingY + chartHeight * 0.3} stroke="currentColor" strokeOpacity="0.12" />
+          <line x1={paddingX} x2={width - rightPadding} y1={height - paddingY} y2={height - paddingY} stroke="currentColor" strokeOpacity="0.18" />
+          {points.slice(1).map((point, index) => {
+            const previousPoint = points[index];
+
+            return (
+              <Box
+                component="line"
+                key={`${point.completedAt}-${index}`}
+                x1={previousPoint.x}
+                y1={previousPoint.y}
+                x2={point.x}
+                y2={point.y}
+                sx={theme => ({
+                  stroke: theme.palette[scoreColor(point.value)].main,
+                  strokeLinecap: 'round',
+                  strokeWidth: 3,
+                })}
+              />
+            );
+          })}
+          {points.map(point => (
+            <Box
+              component="circle"
+              key={point.completedAt}
+              cx={point.x}
+              cy={point.y}
+              r={4.5}
+              sx={theme => ({
+                fill: theme.palette[scoreColor(point.value)].main,
+                stroke: theme.palette.background.paper,
+                strokeWidth: 2,
+              })}
+            >
+              <title>
+                {`${point.value}/100 - ${point.failed} failed checks, ${point.findings} findings - ${formatTrendTimestamp(point.completedAt)}`}
+              </title>
+            </Box>
+          ))}
+          <text x="0" y={paddingY + 3} fill="currentColor" opacity="0.65" fontSize="10">100</text>
+          <text x="5" y={paddingY + chartHeight * 0.3 + 3} fill="currentColor" opacity="0.55" fontSize="10">70</text>
+          <text x="9" y={height - paddingY + 3} fill="currentColor" opacity="0.65" fontSize="10">0</text>
+        </Box>
+
+        <Typography variant="caption" color="text.secondary">
+          Local cache only.
+          <br />
+          <Link href="https://radar.kubebuddy.io/" target="_blank" rel="noreferrer">
+            Use Radar
+          </Link>
+          {' '}for team and long-term history.
+        </Typography>
       </Stack>
     </Paper>
   );
@@ -2515,6 +2878,11 @@ function buildAIPrompt(check: CheckResult, finding: Finding, clusterKey: string)
     `- Kind: ${resourceKind}`,
     `- Namespace: ${namespace}`,
     finding.apiVersion ? `- API version: ${finding.apiVersion}` : '',
+    finding.yamlSnippet ? 'Problem YAML:' : '',
+    finding.yamlPath ? `Path: ${finding.yamlPath}` : '',
+    finding.yamlSnippet ? '```yaml' : '',
+    finding.yamlSnippet || '',
+    finding.yamlSnippet ? '```' : '',
     '',
     `KubeBuddy recommendation: ${recommendation}`,
     docs,
@@ -2548,6 +2916,65 @@ function DrawerSectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function yamlPathLeaf(path: string | undefined): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+
+  return pathSegments(path).at(-1)?.replace(/\[[^\]]+\]$/, '');
+}
+
+function ProblemYamlSnippet({ finding }: { finding: Finding }) {
+  const highlightedKey = yamlPathLeaf(finding.yamlPath);
+  const lines = (finding.yamlSnippet || '').split('\n');
+  const highlightedPattern = highlightedKey
+    ? new RegExp(`^\\s*${highlightedKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:`)
+    : null;
+  const highlightedIndex = highlightedPattern
+    ? lines.reduce((matchIndex, line, index) => (highlightedPattern.test(line) ? index : matchIndex), -1)
+    : -1;
+
+  return (
+    <Box
+      component="pre"
+      sx={theme => ({
+        bgcolor: theme.palette.background.default,
+        border: `1px solid ${theme.palette.divider}`,
+        borderRadius: 1,
+        color: theme.palette.text.primary,
+        fontFamily: 'monospace',
+        fontSize: '0.8125rem',
+        lineHeight: 1.55,
+        m: 0,
+        overflow: 'auto',
+        p: 1.25,
+        whiteSpace: 'pre',
+      })}
+    >
+      {lines.map((line, index) => {
+        const highlighted = index === highlightedIndex;
+        return (
+          <Box
+            component="span"
+            key={`${index}-${line}`}
+            sx={theme => ({
+              bgcolor: highlighted ? theme.palette.error.dark : 'transparent',
+              borderRadius: highlighted ? 0.5 : 0,
+              color: highlighted ? theme.palette.error.contrastText : 'inherit',
+              display: 'block',
+              fontWeight: highlighted ? 800 : 'inherit',
+              mx: highlighted ? -0.5 : 0,
+              px: highlighted ? 0.5 : 0,
+            })}
+          >
+            {line || ' '}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 function FindingDetailsDrawer({
   check,
   finding,
@@ -2564,6 +2991,8 @@ function FindingDetailsDrawer({
   const resourceKind = finding?.kind || check.resourceKind;
   const namespaceLabel = finding?.namespace || 'Cluster scoped';
   const severityLabel = check.severity.charAt(0).toUpperCase() + check.severity.slice(1);
+  const messageLabel = finding ? findingMessage(check, finding) : '';
+  const showMessageLabel = finding && messageLabel && messageLabel !== finding.details;
   const copyAIPrompt = React.useCallback(async () => {
     if (!finding) {
       return;
@@ -2626,6 +3055,14 @@ function FindingDetailsDrawer({
                 <Typography variant="body1" sx={{ fontWeight: 700 }}>
                   {finding.details}
                 </Typography>
+                {showMessageLabel && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 700 }}>
+                      Why KubeBuddy flagged this
+                    </Typography>
+                    <Typography variant="body2">{messageLabel}</Typography>
+                  </Box>
+                )}
                 <Typography variant="body2" color="text.secondary">
                   {check.description}
                 </Typography>
@@ -2666,6 +3103,22 @@ function FindingDetailsDrawer({
             </Paper>
           </Stack>
 
+          {finding.yamlSnippet && (
+            <Stack spacing={1}>
+              <DrawerSectionHeading>Problem YAML</DrawerSectionHeading>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Stack spacing={1}>
+                  {finding.yamlPath && (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                      {finding.yamlPath}
+                    </Typography>
+                  )}
+                  <ProblemYamlSnippet finding={finding} />
+                </Stack>
+              </Paper>
+            </Stack>
+          )}
+
           <Stack spacing={1}>
             <DrawerSectionHeading>Recommended Fix</DrawerSectionHeading>
             <Paper variant="outlined" sx={{ p: 2 }}>
@@ -2694,8 +3147,33 @@ function FindingDetailsDrawer({
   );
 }
 
-type FindingsSortColumn = 'resource' | 'namespace' | 'message';
+type FindingsSortColumn = 'resource' | 'namespace' | 'evidence' | 'message';
 type FindingsSortDirection = 'asc' | 'desc';
+
+function yamlScalarEvidence(finding: Finding): string | undefined {
+  if (!finding.yamlPath || !finding.yamlSnippet) {
+    return undefined;
+  }
+
+  const leaf = yamlPathLeaf(finding.yamlPath);
+  if (!leaf) {
+    return finding.yamlPath;
+  }
+
+  const pattern = new RegExp(`^\\s*${leaf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*(.*)$`);
+  const line = finding.yamlSnippet
+    .split('\n')
+    .map(item => item.match(pattern))
+    .filter((match): match is RegExpMatchArray => Boolean(match))
+    .at(-1);
+  const value = line?.[1]?.trim();
+
+  return value ? `${finding.yamlPath}: ${value}` : finding.yamlPath;
+}
+
+function evidenceLabel(finding: Finding): string {
+  return yamlScalarEvidence(finding) || finding.details || '-';
+}
 
 function findingSortValue(check: CheckResult, finding: Finding, column: FindingsSortColumn): string {
   if (column === 'resource') {
@@ -2704,11 +3182,26 @@ function findingSortValue(check: CheckResult, finding: Finding, column: Findings
   if (column === 'namespace') {
     return (finding.namespace || 'cluster scoped').toLowerCase();
   }
+  if (column === 'evidence') {
+    return evidenceLabel(finding).toLowerCase();
+  }
   return findingMessage(check, finding).toLowerCase();
 }
 
 function findingMessage(check: CheckResult, finding: Finding): string {
-  return finding.message || check.failMessage || finding.details || '';
+  const details = finding.details.trim();
+  const explicitMessage = finding.message?.trim();
+  const checkMessage = check.failMessage.trim();
+
+  if (explicitMessage && explicitMessage !== details) {
+    return explicitMessage;
+  }
+
+  if (checkMessage && checkMessage !== details) {
+    return checkMessage;
+  }
+
+  return checkMessage || explicitMessage || details;
 }
 
 function FindingsTable({
@@ -2856,8 +3349,11 @@ function FindingsTable({
               <TableCell sortDirection={sortColumn === 'namespace' ? sortDirection : false}>
                 {sortLabel('namespace', 'Namespace')}
               </TableCell>
+              <TableCell sortDirection={sortColumn === 'evidence' ? sortDirection : false}>
+                {sortLabel('evidence', 'Evidence')}
+              </TableCell>
               <TableCell sortDirection={sortColumn === 'message' ? sortDirection : false}>
-                {sortLabel('message', 'Message')}
+                {sortLabel('message', 'Why flagged')}
               </TableCell>
             </TableRow>
           </TableHead>
@@ -2894,6 +3390,16 @@ function FindingsTable({
                   </Stack>
                 </TableCell>
                 <TableCell>{item.namespace || '-'}</TableCell>
+                <TableCell>
+                  <Stack spacing={0.25}>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: item.yamlPath ? 'monospace' : undefined, overflowWrap: 'anywhere' }}
+                    >
+                      {evidenceLabel(item)}
+                    </Typography>
+                  </Stack>
+                </TableCell>
                 <TableCell>{findingMessage(check, item) || '-'}</TableCell>
               </TableRow>
             ))}
@@ -3396,11 +3902,15 @@ function severityRank(severity: Severity): number {
 
 function ReportSummary({
   checks,
+  clusterKey,
+  completedAt,
   excludedNamespaces,
   onOpenSection,
   onOpenCheck,
 }: {
   checks: CheckResult[];
+  clusterKey: string;
+  completedAt?: string;
   excludedNamespaces: string[];
   onOpenSection: (section: string) => void;
   onOpenCheck: (check: CheckResult) => void;
@@ -3434,7 +3944,7 @@ function ReportSummary({
 
   return (
     <Stack spacing={2}>
-      <ScoreHero checks={checks} />
+      <ScoreHero checks={checks} clusterKey={clusterKey} completedAt={completedAt} />
       <NamespaceExclusionsSummary namespaces={excludedNamespaces} />
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2}>
@@ -4104,6 +4614,8 @@ function KubeBuddyScanResults({
           ) : renderedSection === 'Summary' ? (
             <ReportSummary
               checks={checks}
+              clusterKey={clusterKey}
+              completedAt={initialReport?.completedAt}
               excludedNamespaces={excludedNamespaces}
               onOpenCheck={openCheckFromSummary}
               onOpenSection={changeSection}

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Changed
+
+* Improved the **KubeBuddy Headlamp plugin** finding experience:
+  * Findings tables now show captured evidence separately from the reason KubeBuddy flagged the issue.
+  * YAML-backed findings show the affected path and captured value, such as `spec.hostPID: true`.
+  * Finding detail drawers now show a focused YAML snippet and highlight the affected config line.
+  * CSV exports now include the captured evidence plus YAML path/snippet fields for offline review.
+* Added a **Score trend** panel to the KubeBuddy Headlamp plugin:
+  * Completed scan scores are kept as a short per-cluster trend in the browser local cache.
+  * Trend points and lines use the same score bands as the main score chart.
+  * The panel labels the history as local-only and links to KubeBuddy Radar for shared, long-term, and cross-cluster history.
+
 ### Fixed
 
 * Fixed **CFG002** so Kubernetes-managed `kube-root-ca.crt` ConfigMaps are ignored when checking for duplicate ConfigMap names across namespaces.
