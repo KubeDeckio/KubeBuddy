@@ -1645,8 +1645,9 @@ function applyFindingSuppressions(checkId: string, findings: Finding[]): {
   const active: Finding[] = [];
   const suppressedFindings: SuppressedFinding[] = [];
   const publicFinding = (finding: Finding): Finding => {
-    const { sourceAnnotations, ...rest } = finding;
-    return rest;
+    const copy = { ...finding };
+    delete copy.sourceAnnotations;
+    return copy;
   };
 
   findings.forEach(finding => {
@@ -2018,14 +2019,6 @@ function isDefaultKubernetesRBACBinding(binding: any): boolean {
   );
 }
 
-function isKubernetesDefaultRBACBinding(binding: any): boolean {
-  const bindingName = name(binding);
-  return (
-    bindingName.startsWith('system:') ||
-    objectLabels(binding)['kubernetes.io/bootstrapping'] === 'rbac-defaults'
-  );
-}
-
 function namespaceFromServiceAccountUsername(subjectName: string): string {
   const prefix = 'system:serviceaccount:';
   if (!subjectName.startsWith(prefix)) {
@@ -2342,36 +2335,6 @@ function boundRoleRefs(resources: ResourceStates, config: KubeBuddyConfig): Set<
 
   resources.clusterrolebinding.data.forEach(binding => {
     if (isDefaultKubernetesRBACBinding(binding) || !bindingHasReportableRBACSubject(binding, '', config)) {
-      return;
-    }
-
-    const roleName = json(binding)?.roleRef?.name;
-    if (roleName) {
-      out.add(`ClusterRole:${roleName}`);
-    }
-  });
-
-  return out;
-}
-
-function boundRoleRefsForRiskChecks(resources: ResourceStates, config: KubeBuddyConfig): Set<string> {
-  const out = new Set<string>();
-
-  resources.rolebinding.data.forEach(binding => {
-    if (!bindingHasReportableRBACSubject(binding, namespace(binding) || 'default', config)) {
-      return;
-    }
-
-    const roleRef = json(binding)?.roleRef || {};
-    if (!roleRef.name) {
-      return;
-    }
-
-    out.add(roleRef.kind === 'ClusterRole' ? `ClusterRole:${roleRef.name}` : `Role:${namespace(binding) || 'default'}/${roleRef.name}`);
-  });
-
-  resources.clusterrolebinding.data.forEach(binding => {
-    if (isKubernetesDefaultRBACBinding(binding) || !bindingHasReportableRBACSubject(binding, '', config)) {
       return;
     }
 
