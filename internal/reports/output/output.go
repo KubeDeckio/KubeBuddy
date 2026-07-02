@@ -89,6 +89,8 @@ type jsonCheckResult struct {
 	AutomaticAdmissionBehavior any     `json:"AutomaticAdmissionBehavior"`
 	AutomaticMutationOutcome   any     `json:"AutomaticMutationOutcome"`
 	Total                      int     `json:"Total"`
+	SuppressedTotal            int     `json:"SuppressedTotal,omitempty"`
+	SuppressedFindings         any     `json:"SuppressedFindings,omitempty"`
 	Message                    string  `json:"Message,omitempty"`
 	Items                      any     `json:"Items"`
 	Status                     string  `json:"Status,omitempty"`
@@ -216,6 +218,8 @@ func buildCompatCheckResult(check scan.CheckResult, metrics any) jsonCheckResult
 		AutomaticAdmissionBehavior: nilIfEmpty(check.AutomaticAdmissionBehavior),
 		AutomaticMutationOutcome:   nilIfEmpty(check.AutomaticMutationOutcome),
 		Total:                      total,
+		SuppressedTotal:            len(check.SuppressedFindings),
+		SuppressedFindings:         compatSuppressedFindings(check),
 		Items:                      compatItems(check, metrics),
 	}
 	if strings.HasPrefix(check.ID, "AKS") {
@@ -345,6 +349,35 @@ func firstNonEmpty(values ...string) string {
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func compatSuppressedFindings(check scan.CheckResult) any {
+	if len(check.SuppressedFindings) == 0 {
+		return nil
+	}
+	items := make([]map[string]any, 0, len(check.SuppressedFindings))
+	for _, item := range check.SuppressedFindings {
+		entry := map[string]any{
+			"Namespace": item.Namespace,
+		}
+		if item.Resource != "" {
+			entry["Resource"] = item.Resource
+		}
+		if item.Value != "" {
+			entry["Value"] = item.Value
+		}
+		if item.Message != "" {
+			entry["Message"] = item.Message
+		}
+		if item.Reason != "" {
+			entry["Reason"] = item.Reason
+		}
+		if item.Until != "" {
+			entry["Until"] = item.Until
+		}
+		items = append(items, entry)
+	}
+	return items
 }
 
 func compatPROM003Items(check scan.CheckResult) any {
@@ -1835,18 +1868,23 @@ func writeHTML(w io.Writer, result scan.Result) error {
 }
 
 func writeHTMLWithMetadata(w io.Writer, result scan.Result, metadata Metadata) error {
-	excluded := append([]string(nil), metadata.ExcludedNamespaces...)
-	if metadata.ExcludeNamespacesEnabled && len(excluded) == 0 {
+	resolved := resolveMetadata(metadata, result)
+	excluded := append([]string(nil), resolved.ExcludedNamespaces...)
+	if resolved.ExcludeNamespacesEnabled && len(excluded) == 0 {
 		excluded = defaultExcludedNamespaces()
 	}
-	html, err := (reporthtml.ScanRenderer{}).Render("KubeBuddy Native Report", result, reporthtml.RenderOptions{
-		ExcludeNamespaces:        metadata.ExcludeNamespacesEnabled,
+	clusterName := strings.TrimSpace(resolved.ClusterName)
+	if clusterName == "" {
+		clusterName = "KubeBuddy Native Report"
+	}
+	html, err := (reporthtml.ScanRenderer{}).Render(clusterName, result, reporthtml.RenderOptions{
+		ExcludeNamespaces:        resolved.ExcludeNamespacesEnabled,
 		ExcludedNamespaces:       excluded,
-		IncludePrometheus:        strings.TrimSpace(metadata.PrometheusURL) != "",
-		PrometheusURL:            metadata.PrometheusURL,
-		PrometheusMode:           metadata.PrometheusMode,
-		PrometheusBearerTokenEnv: metadata.PrometheusBearerTokenEnv,
-		Snapshot:                 metadata.Snapshot,
+		IncludePrometheus:        strings.TrimSpace(resolved.PrometheusURL) != "",
+		PrometheusURL:            resolved.PrometheusURL,
+		PrometheusMode:           resolved.PrometheusMode,
+		PrometheusBearerTokenEnv: resolved.PrometheusBearerTokenEnv,
+		Snapshot:                 resolved.Snapshot,
 	})
 	if err != nil {
 		return err

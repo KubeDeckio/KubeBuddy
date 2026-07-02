@@ -72,6 +72,7 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | ------ | ---------------------- | -------------------------------------------------------------- | -------- | ------ |
 | JOB001 | Stuck Kubernetes Jobs  | Jobs stuck in start or finish states due to controller issues. | High     | 2      |
 | JOB002 | Failed Kubernetes Jobs | Jobs that failed or hit backoff limits.                        | High     | 2      |
+| JOB003 | CronJob Hygiene        | Flags CronJobs with risky scheduling or retention settings.    | Warning  | 2      |
 
 ### Networking
 
@@ -141,6 +142,7 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | POD006 | Leftover Debug Pods       | Debug pods not cleaned up.                             | Medium   | 2      |
 | POD007 | Images Using `latest` Tag | Risk of inconsistent deployments due to floating tags. | Low      | 1      |
 | POD009 | Unhealthy Allocated Device Resources | Detects pods whose allocated device resources report `Unhealthy` or `Unknown` status. | High | 3 |
+| POD010 | Naked Pods              | Detects pods that are not owned by a workload controller. | Warning | 2 |
 
 ### RBAC
 
@@ -151,6 +153,7 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | RBAC003 | Orphaned ServiceAccounts | Not in use; can be removed.          | Medium   | 2      |
 | RBAC004 | Ineffective Roles        | Unused roles cluttering the system.  | Medium   | 2      |
 | RBAC005 | Kubelet Proxy RBAC Access | Bound Roles or ClusterRoles that grant broad `nodes/proxy` kubelet access. | High | 4 |
+| RBAC006 | Dangerous RBAC Verbs and Subresources | Detects bound Roles or ClusterRoles granting impersonation, bind/escalate, exec, port-forward, or broad secret access. | High | 4 |
 
 ### Security
 
@@ -184,6 +187,8 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | SEC026 | ValidatingAdmissionPolicy With No Validation Rules | Detects `ValidatingAdmissionPolicy` resources with an empty `spec.validations` list — the policy enforces nothing. | Medium | 2 |
 | SEC027 | GitRepo Volume Usage                  | Detects pods that use the legacy `gitRepo` volume source.                 | High     | 3      |
 | SEC028 | Image Pull Secrets in Use             | Flags Pods or ServiceAccounts that reference imagePullSecrets for credential rotation review. | Low | 1 |
+| SEC029 | Sensitive HostPath Mounts             | Detects hostPath volumes that mount container runtime sockets or sensitive host filesystem paths. | Critical | 5 |
+| SEC030 | Admission Webhook Fail-Open or Broad Scope | Flags admission webhooks that fail open, omit sideEffects, or apply broadly without namespace scoping. | High | 4 |
 
 ### Storage
 
@@ -218,6 +223,7 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | WRK013 | CrashLoopBackOff and OOMKilled Guardrail | Highlights unstable pods to guard against unsafe right-sizing decisions.    | High | 3      |
 | WRK014 | Missing Memory Limits | Detects workloads whose containers do not define a memory limit. | Warning | 2 |
 | WRK015 | Replicated Workloads Missing Spread Constraints | Detects Deployments or StatefulSets with 2+ replicas that define neither anti-affinity nor topology spread constraints. | Warning | 2 |
+| WRK016 | Missing Recommended Application Labels | Detects workloads that do not use the recommended `app.kubernetes.io` label set. | Low | 1 |
 
 
 ## Usage Notes

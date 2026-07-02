@@ -474,8 +474,8 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "weight": 1,
     "description": "Detects Ingress-NGINX controller components so teams can review maintenance and migration plans.",
     "failMessage": "Ingress-NGINX controller component detected.",
-    "recommendation": "Review Ingress-NGINX usage and plan migration to Gateway API or another actively maintained ingress controller where appropriate.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Review Ingress-NGINX Usage</h4>\n  <ul>\n    <li>Inventory IngressClasses and controller deployments that use Ingress-NGINX.</li>\n    <li>Plan a migration path to Gateway API or another actively maintained ingress controller.</li>\n    <li>Validate behavior differences in a staging environment before routing production traffic.</li>\n  </ul>\n</div>",
+    "recommendation": "Review Ingress-NGINX usage, confirm ownership and maintenance plans, and plan migration to Gateway API or another actively maintained ingress controller where appropriate.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Review Ingress-NGINX Usage</h4>\n  <ul>\n    <li>Inventory the controller Deployment, IngressClass, admission webhook, and all Ingress objects that depend on this controller.</li>\n    <li>Confirm who owns patching and version upgrades for the controller; do not leave it as an unowned cluster component.</li>\n    <li>For new routes, prefer Gateway API where your platform supports it; for existing routes, plan a staged migration with hostname-by-hostname validation.</li>\n    <li>Test annotation differences, TLS behavior, path matching, and rewrite rules in a staging environment before moving production traffic.</li>\n  </ul>\n</div>",
     "url": "https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/",
     "resourceKind": "Deployment",
     "nativeHandler": "NET020",
@@ -594,8 +594,8 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "weight": 3,
     "description": "Detects PersistentVolumeClaims with failed volume expansion status or resize failure events.",
     "failMessage": "PVC has volume expansion failure signals.",
-    "recommendation": "Investigate failed volume expansion events, verify the StorageClass supports expansion, and confirm the CSI driver can complete controller and node resize operations.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Troubleshoot PVC Expansion</h4>\n  <ul>\n    <li>Run <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> and inspect resize events.</li>\n    <li>Check that the StorageClass has <code>allowVolumeExpansion: true</code>.</li>\n    <li>Verify the CSI driver and node plugin are healthy and support online/offline resize for the volume type.</li>\n  </ul>\n</div>",
+    "recommendation": "Investigate failed volume expansion events, verify the StorageClass supports expansion, and confirm the CSI driver can complete controller and node resize operations. Avoid repeatedly increasing requested size until the failure reason is clear.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Troubleshoot PVC Expansion</h4>\n  <ul>\n    <li>Run <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> and inspect resize events before changing the requested size again.</li>\n    <li>Check that the StorageClass has <code>allowVolumeExpansion: true</code> and that the provisioner supports expansion for this volume type.</li>\n    <li>Verify the CSI controller and node plugin pods are healthy, then check whether the filesystem requires pod restart or offline resize.</li>\n    <li>If the backend volume expanded but the filesystem did not, follow the CSI/provider recovery steps rather than recreating the PVC blindly.</li>\n  </ul>\n</div>",
     "url": "https://kubernetes.io/docs/concepts/storage/persistent-volumes/#expanding-persistent-volumes-claims",
     "resourceKind": "PersistentVolumeClaim",
     "nativeHandler": "PVC005",
@@ -701,6 +701,25 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "nativeHandler": "CFG003",
     "value": {
       "path": "data"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK016",
+    "name": "Missing Recommended Application Labels",
+    "category": "Workloads",
+    "section": "Workloads",
+    "severity": "Low",
+    "weight": 1,
+    "description": "Detects workloads that do not use the recommended app.kubernetes.io label set for ownership, grouping, and release tracking.",
+    "failMessage": "Workload is missing recommended app.kubernetes.io labels.",
+    "recommendation": "Add recommended labels such as app.kubernetes.io/name, app.kubernetes.io/instance, app.kubernetes.io/version, app.kubernetes.io/component, app.kubernetes.io/part-of, and app.kubernetes.io/managed-by.",
+    "url": "https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/",
+    "resourceKind": "Deployment, StatefulSet, DaemonSet",
+    "nativeHandler": "WRK016",
+    "value": {
+      "path": "metadata.labels"
     },
     "operator": "exists",
     "sourceFile": "operations.yaml"
@@ -994,11 +1013,31 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "weight": 4,
     "description": "Detects bound Roles or ClusterRoles that grant access to the broad nodes/proxy kubelet subresource.",
     "failMessage": "RBAC grants kubelet proxy access.",
-    "recommendation": "Replace broad nodes/proxy grants with least-privilege kubelet subresource permissions required by the workload.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Reduce Kubelet Proxy Permissions</h4>\n  <ul>\n    <li>Review bound Roles and ClusterRoles that grant <code>nodes/proxy</code>.</li>\n    <li>Use fine-grained kubelet API subresources such as <code>nodes/log</code>, <code>nodes/metrics</code>, or <code>nodes/stats</code> where possible.</li>\n    <li>Limit subjects and verbs to the smallest scope needed by observability or operations tooling.</li>\n  </ul>\n</div>",
+    "recommendation": "Replace broad nodes/proxy grants with least-privilege kubelet subresource permissions required by the workload. Remove the binding if it is only used for ad-hoc troubleshooting.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Reduce Kubelet Proxy Permissions</h4>\n  <ul>\n    <li>Find the RoleBinding or ClusterRoleBinding that binds this Role or ClusterRole, then confirm which ServiceAccount, user, or group receives <code>nodes/proxy</code>.</li>\n    <li>Remove <code>nodes/proxy</code> unless the workload must proxy arbitrary kubelet API calls.</li>\n    <li>Prefer narrower kubelet subresources such as <code>nodes/log</code>, <code>nodes/metrics</code>, or <code>nodes/stats</code> when those satisfy the use case.</li>\n    <li>Restrict verbs to the minimum needed, usually <code>get</code>, and avoid broad subjects such as default ServiceAccounts or large groups.</li>\n  </ul>\n</div>",
     "url": "https://kubernetes.io/docs/reference/access-authn-authz/kubelet-authn-authz/",
     "resourceKind": "ClusterRole",
     "nativeHandler": "RBAC005",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "RBAC006",
+    "name": "Dangerous RBAC Verbs and Subresources",
+    "category": "RBAC",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects bound Roles or ClusterRoles that grant high-risk verbs or subresources such as impersonate, bind, escalate, pods/exec, pods/portforward, or broad secret access.",
+    "failMessage": "Role grants dangerous RBAC access.",
+    "recommendation": "Remove or tightly scope impersonate, bind, escalate, pods/exec, pods/portforward, and secret list/watch/get permissions. Prefer narrowly bound service accounts and just-in-time access.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Reduce Dangerous RBAC Grants</h4>\n  <ul>\n    <li>Use the finding evidence to identify the risky verb or resource, then inspect the binding that grants this Role or ClusterRole.</li>\n    <li>Remove <code>impersonate</code>, <code>bind</code>, and <code>escalate</code> from application identities; keep them only in controlled platform administration roles.</li>\n    <li>Restrict <code>pods/exec</code> and <code>pods/portforward</code> to break-glass or support identities, not workload ServiceAccounts.</li>\n    <li>Replace broad Secret <code>get</code>, <code>list</code>, or <code>watch</code> access with named <code>resourceNames</code> where practical.</li>\n    <li>Split high-risk access into a separate RoleBinding with time-bound or approval-based assignment.</li>\n  </ul>\n</div>",
+    "url": "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+    "resourceKind": "Role, ClusterRole",
+    "nativeHandler": "RBAC006",
     "value": {
       "path": "metadata.name"
     },
@@ -1299,6 +1338,46 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "url": "https://kubernetes.io/docs/tasks/run-application/configure-pdb/",
     "resourceKind": "PodDisruptionBudget",
     "nativeHandler": "WRK012",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "POD010",
+    "name": "Naked Pods",
+    "category": "Pods",
+    "section": "Pods",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects pods that are not owned by a controller such as Deployment, StatefulSet, DaemonSet, Job, or CronJob.",
+    "failMessage": "Pod is not managed by a workload controller.",
+    "recommendation": "Run application pods through a controller so rollout, restart, and ownership behavior is explicit. Use Deployment, StatefulSet, DaemonSet, Job, or CronJob depending on workload intent.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>Confirm the pod is not a short-lived diagnostic pod; if it is stale, delete it.</li>\n    <li>For long-running services, recreate the pod as a Deployment, StatefulSet, or DaemonSet so rollout and restart behavior is managed.</li>\n    <li>For one-off or scheduled work, use a Job or CronJob instead of a naked Pod.</li>\n    <li>Move the fix into the source manifest, Helm chart, or GitOps repo so the pod is not recreated unmanaged.</li>\n  </ul>\n</div>",
+    "url": "https://kubernetes.io/docs/concepts/workloads/controllers/",
+    "resourceKind": "Pod",
+    "nativeHandler": "POD010",
+    "value": {
+      "path": "metadata.ownerReferences"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "JOB003",
+    "name": "CronJob Hygiene",
+    "category": "Jobs",
+    "section": "Jobs",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Flags CronJobs with risky defaults such as missing concurrencyPolicy, missing startingDeadlineSeconds, disabled history retention, or suspended schedules.",
+    "failMessage": "CronJob has risky scheduling or retention settings.",
+    "recommendation": "Set concurrencyPolicy, startingDeadlineSeconds, and sensible successful/failed history limits. Review suspended CronJobs and remove stale schedules.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>Set <code>concurrencyPolicy</code> explicitly: use <code>Forbid</code> for non-reentrant jobs, <code>Replace</code> for safe replacement, or document why <code>Allow</code> is acceptable.</li>\n    <li>Add <code>startingDeadlineSeconds</code> so missed schedules do not run unexpectedly long after an outage.</li>\n    <li>Keep useful history with non-zero <code>successfulJobsHistoryLimit</code> and <code>failedJobsHistoryLimit</code> values for troubleshooting.</li>\n    <li>If <code>suspend: true</code>, confirm it is temporary; delete stale CronJobs or annotate the reason and owner.</li>\n  </ul>\n</div>",
+    "url": "https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/",
+    "resourceKind": "CronJob",
+    "nativeHandler": "JOB003",
     "value": {
       "path": "metadata.name"
     },
@@ -1912,6 +1991,7 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "recommendation": "Add one or more CEL expressions to spec.validations, or remove the policy if it is not needed.",
     "url": "https://kubernetes.io/docs/reference/access-authn-authz/validating-admission-policy/",
     "resourceKind": "ValidatingAdmissionPolicy",
+    "nativeHandler": "SEC026",
     "value": {
       "count_where": {
         "path": "spec.validations",
@@ -1921,7 +2001,7 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
         }
       }
     },
-    "operator": "equals",
+    "operator": "greater_than",
     "expected": 0,
     "sourceFile": "security.yaml"
   },
@@ -1934,8 +2014,8 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "weight": 3,
     "description": "Detects pods that use the legacy gitRepo volume source, which clones repository contents into a pod volume.",
     "failMessage": "Pod uses a gitRepo volume.",
-    "recommendation": "Replace gitRepo volumes with an init container, git-sync sidecar, or build-time artifact packaging.",
-    "recommendationHtml": "<ul>\n  <li>Remove <code>gitRepo</code> volume sources from Pod specs.</li>\n  <li>Use an init container or a maintained sync tool to fetch repository content if runtime checkout is required.</li>\n  <li>Prefer immutable images or packaged artifacts for application code.</li>\n</ul>",
+    "recommendation": "Replace gitRepo volumes with an init container, git-sync sidecar, or build-time artifact packaging. Pin the repository revision and avoid writing fetched code into trusted runtime paths.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>Remove <code>gitRepo</code> volume sources from Pod specs; the volume type is legacy and hides runtime code fetches inside scheduling.</li>\n    <li>Prefer packaging application code into the image or an immutable artifact at build time.</li>\n    <li>If runtime checkout is required, use an init container or maintained sync tool with a pinned commit or tag, read-only credentials, and a non-sensitive mount path.</li>\n    <li>Update the owning Deployment, Job, Helm chart, or GitOps source so the pod is not recreated with the same volume.</li>\n  </ul>\n</div>",
     "url": "https://kubernetes.io/docs/concepts/storage/volumes/#gitrepo",
     "resourceKind": "Pod",
     "nativeHandler": "SEC027",
@@ -1954,11 +2034,51 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "weight": 1,
     "description": "Flags Pods or ServiceAccounts that reference imagePullSecrets, which may represent long-lived registry credentials that need rotation.",
     "failMessage": "Workload uses imagePullSecrets.",
-    "recommendation": "Review imagePullSecrets for least privilege and rotation. Where supported, prefer short-lived registry credentials or workload identity based image pulls.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>Verify each referenced image pull Secret is scoped to the smallest namespace and registry access needed.</li>\n    <li>Rotate long-lived registry credentials regularly and remove unused pull secrets.</li>\n    <li>Where supported, prefer short-lived credentials or workload identity based image pulls.</li>\n  </ul>\n</div>\n",
+    "recommendation": "Review imagePullSecrets for least privilege and rotation. Replace shared long-lived registry credentials with namespace-scoped credentials or identity-based pulls where supported.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>Identify whether the finding comes from a Pod-level <code>imagePullSecrets</code> entry or a ServiceAccount default.</li>\n    <li>Scope each pull Secret to the smallest namespace and registry repository set needed; avoid reusing one broad credential across teams.</li>\n    <li>Rotate long-lived registry tokens and remove pull Secrets that are no longer referenced by active workloads.</li>\n    <li>Where the platform supports it, move to workload identity or short-lived registry credentials so static pull secrets are not stored in the cluster.</li>\n  </ul>\n</div>\n",
     "url": "https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod",
     "resourceKind": "Pod",
     "nativeHandler": "SEC028",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC029",
+    "name": "Sensitive HostPath Mounts",
+    "category": "Pod Security",
+    "section": "Security",
+    "severity": "Critical",
+    "weight": 5,
+    "description": "Detects hostPath volumes that mount container runtime sockets or sensitive host filesystem paths.",
+    "failMessage": "Pod mounts a sensitive hostPath.",
+    "recommendation": "Remove sensitive hostPath mounts such as runtime sockets, /proc, /sys, /etc, or kubelet directories. For image pre-pullers and node agents, replace runtime socket mounts with Kubernetes APIs, DaemonSet-scoped alternatives, or a documented exception in a trusted namespace.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>Use the Problem YAML path to identify the exact volume and host path, then update the owning Deployment, DaemonSet, Job, Helm values, or GitOps source.</li>\n    <li>Remove runtime socket mounts such as <code>/var/run/docker.sock</code> and <code>/run/containerd/containerd.sock</code>; they can expose container runtime control to the pod.</li>\n    <li>Replace broad host filesystem mounts such as <code>/proc</code>, <code>/sys</code>, <code>/etc</code>, and <code>/var/lib/kubelet</code> with Kubernetes APIs, projected volumes, ConfigMaps, Secrets, PVCs, or a narrower read-only path.</li>\n    <li>If this is an intentional node agent or image pre-puller, keep it in a tightly controlled namespace, restrict RBAC and scheduling, make the mount read-only where possible, and document the exception.</li>\n  </ul>\n</div>",
+    "url": "https://kubernetes.io/docs/concepts/storage/volumes/#hostpath",
+    "resourceKind": "Pod",
+    "nativeHandler": "SEC029",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC030",
+    "name": "Admission Webhook Fail-Open or Broad Scope",
+    "category": "Policy Enforcement",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Flags admission webhooks that fail open, omit sideEffects, or apply broadly across resources without namespace scoping.",
+    "failMessage": "Admission webhook may fail open or apply too broadly.",
+    "recommendation": "Set failurePolicy: Fail for security-sensitive webhooks, declare sideEffects: None or NoneOnDryRun, and scope webhook rules and namespace selectors narrowly. Keep only intentionally platform-wide webhooks broad.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>For policy or security enforcement webhooks, set <code>failurePolicy: Fail</code> so API writes are blocked when the webhook is unavailable.</li>\n    <li>Set <code>sideEffects: None</code> or <code>NoneOnDryRun</code> so dry-run and admission behavior are explicit.</li>\n    <li>Replace wildcard resources, operations, or API groups with the smallest set the webhook actually validates or mutates.</li>\n    <li>Add <code>namespaceSelector</code> or <code>objectSelector</code> exclusions for system namespaces if the webhook should not apply cluster-wide.</li>\n    <li>After changing scope, test create/update/delete paths for representative workloads before applying to production clusters.</li>\n  </ul>\n</div>",
+    "url": "https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/",
+    "resourceKind": "MutatingWebhookConfiguration, ValidatingWebhookConfiguration",
+    "nativeHandler": "SEC030",
     "value": {
       "path": "metadata.name"
     },

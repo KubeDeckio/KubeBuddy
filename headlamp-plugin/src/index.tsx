@@ -9,6 +9,7 @@ import {
   registerSidebarEntry,
 } from '@kinvolk/headlamp-plugin/lib';
 import { SectionBox } from '@kinvolk/headlamp-plugin/lib/CommonComponents';
+import { makeCustomResourceClass } from '@kinvolk/headlamp-plugin/lib/lib/k8s/crd';
 import {
   Alert,
   Autocomplete,
@@ -76,6 +77,7 @@ type Finding = {
   link?: string;
   yamlPath?: string;
   yamlSnippet?: string;
+  sourceAnnotations?: Record<string, unknown>;
 };
 
 type FindingOptions = {
@@ -101,6 +103,12 @@ type CheckResult = {
   status: CheckStatus;
   skippedReason?: string;
   findings: Finding[];
+  suppressedFindings?: SuppressedFinding[];
+};
+
+type SuppressedFinding = Finding & {
+  suppressionReason?: string;
+  suppressionUntil?: string;
 };
 
 type ResourceState<T = any> = {
@@ -178,6 +186,49 @@ const SCORE_FRESH_MS = 24 * 60 * 60 * 1000;
 const SCORE_HISTORY_LIMIT = 30;
 const CHECKS_PER_SCAN_STEP = 2;
 const SCAN_STEP_DELAY_MS = 25;
+const IGNORE_CHECKS_ANNOTATION = 'kubebuddy.io/ignore-checks';
+const IGNORE_REASON_ANNOTATION = 'kubebuddy.io/ignore-reason';
+const IGNORE_UNTIL_ANNOTATION = 'kubebuddy.io/ignore-until';
+const EventResource = makeCustomResourceClass({
+  apiInfo: [
+    { group: '', version: 'v1' },
+    { group: 'events.k8s.io', version: 'v1' },
+  ],
+  kind: 'Event',
+  pluralName: 'events',
+  singularName: 'event',
+  isNamespaced: true,
+});
+const MutatingWebhookConfiguration = makeCustomResourceClass({
+  apiInfo: [
+    { group: 'admissionregistration.k8s.io', version: 'v1' },
+    { group: 'admissionregistration.k8s.io', version: 'v1beta1' },
+  ],
+  kind: 'MutatingWebhookConfiguration',
+  pluralName: 'mutatingwebhookconfigurations',
+  singularName: 'mutatingwebhookconfiguration',
+  isNamespaced: false,
+});
+const ValidatingAdmissionPolicy = makeCustomResourceClass({
+  apiInfo: [
+    { group: 'admissionregistration.k8s.io', version: 'v1' },
+    { group: 'admissionregistration.k8s.io', version: 'v1beta1' },
+  ],
+  kind: 'ValidatingAdmissionPolicy',
+  pluralName: 'validatingadmissionpolicies',
+  singularName: 'validatingadmissionpolicy',
+  isNamespaced: false,
+});
+const ValidatingWebhookConfiguration = makeCustomResourceClass({
+  apiInfo: [
+    { group: 'admissionregistration.k8s.io', version: 'v1' },
+    { group: 'admissionregistration.k8s.io', version: 'v1beta1' },
+  ],
+  kind: 'ValidatingWebhookConfiguration',
+  pluralName: 'validatingwebhookconfigurations',
+  singularName: 'validatingwebhookconfiguration',
+  isNamespaced: false,
+});
 const KUBEBUDDY_ICON = {
   width: 320,
   height: 320,
@@ -361,6 +412,9 @@ function effectiveExcludedNamespaces(config: Pick<KubeBuddyConfig, 'useSystemNam
 
 function normalizeKubeBuddyConfig(config: Partial<KubeBuddyConfig>): KubeBuddyConfig {
   const defaults = defaultKubeBuddyConfig();
+  const trustedRegistries = Array.isArray(config.trustedRegistries)
+    ? normalizeRegistries(config.trustedRegistries)
+    : defaults.trustedRegistries;
   const legacyExcluded = Array.isArray(config.excludedNamespaces)
     ? normalizeNamespaceList(config.excludedNamespaces)
     : defaults.excludedNamespaces;
@@ -378,9 +432,7 @@ function normalizeKubeBuddyConfig(config: Partial<KubeBuddyConfig>): KubeBuddyCo
     excludedChecks: Array.isArray(config.excludedChecks)
       ? Array.from(new Set(config.excludedChecks.map(id => id.trim().toUpperCase()).filter(Boolean))).sort()
       : defaults.excludedChecks,
-    trustedRegistries: Array.isArray(config.trustedRegistries)
-      ? normalizeRegistries(config.trustedRegistries)
-      : defaults.trustedRegistries,
+    trustedRegistries: trustedRegistries.length > 0 ? trustedRegistries : defaults.trustedRegistries,
     rawYaml: typeof config.rawYaml === 'string' ? config.rawYaml : undefined,
     thresholds: {
       ...defaults.thresholds,
@@ -872,7 +924,7 @@ function errorStatus(error: unknown): string {
 }
 
 function isOptionalMissingApi(label: string, error: unknown): boolean {
-  return ['Gateways', 'HTTPRoutes'].includes(label) && errorStatus(error) === '404';
+  return ['Gateways', 'HTTPRoutes', 'ValidatingAdmissionPolicies'].includes(label) && errorStatus(error) === '404';
 }
 
 function logLevelColor(level: ScanLogEntry['level']): string {
@@ -903,7 +955,9 @@ function resultLogMessage(result: CheckResult): string {
     return `${result.id} skipped - ${result.skippedReason || 'not available in this plugin'}.`;
   }
 
-  return `${result.id} checked - ${result.findings.length} finding${result.findings.length === 1 ? '' : 's'}.`;
+  const suppressed = result.suppressedFindings?.length || 0;
+  const suffix = suppressed > 0 ? `, ${suppressed} suppressed` : '';
+  return `${result.id} checked - ${result.findings.length} finding${result.findings.length === 1 ? '' : 's'}${suffix}.`;
 }
 
 function KubeBuddyLogoMark() {
@@ -948,6 +1002,14 @@ function useResourceList<T>(hookResult: [T[] | null, unknown]): ResourceState<T>
     error,
     loading: !items && !error,
   };
+}
+
+function useOptionalResourceList<T>(resourceClass: any): ResourceState<T> {
+  if (!resourceClass || typeof resourceClass.useList !== 'function') {
+    return EMPTY_RESOURCE_STATE;
+  }
+
+  return useResourceList<T>(resourceClass.useList());
 }
 
 function json(resource: any): any {
@@ -1104,6 +1166,7 @@ function finding(resource: any, details: string, message?: string, options: Find
     link: link(resource),
     yamlPath,
     yamlSnippet: yamlPath ? yamlSnippetFromPath(yamlPath, yamlSnippetValue) : undefined,
+    sourceAnnotations: objectAnnotations(resource),
   };
 }
 
@@ -1126,9 +1189,21 @@ function containers(pod: any, includeInit = true): any[] {
   return includeInit ? [...(spec.initContainers || []), ...(spec.containers || [])] : spec.containers || [];
 }
 
+function containersWithMissingSlots(pod: any): any[] {
+  const spec = json(pod)?.spec || {};
+  return ['containers', 'initContainers', 'ephemeralContainers'].flatMap(containerSet => {
+    if (spec[containerSet] === undefined || spec[containerSet] === null) {
+      return [{}];
+    }
+    return spec[containerSet] || [];
+  });
+}
+
 function containerYamlOptions(pod: any, container: any, fieldPath: string, yamlValue = valueAtPath(container, fieldPath)): FindingOptions {
   const spec = json(pod)?.spec || {};
-  const listName = (spec.initContainers || []).some((item: any) => item === container)
+  const listName = (spec.ephemeralContainers || []).some((item: any) => item === container)
+    ? 'ephemeralContainers'
+    : (spec.initContainers || []).some((item: any) => item === container)
     ? 'initContainers'
     : 'containers';
   const yamlPath = `spec.${listName}[name=${container.name || 'unknown'}].${fieldPath}`;
@@ -1162,6 +1237,10 @@ function workloadTemplate(workload: any): any {
   return json(workload)?.spec?.template || {};
 }
 
+function endpointSliceHasReadyEndpoint(endpointSlice: any): boolean {
+  return (json(endpointSlice)?.endpoints || []).some((endpoint: any) => endpoint?.conditions?.ready !== false);
+}
+
 function workloadSelector(workload: any): unknown {
   return json(workload)?.spec?.selector?.matchLabels;
 }
@@ -1182,6 +1261,11 @@ function workloadContainers(workload: any): any[] {
   return workloadTemplate(workload)?.spec?.containers || [];
 }
 
+function workloadAllContainers(workload: any): any[] {
+  const spec = workloadTemplate(workload)?.spec || {};
+  return [...(spec.containers || []), ...(spec.initContainers || [])];
+}
+
 function hasProbe(container: any): boolean {
   return !!container.readinessProbe && !!container.livenessProbe;
 }
@@ -1200,6 +1284,61 @@ function serviceSelector(service: any): unknown {
 
 function hasResource(container: any, mode: 'requests' | 'limits', resource: 'cpu' | 'memory'): boolean {
   return !!container?.resources?.[mode]?.[resource];
+}
+
+function isInternalIP(value: string): boolean {
+  const parts = value.trim().split('.').map(part => Number(part));
+  if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  const [first, second] = parts;
+  return (
+    first === 10 ||
+    first === 127 ||
+    first === 169 && second === 254 ||
+    first === 172 && second >= 16 && second <= 31 ||
+    first === 192 && second === 168 ||
+    first === 100 && second >= 64 && second <= 127 ||
+    first === 0
+  );
+}
+
+function serviceTargetPortMatchesPods(targetPort: string, pods: any[]): boolean {
+  return pods.some(pod =>
+    containers(pod, false).some(container =>
+      (container.ports || []).some((port: any) =>
+        String(port.name || '') === targetPort || String(port.containerPort || '') === targetPort
+      )
+    )
+  );
+}
+
+function runAsUserValue(value: unknown): { set: boolean; value: number } {
+  if (value === undefined || value === null || value === '') {
+    return { set: false, value: 0 };
+  }
+
+  const numericValue = Number(value);
+  return { set: Number.isFinite(numericValue), value: numericValue };
+}
+
+function replicatedWorkloadMissingSpread(workload: any): boolean {
+  const replicas = Number(json(workload)?.spec?.replicas || 1);
+  if (replicas <= 1) {
+    return false;
+  }
+
+  const podSpec = json(workload)?.spec?.template?.spec;
+  if (!podSpec) {
+    return false;
+  }
+
+  return !(
+    (podSpec.affinity?.podAntiAffinity?.requiredDuringSchedulingIgnoredDuringExecution || []).length ||
+    (podSpec.affinity?.podAntiAffinity?.preferredDuringSchedulingIgnoredDuringExecution || []).length ||
+    (podSpec.topologySpreadConstraints || []).length
+  );
 }
 
 function serviceAccountName(pod: any): string {
@@ -1463,12 +1602,78 @@ function valueDetails(check: GeneratedCheck, value: unknown) {
   return `${path}: ${display}`;
 }
 
+function suppressionIncludesCheck(raw: string, checkId: string): boolean {
+  const normalizedCheckId = checkId.trim().toUpperCase();
+  return raw
+    .split(/[,\s;]+/)
+    .map(token => token.trim().toUpperCase())
+    .filter(Boolean)
+    .some(token => token === '*' || token === normalizedCheckId);
+}
+
+function suppressionExpired(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return false;
+  }
+  const parsed = Date.parse(trimmed);
+  return Number.isFinite(parsed) && Date.now() > parsed;
+}
+
+function suppressesFinding(checkId: string, finding: Finding): { reason?: string; until?: string } | null {
+  const annotations = finding.sourceAnnotations || {};
+  const ignoredChecks = String(annotations[IGNORE_CHECKS_ANNOTATION] || '').trim();
+  if (!ignoredChecks || !suppressionIncludesCheck(ignoredChecks, checkId)) {
+    return null;
+  }
+
+  const until = String(annotations[IGNORE_UNTIL_ANNOTATION] || '').trim();
+  if (until && suppressionExpired(until)) {
+    return null;
+  }
+
+  return {
+    reason: String(annotations[IGNORE_REASON_ANNOTATION] || '').trim(),
+    until,
+  };
+}
+
+function applyFindingSuppressions(checkId: string, findings: Finding[]): {
+  findings: Finding[];
+  suppressedFindings: SuppressedFinding[];
+} {
+  const active: Finding[] = [];
+  const suppressedFindings: SuppressedFinding[] = [];
+  const publicFinding = (finding: Finding): Finding => {
+    const { sourceAnnotations, ...rest } = finding;
+    return rest;
+  };
+
+  findings.forEach(finding => {
+    const suppression = suppressesFinding(checkId, finding);
+    if (!suppression) {
+      active.push(publicFinding(finding));
+      return;
+    }
+
+    suppressedFindings.push({
+      ...publicFinding(finding),
+      suppressionReason: suppression.reason,
+      suppressionUntil: suppression.until,
+    });
+  });
+
+  return { findings: active, suppressedFindings };
+}
+
 function resultFromCheck(
   check: GeneratedCheck,
   findings: Finding[],
-  status: CheckStatus = findings.length > 0 ? 'failed' : 'passed',
+  status?: CheckStatus,
   skippedReason?: string
 ): CheckResult {
+  const suppression = applyFindingSuppressions(check.id, findings);
+  const finalStatus = status || (suppression.findings.length > 0 ? 'failed' : 'passed');
   return {
     id: check.id,
     name: check.name,
@@ -1484,14 +1689,40 @@ function resultFromCheck(
     nativeHandler: check.nativeHandler,
     sourceFile: check.sourceFile,
     resourceKind: check.resourceKind,
-    status,
+    status: finalStatus,
     skippedReason,
-    findings,
+    findings: suppression.findings,
+    suppressedFindings: suppression.suppressedFindings,
   };
 }
 
 function emptyHandler(): Finding[] {
   return [];
+}
+
+function isSensitiveHostPath(path: string): boolean {
+  const normalized = path.trim().toLowerCase().replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!normalized) {
+    return false;
+  }
+  const exact = new Set([
+    '/',
+    '/etc',
+    '/proc',
+    '/sys',
+    '/var/run/docker.sock',
+    '/run/docker.sock',
+    '/run/containerd/containerd.sock',
+    '/var/run/containerd/containerd.sock',
+  ]);
+  return exact.has(normalized) || [
+    '/etc/',
+    '/proc/',
+    '/sys/',
+    '/var/lib/kubelet',
+    '/var/lib/containerd',
+    '/var/run/secrets',
+  ].some(prefix => normalized.startsWith(prefix));
 }
 
 function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[]> {
@@ -1501,12 +1732,27 @@ function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[
       const yamlPath = json(pod)?.spec?.hostPID ? 'spec.hostPID' : 'spec.hostNetwork';
       return finding(pod, 'hostPID or hostNetwork enabled', 'hostPID or hostNetwork enabled', { yamlPath });
     }),
-    SEC003: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.runAsUser === 0 || json(pod)?.spec?.securityContext?.runAsUser === 0).map(container => {
-      const options = container?.securityContext?.runAsUser === 0
-        ? containerYamlOptions(pod, container, 'securityContext.runAsUser')
-        : { yamlPath: 'spec.securityContext.runAsUser' };
-      return finding(pod, `Container ${container.name} can run as root`, `Container ${container.name} can run as root`, options);
-    })),
+    SEC003: pods.flatMap(pod => {
+      const podUser = runAsUserValue(json(pod)?.spec?.securityContext?.runAsUser);
+      return containersWithMissingSlots(pod).flatMap(container => {
+        const containerUser = runAsUserValue(container?.securityContext?.runAsUser);
+        const runsAsRoot =
+          (containerUser.set && containerUser.value === 0) ||
+          (!containerUser.set && podUser.set && podUser.value === 0) ||
+          (!containerUser.set && !podUser.set);
+
+        if (!runsAsRoot) {
+          return [];
+        }
+
+        const options = containerUser.set
+          ? containerYamlOptions(pod, container, 'securityContext.runAsUser')
+          : podUser.set
+            ? { yamlPath: 'spec.securityContext.runAsUser', yamlValue: podUser.value }
+            : containerYamlOptions(pod, container, 'securityContext', container.securityContext || {});
+        return [finding(pod, `Container ${container.name} runs as root or has no runAsUser set`, `Container ${container.name} runs as root or has no runAsUser set`, options)];
+      });
+    }),
     SEC004: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.privileged).map(container => finding(
       pod,
       `Container ${container.name} is privileged`,
@@ -1524,41 +1770,64 @@ function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[
       `Secret exposed through env ${env.name} in ${container.name}`,
       containerYamlOptions(pod, container, `env[name=${env.name || 'unknown'}].valueFrom.secretKeyRef`, env.valueFrom.secretKeyRef)
     )))),
-    SEC009: pods.flatMap(pod => containers(pod, false).filter(container => !(container?.securityContext?.capabilities?.drop || []).includes('ALL')).map(container => finding(pod, `Container ${container.name} does not drop ALL capabilities`, `Container ${container.name} does not drop ALL capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.drop', container?.securityContext?.capabilities?.drop || [])))),
+    SEC009: pods.flatMap(pod => containers(pod, false).filter(container => !(container?.securityContext?.capabilities?.drop || []).some((value: any) => String(value).toLowerCase() === 'all')).map(container => finding(pod, `Container ${container.name} does not drop ALL capabilities`, `Container ${container.name} does not drop ALL capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.drop', container?.securityContext?.capabilities?.drop || [])))),
     SEC010: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.hostPath?.path).map((volume: any) => finding(pod, `hostPath volume ${volume.name}: ${volume.hostPath.path}`, `hostPath volume ${volume.name}: ${volume.hostPath.path}`, { yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].hostPath`, yamlValue: volume.hostPath }))),
-    SEC011: pods.flatMap(pod => containers(pod, false).filter(container => container?.securityContext?.runAsUser === 0).map(container => finding(pod, `Container ${container.name} runs as UID 0`, `Container ${container.name} runs as UID 0`, containerYamlOptions(pod, container, 'securityContext.runAsUser')))),
+    SEC011: pods.flatMap(pod => containers(pod, false).filter(container => Number(container?.securityContext?.runAsUser || 0) === 0).map(container => finding(pod, `Container ${container.name} runs as UID 0`, `Container ${container.name} runs as UID 0`, containerYamlOptions(pod, container, 'securityContext.runAsUser', container?.securityContext?.runAsUser || 0)))),
     SEC012: pods.flatMap(pod => containers(pod, false).filter(container => (container?.securityContext?.capabilities?.add || []).length > 0).map(container => finding(pod, `Container ${container.name} adds capabilities`, `Container ${container.name} adds capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.add')))),
     SEC013: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.emptyDir).map((volume: any) => finding(pod, `emptyDir volume ${volume.name}`, `emptyDir volume ${volume.name}`, { yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].emptyDir`, yamlValue: volume.emptyDir }))),
     SEC016: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.windowsOptions?.hostProcess).map(container => finding(pod, `Windows HostProcess container ${container.name}`, `Windows HostProcess container ${container.name}`, containerYamlOptions(pod, container, 'securityContext.windowsOptions.hostProcess')))),
     SEC017: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.procMount === 'Unmasked').map(container => finding(pod, `Container ${container.name} uses Unmasked procMount`, `Container ${container.name} uses Unmasked procMount`, containerYamlOptions(pod, container, 'securityContext.procMount')))),
-    SEC019: pods.flatMap(pod => Object.entries(objectAnnotations(pod)).filter(([key, value]) => key.startsWith('container.apparmor.security.beta.kubernetes.io/') && !['runtime/default'].includes(String(value)) && !String(value).startsWith('localhost/')).map(([, value]) => finding(pod, `Unsupported AppArmor value ${value}`))),
+    SEC019: pods.flatMap(pod => [
+      ...Object.entries(objectAnnotations(pod))
+        .filter(([key, value]) => key.startsWith('container.apparmor.security.beta.kubernetes.io/') && !['runtime/default'].includes(String(value)) && !String(value).startsWith('localhost/'))
+        .map(([key, value]) => finding(pod, `Unsupported AppArmor annotation value on ${key}: ${value}`)),
+      ...[
+        ...containers(pod),
+        ...(json(pod)?.spec?.ephemeralContainers || []),
+      ]
+        .filter(container => {
+          const profileType = stringValue(container?.securityContext?.appArmorProfile?.type);
+          return profileType !== '' && profileType !== 'RuntimeDefault' && profileType !== 'Localhost';
+        })
+        .map(container => finding(pod, `Container ${container.name} uses unsupported AppArmor profile type ${container.securityContext.appArmorProfile.type}`)),
+    ]),
     SEC020: pods.flatMap(pod => containers(pod).filter(container => !container?.securityContext?.seccompProfile?.type && !json(pod)?.spec?.securityContext?.seccompProfile?.type).map(container => finding(pod, `Container ${container.name} has no seccomp profile`, `Container ${container.name} has no seccomp profile`, containerYamlOptions(pod, container, 'securityContext.seccompProfile', container?.securityContext?.seccompProfile || {})))),
-    SEC021: pods.flatMap(pod => containers(pod).filter(container => (container.ports || []).some((port: any) => Number(port.hostPort) > 0)).map(container => finding(pod, `Container ${container.name} uses hostPort`, `Container ${container.name} uses hostPort`, containerYamlOptions(pod, container, 'ports', container.ports)))),
-    SEC022: pods.filter(pod => serviceAccountName(pod) === 'default').map(pod => finding(pod, 'Uses default ServiceAccount', 'Uses default ServiceAccount', { yamlPath: 'spec.serviceAccountName', yamlValue: serviceAccountName(pod) })),
-    SEC023: pods.flatMap(pod => containers(pod).filter(container => Object.keys(container.resources || {}).length === 0).map(container => finding(pod, `Container ${container.name} has no resources set`, `Container ${container.name} has no resources set`, containerYamlOptions(pod, container, 'resources', container.resources || {})))),
-    SEC027: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.allowPrivilegeEscalation !== false).map(container => {
-      const fieldPath = container?.securityContext?.allowPrivilegeEscalation === undefined
-        ? 'securityContext'
-        : 'securityContext.allowPrivilegeEscalation';
-      return finding(
+    SEC021: pods.flatMap(pod => containers(pod).flatMap(container => (container.ports || [])
+      .filter((port: any) => Number(port.hostPort) > 0)
+      .map((port: any) => finding(pod, `Container ${container.name} uses hostPort ${port.hostPort}`, `Container ${container.name} uses hostPort ${port.hostPort}`, containerYamlOptions(pod, container, 'ports', container.ports))))),
+    SEC015: pods.filter(pod => serviceAccountName(pod) === 'default').map(pod => finding(pod, 'Uses default ServiceAccount', 'Uses default ServiceAccount', { yamlPath: 'spec.serviceAccountName', yamlValue: serviceAccountName(pod) })),
+    SEC023: pods.flatMap(pod => (json(pod)?.spec?.securityContext?.sysctls || [])
+      .filter((sysctl: any) => !['kernel.shm_rmid_forced', 'net.ipv4.ip_local_port_range', 'net.ipv4.ip_unprivileged_port_start', 'net.ipv4.tcp_syncookies', 'net.ipv4.ping_group_range'].includes(String(sysctl?.name || '')))
+      .map((sysctl: any) => finding(pod, `Disallowed sysctl ${sysctl.name}`, `Disallowed sysctl ${sysctl.name}`, { yamlPath: 'spec.securityContext.sysctls', yamlValue: json(pod)?.spec?.securityContext?.sysctls }))),
+    SEC027: pods.flatMap(pod => (json(pod)?.spec?.volumes || [])
+      .filter((volume: any) => volume.gitRepo)
+      .map((volume: any) => finding(pod, `gitRepo volume ${volume.name}: ${volume.gitRepo.repository || 'repository not set'}`, `gitRepo volume ${volume.name}`, { yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].gitRepo`, yamlValue: volume.gitRepo }))),
+    SEC029: pods.flatMap(pod => (json(pod)?.spec?.volumes || [])
+      .filter((volume: any) => volume.hostPath?.path && isSensitiveHostPath(String(volume.hostPath.path)))
+      .map((volume: any) => finding(
         pod,
-        `Container ${container.name} allows privilege escalation or does not disable it`,
-        `Container ${container.name} allows privilege escalation or does not disable it`,
-        containerYamlOptions(pod, container, fieldPath, valueAtPath(container, fieldPath) || {})
-      );
-    })),
-    SEC028: pods.filter(pod => json(pod)?.spec?.hostUsers === true).map(pod => finding(pod, 'hostUsers enabled', 'hostUsers enabled', { yamlPath: 'spec.hostUsers' })),
+        `hostPath volume ${volume.name}: ${volume.hostPath.path}`,
+        `hostPath volume ${volume.name}: ${volume.hostPath.path}`,
+        {
+          yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].hostPath.path`,
+          yamlValue: volume.hostPath.path,
+        }
+      ))),
   };
 }
 
 function workloadResourceFindings(resources: ResourceStates, mode: 'requests' | 'limits', memoryOnly = false): Finding[] {
   const required: ('cpu' | 'memory')[] = memoryOnly ? ['memory'] : ['cpu', 'memory'];
   return allWorkloads(resources).flatMap(workload =>
-    workloadContainers(workload).flatMap(container =>
-      required
-        .filter(resource => !hasResource(container, mode, resource))
-        .map(resource => finding(workload, `Container ${container.name} missing ${resource} ${mode}`))
-    )
+    workloadAllContainers(workload).flatMap(container => {
+      const missing = required.filter(resource => !hasResource(container, mode, resource));
+      if (missing.length === 0) {
+        return [];
+      }
+
+      const noun = mode === 'requests' ? 'request' : 'limit';
+      return [finding(workload, `Container ${container.name} missing ${missing.map(resource => `${resource.toUpperCase()} ${noun}`).join(', ')}`)];
+    })
   );
 }
 
@@ -1570,10 +1839,23 @@ function workloadProbeFindings(resources: ResourceStates): Finding[] {
   );
 }
 
-function namespaceHasAny(resources: ResourceStates, namespaceName: string): boolean {
-  return ['pod', 'secret', 'persistentvolumeclaim', 'service', 'configmap', 'deployment', 'statefulset', 'daemonset'].some(kind =>
+function namespaceHasAny(resources: ResourceStates, namespaceName: string, kinds: string[]): boolean {
+  return kinds.some(kind =>
     resources[kind].data.some(item => namespace(item) === namespaceName)
   );
+}
+
+function namespaceHygieneFindings(resources: ResourceStates): Finding[] {
+  const trackedKinds = ['secret', 'persistentvolumeclaim', 'service', 'configmap', 'deployment', 'statefulset', 'daemonset'];
+
+  return resources.namespace.data
+    .filter(ns => !namespaceHasAny(resources, name(ns), ['pod']))
+    .map(ns => finding(
+      ns,
+      namespaceHasAny(resources, name(ns), trackedKinds)
+        ? 'No pods, but other resources exist'
+        : 'Namespace has no workloads or tracked resources'
+    ));
 }
 
 function usedConfigMapKeys(resources: ResourceStates): Set<string> {
@@ -1591,20 +1873,72 @@ function usedConfigMapKeys(resources: ResourceStates): Set<string> {
 
 function usedSecretKeys(resources: ResourceStates): Set<string> {
   const used = new Set<string>();
-  resources.pod.data.forEach(pod => {
-    const ns = namespace(pod) || 'default';
-    (json(pod)?.spec?.imagePullSecrets || []).forEach((secret: any) => secret.name && used.add(`${ns}/${secret.name}`));
-    (json(pod)?.spec?.volumes || []).forEach((volume: any) => volume.secret?.secretName && used.add(`${ns}/${volume.secret.secretName}`));
-    containers(pod).forEach(container => {
-      (container.env || []).forEach((env: any) => env?.valueFrom?.secretKeyRef?.name && used.add(`${ns}/${env.valueFrom.secretKeyRef.name}`));
-      (container.envFrom || []).forEach((env: any) => env?.secretRef?.name && used.add(`${ns}/${env.secretRef.name}`));
+  const addSecret = (ns: string, secretName: string) => {
+    if (!secretName) {
+      return;
+    }
+    used.add(`${ns}/${secretName}`);
+    used.add(`*/${secretName}`);
+  };
+  const addPodSpecSecretRefs = (podSpec: any, ns: string) => {
+    (podSpec?.imagePullSecrets || []).forEach((secret: any) => addSecret(ns, secret.name));
+    (podSpec?.volumes || []).forEach((volume: any) => addSecret(ns, volume.secret?.secretName));
+    [...(podSpec?.containers || []), ...(podSpec?.initContainers || []), ...(podSpec?.ephemeralContainers || [])].forEach((container: any) => {
+      (container.env || []).forEach((env: any) => addSecret(ns, env?.valueFrom?.secretKeyRef?.name));
+      (container.envFrom || []).forEach((env: any) => addSecret(ns, env?.secretRef?.name));
     });
+  };
+
+  resources.pod.data.forEach(pod => {
+    addPodSpecSecretRefs(json(pod)?.spec, namespace(pod) || 'default');
+  });
+  allWorkloads(resources).forEach(workload => {
+    addPodSpecSecretRefs(workloadTemplate(workload)?.spec, namespace(workload) || 'default');
+  });
+  resources.ingress.data.forEach(ingress => {
+    const ns = namespace(ingress) || 'default';
+    (json(ingress)?.spec?.tls || []).forEach((tls: any) => addSecret(ns, tls.secretName));
   });
   resources.serviceaccount.data.forEach(sa => {
     const ns = namespace(sa) || 'default';
-    [...(json(sa)?.secrets || []), ...(json(sa)?.imagePullSecrets || [])].forEach((secret: any) => secret.name && used.add(`${ns}/${secret.name}`));
+    (json(sa)?.secrets || []).forEach((secret: any) => addSecret(ns, secret.name));
   });
   return used;
+}
+
+function missingSecretReferenceFindings(resources: ResourceStates): Finding[] {
+  const existing = new Set(resources.secret.data.map(secret => `${namespace(secret) || 'default'}/${name(secret)}`));
+  const findings: Finding[] = [];
+
+  resources.pod.data.forEach(pod => {
+    const ns = namespace(pod) || 'default';
+    const podName = name(pod);
+    const missing = (secretName: string, detail: string) => {
+      if (secretName && !existing.has(`${ns}/${secretName}`)) {
+        findings.push(finding(pod, `${detail} references missing Secret ${secretName}`, `Pod ${podName} references missing Secret ${secretName}`));
+      }
+    };
+
+    (json(pod)?.spec?.volumes || []).forEach((volume: any) => {
+      if (volume.secret?.optional !== true) {
+        missing(volume.secret?.secretName || '', `Volume ${volume.name || 'unknown'}`);
+      }
+    });
+    containers(pod).forEach(container => {
+      (container.env || []).forEach((env: any) => {
+        if (env?.valueFrom?.secretKeyRef?.optional !== true) {
+          missing(env?.valueFrom?.secretKeyRef?.name || '', `Container ${container.name} env ${env.name || 'unknown'}`);
+        }
+      });
+      (container.envFrom || []).forEach((envFrom: any) => {
+        if (envFrom?.secretRef?.optional !== true) {
+          missing(envFrom?.secretRef?.name || '', `Container ${container.name} envFrom`);
+        }
+      });
+    });
+  });
+
+  return findings;
 }
 
 function rbacResourceKey(resource: any): string {
@@ -1656,6 +1990,18 @@ function isBuiltInClusterRole(role: any): boolean {
   );
 }
 
+function isKubernetesBootstrapClusterRole(role: any): boolean {
+  const roleName = name(role);
+  const labels = objectLabels(role);
+  return (
+    ['cluster-admin', 'admin', 'edit', 'view', 'system:public-info-viewer'].includes(roleName) ||
+    roleName.startsWith('system:') ||
+    roleName.startsWith('system:kube-') ||
+    roleName.startsWith('system:node') ||
+    labels['kubernetes.io/bootstrapping'] === 'rbac-defaults'
+  );
+}
+
 function isDefaultKubernetesRBACBinding(binding: any): boolean {
   const bindingName = name(binding);
   const aksManagedBindings = new Set([
@@ -1668,6 +2014,14 @@ function isDefaultKubernetesRBACBinding(binding: any): boolean {
   return (
     bindingName.startsWith('system:') ||
     aksManagedBindings.has(bindingName) ||
+    objectLabels(binding)['kubernetes.io/bootstrapping'] === 'rbac-defaults'
+  );
+}
+
+function isKubernetesDefaultRBACBinding(binding: any): boolean {
+  const bindingName = name(binding);
+  return (
+    bindingName.startsWith('system:') ||
     objectLabels(binding)['kubernetes.io/bootstrapping'] === 'rbac-defaults'
   );
 }
@@ -1941,7 +2295,7 @@ function orphanedRolesFindings(resources: ResourceStates): Finding[] {
       usedRoles.add(roleName);
     }
 
-    if (!isDefaultKubernetesRBACBinding(binding) && (json(binding)?.subjects || []).length === 0) {
+    if ((json(binding)?.subjects || []).length === 0) {
       findings.push(finding(binding, 'ClusterRoleBinding has no subjects'));
     }
   });
@@ -1955,7 +2309,7 @@ function orphanedRolesFindings(resources: ResourceStates): Finding[] {
 
   resources.clusterrole.data.forEach(role => {
     const roleName = name(role);
-    if (isBuiltInClusterRole(role)) {
+    if (isKubernetesBootstrapClusterRole(role)) {
       if ((json(role)?.rules || []).length === 0) {
         findings.push(finding(role, 'ClusterRole has no rules'));
       }
@@ -2000,8 +2354,328 @@ function boundRoleRefs(resources: ResourceStates, config: KubeBuddyConfig): Set<
   return out;
 }
 
+function boundRoleRefsForRiskChecks(resources: ResourceStates, config: KubeBuddyConfig): Set<string> {
+  const out = new Set<string>();
+
+  resources.rolebinding.data.forEach(binding => {
+    if (!bindingHasReportableRBACSubject(binding, namespace(binding) || 'default', config)) {
+      return;
+    }
+
+    const roleRef = json(binding)?.roleRef || {};
+    if (!roleRef.name) {
+      return;
+    }
+
+    out.add(roleRef.kind === 'ClusterRole' ? `ClusterRole:${roleRef.name}` : `Role:${namespace(binding) || 'default'}/${roleRef.name}`);
+  });
+
+  resources.clusterrolebinding.data.forEach(binding => {
+    if (isKubernetesDefaultRBACBinding(binding) || !bindingHasReportableRBACSubject(binding, '', config)) {
+      return;
+    }
+
+    const roleName = json(binding)?.roleRef?.name;
+    if (roleName) {
+      out.add(`ClusterRole:${roleName}`);
+    }
+  });
+
+  return out;
+}
+
 function grantsKubeletProxy(role: any): boolean {
   return (json(role)?.rules || []).some((rule: any) => (rule?.resources || []).includes('nodes/proxy') && (rule?.verbs || []).length > 0);
+}
+
+function recommendedLabelFindings(resource: any): Finding[] {
+  const labels = objectLabels(resource);
+  const templateLabels = workloadTemplate(resource)?.metadata?.labels || {};
+  const required = [
+    'app.kubernetes.io/name',
+    'app.kubernetes.io/instance',
+    'app.kubernetes.io/version',
+    'app.kubernetes.io/component',
+    'app.kubernetes.io/part-of',
+    'app.kubernetes.io/managed-by',
+  ];
+  const missing = required.filter(label => labels[label] === undefined && templateLabels[label] === undefined);
+  return missing.length > 0 ? [finding(resource, `Missing labels: ${missing.join(', ')}`)] : [];
+}
+
+function dangerousRBACReasons(rule: any): string[] {
+  const reasons = new Set<string>();
+  const verbs = rule?.verbs || [];
+  const resources = rule?.resources || [];
+  ['impersonate', 'bind', 'escalate'].forEach(verb => {
+    if (verbs.includes(verb)) reasons.add(verb);
+  });
+  ['pods/exec', 'pods/portforward'].forEach(resource => {
+    if (resources.includes(resource)) reasons.add(resource);
+  });
+  if (resources.includes('secrets') && ['*', 'get', 'list', 'watch'].some(verb => verbs.includes(verb))) {
+    reasons.add('secret read');
+  }
+  return [...reasons];
+}
+
+function dangerousRBACFindings(role: any): Finding[] {
+  if (isBuiltInClusterRole(role)) {
+    return [];
+  }
+
+  return (json(role)?.rules || []).flatMap((rule: any) => {
+    const reasons = dangerousRBACReasons(rule);
+    return reasons.length > 0 ? [finding(role, `Dangerous RBAC access: ${reasons.join(', ')}`)] : [];
+  });
+}
+
+function isControlledPod(pod: any): boolean {
+  return (json(pod)?.metadata?.ownerReferences || []).length > 0;
+}
+
+function isStaticMirrorPod(pod: any): boolean {
+  const annotations = objectAnnotations(pod);
+  return !!annotations['kubernetes.io/config.mirror'] || !!annotations['kubernetes.io/config.source'];
+}
+
+function cronJobHygieneIssues(cronJob: any): string[] {
+  const spec = json(cronJob)?.spec || {};
+  const issues: string[] = [];
+  if (!spec.concurrencyPolicy) issues.push('missing concurrencyPolicy');
+  if (spec.startingDeadlineSeconds === undefined || spec.startingDeadlineSeconds === null) issues.push('missing startingDeadlineSeconds');
+  if (spec.successfulJobsHistoryLimit === 0) issues.push('successfulJobsHistoryLimit is zero');
+  if (spec.failedJobsHistoryLimit === 0) issues.push('failedJobsHistoryLimit is zero');
+  if (spec.suspend === true) issues.push('suspended');
+  return issues;
+}
+
+function includesString(values: unknown, expected: string): boolean {
+  return toArray(values).some(value => String(value) === expected);
+}
+
+function stringValue(value: unknown): string {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  return String(value).trim();
+}
+
+function selectorOverlaps(selector: unknown, labels: unknown): boolean {
+  if (!selector || !labels || typeof selector !== 'object' || typeof labels !== 'object') {
+    return false;
+  }
+
+  return Object.entries(selector as Record<string, unknown>).some(
+    ([key, value]) => String((labels as Record<string, unknown>)[key]) === String(value)
+  );
+}
+
+function weakPdbMessage(pdb: any): string {
+  const spec = json(pdb)?.spec || {};
+  const minAvailable = stringValue(spec.minAvailable);
+  const maxUnavailable = stringValue(spec.maxUnavailable);
+
+  if (minAvailable !== '' && Number(minAvailable) === 0) {
+    return 'minAvailable = 0';
+  }
+  if (maxUnavailable === '1' || maxUnavailable === '100%') {
+    return 'maxUnavailable = 100%';
+  }
+  return '';
+}
+
+function pdbCoverageFindings(resources: ResourceStates): Finding[] {
+  const findings: Finding[] = [];
+  const pdbNamespaces = new Set<string>();
+
+  resources.poddisruptionbudget.data.forEach(pdb => {
+    pdbNamespaces.add(namespace(pdb) || 'default');
+
+    if (Number(json(pdb)?.status?.expectedPods || 0) === 0) {
+      findings.push(finding(pdb, 'Matches 0 pods'));
+    }
+
+    const weak = weakPdbMessage(pdb);
+    if (weak) {
+      findings.push(finding(pdb, weak));
+    }
+  });
+
+  [...resources.deployment.data, ...resources.statefulset.data].forEach(workload => {
+    const workloadNamespace = namespace(workload) || 'default';
+    if (!pdbNamespaces.has(workloadNamespace)) {
+      return;
+    }
+
+    const labels = workloadLabels(workload);
+    if (!labels || typeof labels !== 'object') {
+      return;
+    }
+
+    const matched = resources.poddisruptionbudget.data.some(
+      pdb =>
+        (namespace(pdb) || 'default') === workloadNamespace &&
+        selectorMatches(json(pdb)?.spec?.selector?.matchLabels, labels)
+    );
+    if (!matched) {
+      findings.push(finding(workload, 'No matching PDB'));
+    }
+  });
+
+  return findings;
+}
+
+function networkPolicyPermissiveFindings(resources: ResourceStates): Finding[] {
+  return resources.networkpolicy.data.flatMap(policy => {
+    const spec = json(policy)?.spec || {};
+    const policyTypes = toArray(spec.policyTypes);
+    const parts: string[] = [];
+
+    if (includesString(policyTypes, 'Ingress') && toArray(spec.ingress).length === 0) {
+      parts.push('Allows all Ingress traffic (empty ingress rules).');
+    }
+    if (includesString(policyTypes, 'Egress') && toArray(spec.egress).length === 0) {
+      parts.push('Allows all Egress traffic (empty egress rules).');
+    }
+    toArray(spec.ingress).forEach((rule: any) => {
+      toArray(rule?.from).forEach((from: any) => {
+        if (from?.ipBlock?.cidr === '0.0.0.0/0') {
+          parts.push("Ingress rule contains '0.0.0.0/0' ipBlock.");
+        }
+      });
+    });
+    toArray(spec.egress).forEach((rule: any) => {
+      toArray(rule?.to).forEach((to: any) => {
+        if (to?.ipBlock?.cidr === '0.0.0.0/0') {
+          parts.push("Egress rule contains '0.0.0.0/0' ipBlock.");
+        }
+      });
+    });
+
+    return parts.length > 0 ? [finding(policy, parts.join(' '))] : [];
+  });
+}
+
+function allocatedDeviceHealthFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod => {
+    const signals: string[] = [];
+
+    ['containerStatuses', 'initContainerStatuses'].forEach(statusList => {
+      toArray(json(pod)?.status?.[statusList]).forEach((containerStatus: any) => {
+        const containerName = stringValue(containerStatus?.name);
+        toArray(containerStatus?.allocatedResourcesStatus).forEach((resourceStatus: any) => {
+          toArray(resourceStatus?.resources).forEach((health: any) => {
+            const state = stringValue(health?.health);
+            if (state !== 'Unhealthy' && state !== 'Unknown') {
+              return;
+            }
+            const resourceName = stringValue(resourceStatus?.name || health?.resourceName || health?.resourceID);
+            signals.push(`${containerName} ${resourceName} ${state}`.trim());
+          });
+        });
+      });
+    });
+
+    return signals.length > 0
+      ? [finding(pod, [...new Set(signals)].sort().join('; '), 'Pod has allocated device resources reporting Unhealthy or Unknown.')]
+      : [];
+  });
+}
+
+function webhookHasBroadScope(webhook: any): boolean {
+  const hasNamespaceSelector = webhook?.namespaceSelector !== undefined && webhook?.namespaceSelector !== null;
+  return toArray(webhook?.rules).some(
+    (rule: any) =>
+      includesString(rule?.resources, '*') &&
+      includesString(rule?.operations, '*') &&
+      !hasNamespaceSelector
+  );
+}
+
+function admissionWebhookFindings(resources: ResourceStates): Finding[] {
+  return [
+    ...resources.mutatingwebhookconfiguration.data,
+    ...resources.validatingwebhookconfiguration.data,
+  ].flatMap(config => {
+    const configName = name(config);
+
+    return toArray(json(config)?.webhooks).flatMap((webhook: any) => {
+      const issues: string[] = [];
+      if (String(webhook?.failurePolicy || '').toLowerCase() === 'ignore') {
+        issues.push('failurePolicy=Ignore');
+      }
+      if (!['None', 'NoneOnDryRun'].includes(stringValue(webhook?.sideEffects))) {
+        issues.push('sideEffects not None/NoneOnDryRun');
+      }
+      if (webhookHasBroadScope(webhook)) {
+        issues.push('broad wildcard scope');
+      }
+
+      return issues.length > 0
+        ? [{
+            resource: `admissionwebhook/${configName}`,
+            namespace: '(cluster)',
+            kind: kind(config),
+            apiVersion: apiVersion(config),
+            uid: uid(config),
+            commandName: configName,
+            details: issues.join(', '),
+            message: `Webhook ${stringValue(webhook?.name) || 'unknown'} may fail open or apply too broadly`,
+            link: link(config),
+          }]
+        : [];
+    });
+  });
+}
+
+function deploymentLabelConsistencyFindings(resources: ResourceStates): Finding[] {
+  return resources.deployment.data.flatMap(deployment => {
+    const selector = workloadSelector(deployment);
+    const templateLabels = workloadLabels(deployment);
+    const findings: Finding[] = [];
+
+    if (!selectorMatches(selector, templateLabels)) {
+      findings.push(finding(deployment, 'Deployment selector does not match pod template labels'));
+    }
+
+    resources.service.data.forEach(service => {
+      const selector = serviceSelector(service);
+      if (namespace(service) !== namespace(deployment) || !selector) {
+        return;
+      }
+      if (selectorMatches(selector, templateLabels)) {
+        return;
+      }
+      if (selectorOverlaps(selector, templateLabels)) {
+        findings.push(finding(deployment, `Service selector does not align with deployment pod labels: service/${name(service)}`));
+      }
+    });
+
+    return findings;
+  });
+}
+
+function warningEventFindings(resources: ResourceStates): Finding[] {
+  const grouped = new Map<string, { event: any; count: number }>();
+
+  resources.events.data
+    .filter(event => json(event)?.type === 'Warning')
+    .forEach(event => {
+      const eventData = json(event);
+      const reason = stringValue(eventData?.reason);
+      const message = stringValue(eventData?.message || eventData?.note);
+      const key = `${reason}|${message}`;
+      const existing = grouped.get(key);
+      grouped.set(key, { event, count: (existing?.count || 0) + 1 });
+    });
+
+  return [...grouped.values()].map(({ event, count }) => {
+    const eventData = json(event);
+    const reason = stringValue(eventData?.reason) || 'Warning event';
+    const message = stringValue(eventData?.message || eventData?.note) || reason;
+    return finding(event, count > 1 ? `${count} events: ${reason} - ${message}` : message);
+  });
 }
 
 const nativeHandlers: Record<string, NativeHandler> = {
@@ -2024,20 +2698,44 @@ const nativeHandlers: Record<string, NativeHandler> = {
       if (['kube-root-ca.crt', 'istio-ca-root'].includes(name(cm))) return;
       byName.set(name(cm), [...(byName.get(name(cm)) || []), namespace(cm) || 'default']);
     });
-    return [...byName.entries()].filter(([, namespaces]) => namespaces.length > 1).map(([cmName, namespaces]) => ({ resource: `configmap/${cmName}`, details: `Duplicated in ${namespaces.join(', ')}` }));
+    return [...byName.entries()]
+      .filter(([, namespaces]) => namespaces.length > 1)
+      .flatMap(([cmName, namespaces]) => namespaces.map(configMapNamespace => ({
+        namespace: configMapNamespace,
+        resource: `configmap/${cmName}`,
+        details: `Found in namespaces: ${namespaces.join(', ')}`,
+      })));
   },
   CFG003: resources => resources.configmap.data.filter(cm => JSON.stringify(json(cm)?.data || {}).length > 1048576).map(cm => finding(cm, 'ConfigMap exceeds 1 MiB')),
-  EVENT001: resources => resources.events.data.filter(event => json(event)?.type === 'Warning').map(event => finding(event, json(event)?.message || 'Warning event')),
-  EVENT002: resources => resources.events.data.filter(event => json(event)?.type === 'Warning').map(event => finding(event, json(event)?.reason || 'Warning event')),
+  EVENT001: warningEventFindings,
+  EVENT002: resources => resources.events.data.filter(event => json(event)?.type === 'Warning').map(event => finding(event, json(event)?.reason || json(event)?.note || 'Warning event')),
   SEC014: (resources, config) => resources.pod.data.flatMap(pod =>
     containers(pod, false)
-      .filter(container => !config.trustedRegistries.some(registry => canonicalContainerImageReference(String(container.image || '')).startsWith(registry)))
+      .filter(container => !config.trustedRegistries.some(registry => String(container.image || '').startsWith(registry)))
       .map(container => finding(pod, `Image from untrusted registry: ${container.image}`))
   ),
   JOB001: (resources, config) => resources.job.data.filter(job => daysSince(json(job)?.status?.startTime) !== null && (Date.now() - new Date(json(job)?.status?.startTime).getTime()) > config.thresholds.stuckJobHours * 60 * 60 * 1000 && !json(job)?.status?.succeeded).map(job => finding(job, `Job running longer than ${config.thresholds.stuckJobHours} hours`)),
   JOB002: resources => resources.job.data.filter(job => (json(job)?.status?.failed || 0) > 0 && !json(job)?.status?.succeeded).map(job => finding(job, `${json(job)?.status?.failed} failures`)),
-  NET001: resources => resources.service.data.filter(service => json(service)?.spec?.type !== 'ExternalName' && !resources.endpoints.data.some(ep => namespace(ep) === namespace(service) && name(ep) === name(service) && (json(ep)?.subsets || []).length > 0) && !resources.endpointslice.data.some(ep => namespace(ep) === namespace(service) && json(ep)?.metadata?.labels?.['kubernetes.io/service-name'] === name(service))).map(service => finding(service, 'No endpoints or endpoint slices')),
-  NET002: resources => resources.service.data.filter(service => ['LoadBalancer', 'NodePort'].includes(json(service)?.spec?.type)).map(service => finding(service, json(service)?.spec?.type)),
+  JOB003: resources => resources.cronjob.data.flatMap(cronJob => {
+    const issues = cronJobHygieneIssues(cronJob);
+    return issues.length > 0 ? [finding(cronJob, issues.join(', '))] : [];
+  }),
+  NET001: resources => resources.service.data.filter(service => json(service)?.spec?.type !== 'ExternalName' && !resources.endpoints.data.some(ep => namespace(ep) === namespace(service) && name(ep) === name(service) && (json(ep)?.subsets || []).length > 0) && !resources.endpointslice.data.some(ep => namespace(ep) === namespace(service) && json(ep)?.metadata?.labels?.['kubernetes.io/service-name'] === name(service) && endpointSliceHasReadyEndpoint(ep))).map(service => finding(service, 'No endpoints or endpoint slices')),
+  NET002: resources => resources.service.data.flatMap(service => {
+    const serviceType = json(service)?.spec?.type;
+    if (serviceType !== 'LoadBalancer' && serviceType !== 'NodePort') {
+      return [];
+    }
+
+    const external = (json(service)?.status?.loadBalancer?.ingress || [])
+      .map((entry: any) => String(entry?.ip || entry?.hostname || '').trim())
+      .filter((value: string) => value && !isInternalIP(value));
+    if (serviceType !== 'NodePort' && external.length === 0) {
+      return [];
+    }
+
+    return [finding(service, external.length > 0 ? `Exposed via external IP: ${external.join(', ')}` : 'Exposed via NodePort')];
+  }),
   NET003: resources => resources.ingress.data.flatMap(ingress => {
     const findings: Finding[] = [];
     if (!json(ingress)?.spec?.ingressClassName && !objectAnnotations(ingress)['kubernetes.io/ingress.class']) findings.push(finding(ingress, 'Missing ingress class'));
@@ -2057,9 +2755,29 @@ const nativeHandlers: Record<string, NativeHandler> = {
     }));
   }),
   NET006: resources => resources.ingress.data.flatMap(ingress => (json(ingress)?.spec?.rules || []).filter((rule: any) => String(rule.host || '').includes('*')).map((rule: any) => finding(ingress, `Wildcard host ${rule.host}`))),
-  NET007: resources => resources.service.data.filter(service => json(service)?.spec?.type !== 'ExternalName' && serviceSelector(service) && resources.pod.data.some(pod => namespace(pod) === namespace(service) && selectorMatches(serviceSelector(service), objectLabels(pod)) && json(pod)?.status?.phase === 'Running')).filter(service => !(json(service)?.spec?.ports || []).some((port: any) => Number(port.targetPort || port.port) > 0)).map(service => finding(service, 'Service has matching pods but questionable target ports')),
+  NET007: resources => resources.service.data.flatMap(service => {
+    if (json(service)?.spec?.type === 'ExternalName' || !serviceSelector(service)) {
+      return [];
+    }
+
+    const matchingPods = resources.pod.data.filter(pod =>
+      namespace(pod) === namespace(service) &&
+      selectorMatches(serviceSelector(service), objectLabels(pod)) &&
+      json(pod)?.status?.phase === 'Running'
+    );
+    if (matchingPods.length === 0) {
+      return [];
+    }
+
+    return (json(service)?.spec?.ports || []).flatMap((port: any) => {
+      const targetPort = String(port.targetPort || port.port || '').trim();
+      return targetPort && !serviceTargetPortMatchesPods(targetPort, matchingPods)
+        ? [finding(service, `Service targetPort '${targetPort}' not found in backing pods`)]
+        : [];
+    });
+  }),
   NET008: resources => resources.service.data.filter(service => json(service)?.spec?.type === 'ExternalName' && /^\d+\.\d+\.\d+\.\d+$/.test(json(service)?.spec?.externalName || '')).map(service => finding(service, `ExternalName points to IP ${json(service)?.spec?.externalName}`)),
-  NET009: resources => resources.networkpolicy.data.filter(policy => (json(policy)?.spec?.ingress || []).length === 0 || (json(policy)?.spec?.egress || []).length === 0).map(policy => finding(policy, 'Permissive empty ingress or egress rules')),
+  NET009: networkPolicyPermissiveFindings,
   NET010: resources => resources.networkpolicy.data.filter(policy => JSON.stringify(json(policy)?.spec || {}).includes('0.0.0.0/0')).map(policy => finding(policy, 'Allows 0.0.0.0/0')),
   NET011: resources => resources.networkpolicy.data.filter(policy => !(json(policy)?.spec?.policyTypes || []).length).map(policy => finding(policy, 'policyTypes missing')),
   NET012: resources => resources.pod.data.filter(pod => json(pod)?.spec?.hostNetwork).map(pod => finding(pod, 'hostNetwork enabled')),
@@ -2085,7 +2803,7 @@ const nativeHandlers: Record<string, NativeHandler> = {
   NODE001: resources => resources.node.data.filter(item => !nodeReady(item)).map(item => finding(item, 'Ready condition is not True')),
   NODE002: emptyHandler,
   NODE003: (resources, config) => resources.node.data.filter(node => Number(json(node)?.status?.capacity?.pods || 0) > 0 && resources.pod.data.filter(pod => json(pod)?.spec?.nodeName === name(node)).length / Number(json(node)?.status?.capacity?.pods || 1) > config.thresholds.podsPerNodeCritical / 100).map(node => finding(node, `Pod capacity above ${config.thresholds.podsPerNodeCritical}%`)),
-  NS001: resources => resources.namespace.data.filter(ns => !namespaceHasAny(resources, name(ns))).map(ns => finding(ns, 'Namespace appears unused')),
+  NS001: namespaceHygieneFindings,
   NS002: resources => resources.namespace.data.filter(ns => !resources.resourcequota.data.some(quota => namespace(quota) === name(ns))).map(ns => finding(ns, 'No ResourceQuota')),
   NS003: resources => resources.namespace.data.filter(ns => !resources.limitrange.data.some(limit => namespace(limit) === name(ns))).map(ns => finding(ns, 'No LimitRange')),
   NS004: resources => resources.pod.data.filter(pod => namespace(pod) === 'default').map(pod => finding(pod, 'Pod running in default namespace')),
@@ -2094,7 +2812,8 @@ const nativeHandlers: Record<string, NativeHandler> = {
   POD006: resources => resources.pod.data.filter(pod => /debugger/i.test(name(pod))).map(pod => finding(pod, json(pod)?.status?.phase || 'Debug pod left behind')),
   POD007: resources => resources.pod.data.filter(pod => podImages(pod).some(image => !image.includes('@sha256:') && (image.endsWith(':latest') || image.lastIndexOf(':') <= image.lastIndexOf('/')))).map(pod => finding(pod, podImages(pod).join(', '))),
   POD008: resources => resources.pod.data.filter(pod => json(pod)?.spec?.automountServiceAccountToken !== false).map(pod => finding(pod, 'automountServiceAccountToken is enabled or inherited')),
-  POD009: resources => resources.pod.data.filter(pod => JSON.stringify(json(pod)?.status || {}).match(/Unhealthy|Unknown/)).map(pod => finding(pod, 'Allocated device resource reports Unhealthy or Unknown')),
+  POD009: allocatedDeviceHealthFindings,
+  POD010: resources => resources.pod.data.filter(pod => !isStaticMirrorPod(pod) && !isControlledPod(pod)).map(pod => finding(pod, 'Pod is not managed by a workload controller')),
   PV001: resources => resources.persistentvolume.data.filter(pv => json(pv)?.status?.phase !== 'Bound' && !resources.persistentvolumeclaim.data.some(pvc => json(pvc)?.spec?.volumeName === name(pv))).map(pv => finding(pv, 'PV is not bound to any PVC')),
   PVC001: resources => resources.persistentvolumeclaim.data.filter(pvc => !resources.pod.data.some(pod => namespace(pod) === namespace(pvc) && (json(pod)?.spec?.volumes || []).some((volume: any) => volume.persistentVolumeClaim?.claimName === name(pvc)))).map(pvc => finding(pvc, 'PVC not used by any pod')),
   PVC003: resources => resources.persistentvolumeclaim.data.filter(pvc => (json(pvc)?.spec?.accessModes || []).includes('ReadWriteMany')).filter(pvc => !json(pvc)?.spec?.storageClassName || resources.storageclass.data.some(sc => name(sc) === json(pvc)?.spec?.storageClassName && /disk|ebs|pd|cinder|local-path/i.test(json(sc)?.provisioner || ''))).map(pvc => finding(pvc, 'ReadWriteMany PVC may use block storage')),
@@ -2113,11 +2832,22 @@ const nativeHandlers: Record<string, NativeHandler> = {
     const bound = boundRoleRefs(resources, config);
     return [
       ...resources.clusterrole.data
-        .filter(role => !isBuiltInClusterRole(role) && bound.has(`ClusterRole:${name(role)}`) && grantsKubeletProxy(role))
+        .filter(role => bound.has(`ClusterRole:${name(role)}`) && grantsKubeletProxy(role))
         .map(role => finding(role, 'Grants nodes/proxy access')),
       ...resources.role.data
         .filter(role => bound.has(`Role:${rbacResourceKey(role)}`) && grantsKubeletProxy(role))
         .map(role => finding(role, 'Grants nodes/proxy access')),
+    ];
+  },
+  RBAC006: (resources, config) => {
+    const bound = boundRoleRefs(resources, config);
+    return [
+      ...resources.clusterrole.data
+        .filter(role => bound.has(`ClusterRole:${name(role)}`))
+        .flatMap(dangerousRBACFindings),
+      ...resources.role.data
+        .filter(role => bound.has(`Role:${rbacResourceKey(role)}`))
+        .flatMap(dangerousRBACFindings),
     ];
   },
   SC002_AKS: resources => resources.storageclass.data.filter(sc => ['kubernetes.io/azure-disk', 'kubernetes.io/azure-file'].includes(json(sc)?.provisioner)).map(sc => finding(sc, 'Azure in-tree provisioner')),
@@ -2127,20 +2857,40 @@ const nativeHandlers: Record<string, NativeHandler> = {
     const used = usedSecretKeys(resources);
     return resources.secret.data
       .filter(secret => !name(secret).startsWith('sh.helm.release.v1.') && !name(secret).startsWith('bootstrap-token-') && !name(secret).startsWith('default-token-') && name(secret) !== 'kube-root-ca.crt')
-      .filter(secret => !used.has(`${namespace(secret)}/${name(secret)}`))
+      .filter(secret => !used.has(`${namespace(secret)}/${name(secret)}`) && !used.has(`*/${name(secret)}`))
       .map(secret => finding(secret, 'Secret appears unused'));
   },
   SEC007: resources => resources.namespace.data.filter(ns => !objectLabels(ns)?.['pod-security.kubernetes.io/enforce']).map(ns => finding(ns, 'No pod-security enforce label')),
-  SEC025: resources => resources.validatingadmissionpolicy.data.filter(policy => JSON.stringify(json(policy)?.spec || {}).toLowerCase().includes('latest')).map(policy => finding(policy, 'Admission policy references latest tag controls')),
+  SEC018: resources => resources.serviceaccount.data
+    .filter(serviceAccount => json(serviceAccount)?.automountServiceAccountToken !== false)
+    .map(serviceAccount => finding(
+      serviceAccount,
+      'Some ServiceAccounts have automountServiceAccountToken enabled, potentially exposing API credentials to Pods.',
+      'Some ServiceAccounts have automountServiceAccountToken enabled, potentially exposing API credentials to Pods.',
+      {
+        yamlPath: 'automountServiceAccountToken',
+        yamlValue: json(serviceAccount)?.automountServiceAccountToken ?? 'not set (defaults to true)',
+      }
+    )),
+  SEC022: missingSecretReferenceFindings,
+  SEC028: resources => [
+    ...resources.pod.data.flatMap(pod => (json(pod)?.spec?.imagePullSecrets || []).map((secret: any) => finding(pod, `imagePullSecret ${secret.name || 'unknown'}`))),
+    ...resources.serviceaccount.data.flatMap(sa => (json(sa)?.imagePullSecrets || []).map((secret: any) => finding(sa, `imagePullSecret ${secret.name || 'unknown'}`))),
+  ],
+  SEC025: emptyHandler,
+  SEC026: resources => resources.validatingadmissionpolicy.data
+    .filter(policy => !toArray(json(policy)?.spec?.validations).some((validation: any) => stringValue(validation?.expression)))
+    .map(policy => finding(policy, 'ValidatingAdmissionPolicy has no CEL validation rules defined.')),
+  SEC030: admissionWebhookFindings,
   WRK001: resources => resources.daemonset.data.filter(daemonSet => (json(daemonSet)?.status?.numberReady || 0) < (json(daemonSet)?.status?.desiredNumberScheduled || 0)).map(daemonSet => finding(daemonSet, `${json(daemonSet)?.status?.numberReady || 0}/${json(daemonSet)?.status?.desiredNumberScheduled || 0} ready`)),
   WRK002: resources => resources.deployment.data.filter(deployment => (json(deployment)?.status?.availableReplicas || 0) < (json(deployment)?.spec?.replicas || 1)).map(deployment => finding(deployment, `${json(deployment)?.status?.availableReplicas || 0}/${json(deployment)?.spec?.replicas || 1} available`)),
   WRK003: resources => resources.statefulset.data.filter(statefulSet => (json(statefulSet)?.status?.readyReplicas || 0) < (json(statefulSet)?.status?.replicas || 1)).map(statefulSet => finding(statefulSet, `${json(statefulSet)?.status?.readyReplicas || 0}/${json(statefulSet)?.status?.replicas || 1} ready`)),
   WRK004: resources => resources.horizontalpodautoscaler.data.filter(hpa => !(json(hpa)?.status?.currentMetrics || []).length || (json(hpa)?.status?.conditions || []).some((condition: any) => condition.status === 'False')).map(hpa => finding(hpa, 'HPA has no metrics or unhealthy condition')),
   WRK005: resources => workloadResourceFindings(resources, 'requests'),
-  WRK006: resources => resources.poddisruptionbudget.data.filter(pdb => Number(json(pdb)?.status?.expectedPods || 0) === 0).map(pdb => finding(pdb, 'PDB matches 0 pods')),
+  WRK006: pdbCoverageFindings,
   WRK007: workloadProbeFindings,
   WRK008: resources => resources.deployment.data.filter(deployment => !resources.pod.data.some(pod => namespace(pod) === namespace(deployment) && selectorMatches(workloadSelector(deployment), objectLabels(pod)))).map(deployment => finding(deployment, 'Deployment selector matches no pods')),
-  WRK009: resources => resources.deployment.data.filter(deployment => !selectorMatches(workloadSelector(deployment), workloadLabels(deployment))).map(deployment => finding(deployment, 'Deployment selector does not match template labels')),
+  WRK009: deploymentLabelConsistencyFindings,
   WRK010: resources => resources.horizontalpodautoscaler.data.filter(hpa => (json(hpa)?.spec?.metrics || []).some((metric: any) => metric.type === 'Resource')).flatMap(hpa => {
     const targetName = json(hpa)?.spec?.scaleTargetRef?.name;
     const workload = allWorkloads(resources).find(item => namespace(item) === namespace(hpa) && name(item) === targetName);
@@ -2148,9 +2898,34 @@ const nativeHandlers: Record<string, NativeHandler> = {
   }),
   WRK011: resources => resources.verticalpodautoscaler.data.map(vpa => finding(vpa, 'VPA detected; verify update mode and workload requests')),
   WRK012: resources => allWorkloads(resources).filter(workload => Number(json(workload)?.spec?.replicas || 1) > 1 && !resources.poddisruptionbudget.data.some(pdb => namespace(pdb) === namespace(workload) && selectorMatches(json(pdb)?.spec?.selector?.matchLabels, workloadLabels(workload)))).map(workload => finding(workload, 'Replicated workload has no matching PDB')),
-  WRK013: (resources, config) => resources.pod.data.filter(pod => JSON.stringify(json(pod)?.status || {}).match(/CrashLoopBackOff|OOMKilled/) || restartCount(pod) >= config.thresholds.restartsCritical).map(pod => finding(pod, 'CrashLoopBackOff, OOMKilled, or high restarts')),
+  WRK013: (resources, config) => resources.pod.data.flatMap(pod => {
+    const specByName = new Map<string, any>(containers(pod, false).map(container => [String(container.name || ''), container]));
+    return (json(pod)?.status?.containerStatuses || []).flatMap((status: any) => {
+      const reasons: string[] = [];
+      const restarts = Number(status?.restartCount || 0);
+      if (status?.state?.waiting?.reason === 'CrashLoopBackOff') {
+        reasons.push('CrashLoopBackOff');
+      }
+      if (status?.lastState?.terminated?.reason === 'OOMKilled' || status?.state?.terminated?.reason === 'OOMKilled') {
+        reasons.push('OOMKilled');
+      }
+      if (restarts >= config.thresholds.restartsCritical) {
+        reasons.push(`HighRestarts(${restarts})`);
+      }
+      if (reasons.length === 0) {
+        return [];
+      }
+
+      const spec = specByName.get(String(status?.name || '')) || {};
+      return [finding(
+        pod,
+        `${reasons.join(', ')} cpuReq=${spec?.resources?.requests?.cpu || ''} cpuLimit=${spec?.resources?.limits?.cpu || ''} memReq=${spec?.resources?.requests?.memory || ''} memLimit=${spec?.resources?.limits?.memory || ''}`
+      )];
+    });
+  }),
   WRK014: resources => workloadResourceFindings(resources, 'limits', true),
-  WRK015: resources => allWorkloads(resources).filter(workload => !(json(workload)?.spec?.template?.spec?.topologySpreadConstraints || []).length).map(workload => finding(workload, 'No topologySpreadConstraints')),
+  WRK015: resources => allWorkloads(resources).filter(replicatedWorkloadMissingSpread).map(workload => finding(workload, 'Replicated workload defines neither pod anti-affinity nor topology spread constraints')),
+  WRK016: resources => allWorkloads(resources).flatMap(recommendedLabelFindings),
 };
 
 function evaluateCheck(check: GeneratedCheck, resources: ResourceStates, config: KubeBuddyConfig): CheckResult {
@@ -2165,6 +2940,11 @@ function evaluateCheck(check: GeneratedCheck, resources: ResourceStates, config:
       );
     }
     return resultFromCheck(check, handler(resources, config));
+  }
+
+  const nativeIdHandler = check.id === 'SEC018' ? nativeHandlers[check.id] : undefined;
+  if (nativeIdHandler) {
+    return resultFromCheck(check, nativeIdHandler(resources, config));
   }
 
   const items = getResourcesForCheck(check, resources);
@@ -2198,13 +2978,15 @@ function useKubeBuddyChecks(
   const clusterRoles = useResourceList<any>(K8s.ResourceClasses.ClusterRole.useList());
   const clusterRoleBindings = useResourceList<any>(K8s.ResourceClasses.ClusterRoleBinding.useList());
   const configMaps = useResourceList<any>(K8s.ResourceClasses.ConfigMap.useList());
+  const cronJobs = useResourceList<any>(K8s.ResourceClasses.CronJob.useList());
   const daemonSets = useResourceList<any>(K8s.ResourceClasses.DaemonSet.useList());
   const deployments = useResourceList<any>(K8s.ResourceClasses.Deployment.useList());
   const endpoints = useResourceList<any>(K8s.ResourceClasses.Endpoints.useList());
   const endpointSlices = useResourceList<any>(K8s.ResourceClasses.EndpointSlice.useList());
-  const gateways = useResourceList<any>(K8s.ResourceClasses.Gateway.useList());
+  const events = useOptionalResourceList<any>(EventResource);
+  const gateways = useOptionalResourceList<any>(K8s.ResourceClasses.Gateway);
   const hpas = useResourceList<any>(K8s.ResourceClasses.HorizontalPodAutoscaler.useList());
-  const httpRoutes = useResourceList<any>(K8s.ResourceClasses.HTTPRoute.useList());
+  const httpRoutes = useOptionalResourceList<any>(K8s.ResourceClasses.HTTPRoute);
   const ingresses = useResourceList<any>(K8s.ResourceClasses.Ingress.useList());
   const jobs = useResourceList<any>(K8s.ResourceClasses.Job.useList());
   const limitRanges = useResourceList<any>(K8s.ResourceClasses.LimitRange.useList());
@@ -2223,6 +3005,9 @@ function useKubeBuddyChecks(
   const services = useResourceList<any>(K8s.ResourceClasses.Service.useList());
   const statefulSets = useResourceList<any>(K8s.ResourceClasses.StatefulSet.useList());
   const storageClasses = useResourceList<any>(K8s.ResourceClasses.StorageClass.useList());
+  const mutatingWebhookConfigurations = useOptionalResourceList<any>(MutatingWebhookConfiguration);
+  const validatingAdmissionPolicies = useOptionalResourceList<any>(ValidatingAdmissionPolicy);
+  const validatingWebhookConfigurations = useOptionalResourceList<any>(ValidatingWebhookConfiguration);
   const excludedNamespaceSet = React.useMemo(
     () => namespaceSet(config.excludedNamespaces),
     [config.excludedNamespaces.join('\n')]
@@ -2230,10 +3015,12 @@ function useKubeBuddyChecks(
   const filteredClusterRoles = filterResourceState(clusterRoles, excludedNamespaceSet);
   const filteredClusterRoleBindings = filterResourceState(clusterRoleBindings, excludedNamespaceSet);
   const filteredConfigMaps = filterResourceState(configMaps, excludedNamespaceSet);
+  const filteredCronJobs = filterResourceState(cronJobs, excludedNamespaceSet);
   const filteredDaemonSets = filterResourceState(daemonSets, excludedNamespaceSet);
   const filteredDeployments = filterResourceState(deployments, excludedNamespaceSet);
   const filteredEndpoints = filterResourceState(endpoints, excludedNamespaceSet);
   const filteredEndpointSlices = filterResourceState(endpointSlices, excludedNamespaceSet);
+  const filteredEvents = filterResourceState(events, excludedNamespaceSet);
   const filteredGateways = filterResourceState(gateways, excludedNamespaceSet);
   const filteredHpas = filterResourceState(hpas, excludedNamespaceSet);
   const filteredHttpRoutes = filterResourceState(httpRoutes, excludedNamespaceSet);
@@ -2255,17 +3042,21 @@ function useKubeBuddyChecks(
   const filteredServices = filterResourceState(services, excludedNamespaceSet);
   const filteredStatefulSets = filterResourceState(statefulSets, excludedNamespaceSet);
   const filteredStorageClasses = filterResourceState(storageClasses, excludedNamespaceSet);
+  const filteredMutatingWebhookConfigurations = filterResourceState(mutatingWebhookConfigurations, excludedNamespaceSet);
+  const filteredValidatingAdmissionPolicies = filterResourceState(validatingAdmissionPolicies, excludedNamespaceSet);
+  const filteredValidatingWebhookConfigurations = filterResourceState(validatingWebhookConfigurations, excludedNamespaceSet);
 
   const resources: ResourceStates = {
     clusterrole: filteredClusterRoles,
     clusterrolebinding: filteredClusterRoleBindings,
     configmap: filteredConfigMaps,
+    cronjob: filteredCronJobs,
     daemonset: filteredDaemonSets,
     deployment: filteredDeployments,
     endpoint: filteredEndpoints,
     endpoints: filteredEndpoints,
     endpointslice: filteredEndpointSlices,
-    events: EMPTY_RESOURCE_STATE,
+    events: filteredEvents,
     gateway: filteredGateways,
     horizontalpodautoscaler: filteredHpas,
     httproute: filteredHttpRoutes,
@@ -2289,7 +3080,17 @@ function useKubeBuddyChecks(
     serviceaccount: filteredServiceAccounts,
     statefulset: filteredStatefulSets,
     storageclass: filteredStorageClasses,
-    validatingadmissionpolicy: EMPTY_RESOURCE_STATE,
+    validatingadmissionpolicy: filteredValidatingAdmissionPolicies,
+    mutatingwebhookconfiguration: filteredMutatingWebhookConfigurations,
+    validatingwebhookconfiguration: filteredValidatingWebhookConfigurations,
+    'mutatingwebhookconfiguration,validatingwebhookconfiguration': {
+      data: [
+        ...filteredMutatingWebhookConfigurations.data,
+        ...filteredValidatingWebhookConfigurations.data,
+      ],
+      error: filteredMutatingWebhookConfigurations.error || filteredValidatingWebhookConfigurations.error,
+      loading: filteredMutatingWebhookConfigurations.loading || filteredValidatingWebhookConfigurations.loading,
+    },
     verticalpodautoscaler: EMPTY_RESOURCE_STATE,
   };
 
@@ -2301,6 +3102,7 @@ function useKubeBuddyChecks(
     { ...deployments, label: 'Deployments' },
     { ...endpoints, label: 'Endpoints' },
     { ...endpointSlices, label: 'EndpointSlices' },
+    { ...events, label: 'Events' },
     { ...gateways, label: 'Gateways' },
     { ...hpas, label: 'HorizontalPodAutoscalers' },
     { ...httpRoutes, label: 'HTTPRoutes' },
@@ -2322,6 +3124,9 @@ function useKubeBuddyChecks(
     { ...services, label: 'Services' },
     { ...statefulSets, label: 'StatefulSets' },
     { ...storageClasses, label: 'StorageClasses' },
+    { ...mutatingWebhookConfigurations, label: 'MutatingWebhookConfigurations' },
+    { ...validatingAdmissionPolicies, label: 'ValidatingAdmissionPolicies' },
+    { ...validatingWebhookConfigurations, label: 'ValidatingWebhookConfigurations' },
   ];
   const loading = states.some(state => state.loading && !isOptionalMissingApi(state.label, state.error));
   const errors = Array.from(
@@ -2429,7 +3234,14 @@ function useKubeBuddyChecks(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, initialChecks, loading]);
 
-  return { checks, loading: enabled ? loading : false, errors: enabled ? errors : [], scanning, scanProgress, scanLogs };
+  return {
+    checks,
+    loading: enabled ? loading : false,
+    errors: enabled ? errors : [],
+    scanning,
+    scanProgress,
+    scanLogs,
+  };
 }
 
 function KubeBuddyScoreBadge() {
@@ -3437,6 +4249,7 @@ function CheckCard({
 }) {
   const failed = check.status === 'failed';
   const skipped = check.status === 'skipped';
+  const suppressedCount = check.suppressedFindings?.length || 0;
   const alertSeverity = severityColor(check.severity);
   const cardRef = React.useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = React.useState(Boolean(returnFindingKey || targeted));
@@ -3531,6 +4344,9 @@ function CheckCard({
                   label={skipped ? 'skipped' : failed ? check.severity : 'passed'}
                 />
                 <Chip size="small" variant="outlined" label={`${check.findings.length} findings`} />
+                {suppressedCount > 0 && (
+                  <Chip size="small" variant="outlined" color="warning" label={`${suppressedCount} suppressed`} />
+                )}
               </Stack>
               <Typography variant="body2" color="text.secondary">{check.description}</Typography>
             </Box>
@@ -3900,6 +4716,10 @@ function severityRank(severity: Severity): number {
   return ranks[severity];
 }
 
+function compareChecksById(left: CheckResult, right: CheckResult): number {
+  return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
+}
+
 function ReportSummary({
   checks,
   clusterKey,
@@ -3978,6 +4798,9 @@ function ReportSummary({
                         <Chip size="small" variant="outlined" label={check.id} />
                         <Chip size="small" color={severityColor(check.severity)} label={check.severity} />
                         <Chip size="small" variant="outlined" label={`${check.findings.length} findings`} />
+                        {(check.suppressedFindings?.length || 0) > 0 && (
+                          <Chip size="small" variant="outlined" color="warning" label={`${check.suppressedFindings?.length || 0} suppressed`} />
+                        )}
                       </Stack>
                       <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5, overflowWrap: 'anywhere' }}>
                         {check.name}
@@ -4411,8 +5234,11 @@ function KubeBuddyScanResults({
   const sectionChecks = detailSection === 'All' ? checks : checks.filter(check => check.section === detailSection);
   const statusFilteredChecks =
     renderedStatus === 'all' ? sectionChecks : sectionChecks.filter(check => check.status === renderedStatus);
-  const visibleChecks =
-    renderedSeverity === 'all' ? statusFilteredChecks : statusFilteredChecks.filter(check => check.severity === renderedSeverity);
+  const visibleChecks = [
+    ...(renderedSeverity === 'all'
+      ? statusFilteredChecks
+      : statusFilteredChecks.filter(check => check.severity === renderedSeverity)),
+  ].sort(compareChecksById);
   const statusCounts = React.useMemo<Record<StatusFilter, number>>(
     () => ({
       all: sectionChecks.length,

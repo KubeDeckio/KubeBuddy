@@ -78,11 +78,12 @@ nav:
       - Config File: cli/kubebuddy-config.md
       - Prometheus Integration: cli/prometheus-integration.md
       - Parameters: cli/parameters.md
+      - Resource Suppressions: cli/resource-suppressions.md
       - Checks: cli/checks.md
       - AKS Best Practices: cli/aks-best-practice-checks.md
       - AKS Automatic Migration Readiness: cli/aks-automatic-migration-readiness.md
       - Logging Output: cli/logging-output.md
-      - Radar Integration (Pro): cli/kubebuddy-radar-cli-integration.md
+      - Radar Integration (Pro): kubebuddy-radar-cli-integration.md
   - Radar:
       - Overview: radar/index.md
       - Getting Started: radar/getting-started.md

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/KubeDeckio/KubeBuddy/internal/checks"
 	"github.com/KubeDeckio/KubeBuddy/internal/config"
@@ -57,6 +58,7 @@ type CheckResult struct {
 	CompatItems                any
 	Total                      int
 	Items                      []Finding
+	SuppressedFindings         []SuppressedFinding
 }
 
 type Finding struct {
@@ -64,6 +66,12 @@ type Finding struct {
 	Resource  string
 	Value     string
 	Message   string
+}
+
+type SuppressedFinding struct {
+	Finding
+	Reason string
+	Until  string
 }
 
 type ProgressEvent struct {
@@ -224,6 +232,7 @@ func Run(opts Options) (Result, error) {
 					}
 				}
 			}
+			applyFindingSuppressions(&result, cache)
 			out.Checks = append(out.Checks, result)
 			emitProgress(opts.Progress, ProgressEvent{
 				Stage:     "result",
@@ -264,6 +273,7 @@ func Run(opts Options) (Result, error) {
 		}
 
 		result.Total = len(result.Items)
+		applyFindingSuppressions(&result, cache)
 		out.Checks = append(out.Checks, result)
 		emitProgress(opts.Progress, ProgressEvent{
 			Stage:     "result",
@@ -309,6 +319,112 @@ func skippedCheckResult(check checks.Check, err error) CheckResult {
 	return result
 }
 
+const (
+	ignoreChecksAnnotation = "kubebuddy.io/ignore-checks"
+	ignoreReasonAnnotation = "kubebuddy.io/ignore-reason"
+	ignoreUntilAnnotation  = "kubebuddy.io/ignore-until"
+)
+
+func applyFindingSuppressions(result *CheckResult, cache map[string][]map[string]any) {
+	if result == nil || len(result.Items) == 0 {
+		return
+	}
+
+	active := make([]Finding, 0, len(result.Items))
+	suppressed := make([]SuppressedFinding, 0)
+	for _, finding := range result.Items {
+		resource := resourceForFinding(finding, cache)
+		if resource == nil {
+			active = append(active, finding)
+			continue
+		}
+		if reason, until, ok := suppressionForCheck(resource, result.ID); ok {
+			suppressed = append(suppressed, SuppressedFinding{
+				Finding: finding,
+				Reason:  reason,
+				Until:   until,
+			})
+			continue
+		}
+		active = append(active, finding)
+	}
+
+	if len(suppressed) == 0 {
+		return
+	}
+	result.Items = active
+	result.SuppressedFindings = append(result.SuppressedFindings, suppressed...)
+	result.Total = len(result.Items)
+	result.CompatItems = nil
+}
+
+func suppressionForCheck(resource map[string]any, checkID string) (string, string, bool) {
+	annotations, _ := mustResolve(resource, "metadata.annotations").(map[string]any)
+	rawChecks := strings.TrimSpace(fmt.Sprint(annotations[ignoreChecksAnnotation]))
+	if rawChecks == "" || rawChecks == "<nil>" {
+		return "", "", false
+	}
+	if !suppressionIncludesCheck(rawChecks, checkID) {
+		return "", "", false
+	}
+
+	until := strings.TrimSpace(fmt.Sprint(annotations[ignoreUntilAnnotation]))
+	if until == "<nil>" {
+		until = ""
+	}
+	if until != "" && suppressionExpired(until) {
+		return "", "", false
+	}
+
+	reason := strings.TrimSpace(fmt.Sprint(annotations[ignoreReasonAnnotation]))
+	if reason == "<nil>" {
+		reason = ""
+	}
+	return reason, until, true
+}
+
+func suppressionIncludesCheck(raw string, checkID string) bool {
+	checkID = strings.ToUpper(strings.TrimSpace(checkID))
+	for _, token := range strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ';' || r == ' ' || r == '\n' || r == '\t'
+	}) {
+		token = strings.ToUpper(strings.TrimSpace(token))
+		if token == "*" || token == checkID {
+			return true
+		}
+	}
+	return false
+}
+
+func suppressionExpired(raw string) bool {
+	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
+		if parsed, err := time.Parse(layout, raw); err == nil {
+			return time.Now().After(parsed)
+		}
+	}
+	return false
+}
+
+func resourceForFinding(finding Finding, cache map[string][]map[string]any) map[string]any {
+	parts := strings.SplitN(strings.TrimSpace(finding.Resource), "/", 2)
+	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return nil
+	}
+	kind := normalizedKind(parts[0])
+	name := parts[1]
+	for _, item := range cache[kind] {
+		if stringifyLookup(item, "metadata.name") != name {
+			continue
+		}
+		itemNamespace := namespaceOf(item)
+		findingNamespace := strings.TrimSpace(finding.Namespace)
+		if findingNamespace == "" || findingNamespace == "(cluster)" || itemNamespace == findingNamespace {
+			return item
+		}
+	}
+	return nil
+}
+
 func countDeclarativeChecks(checksList []checks.Check) int {
 	total := 0
 	for _, check := range checksList {
@@ -333,7 +449,7 @@ func usesSyntheticInput(check checks.Check) bool {
 		return true
 	}
 	switch check.NativeHandler {
-	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "RBAC005", "SEC028", "NODE002", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "NET004", "NET013", "NET018", "NET020":
+	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "RBAC005", "RBAC006", "SEC028", "SEC030", "NODE002", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "WRK016", "NET004", "NET013", "NET018", "NET020":
 		return true
 	default:
 		return false
@@ -360,10 +476,46 @@ func getItems(ctx context.Context, client *kubeapi.Client, cache map[string][]ma
 
 func normalizedKind(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "clusterrole":
+		return "clusterroles"
+	case "clusterrolebinding":
+		return "clusterrolebindings"
+	case "configmap":
+		return "configmaps"
+	case "cronjob":
+		return "cronjobs"
+	case "daemonset":
+		return "daemonsets"
+	case "deployment":
+		return "deployments"
+	case "endpoint", "endpoints":
+		return "endpoints"
+	case "endpointslice":
+		return "endpointslices"
+	case "event":
+		return "events"
+	case "horizontalpodautoscaler":
+		return "horizontalpodautoscalers"
+	case "job":
+		return "jobs"
+	case "limitrange":
+		return "limitranges"
+	case "networkpolicy":
+		return "networkpolicies"
 	case "persistentvolume":
 		return "persistentvolumes"
 	case "persistentvolumeclaim":
 		return "persistentvolumeclaims"
+	case "poddisruptionbudget":
+		return "poddisruptionbudgets"
+	case "replicaset":
+		return "replicasets"
+	case "role":
+		return "roles"
+	case "rolebinding":
+		return "rolebindings"
+	case "secret":
+		return "secrets"
 	case "storageclass":
 		return "storageclasses"
 	case "service":
@@ -378,6 +530,12 @@ func normalizedKind(kind string) string {
 		return "namespaces"
 	case "ingress":
 		return "ingresses"
+	case "statefulset":
+		return "statefulsets"
+	case "mutatingwebhookconfiguration":
+		return "mutatingwebhookconfigurations"
+	case "validatingwebhookconfiguration":
+		return "validatingwebhookconfigurations"
 	default:
 		return strings.ToLower(strings.TrimSpace(kind))
 	}
@@ -386,6 +544,7 @@ func normalizedKind(kind string) string {
 func isClusterScoped(kind string) bool {
 	switch kind {
 	case "nodes", "namespaces", "persistentvolumes", "storageclasses",
+		"mutatingwebhookconfigurations", "validatingwebhookconfigurations",
 		"validatingadmissionpolicies", "validatingadmissionpolicybindings",
 		"validatingadmissionpolicy", "validatingadmissionpolicybinding":
 		return true

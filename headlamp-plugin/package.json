@@ -14,6 +14,7 @@
   },
   "scripts": {
     "validate:native-handlers": "node scripts/validate-native-handlers.mjs",
+    "compare:go": "node scripts/compare-go-report.mjs",
     "generate:checks": "node scripts/generate-check-catalog.mjs && npm run validate:native-handlers",
     "prestart": "npm run generate:checks",
     "start": "headlamp-plugin start",
@@ -28,7 +29,7 @@
     "tsc": "headlamp-plugin tsc",
     "storybook": "headlamp-plugin storybook",
     "storybook-build": "headlamp-plugin storybook-build",
-    "test": "headlamp-plugin test",
+    "test": "vitest -c node_modules/@kinvolk/headlamp-plugin/config/vite.config.mjs --run",
     "i18n": "headlamp-plugin i18n"
   },
   "keywords": [

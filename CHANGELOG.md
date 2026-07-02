@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.32] - 2026-07-01
+
+### Added
+
+* Added additional Kubernetes risk checks:
+  * **JOB003** – Flags CronJobs with risky scheduling or retention settings.
+  * **POD010** – Detects naked Pods that are not owned by a workload controller.
+  * **RBAC006** – Detects bound Roles and ClusterRoles that grant dangerous verbs or subresources such as `impersonate`, `bind`, `escalate`, `pods/exec`, `pods/portforward`, or broad Secret access.
+  * **SEC029** – Detects sensitive `hostPath` mounts such as container runtime sockets and broad host filesystem paths.
+  * **SEC030** – Flags admission webhooks that fail open, omit `sideEffects`, or apply too broadly.
+  * **WRK016** – Adds an advisory check for workloads missing the recommended `app.kubernetes.io` label set.
+* Added Headlamp plugin native handlers for the new Kubernetes risk checks and test coverage for the generated check catalog.
+* Added resource-level check suppressions with `kubebuddy.io/ignore-checks` annotations, including wildcard `*` support and optional reason/expiry metadata.
 
 ### Changed
 
@@ -13,14 +25,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * YAML-backed findings show the affected path and captured value, such as `spec.hostPID: true`.
   * Finding detail drawers now show a focused YAML snippet and highlight the affected config line.
   * CSV exports now include the captured evidence plus YAML path/snippet fields for offline review.
+  * Sensitive `hostPath` findings now show the matched `hostPath.path` value directly in the evidence column and detail drawer.
+  * Check cards in section tabs now sort naturally by check ID, such as `POD001` through `POD010`.
 * Added a **Score trend** panel to the KubeBuddy Headlamp plugin:
   * Completed scan scores are kept as a short per-cluster trend in the browser local cache.
   * Trend points and lines use the same score bands as the main score chart.
   * The panel labels the history as local-only and links to KubeBuddy Radar for shared, long-term, and cross-cluster history.
+* Improved remediation guidance for **SEC027**, **SEC028**, **SEC029**, **SEC030**, **RBAC005**, **RBAC006**, **POD010**, **JOB003**, **NET020**, and **PVC005** with more concrete operator next steps.
+* Updated the CLI JSON report and Headlamp plugin JSON export to keep suppressed findings in separate suppression metadata while excluding them from active findings and score calculations.
 
 ### Fixed
 
 * Fixed **CFG002** so Kubernetes-managed `kube-root-ca.crt` ConfigMaps are ignored when checking for duplicate ConfigMap names across namespaces.
+* Refined **NET001**, **SEC001**, **RBAC002**, and **RBAC006** handling for closer CLI and Headlamp plugin parity.
 
 ## [0.0.31] - 2026-06-23
 

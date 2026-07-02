@@ -128,6 +128,12 @@ The scan page export menu supports:
 
 The Headlamp plugin does not export HTML reports because the plugin UI is already the interactive report surface. Use the native CLI when you need a standalone HTML report file.
 
+## Resource Suppressions
+
+The Headlamp plugin honors the same `kubebuddy.io/ignore-checks` resource annotations as the CLI. Suppressed findings are excluded from active finding counts and score calculations, and exported JSON keeps them separately as suppression metadata.
+
+For Pod findings created by workload controllers, add the annotation to `spec.template.metadata.annotations` so Kubernetes copies it to created Pods.
+
 ## Release Notes
 
 The plugin package is attached to the same GitHub release as the native KubeBuddy CLI artifacts. Artifact Hub metadata records the plugin version and the KubeBuddy checks version included in the package.

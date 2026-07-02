@@ -59,6 +59,25 @@ checks:
   - "\U0001F916 Some ConfigMaps are larger than 1 MiB."
   - "\U0001F4CC This can lead to performance issues or hit platform limits."
   - "\u26A0\uFE0F Avoid putting big data or binaries in ConfigMaps."
+- id: WRK016
+  name: Missing Recommended Application Labels
+  category: Workloads
+  section: Workloads
+  resource_kind: Deployment, StatefulSet, DaemonSet
+  severity: Low
+  check_type: advisory
+  weight: 1
+  description: Detects workloads that do not use the recommended app.kubernetes.io label set for ownership, grouping, and release tracking.
+  fail_message: Workload is missing recommended app.kubernetes.io labels.
+  recommendation: "Add recommended labels such as app.kubernetes.io/name, app.kubernetes.io/instance, app.kubernetes.io/version, app.kubernetes.io/component, app.kubernetes.io/part-of, and app.kubernetes.io/managed-by."
+  url: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
+  native_handler: WRK016
+  value:
+    path: metadata.labels
+  operator: exists
+  speech_bubble:
+  - Recommended labels make ownership, grouping, and release tracking easier.
+  - Add app.kubernetes.io labels to workload metadata and pod templates.
 - id: NS001
   name: Empty Namespaces
   category: Namespaces
@@ -366,17 +385,36 @@ checks:
   weight: 4
   description: Detects bound Roles or ClusterRoles that grant access to the broad nodes/proxy kubelet subresource.
   fail_message: RBAC grants kubelet proxy access.
-  recommendation: "Replace broad nodes/proxy grants with least-privilege kubelet subresource permissions required by the workload."
+  recommendation: "Replace broad nodes/proxy grants with least-privilege kubelet subresource permissions required by the workload. Remove the binding if it is only used for ad-hoc troubleshooting."
   url: https://kubernetes.io/docs/reference/access-authn-authz/kubelet-authn-authz/
   native_handler: RBAC005
   value:
     path: metadata.name
   operator: exists
-  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Reduce Kubelet Proxy Permissions</h4>\n  <ul>\n    <li>Review bound Roles and ClusterRoles that grant <code>nodes/proxy</code>.</li>\n    <li>Use fine-grained kubelet API subresources such as <code>nodes/log</code>, <code>nodes/metrics</code>, or <code>nodes/stats</code> where possible.</li>\n    <li>Limit subjects and verbs to the smallest scope needed by observability or operations tooling.</li>\n  </ul>\n</div>"
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Reduce Kubelet Proxy Permissions</h4>\n  <ul>\n    <li>Find the RoleBinding or ClusterRoleBinding that binds this Role or ClusterRole, then confirm which ServiceAccount, user, or group receives <code>nodes/proxy</code>.</li>\n    <li>Remove <code>nodes/proxy</code> unless the workload must proxy arbitrary kubelet API calls.</li>\n    <li>Prefer narrower kubelet subresources such as <code>nodes/log</code>, <code>nodes/metrics</code>, or <code>nodes/stats</code> when those satisfy the use case.</li>\n    <li>Restrict verbs to the minimum needed, usually <code>get</code>, and avoid broad subjects such as default ServiceAccounts or large groups.</li>\n  </ul>\n</div>"
   speech_bubble:
   - "\U0001F916 A bound RBAC role grants nodes/proxy access."
   - "\U0001F4CC That is broader than most observability tools need."
   - "\u26A0\uFE0F Prefer fine-grained kubelet subresource permissions."
+- id: RBAC006
+  name: Dangerous RBAC Verbs and Subresources
+  category: RBAC
+  section: Security
+  resource_kind: Role, ClusterRole
+  severity: High
+  weight: 4
+  description: Detects bound Roles or ClusterRoles that grant high-risk verbs or subresources such as impersonate, bind, escalate, pods/exec, pods/portforward, or broad secret access.
+  fail_message: Role grants dangerous RBAC access.
+  recommendation: "Remove or tightly scope impersonate, bind, escalate, pods/exec, pods/portforward, and secret list/watch/get permissions. Prefer narrowly bound service accounts and just-in-time access."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+  native_handler: RBAC006
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Reduce Dangerous RBAC Grants</h4>\n  <ul>\n    <li>Use the finding evidence to identify the risky verb or resource, then inspect the binding that grants this Role or ClusterRole.</li>\n    <li>Remove <code>impersonate</code>, <code>bind</code>, and <code>escalate</code> from application identities; keep them only in controlled platform administration roles.</li>\n    <li>Restrict <code>pods/exec</code> and <code>pods/portforward</code> to break-glass or support identities, not workload ServiceAccounts.</li>\n    <li>Replace broad Secret <code>get</code>, <code>list</code>, or <code>watch</code> access with named <code>resourceNames</code> where practical.</li>\n    <li>Split high-risk access into a separate RoleBinding with time-bound or approval-based assignment.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Dangerous RBAC verbs can enable privilege escalation or data exfiltration.
+  - Review bound roles that grant impersonation, escalation, exec, port-forward, or broad secret access.
 - id: WRK001
   name: DaemonSets Not Fully Running
   category: Workloads
@@ -684,6 +722,44 @@ checks:
   speech_bubble:
   - "\U0001F916 Checking if PDB coverage and settings are practical."
   - "\u26A0\uFE0F Missing or overly strict PDBs can block maintenance and upgrades."
+- id: POD010
+  name: Naked Pods
+  category: Pods
+  section: Pods
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Detects pods that are not owned by a controller such as Deployment, StatefulSet, DaemonSet, Job, or CronJob.
+  fail_message: Pod is not managed by a workload controller.
+  recommendation: "Run application pods through a controller so rollout, restart, and ownership behavior is explicit. Use Deployment, StatefulSet, DaemonSet, Job, or CronJob depending on workload intent."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/
+  native_handler: POD010
+  value:
+    path: metadata.ownerReferences
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Confirm the pod is not a short-lived diagnostic pod; if it is stale, delete it.</li>\n    <li>For long-running services, recreate the pod as a Deployment, StatefulSet, or DaemonSet so rollout and restart behavior is managed.</li>\n    <li>For one-off or scheduled work, use a Job or CronJob instead of a naked Pod.</li>\n    <li>Move the fix into the source manifest, Helm chart, or GitOps repo so the pod is not recreated unmanaged.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - Unmanaged pods can bypass rollout, restart, and ownership expectations.
+  - Recreate naked pods as Deployments, Jobs, or another appropriate controller.
+- id: JOB003
+  name: CronJob Hygiene
+  category: Jobs
+  section: Jobs
+  resource_kind: CronJob
+  severity: Warning
+  weight: 2
+  description: Flags CronJobs with risky defaults such as missing concurrencyPolicy, missing startingDeadlineSeconds, disabled history retention, or suspended schedules.
+  fail_message: CronJob has risky scheduling or retention settings.
+  recommendation: "Set concurrencyPolicy, startingDeadlineSeconds, and sensible successful/failed history limits. Review suspended CronJobs and remove stale schedules."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
+  native_handler: JOB003
+  value:
+    path: metadata.name
+  operator: exists
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Set <code>concurrencyPolicy</code> explicitly: use <code>Forbid</code> for non-reentrant jobs, <code>Replace</code> for safe replacement, or document why <code>Allow</code> is acceptable.</li>\n    <li>Add <code>startingDeadlineSeconds</code> so missed schedules do not run unexpectedly long after an outage.</li>\n    <li>Keep useful history with non-zero <code>successfulJobsHistoryLimit</code> and <code>failedJobsHistoryLimit</code> values for troubleshooting.</li>\n    <li>If <code>suspend: true</code>, confirm it is temporary; delete stale CronJobs or annotate the reason and owner.</li>\n  </ul>\n</div>"
+  speech_bubble:
+  - CronJobs should define concurrency, missed-run, and history behavior explicitly.
+  - Review suspended schedules and history limits.
 - id: NODE001
   name: Node Readiness and Conditions
   category: Nodes

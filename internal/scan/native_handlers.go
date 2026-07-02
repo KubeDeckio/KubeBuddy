@@ -21,6 +21,7 @@ var nativeHandlers = map[string]nativeHandler{
 	"CFG003":          runCFG003,
 	"JOB001":          runJOB001,
 	"JOB002":          runJOB002,
+	"JOB003":          runJOB003,
 	"NS001":           runNS001,
 	"NS002":           runNS002,
 	"NS003":           runNS003,
@@ -30,11 +31,13 @@ var nativeHandlers = map[string]nativeHandler{
 	"POD006":          runPOD006,
 	"POD007":          runPOD007,
 	"POD008":          runPOD008,
+	"POD010":          runPOD010,
 	"RBAC001":         runRBAC001,
 	"RBAC002":         runRBAC002,
 	"RBAC003":         runRBAC003,
 	"RBAC004":         runRBAC004,
 	"RBAC005":         runRBAC005,
+	"RBAC006":         runRBAC006,
 	"SEC001":          runSEC001,
 	"SEC002":          runSEC002,
 	"SEC003":          runSEC003,
@@ -53,8 +56,11 @@ var nativeHandlers = map[string]nativeHandler{
 	"SEC022":          runSEC022,
 	"SEC023":          runSEC023,
 	"SEC025":          runSEC025,
+	"SEC026":          runSEC026,
 	"SEC027":          runSEC027,
 	"SEC028":          runSEC028,
+	"SEC029":          runSEC029,
+	"SEC030":          runSEC030,
 	"SEC016":          runSEC016,
 	"SEC017":          runSEC017,
 	"SEC019":          runSEC019,
@@ -106,6 +112,7 @@ var nativeHandlers = map[string]nativeHandler{
 	"WRK013":          runWRK013,
 	"WRK014":          runWRK014,
 	"WRK015":          runWRK015,
+	"WRK016":          runWRK016,
 	"POD009":          runPOD009,
 }
 
@@ -812,6 +819,23 @@ func runSEC025(check checks.Check, item map[string]any, cache map[string][]map[s
 	}, nil
 }
 
+func runSEC026(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	vapName := stringifyLookup(item, "metadata.name")
+	validations := asSlice(mustResolve(item, "spec.validations"))
+	for _, validation := range validations {
+		if strings.TrimSpace(stringifyLookup(validation, "expression")) != "" {
+			return nil, nil
+		}
+	}
+
+	return []Finding{
+		{
+			Resource: "ValidatingAdmissionPolicy/" + vapName,
+			Message:  fmt.Sprintf("ValidatingAdmissionPolicy %q has no CEL validation rules defined.", vapName),
+		},
+	}, nil
+}
+
 func runSEC027(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	podName := stringifyLookup(item, "metadata.name")
 	var findings []Finding
@@ -876,6 +900,43 @@ func runSEC028(check checks.Check, item map[string]any, cache map[string][]map[s
 				Value:     strings.Join(names, ", "),
 				Message:   "ServiceAccount uses imagePullSecrets; review rotation and consider short-lived registry credentials where supported.",
 			})
+		}
+	}
+	return findings, nil
+}
+
+func runSEC029(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	podNamespace := namespaceOf(item)
+	podResource := resourceRef("pod", item)
+	var findings []Finding
+	for _, volume := range asSlice(mustResolve(item, "spec.volumes")) {
+		path := strings.TrimSpace(stringifyLookup(volume, "hostPath.path"))
+		if path == "" || !isSensitiveHostPath(path) {
+			continue
+		}
+		findings = append(findings, Finding{
+			Namespace: podNamespace,
+			Resource:  podResource,
+			Value:     path,
+			Message:   fmt.Sprintf("hostPath volume %s mounts sensitive host path %s", stringifyLookup(volume, "name"), path),
+		})
+	}
+	return findings, nil
+}
+
+func runSEC030(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if stringifyLookup(item, "metadata.name") != "" {
+		return admissionWebhookFindings(item), nil
+	}
+
+	var findings []Finding
+	for _, kind := range []string{"mutatingwebhookconfigurations", "validatingwebhookconfigurations"} {
+		items, err := getCachedItems(cache, kind)
+		if err != nil {
+			continue
+		}
+		for _, config := range items {
+			findings = append(findings, admissionWebhookFindings(config)...)
 		}
 	}
 	return findings, nil
@@ -1045,7 +1106,7 @@ func runNET001(check checks.Check, item map[string]any, cache map[string][]map[s
 	epSlices, _ := getCachedItems(cache, "endpointslices")
 	endpoints, _ := getCachedItems(cache, "endpoints")
 	for _, slice := range epSlices {
-		if namespaceOf(slice) == ns && stringifyLookup(slice, "metadata.labels.kubernetes.io/service-name") == name {
+		if namespaceOf(slice) == ns && stringifyLookup(slice, "metadata.labels.kubernetes.io/service-name") == name && endpointSliceHasReadyEndpoint(slice) {
 			return nil, nil
 		}
 	}
@@ -1055,6 +1116,16 @@ func runNET001(check checks.Check, item map[string]any, cache map[string][]map[s
 		}
 	}
 	return []Finding{{Namespace: ns, Resource: "service/" + name, Value: "", Message: "No endpoints or endpoint slices"}}, nil
+}
+
+func endpointSliceHasReadyEndpoint(slice map[string]any) bool {
+	for _, endpoint := range asSlice(mustResolve(slice, "endpoints")) {
+		if ready, ok := readBool(endpoint, "conditions.ready"); ok && !ready {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func runNET002(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
@@ -1999,6 +2070,46 @@ func runWRK015(check checks.Check, item map[string]any, cache map[string][]map[s
 	return spreadConstraintFindings(item), nil
 }
 
+func runPOD010(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if isStaticMirrorPod(item) || isControlledPod(item) {
+		return nil, nil
+	}
+	return []Finding{{
+		Namespace: namespaceOf(item),
+		Resource:  resourceRef("pod", item),
+		Value:     "",
+		Message:   "Pod is not managed by a workload controller",
+	}}, nil
+}
+
+func runJOB003(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var issues []string
+	if strings.TrimSpace(stringifyLookup(item, "spec.concurrencyPolicy")) == "" {
+		issues = append(issues, "missing concurrencyPolicy")
+	}
+	if strings.TrimSpace(stringifyLookup(item, "spec.startingDeadlineSeconds")) == "" {
+		issues = append(issues, "missing startingDeadlineSeconds")
+	}
+	if value := mustResolve(item, "spec.successfulJobsHistoryLimit"); value != nil && asInt64(value) == 0 {
+		issues = append(issues, "successfulJobsHistoryLimit is zero")
+	}
+	if value := mustResolve(item, "spec.failedJobsHistoryLimit"); value != nil && asInt64(value) == 0 {
+		issues = append(issues, "failedJobsHistoryLimit is zero")
+	}
+	if suspended, ok := readBool(item, "spec.suspend"); ok && suspended {
+		issues = append(issues, "suspended")
+	}
+	if len(issues) == 0 {
+		return nil, nil
+	}
+	return []Finding{{
+		Namespace: namespaceOf(item),
+		Resource:  resourceRef("cronjob", item),
+		Value:     strings.Join(issues, ", "),
+		Message:   "CronJob has risky scheduling or retention settings",
+	}}, nil
+}
+
 func runWRK010(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	ns := namespaceOf(item)
 	hpaName := stringifyLookup(item, "metadata.name")
@@ -2244,6 +2355,13 @@ func runCFG003(check checks.Check, item map[string]any, cache map[string][]map[s
 		Value:     fmt.Sprintf("%d bytes", size),
 		Message:   "ConfigMap exceeds 1 MiB",
 	}}, nil
+}
+
+func runWRK016(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if stringifyLookup(item, "metadata.name") == "" {
+		return runSyntheticWorkloadCheck(cache, recommendedLabelFindings)
+	}
+	return recommendedLabelFindings(item), nil
 }
 
 func runNS001(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
@@ -2729,6 +2847,37 @@ func runRBAC005(check checks.Check, item map[string]any, cache map[string][]map[
 	return findings, nil
 }
 
+func runRBAC006(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if stringifyLookup(item, "metadata.name") != "" {
+		if !roleIsBound(item, cache) {
+			return nil, nil
+		}
+		return dangerousRBACFindingsForRole(item), nil
+	}
+	bound, err := boundRoleRefs(cache)
+	if err != nil {
+		return nil, err
+	}
+	var findings []Finding
+	for _, kind := range []string{"clusterroles", "roles"} {
+		items, err := getCachedItems(cache, kind)
+		if err != nil {
+			return nil, err
+		}
+		for _, role := range items {
+			key := "ClusterRole:" + stringifyLookup(role, "metadata.name")
+			if kind == "roles" {
+				key = "Role:" + namespaceOf(role) + "/" + stringifyLookup(role, "metadata.name")
+			}
+			if !bound[key] {
+				continue
+			}
+			findings = append(findings, dangerousRBACFindingsForRole(role)...)
+		}
+	}
+	return findings, nil
+}
+
 func getCachedItems(cache map[string][]map[string]any, kind string) ([]map[string]any, error) {
 	return getItems(currentRuntime.KubeContext, currentRuntime.KubeClient, cache, kind)
 }
@@ -2757,13 +2906,14 @@ func usedSecrets(cache map[string][]map[string]any) (map[string]bool, error) {
 		}
 		for _, item := range items {
 			ns := namespaceOf(item)
-			for _, volume := range asSlice(mustResolve(item, "spec.volumes")) {
+			podSpecItem := podSpecView(item)
+			for _, volume := range asSlice(mustResolve(podSpecItem, "spec.volumes")) {
 				if name := stringifyLookup(volume, "secret.secretName"); name != "" {
 					used[ns+"/"+name] = true
 					used["*/"+name] = true
 				}
 			}
-			for _, container := range allContainers(item) {
+			for _, container := range allContainers(podSpecItem) {
 				for _, env := range asSlice(mustResolve(container, "env")) {
 					if name := stringifyLookup(env, "valueFrom.secretKeyRef.name"); name != "" {
 						used[ns+"/"+name] = true
@@ -2804,6 +2954,19 @@ func usedSecrets(cache map[string][]map[string]any) (map[string]bool, error) {
 		}
 	}
 	return used, nil
+}
+
+func podSpecView(item map[string]any) map[string]any {
+	templateSpec, ok := mustResolve(item, "spec.template.spec").(map[string]any)
+	if !ok {
+		return item
+	}
+	return map[string]any{
+		"metadata": map[string]any{
+			"namespace": namespaceOf(item),
+		},
+		"spec": templateSpec,
+	}
 }
 
 func usedServiceAccounts(cache map[string][]map[string]any) (map[string]bool, error) {
@@ -3465,6 +3628,195 @@ func roleIsSensitive(role map[string]any) bool {
 	return false
 }
 
+func dangerousRBACFindingsForRole(role map[string]any) []Finding {
+	if isBuiltInClusterRole(role) {
+		return nil
+	}
+	var findings []Finding
+	for _, rule := range asSlice(mustResolve(role, "rules")) {
+		reasons := dangerousRBACReasons(rule)
+		if len(reasons) == 0 {
+			continue
+		}
+		namespace := namespaceOf(role)
+		resourceKind := "role"
+		if namespace == "(cluster)" {
+			resourceKind = "clusterrole"
+		}
+		findings = append(findings, Finding{
+			Namespace: namespace,
+			Resource:  resourceKind + "/" + stringifyLookup(role, "metadata.name"),
+			Value:     strings.Join(reasons, ", "),
+			Message:   "Role grants dangerous RBAC access",
+		})
+	}
+	return findings
+}
+
+func dangerousRBACReasons(rule any) []string {
+	verbs := asSlice(mustResolve(rule, "verbs"))
+	resources := asSlice(mustResolve(rule, "resources"))
+	var reasons []string
+	for _, verb := range verbs {
+		switch fmt.Sprint(verb) {
+		case "impersonate", "bind", "escalate":
+			reasons = append(reasons, fmt.Sprint(verb))
+		}
+	}
+	for _, resource := range resources {
+		switch fmt.Sprint(resource) {
+		case "pods/exec", "pods/portforward":
+			reasons = append(reasons, fmt.Sprint(resource))
+		case "secrets":
+			if containsString(verbs, "*") || containsString(verbs, "get") || containsString(verbs, "list") || containsString(verbs, "watch") {
+				reasons = append(reasons, "secret read")
+			}
+		}
+	}
+	return uniqueStrings(reasons)
+}
+
+func roleIsBound(role map[string]any, cache map[string][]map[string]any) bool {
+	bound, err := boundRoleRefs(cache)
+	if err != nil {
+		return false
+	}
+	name := stringifyLookup(role, "metadata.name")
+	if namespaceOf(role) == "(cluster)" {
+		return bound["ClusterRole:"+name]
+	}
+	return bound["Role:"+namespaceOf(role)+"/"+name]
+}
+
+func recommendedLabelFindings(workload map[string]any) []Finding {
+	labels, _ := mustResolve(workload, "metadata.labels").(map[string]any)
+	templateLabels, _ := mustResolve(workload, "spec.template.metadata.labels").(map[string]any)
+	required := []string{
+		"app.kubernetes.io/name",
+		"app.kubernetes.io/instance",
+		"app.kubernetes.io/version",
+		"app.kubernetes.io/component",
+		"app.kubernetes.io/part-of",
+		"app.kubernetes.io/managed-by",
+	}
+	var missing []string
+	for _, key := range required {
+		if !hasNonEmptyMapValue(labels, key) && !hasNonEmptyMapValue(templateLabels, key) {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return []Finding{{
+		Namespace: namespaceOf(workload),
+		Resource:  workloadResourceRef(workload),
+		Value:     strings.Join(missing, ", "),
+		Message:   "Workload is missing recommended app.kubernetes.io labels",
+	}}
+}
+
+func hasNonEmptyMapValue(values map[string]any, key string) bool {
+	if values == nil {
+		return false
+	}
+	value, ok := values[key]
+	return ok && strings.TrimSpace(fmt.Sprint(value)) != "" && strings.TrimSpace(fmt.Sprint(value)) != "<nil>"
+}
+
+func workloadResourceRef(workload map[string]any) string {
+	kind := strings.ToLower(strings.TrimSpace(stringifyLookup(workload, "kind")))
+	if kind == "" {
+		kind = "workload"
+	}
+	return kind + "/" + stringifyLookup(workload, "metadata.name")
+}
+
+func isControlledPod(pod map[string]any) bool {
+	for _, owner := range asSlice(mustResolve(pod, "metadata.ownerReferences")) {
+		controller, _ := readBool(owner, "controller")
+		if controller {
+			return true
+		}
+	}
+	return false
+}
+
+func isStaticMirrorPod(pod map[string]any) bool {
+	annotations, _ := mustResolve(pod, "metadata.annotations").(map[string]any)
+	for key := range annotations {
+		if key == "kubernetes.io/config.mirror" || key == "kubernetes.io/config.source" {
+			return true
+		}
+	}
+	return false
+}
+
+func isSensitiveHostPath(path string) bool {
+	normalized := strings.TrimRight(strings.ToLower(strings.ReplaceAll(strings.TrimSpace(path), "\\", "/")), "/")
+	if normalized == "" {
+		return false
+	}
+	sensitiveExact := map[string]bool{
+		"/":                                   true,
+		"/etc":                                true,
+		"/proc":                               true,
+		"/sys":                                true,
+		"/var/run/docker.sock":                true,
+		"/run/docker.sock":                    true,
+		"/run/containerd/containerd.sock":     true,
+		"/var/run/containerd/containerd.sock": true,
+	}
+	if sensitiveExact[normalized] {
+		return true
+	}
+	for _, prefix := range []string{"/etc/", "/proc/", "/sys/", "/var/lib/kubelet", "/var/lib/containerd", "/var/run/secrets"} {
+		if strings.HasPrefix(normalized, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func admissionWebhookFindings(config map[string]any) []Finding {
+	var findings []Finding
+	configName := stringifyLookup(config, "metadata.name")
+	for _, webhook := range asSlice(mustResolve(config, "webhooks")) {
+		webhookName := stringifyLookup(webhook, "name")
+		var issues []string
+		if strings.EqualFold(stringifyLookup(webhook, "failurePolicy"), "Ignore") {
+			issues = append(issues, "failurePolicy=Ignore")
+		}
+		sideEffects := stringifyLookup(webhook, "sideEffects")
+		if sideEffects == "" || (sideEffects != "None" && sideEffects != "NoneOnDryRun") {
+			issues = append(issues, "sideEffects not None/NoneOnDryRun")
+		}
+		if webhookHasBroadScope(webhook) {
+			issues = append(issues, "broad wildcard scope")
+		}
+		if len(issues) == 0 {
+			continue
+		}
+		findings = append(findings, Finding{
+			Namespace: "(cluster)",
+			Resource:  "admissionwebhook/" + configName,
+			Value:     strings.Join(issues, ", "),
+			Message:   fmt.Sprintf("Webhook %s may fail open or apply too broadly", webhookName),
+		})
+	}
+	return findings
+}
+
+func webhookHasBroadScope(webhook any) bool {
+	hasNamespaceSelector := mustResolve(webhook, "namespaceSelector") != nil
+	for _, rule := range asSlice(mustResolve(webhook, "rules")) {
+		if containsString(asSlice(mustResolve(rule, "resources")), "*") && containsString(asSlice(mustResolve(rule, "operations")), "*") && !hasNamespaceSelector {
+			return true
+		}
+	}
+	return false
+}
+
 func overexposureMessage(roleName string, wildcard bool, sensitive bool) string {
 	switch {
 	case roleName == "cluster-admin":
@@ -3792,7 +4144,16 @@ func isReportableRBACSubject(subject any, defaultNamespace string) bool {
 
 func isDefaultKubernetesRBACBinding(binding map[string]any) bool {
 	name := stringifyLookup(binding, "metadata.name")
+	aksManagedBindings := map[string]bool{
+		"aks-cluster-admin-binding":             true,
+		"aks-cluster-admin-binding-aad":         true,
+		"aks-secretprovidersyncing-rolebinding": true,
+		"aks-service-rolebinding":               true,
+	}
 	if strings.HasPrefix(name, "system:") {
+		return true
+	}
+	if aksManagedBindings[name] {
 		return true
 	}
 	return stringifyLookup(binding, "metadata.labels.kubernetes.io/bootstrapping") == "rbac-defaults"

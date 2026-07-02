@@ -395,13 +395,13 @@ checks:
   weight: 1
   description: Detects Ingress-NGINX controller components so teams can review maintenance and migration plans.
   fail_message: Ingress-NGINX controller component detected.
-  recommendation: "Review Ingress-NGINX usage and plan migration to Gateway API or another actively maintained ingress controller where appropriate."
+  recommendation: "Review Ingress-NGINX usage, confirm ownership and maintenance plans, and plan migration to Gateway API or another actively maintained ingress controller where appropriate."
   url: https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/
   native_handler: NET020
   value:
     path: metadata.name
   operator: exists
-  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Review Ingress-NGINX Usage</h4>\n  <ul>\n    <li>Inventory IngressClasses and controller deployments that use Ingress-NGINX.</li>\n    <li>Plan a migration path to Gateway API or another actively maintained ingress controller.</li>\n    <li>Validate behavior differences in a staging environment before routing production traffic.</li>\n  </ul>\n</div>"
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Review Ingress-NGINX Usage</h4>\n  <ul>\n    <li>Inventory the controller Deployment, IngressClass, admission webhook, and all Ingress objects that depend on this controller.</li>\n    <li>Confirm who owns patching and version upgrades for the controller; do not leave it as an unowned cluster component.</li>\n    <li>For new routes, prefer Gateway API where your platform supports it; for existing routes, plan a staged migration with hostname-by-hostname validation.</li>\n    <li>Test annotation differences, TLS behavior, path matching, and rewrite rules in a staging environment before moving production traffic.</li>\n  </ul>\n</div>"
   speech_bubble:
   - Ingress-NGINX components are present.
   - Review whether this controller is still the right ingress path.
@@ -519,13 +519,13 @@ checks:
   weight: 3
   description: Detects PersistentVolumeClaims with failed volume expansion status or resize failure events.
   fail_message: PVC has volume expansion failure signals.
-  recommendation: "Investigate failed volume expansion events, verify the StorageClass supports expansion, and confirm the CSI driver can complete controller and node resize operations."
+  recommendation: "Investigate failed volume expansion events, verify the StorageClass supports expansion, and confirm the CSI driver can complete controller and node resize operations. Avoid repeatedly increasing requested size until the failure reason is clear."
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#expanding-persistent-volumes-claims
   native_handler: PVC005
   value:
     path: metadata.name
   operator: exists
-  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Troubleshoot PVC Expansion</h4>\n  <ul>\n    <li>Run <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> and inspect resize events.</li>\n    <li>Check that the StorageClass has <code>allowVolumeExpansion: true</code>.</li>\n    <li>Verify the CSI driver and node plugin are healthy and support online/offline resize for the volume type.</li>\n  </ul>\n</div>"
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>Troubleshoot PVC Expansion</h4>\n  <ul>\n    <li>Run <code>kubectl describe pvc &lt;name&gt; -n &lt;namespace&gt;</code> and inspect resize events before changing the requested size again.</li>\n    <li>Check that the StorageClass has <code>allowVolumeExpansion: true</code> and that the provisioner supports expansion for this volume type.</li>\n    <li>Verify the CSI controller and node plugin pods are healthy, then check whether the filesystem requires pod restart or offline resize.</li>\n    <li>If the backend volume expanded but the filesystem did not, follow the CSI/provider recovery steps rather than recreating the PVC blindly.</li>\n  </ul>\n</div>"
   speech_bubble:
   - This PVC shows resize failure signals.
   - Check events, StorageClass expansion support, and CSI health.

@@ -115,6 +115,7 @@ func TestWriteScanResultHTML(t *testing.T) {
 	err := WriteScanResultWithMetadata(&buf, scan.Result{
 		Checks: []scan.CheckResult{{ID: "X001", Name: "Check", Category: "Cat", Severity: "High", Total: 0}},
 	}, ModeHTML, Metadata{
+		ClusterName: "aks-test",
 		Snapshot: &kubernetes.ClusterData{
 			Summary: kubernetes.Summary{
 				Context:    "aks-test",
@@ -139,5 +140,11 @@ func TestWriteScanResultHTML(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "Cluster Summary") {
 		t.Fatalf("expected snapshot-backed summary section, got %s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "Kubernetes Cluster Report: aks-test") {
+		t.Fatalf("expected html report header to use cluster name, got %s", buf.String())
+	}
+	if strings.Contains(buf.String(), "Cluster Name:</strong> KubeBuddy Native Report") {
+		t.Fatalf("expected html report overview to avoid generic cluster name, got %s", buf.String())
 	}
 }

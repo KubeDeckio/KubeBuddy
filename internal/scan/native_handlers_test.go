@@ -306,6 +306,100 @@ func TestNewRiskHandlers(t *testing.T) {
 			want:     1,
 			wantText: "registry-creds",
 		},
+		{
+			name:  "sec029 sensitive hostpath",
+			check: checks.Check{ID: "SEC029", NativeHandler: "SEC029"},
+			items: []map[string]any{{
+				"metadata": map[string]any{"name": "runtime-debug", "namespace": "apps"},
+				"spec": map[string]any{"volumes": []any{
+					map[string]any{"name": "runtime", "hostPath": map[string]any{"path": "/var/run/docker.sock"}},
+				}},
+			}},
+			cache:    map[string][]map[string]any{},
+			want:     1,
+			wantText: "docker.sock",
+		},
+		{
+			name:  "sec030 fail open webhook",
+			check: checks.Check{ID: "SEC030", NativeHandler: "SEC030"},
+			items: []map[string]any{{}},
+			cache: map[string][]map[string]any{
+				"mutatingwebhookconfigurations": {},
+				"validatingwebhookconfigurations": {{
+					"metadata": map[string]any{"name": "policy-webhook"},
+					"webhooks": []any{map[string]any{
+						"name":          "validate.example.test",
+						"failurePolicy": "Ignore",
+						"sideEffects":   "Some",
+						"rules": []any{map[string]any{
+							"operations": []any{"*"},
+							"resources":  []any{"*"},
+						}},
+					}},
+				}},
+			},
+			want:     1,
+			wantText: "failurePolicy=Ignore",
+		},
+		{
+			name:  "wrk016 missing recommended labels",
+			check: checks.Check{ID: "WRK016", NativeHandler: "WRK016"},
+			items: []map[string]any{{}},
+			cache: map[string][]map[string]any{
+				"deployments": {{
+					"metadata": map[string]any{"name": "web", "namespace": "apps", "labels": map[string]any{"app.kubernetes.io/name": "web"}},
+					"spec":     map[string]any{"template": map[string]any{"metadata": map[string]any{"labels": map[string]any{}}}},
+				}},
+				"statefulsets": {},
+				"daemonsets":   {},
+			},
+			want:     1,
+			wantText: "app.kubernetes.io/instance",
+		},
+		{
+			name:  "rbac006 dangerous verb",
+			check: checks.Check{ID: "RBAC006", NativeHandler: "RBAC006"},
+			items: []map[string]any{{}},
+			cache: map[string][]map[string]any{
+				"clusterroles": {{
+					"metadata": map[string]any{"name": "impersonator"},
+					"rules":    []any{map[string]any{"resources": []any{"users"}, "verbs": []any{"impersonate"}}},
+				}},
+				"roles":        {},
+				"rolebindings": {},
+				"clusterrolebindings": {{
+					"metadata": map[string]any{"name": "impersonator-binding"},
+					"roleRef":  map[string]any{"kind": "ClusterRole", "name": "impersonator"},
+					"subjects": []any{map[string]any{"kind": "ServiceAccount", "name": "ops", "namespace": "apps"}},
+				}},
+			},
+			want:     1,
+			wantText: "impersonate",
+		},
+		{
+			name:  "pod010 naked pod",
+			check: checks.Check{ID: "POD010", NativeHandler: "POD010"},
+			items: []map[string]any{{
+				"metadata": map[string]any{"name": "one-off", "namespace": "apps"},
+			}},
+			cache:    map[string][]map[string]any{},
+			want:     1,
+			wantText: "not managed",
+		},
+		{
+			name:  "job003 cronjob hygiene",
+			check: checks.Check{ID: "JOB003", NativeHandler: "JOB003"},
+			items: []map[string]any{{
+				"metadata": map[string]any{"name": "nightly", "namespace": "apps"},
+				"spec": map[string]any{
+					"successfulJobsHistoryLimit": 0,
+					"suspend":                    true,
+				},
+			}},
+			cache:    map[string][]map[string]any{},
+			want:     1,
+			wantText: "concurrencyPolicy",
+		},
 	}
 
 	for _, tt := range tests {

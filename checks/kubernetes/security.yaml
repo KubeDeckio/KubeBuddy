@@ -567,8 +567,9 @@ checks:
       where:
         path: expression
         operator: exists
-  operator: equals
+  operator: greater_than
   expected: 0
+  native_handler: SEC026
   speech_bubble:
   - "\U0001F916 A ValidatingAdmissionPolicy with no validation rules enforces nothing."
   - "\U0001F4CC Add CEL expressions to spec.validations to define the admission constraints."
@@ -582,8 +583,8 @@ checks:
   weight: 3
   description: Detects pods that use the legacy gitRepo volume source, which clones repository contents into a pod volume.
   fail_message: Pod uses a gitRepo volume.
-  recommendation: "Replace gitRepo volumes with an init container, git-sync sidecar, or build-time artifact packaging."
-  recommendation_html: "<ul>\n  <li>Remove <code>gitRepo</code> volume sources from Pod specs.</li>\n  <li>Use an init container or a maintained sync tool to fetch repository content if runtime checkout is required.</li>\n  <li>Prefer immutable images or packaged artifacts for application code.</li>\n</ul>"
+  recommendation: "Replace gitRepo volumes with an init container, git-sync sidecar, or build-time artifact packaging. Pin the repository revision and avoid writing fetched code into trusted runtime paths."
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Remove <code>gitRepo</code> volume sources from Pod specs; the volume type is legacy and hides runtime code fetches inside scheduling.</li>\n    <li>Prefer packaging application code into the image or an immutable artifact at build time.</li>\n    <li>If runtime checkout is required, use an init container or maintained sync tool with a pinned commit or tag, read-only credentials, and a non-sensitive mount path.</li>\n    <li>Update the owning Deployment, Job, Helm chart, or GitOps source so the pod is not recreated with the same volume.</li>\n  </ul>\n</div>"
   url: https://kubernetes.io/docs/concepts/storage/volumes/#gitrepo
   native_handler: SEC027
   value:
@@ -601,8 +602,8 @@ checks:
   weight: 1
   description: Flags Pods or ServiceAccounts that reference imagePullSecrets, which may represent long-lived registry credentials that need rotation.
   fail_message: Workload uses imagePullSecrets.
-  recommendation: "Review imagePullSecrets for least privilege and rotation. Where supported, prefer short-lived registry credentials or workload identity based image pulls."
-  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Verify each referenced image pull Secret is scoped to the smallest namespace and registry access needed.</li>\n    <li>Rotate long-lived registry credentials regularly and remove unused pull secrets.</li>\n    <li>Where supported, prefer short-lived credentials or workload identity based image pulls.</li>\n  </ul>\n</div>\n"
+  recommendation: "Review imagePullSecrets for least privilege and rotation. Replace shared long-lived registry credentials with namespace-scoped credentials or identity-based pulls where supported."
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Identify whether the finding comes from a Pod-level <code>imagePullSecrets</code> entry or a ServiceAccount default.</li>\n    <li>Scope each pull Secret to the smallest namespace and registry repository set needed; avoid reusing one broad credential across teams.</li>\n    <li>Rotate long-lived registry tokens and remove pull Secrets that are no longer referenced by active workloads.</li>\n    <li>Where the platform supports it, move to workload identity or short-lived registry credentials so static pull secrets are not stored in the cluster.</li>\n  </ul>\n</div>\n"
   url: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
   native_handler: SEC028
   value:
@@ -612,3 +613,41 @@ checks:
   - Image pull secrets can become long-lived registry credentials.
   - Review scope and rotation for every pull secret.
   - Prefer short-lived identity-based pulls where supported.
+- id: SEC029
+  name: Sensitive HostPath Mounts
+  category: Pod Security
+  section: Security
+  resource_kind: Pod
+  severity: Critical
+  weight: 5
+  description: Detects hostPath volumes that mount container runtime sockets or sensitive host filesystem paths.
+  fail_message: Pod mounts a sensitive hostPath.
+  recommendation: "Remove sensitive hostPath mounts such as runtime sockets, /proc, /sys, /etc, or kubelet directories. For image pre-pullers and node agents, replace runtime socket mounts with Kubernetes APIs, DaemonSet-scoped alternatives, or a documented exception in a trusted namespace."
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Use the Problem YAML path to identify the exact volume and host path, then update the owning Deployment, DaemonSet, Job, Helm values, or GitOps source.</li>\n    <li>Remove runtime socket mounts such as <code>/var/run/docker.sock</code> and <code>/run/containerd/containerd.sock</code>; they can expose container runtime control to the pod.</li>\n    <li>Replace broad host filesystem mounts such as <code>/proc</code>, <code>/sys</code>, <code>/etc</code>, and <code>/var/lib/kubelet</code> with Kubernetes APIs, projected volumes, ConfigMaps, Secrets, PVCs, or a narrower read-only path.</li>\n    <li>If this is an intentional node agent or image pre-puller, keep it in a tightly controlled namespace, restrict RBAC and scheduling, make the mount read-only where possible, and document the exception.</li>\n  </ul>\n</div>"
+  url: https://kubernetes.io/docs/concepts/storage/volumes/#hostpath
+  native_handler: SEC029
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Sensitive hostPath mounts can expose the node or container runtime.
+  - Remove runtime sockets and broad host filesystem mounts from application pods.
+- id: SEC030
+  name: Admission Webhook Fail-Open or Broad Scope
+  category: Policy Enforcement
+  section: Security
+  resource_kind: MutatingWebhookConfiguration, ValidatingWebhookConfiguration
+  severity: High
+  weight: 4
+  description: Flags admission webhooks that fail open, omit sideEffects, or apply broadly across resources without namespace scoping.
+  fail_message: Admission webhook may fail open or apply too broadly.
+  recommendation: "Set failurePolicy: Fail for security-sensitive webhooks, declare sideEffects: None or NoneOnDryRun, and scope webhook rules and namespace selectors narrowly. Keep only intentionally platform-wide webhooks broad."
+  recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>For policy or security enforcement webhooks, set <code>failurePolicy: Fail</code> so API writes are blocked when the webhook is unavailable.</li>\n    <li>Set <code>sideEffects: None</code> or <code>NoneOnDryRun</code> so dry-run and admission behavior are explicit.</li>\n    <li>Replace wildcard resources, operations, or API groups with the smallest set the webhook actually validates or mutates.</li>\n    <li>Add <code>namespaceSelector</code> or <code>objectSelector</code> exclusions for system namespaces if the webhook should not apply cluster-wide.</li>\n    <li>After changing scope, test create/update/delete paths for representative workloads before applying to production clusters.</li>\n  </ul>\n</div>"
+  url: https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/
+  native_handler: SEC030
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Admission webhooks can silently weaken policy if they fail open.
+  - Scope webhook rules carefully and make side effects explicit.
