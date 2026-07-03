@@ -1,13 +1,24 @@
 package ai
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	anthropic "github.com/anthropics/anthropic-sdk-go"
+	anthropicopt "github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/openai/openai-go/v3"
+	openaiopt "github.com/openai/openai-go/v3/option"
+)
+
+const (
+	defaultProvider = "openai"
+	defaultBaseURL  = "https://api.openai.com/v1/"
+	defaultModel    = "gpt-5-mini"
 )
 
 type Recommendation struct {
@@ -16,37 +27,135 @@ type Recommendation struct {
 }
 
 type Client struct {
-	apiKey  string
-	baseURL string
-	model   string
-	client  *http.Client
+	provider string
+	apiKey   string
+	baseURL  string
+	model    string
+	openai   openai.Client
+	claude   anthropic.Client
+}
+
+type clientConfig struct {
+	provider string
+	apiKey   string
+	baseURL  string
+	model    string
+	native   string
 }
 
 func NewFromEnv() *Client {
-	key := strings.TrimSpace(os.Getenv("OpenAIKey"))
-	if key == "" {
-		key = strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
-	}
-	if key == "" {
+	cfg := configFromEnv()
+	if cfg.apiKey == "" {
 		return nil
 	}
-	baseURL := strings.TrimSpace(os.Getenv("OPENAI_BASE_URL"))
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1/responses"
+	return newClient(cfg, &http.Client{Timeout: 45 * time.Second})
+}
+
+func newClient(cfg clientConfig, httpClient *http.Client) *Client {
+	c := &Client{
+		provider: cfg.provider,
+		apiKey:   cfg.apiKey,
+		baseURL:  cfg.baseURL,
+		model:    cfg.model,
 	}
-	model := strings.TrimSpace(os.Getenv("KUBEBUDDY_OPENAI_MODEL"))
-	if model == "" {
-		model = "gpt-5-mini"
+	if cfg.native == "anthropic" {
+		opts := []anthropicopt.RequestOption{
+			anthropicopt.WithAPIKey(cfg.apiKey),
+			anthropicopt.WithBaseURL(cfg.baseURL),
+		}
+		if httpClient != nil {
+			opts = append(opts, anthropicopt.WithHTTPClient(httpClient))
+		}
+		c.claude = anthropic.NewClient(opts...)
+		return c
 	}
-	return &Client{
-		apiKey:  key,
-		baseURL: baseURL,
-		model:   model,
-		client:  &http.Client{Timeout: 45 * time.Second},
+
+	opts := []openaiopt.RequestOption{
+		openaiopt.WithAPIKey(cfg.apiKey),
+		openaiopt.WithBaseURL(cfg.baseURL),
 	}
+	if httpClient != nil {
+		opts = append(opts, openaiopt.WithHTTPClient(httpClient))
+	}
+	c.openai = openai.NewClient(opts...)
+	return c
+}
+
+func configFromEnv() clientConfig {
+	provider := normalizeProvider(firstNonEmpty(
+		os.Getenv("AI_PROVIDER"),
+		os.Getenv("KUBEBUDDY_AI_PROVIDER"),
+	))
+
+	// Preserve the older Azure-specific setup even when AI_PROVIDER is not set.
+	if provider == "" && strings.TrimSpace(os.Getenv("AZURE_OPENAI_ENDPOINT")) != "" {
+		provider = "azure-openai"
+	}
+	if provider == "" {
+		provider = defaultProvider
+	}
+
+	cfg := clientConfig{provider: provider}
+	switch provider {
+	case "azure-openai":
+		cfg.apiKey = firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("AZURE_OPENAI_API_KEY"), os.Getenv("AZURE_OPENAI_AUTH_TOKEN"))
+		cfg.baseURL = firstNonEmpty(os.Getenv("AI_BASE_URL"), os.Getenv("AZURE_OPENAI_BASE_URL"), azureOpenAIBaseURL(os.Getenv("AZURE_OPENAI_ENDPOINT")))
+		cfg.model = firstNonEmpty(os.Getenv("AI_MODEL"), os.Getenv("AZURE_OPENAI_DEPLOYMENT"), os.Getenv("KUBEBUDDY_AZURE_OPENAI_DEPLOYMENT"), os.Getenv("KUBEBUDDY_OPENAI_MODEL"))
+	case "foundry":
+		cfg.apiKey = firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("FOUNDRY_API_KEY"), os.Getenv("AZURE_AI_FOUNDRY_API_KEY"), os.Getenv("AZURE_OPENAI_API_KEY"))
+		cfg.baseURL = firstNonEmpty(os.Getenv("AI_BASE_URL"), os.Getenv("FOUNDRY_BASE_URL"), os.Getenv("AZURE_AI_FOUNDRY_BASE_URL"), foundryBaseURL(os.Getenv("FOUNDRY_ENDPOINT")), foundryBaseURL(os.Getenv("AZURE_AI_FOUNDRY_ENDPOINT")))
+		cfg.model = firstNonEmpty(os.Getenv("AI_MODEL"), os.Getenv("FOUNDRY_MODEL"), os.Getenv("AZURE_AI_FOUNDRY_MODEL"), os.Getenv("AZURE_OPENAI_DEPLOYMENT"), os.Getenv("KUBEBUDDY_OPENAI_MODEL"))
+	case "gemini":
+		cfg.apiKey = firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("GEMINI_API_KEY"), os.Getenv("GOOGLE_API_KEY"))
+		cfg.baseURL = firstNonEmpty(os.Getenv("AI_BASE_URL"), os.Getenv("GEMINI_BASE_URL"), "https://generativelanguage.googleapis.com/v1beta/openai/")
+		cfg.model = firstNonEmpty(os.Getenv("AI_MODEL"), os.Getenv("GEMINI_MODEL"), os.Getenv("KUBEBUDDY_OPENAI_MODEL"))
+	case "anthropic":
+		cfg.apiKey = firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("ANTHROPIC_API_KEY"), os.Getenv("CLAUDE_API_KEY"))
+		cfg.baseURL = firstNonEmpty(os.Getenv("AI_BASE_URL"), os.Getenv("ANTHROPIC_BASE_URL"), os.Getenv("CLAUDE_BASE_URL"), "https://api.anthropic.com/")
+		cfg.model = firstNonEmpty(os.Getenv("AI_MODEL"), os.Getenv("ANTHROPIC_MODEL"), os.Getenv("CLAUDE_MODEL"), os.Getenv("KUBEBUDDY_OPENAI_MODEL"))
+		cfg.native = "anthropic"
+	default:
+		cfg.apiKey = firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("OpenAIKey"), os.Getenv("OPENAI_API_KEY"))
+		cfg.baseURL = firstNonEmpty(os.Getenv("AI_BASE_URL"), os.Getenv("OPENAI_BASE_URL"), defaultBaseURL)
+		cfg.model = firstNonEmpty(os.Getenv("AI_MODEL"), os.Getenv("KUBEBUDDY_OPENAI_MODEL"))
+	}
+
+	if cfg.baseURL == "" {
+		cfg.baseURL = defaultBaseURL
+	}
+	if cfg.model == "" {
+		cfg.model = defaultModel
+		if cfg.native == "anthropic" {
+			cfg.model = "claude-sonnet-4-5"
+		}
+	}
+	cfg.baseURL = ensureTrailingSlash(cfg.baseURL)
+	return cfg
 }
 
 func (c *Client) Recommend(checkID string, checkName string, description string, findings any) (*Recommendation, error) {
+	text, err := c.recommendText(checkID, checkName, description, findings)
+	if err != nil {
+		return nil, err
+	}
+	text = strings.TrimSpace(strings.Trim(text, "`"))
+	if text == "" {
+		return nil, fmt.Errorf("empty ai response")
+	}
+
+	var result Recommendation
+	if err := json.Unmarshal([]byte(extractJSONObject(text)), &result); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(result.HTML) == "" {
+		return nil, fmt.Errorf("missing ai html recommendation")
+	}
+	result.Text = strings.TrimSpace(result.Text)
+	result.HTML = strings.TrimSpace(result.HTML)
+	return &result, nil
+}
+
+func (c *Client) recommendText(checkID string, checkName string, description string, findings any) (string, error) {
 	findingsJSON, _ := json.Marshal(findings)
 	prompt := fmt.Sprintf(`You are an expert Kubernetes advisor.
 
@@ -63,63 +172,98 @@ Return JSON only with this exact shape:
 
 Do not use markdown fences.`, checkID, checkName, description, string(findingsJSON))
 
-	reqBody := map[string]any{
-		"model":             c.model,
-		"input":             prompt,
-		"max_output_tokens": 800,
-	}
-	body, _ := json.Marshal(reqBody)
-	req, err := http.NewRequest(http.MethodPost, c.baseURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("openai returned %s", resp.Status)
-	}
-
-	var payload struct {
-		Output []struct {
-			Content []struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
-			} `json:"content"`
-		} `json:"output"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, err
-	}
-
-	var raw strings.Builder
-	for _, item := range payload.Output {
-		for _, content := range item.Content {
-			if strings.TrimSpace(content.Text) != "" {
+	if c.provider == "anthropic" {
+		resp, err := c.claude.Messages.New(context.Background(), anthropic.MessageNewParams{
+			Model:     anthropic.Model(c.model),
+			MaxTokens: 800,
+			Messages: []anthropic.MessageParam{
+				anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
+			},
+		})
+		if err != nil {
+			return "", fmt.Errorf("%s ai returned error: %w", c.provider, err)
+		}
+		var raw strings.Builder
+		for _, content := range resp.Content {
+			if content.Text != "" {
 				raw.WriteString(content.Text)
 			}
 		}
-	}
-	text := strings.TrimSpace(strings.Trim(raw.String(), "`"))
-	if text == "" {
-		return nil, fmt.Errorf("empty ai response")
+		return raw.String(), nil
 	}
 
-	var result Recommendation
-	if err := json.Unmarshal([]byte(extractJSONObject(text)), &result); err != nil {
-		return nil, err
+	resp, err := c.openai.Chat.Completions.New(context.Background(), openai.ChatCompletionNewParams{
+		Model: openai.ChatModel(c.model),
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.UserMessage(prompt),
+		},
+		MaxCompletionTokens: openai.Int(800),
+	})
+	if err != nil {
+		return "", fmt.Errorf("%s ai returned error: %w", c.provider, err)
 	}
-	if strings.TrimSpace(result.HTML) == "" {
-		return nil, fmt.Errorf("missing ai html recommendation")
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("empty ai response")
 	}
-	result.Text = strings.TrimSpace(result.Text)
-	result.HTML = strings.TrimSpace(result.HTML)
-	return &result, nil
+	return resp.Choices[0].Message.Content, nil
+}
+
+func normalizeProvider(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "openai":
+		return strings.ToLower(strings.TrimSpace(value))
+	case "azure", "azureopenai", "azure-openai", "azure_openai":
+		return "azure-openai"
+	case "ms-foundry", "microsoft-foundry", "azure-foundry", "azure_ai_foundry", "foundry":
+		return "foundry"
+	case "google", "google-gemini", "gemini":
+		return "gemini"
+	case "anthropic", "claude":
+		return "anthropic"
+	case "compatible", "openai-compatible", "openai_compatible", "custom":
+		return "openai-compatible"
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func azureOpenAIBaseURL(endpoint string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(endpoint), "/")
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasSuffix(trimmed, "/openai/v1") {
+		return trimmed + "/"
+	}
+	return trimmed + "/openai/v1/"
+}
+
+func foundryBaseURL(endpoint string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(endpoint), "/")
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasSuffix(trimmed, "/openai/v1") {
+		return trimmed + "/"
+	}
+	return trimmed + "/openai/v1/"
+}
+
+func ensureTrailingSlash(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || strings.HasSuffix(trimmed, "/") {
+		return trimmed
+	}
+	return trimmed + "/"
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func extractJSONObject(value string) string {

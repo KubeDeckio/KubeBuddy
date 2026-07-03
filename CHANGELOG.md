@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+* Added SDK-backed AI provider support for recommendation enrichment, including OpenAI-compatible endpoints, Azure OpenAI, Microsoft Foundry, Gemini, native Claude/Anthropic, and custom OpenAI-compatible gateways.
+
 ## [0.0.32] - 2026-07-02
 
 ### Added

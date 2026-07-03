@@ -165,7 +165,27 @@ Container-oriented entrypoint that reads configuration from environment variable
 | `RADAR_API_USER_ENV` | Name of the env var containing the Radar API user |
 | `RADAR_API_SECRET_ENV` | Name of the env var containing the Radar API secret |
 | `RADAR_API_PASSWORD_ENV` | Legacy alias for `RADAR_API_SECRET_ENV` |
-| `OpenAIKey` | OpenAI API key for native AI enrichment |
+| `AI_PROVIDER` | Optional AI provider alias: `openai`, `azure-openai`, `foundry`, `gemini`, `anthropic`, or `openai-compatible` |
+| `AI_API_KEY` | AI provider API key |
+| `AI_BASE_URL` | Optional OpenAI-compatible chat completions base URL |
+| `AI_MODEL` | AI model or deployment name |
+| `OpenAIKey` | Legacy OpenAI API key for native AI enrichment |
+| `OPENAI_API_KEY` | Alternative OpenAI API key for native AI enrichment |
+| `OPENAI_BASE_URL` | Optional OpenAI-compatible base URL |
+| `KUBEBUDDY_OPENAI_MODEL` | Legacy model name for OpenAI-compatible enrichment |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint, for example `https://<resource>.openai.azure.com` |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key for native AI enrichment |
+| `AZURE_OPENAI_AUTH_TOKEN` | Azure OpenAI bearer token alternative to `AZURE_OPENAI_API_KEY` |
+| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment name used as the model |
+| `KUBEBUDDY_AZURE_OPENAI_DEPLOYMENT` | Alternative Azure OpenAI deployment-name variable |
+| `AZURE_OPENAI_BASE_URL` | Optional Azure OpenAI base URL override |
+| `FOUNDRY_ENDPOINT` | Microsoft Foundry endpoint, for example `https://<resource>.services.ai.azure.com` |
+| `FOUNDRY_API_KEY` | Microsoft Foundry API key |
+| `FOUNDRY_MODEL` | Microsoft Foundry model deployment name |
+| `GEMINI_API_KEY` | Google Gemini API key |
+| `GEMINI_MODEL` | Gemini model name |
+| `ANTHROPIC_API_KEY` | Anthropic API key for the native Claude SDK path |
+| `ANTHROPIC_MODEL` | Claude model name |
 
 ## AI Enrichment
 
@@ -173,7 +193,20 @@ Native AI enrichment is environment-driven.
 
 | Input | Description |
 | --- | --- |
-| `OpenAIKey` | OpenAI API key used for AI-generated recommendation enrichment on failing checks |
+| `AI_PROVIDER` | Provider alias: `openai`, `azure-openai`, `foundry`, `gemini`, `anthropic`, or `openai-compatible` |
+| `AI_API_KEY` | Provider API key. This is the preferred generic key variable. |
+| `AI_BASE_URL` | Optional OpenAI-compatible chat completions base URL. Use this for custom gateways and providers not listed here. |
+| `AI_MODEL` | Model or deployment name. This is the preferred generic model variable. |
+| `OpenAIKey` / `OPENAI_API_KEY` | OpenAI-compatible key aliases kept for existing users |
+| `OPENAI_BASE_URL` | OpenAI-compatible base URL alias; defaults to `https://api.openai.com/v1/` |
+| `AZURE_OPENAI_ENDPOINT` | Enables Azure OpenAI mode when paired with `AZURE_OPENAI_API_KEY` or `AZURE_OPENAI_AUTH_TOKEN` |
+| `AZURE_OPENAI_API_KEY` / `AZURE_OPENAI_AUTH_TOKEN` | Azure OpenAI API key or bearer token |
+| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment name |
+| `FOUNDRY_ENDPOINT` / `FOUNDRY_API_KEY` / `FOUNDRY_MODEL` | Microsoft Foundry endpoint, key, and model deployment aliases |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini key and model aliases using Gemini's OpenAI-compatible endpoint |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic/Claude key and model aliases using the native Anthropic SDK |
+
+KubeBuddy sends AI enrichment through OpenAI-compatible chat completions for OpenAI, Azure OpenAI, Microsoft Foundry, Gemini, and custom gateways. The `anthropic` provider uses the native Anthropic Messages API. Provider aliases set defaults for API key, base URL, and model; use `AI_BASE_URL` for any other OpenAI-compatible service or gateway.
 
 ## PowerShell Wrapper Notes
 

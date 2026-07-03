@@ -35,6 +35,36 @@ $env:OpenAIKey = "<your-openai-api-key>"
 
 KubeBuddy will detect this and enrich reports with AI-generated summaries and HTML guidance where applicable.
 
+For Azure OpenAI, set the Azure OpenAI resource endpoint, API key or bearer token, and deployment name:
+
+```powershell
+$env:AZURE_OPENAI_ENDPOINT = "https://<resource>.openai.azure.com"
+$env:AZURE_OPENAI_API_KEY = "<azure-openai-api-key>"
+$env:AZURE_OPENAI_DEPLOYMENT = "<deployment-name>"
+```
+
+For other OpenAI-compatible providers, use the generic variables:
+
+```powershell
+$env:AI_PROVIDER = "gemini" # openai, azure-openai, foundry, gemini, anthropic, or openai-compatible
+$env:AI_API_KEY = "<provider-api-key>"
+$env:AI_MODEL = "<model-name>"
+```
+
+For Claude, use Anthropic's native provider path:
+
+```powershell
+$env:AI_PROVIDER = "anthropic"
+$env:ANTHROPIC_API_KEY = "<anthropic-api-key>"
+$env:ANTHROPIC_MODEL = "<claude-model-name>"
+```
+
+For a custom OpenAI-compatible gateway or provider, also set:
+
+```powershell
+$env:AI_BASE_URL = "https://<provider>/v1/"
+```
+
 ## 🔗 Related Guide
 
 If you're running AKS checks or using the `-Aks` flag, see the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) guide for prerequisites and role setup.

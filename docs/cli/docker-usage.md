@@ -180,11 +180,31 @@ inside the image and maps the environment variables below onto the same runtime.
 
 ### 🤖 AI Recommendations (Optional)
 
-| Variable    | Description                                                                   |
-| ----------- | ----------------------------------------------------------------------------- |
-| `OpenAIKey` | Your OpenAI API key. Enables native AI enrichment for failing checks. |
+| Variable | Description |
+| -------- | ----------- |
+| `AI_PROVIDER` | Optional provider alias: `openai`, `azure-openai`, `foundry`, `gemini`, `anthropic`, or `openai-compatible`. |
+| `AI_API_KEY` | Provider API key. |
+| `AI_BASE_URL` | Optional OpenAI-compatible chat completions base URL. |
+| `AI_MODEL` | Model or deployment name. Defaults to `gpt-5-mini`. |
+| `OpenAIKey` | Legacy OpenAI API key. Enables native AI enrichment for failing checks. |
+| `OPENAI_API_KEY` | Alternative OpenAI API key variable. |
+| `OPENAI_BASE_URL` | Optional OpenAI-compatible base URL. |
+| `KUBEBUDDY_OPENAI_MODEL` | Legacy model name. Defaults to `gpt-5-mini`. |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint, for example `https://<resource>.openai.azure.com`. |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI API key. |
+| `AZURE_OPENAI_AUTH_TOKEN` | Bearer token alternative for Azure OpenAI. |
+| `AZURE_OPENAI_DEPLOYMENT` | Azure OpenAI deployment name used as the model. |
+| `KUBEBUDDY_AZURE_OPENAI_DEPLOYMENT` | Alternative Azure deployment-name variable. |
+| `AZURE_OPENAI_BASE_URL` | Optional Azure OpenAI base URL override. |
+| `FOUNDRY_ENDPOINT` | Microsoft Foundry endpoint, for example `https://<resource>.services.ai.azure.com`. |
+| `FOUNDRY_API_KEY` | Microsoft Foundry API key. |
+| `FOUNDRY_MODEL` | Microsoft Foundry model deployment name. |
+| `GEMINI_API_KEY` | Google Gemini API key. |
+| `GEMINI_MODEL` | Gemini model name. |
+| `ANTHROPIC_API_KEY` | Anthropic API key for the native Claude SDK path. |
+| `ANTHROPIC_MODEL` | Claude model name. |
 
-> ✅ If `OpenAIKey` is provided, KubeBuddy uses the native AI client to generate AI-powered recommendations for failing checks:
+> ✅ If an AI key is provided, KubeBuddy uses the native AI client to generate AI-powered recommendations for failing checks:
 >     • **Short text summary** (shown in the plain-text report)
 >     • **Rich HTML block** (included in the HTML report)
 >
@@ -198,6 +218,59 @@ inside the image and maps the environment variables below onto the same runtime.
 ```bash
 docker run -it --rm \
   -e OpenAIKey="sk-..." \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+For Azure OpenAI, use your Azure OpenAI resource endpoint and deployment name:
+
+```bash
+docker run -it --rm \
+  -e AZURE_OPENAI_ENDPOINT="https://<resource>.openai.azure.com" \
+  -e AZURE_OPENAI_API_KEY="<azure-openai-api-key>" \
+  -e AZURE_OPENAI_DEPLOYMENT="<deployment-name>" \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+For Gemini, use the provider alias and Gemini model name:
+
+```bash
+docker run -it --rm \
+  -e AI_PROVIDER="gemini" \
+  -e GEMINI_API_KEY="<gemini-api-key>" \
+  -e GEMINI_MODEL="gemini-3.5-flash" \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+For Claude, use the Anthropic provider alias and Claude model name:
+
+```bash
+docker run -it --rm \
+  -e AI_PROVIDER="anthropic" \
+  -e ANTHROPIC_API_KEY="<anthropic-api-key>" \
+  -e ANTHROPIC_MODEL="<claude-model-name>" \
+  -e HTML_REPORT="true" \
+  -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
+  -v $HOME/kubebuddy-report:/app/Reports \
+  ghcr.io/kubedeckio/kubebuddy:$tagId
+```
+
+For any OpenAI-compatible service, provide the base URL directly:
+
+```bash
+docker run -it --rm \
+  -e AI_PROVIDER="openai-compatible" \
+  -e AI_BASE_URL="https://<provider>/v1/" \
+  -e AI_API_KEY="<provider-api-key>" \
+  -e AI_MODEL="<model-name>" \
   -e HTML_REPORT="true" \
   -v $HOME/.kube/config:/tmp/kubeconfig-original:ro \
   -v $HOME/kubebuddy-report:/app/Reports \
