@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## ## [0.0.33] - 2026-07-15
+
+### Security
+
+* Bumped `golang.org/x/crypto` from `0.51.0` to `0.52.0` to address CVE-2026-39834, which could cause an infinite loop on large channel writes.
+
+### Changed
+
+* Bumped `golang.org/x/term` from `0.44.0` to `0.45.0`.
+
 ## [0.0.32] - 2026-07-02
 
 ### Added
