@@ -12,7 +12,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
     It 'forwards report flags to the native CLI' {
         Invoke-KubeBuddy -HtmlReport -jsonReport -CsvReport -txtReport -outputpath $PWD -yes
 
-        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Should -Invoke -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $Arguments -contains 'run' -and
             $Arguments -contains '--html-report' -and
             $Arguments -contains '--json-report' -and
@@ -25,7 +25,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
     It 'defaults to an HTML report when no report flag is provided' {
         Invoke-KubeBuddy -outputpath $PWD
 
-        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Should -Invoke -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $Arguments -contains 'run' -and
             $Arguments -contains '--html-report' -and
             -not ($Arguments -contains '--json-report') -and
@@ -49,7 +49,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
             -PrometheusMode 'azure' `
             -PrometheusBearerTokenEnv 'PROM_TOKEN'
 
-        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Should -Invoke -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $Arguments -contains '--aks' -and
             $Arguments -contains '--subscription-id' -and
             $Arguments -contains 'sub' -and
@@ -78,7 +78,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
 
         Invoke-KubeBuddy -HtmlReport -PrometheusCredential $credential
 
-        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Should -Invoke -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $Environment['PROMETHEUS_USERNAME'] -eq 'robot' -and
             $Environment['PROMETHEUS_PASSWORD'] -eq 'secret' -and
             $Arguments -contains '--prometheus-mode' -and
@@ -89,7 +89,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
     It 'passes through the native tui command' {
         Invoke-KubeBuddy -Tui -ConfigPath "$PWD/test-config.yaml" -ExcludeNamespaces
 
-        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Should -Invoke -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $Arguments[0] -eq 'tui' -and
             $Arguments -contains '--config-path' -and
             $Arguments -contains "$PWD/test-config.yaml" -and
@@ -101,7 +101,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
     It 'passes through the native menu command' {
         Invoke-KubeBuddy -Menu -SubscriptionId 'sub' -ResourceGroup 'rg' -ClusterName 'cluster'
 
-        Assert-MockCalled -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Should -Invoke -CommandName Invoke-KubeBuddyNativeCommand -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $Arguments[0] -eq 'menu' -and
             $Arguments -contains '--subscription-id' -and
             $Arguments -contains 'sub' -and
@@ -115,7 +115,7 @@ Describe 'Invoke-KubeBuddy wrapper' {
     It 'renames generated reports when outputpath targets a file basename' {
         Invoke-KubeBuddy -HtmlReport -jsonReport -outputpath (Join-Path $PWD 'custom-report.html')
 
-        Assert-MockCalled -CommandName Move-KubeBuddyGeneratedReport -ModuleName KubeBuddy -Times 1 -ParameterFilter {
+        Should -Invoke -CommandName Move-KubeBuddyGeneratedReport -ModuleName KubeBuddy -Times 1 -ParameterFilter {
             $OutputDirectory -eq $PWD.Path -and
             $BaseName -eq 'custom-report' -and
             $Extensions.Count -eq 2

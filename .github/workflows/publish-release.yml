@@ -118,16 +118,21 @@ jobs:
           chmod +x ./scripts/render-homebrew-formula.sh
           ./scripts/build-release-artifacts.sh "${TAG}"
 
+      - name: Prepare GitHub release notes
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: node scripts/extract-changelog-release-notes.mjs "${TAG}" dist/release-notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
+          body_path: dist/release-notes.md
           files: |
             dist/*.tar.gz
             dist/*.zip
             dist/checksums.txt
             headlamp-plugin/kubebuddy-headlamp-plugin-*.tar.gz
-          generate_release_notes: true
 
       - name: Push Headlamp plugin release metadata to main
         shell: bash
