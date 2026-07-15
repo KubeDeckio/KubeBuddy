@@ -646,6 +646,44 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "sourceFile": "network-storage.yaml"
   },
   {
+    "id": "NET021",
+    "name": "Cloud Metadata API Egress Exposure",
+    "category": "Networking",
+    "section": "Networking",
+    "severity": "High",
+    "weight": 4,
+    "description": "Flags workload namespaces that do not define egress NetworkPolicy controls blocking cloud metadata endpoints such as 169.254.169.254.",
+    "failMessage": "Namespace does not block cloud metadata API egress.",
+    "recommendation": "Add default-deny egress NetworkPolicies and explicitly block cloud metadata IPs such as 169.254.169.254/32 unless a workload has a documented need.",
+    "url": "https://kubernetes.io/docs/concepts/services-networking/network-policies/",
+    "resourceKind": "Namespace",
+    "nativeHandler": "NET021",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "network-storage.yaml"
+  },
+  {
+    "id": "NET022",
+    "name": "Endpoint Points to Cloud Metadata IP",
+    "category": "Networking",
+    "section": "Networking",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects Endpoints that route service traffic to cloud metadata IP addresses, creating an SSRF-style credential exposure path.",
+    "failMessage": "Endpoint points to a cloud metadata IP.",
+    "recommendation": "Remove cloud metadata IPs from Endpoints and audit the owning Service or controller. Block metadata egress from workload namespaces.",
+    "url": "https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors",
+    "resourceKind": "Endpoints",
+    "nativeHandler": "NET022",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "network-storage.yaml"
+  },
+  {
     "id": "CFG001",
     "name": "Orphaned ConfigMaps",
     "category": "Best Practices",
@@ -1465,6 +1503,234 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "sourceFile": "operations.yaml"
   },
   {
+    "id": "RBAC007",
+    "name": "Anonymous or Broad Authenticated Subject Binding",
+    "category": "RBAC",
+    "section": "Security",
+    "severity": "Critical",
+    "weight": 5,
+    "description": "Detects RoleBindings or ClusterRoleBindings that grant permissions to system:anonymous, system:unauthenticated, or broad system:authenticated subjects.",
+    "failMessage": "RBAC binding grants access to anonymous or broad authenticated subjects.",
+    "recommendation": "Remove bindings to anonymous, unauthenticated, or broad authenticated groups unless they are Kubernetes bootstrap discovery bindings. Bind only explicit users, groups, or ServiceAccounts that need the access.",
+    "url": "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+    "resourceKind": "RoleBinding, ClusterRoleBinding",
+    "nativeHandler": "RBAC007",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "RBAC008",
+    "name": "Cross-Namespace ServiceAccount Binding",
+    "category": "RBAC",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects RoleBindings that grant namespace-local permissions to a ServiceAccount from a different namespace.",
+    "failMessage": "RoleBinding grants access to a ServiceAccount from another namespace.",
+    "recommendation": "Avoid cross-namespace ServiceAccount bindings. Create a dedicated ServiceAccount in the same namespace or use tightly scoped ClusterRoleBindings only when cross-namespace access is intentional.",
+    "url": "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+    "resourceKind": "RoleBinding",
+    "nativeHandler": "RBAC008",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "RBAC009",
+    "name": "Default ServiceAccount with Dangerous Permissions",
+    "category": "RBAC",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects bindings that grant wildcard, secret, exec, bind, escalate, or impersonate permissions to a default ServiceAccount.",
+    "failMessage": "Default ServiceAccount is bound to dangerous permissions.",
+    "recommendation": "Create dedicated least-privilege ServiceAccounts for workloads. Remove dangerous permissions from default ServiceAccounts and disable token automounting where API access is not needed.",
+    "url": "https://kubernetes.io/docs/concepts/security/service-accounts/",
+    "resourceKind": "RoleBinding, ClusterRoleBinding",
+    "nativeHandler": "RBAC009",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "RBAC010",
+    "name": "Sensitive ServiceAccount Bound to Workload",
+    "category": "RBAC",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Flags pods using non-default ServiceAccounts that are bound to sensitive RBAC permissions such as wildcard resources, secret read access, exec, bind, escalate, or impersonation.",
+    "failMessage": "Workload uses a ServiceAccount with sensitive RBAC permissions.",
+    "recommendation": "Scope the ServiceAccount Role or ClusterRole to the minimum resource names and verbs required. Disable automountServiceAccountToken when the workload does not need Kubernetes API access.",
+    "url": "https://kubernetes.io/docs/concepts/security/service-accounts/",
+    "resourceKind": "Pod",
+    "nativeHandler": "RBAC010",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK017",
+    "name": "Single Replica Workload",
+    "category": "Availability",
+    "section": "Workloads",
+    "severity": "Low",
+    "weight": 1,
+    "description": "Flags Deployments and StatefulSets running a single replica, which can create an avoidable availability single point of failure.",
+    "failMessage": "Workload has only one replica.",
+    "recommendation": "Run at least two replicas for production services where the application supports it, then add a PodDisruptionBudget and spread constraints.",
+    "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
+    "resourceKind": "Deployment, StatefulSet",
+    "nativeHandler": "WRK017",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK018",
+    "name": "Recreate Deployment Strategy",
+    "category": "Availability",
+    "section": "Workloads",
+    "severity": "Low",
+    "weight": 1,
+    "description": "Detects Deployments using the Recreate strategy, which stops old pods before new pods are available and can cause avoidable downtime.",
+    "failMessage": "Deployment uses Recreate update strategy.",
+    "recommendation": "Use RollingUpdate for services that need continuous availability. Keep Recreate only when the workload cannot tolerate overlapping versions.",
+    "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy",
+    "resourceKind": "Deployment",
+    "nativeHandler": "WRK018",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK019",
+    "name": "Deployment Revision History Disabled",
+    "category": "Operations",
+    "section": "Workloads",
+    "severity": "Medium",
+    "weight": 2,
+    "description": "Flags Deployments with revisionHistoryLimit set to 0, which removes rollback history.",
+    "failMessage": "Deployment revision history is disabled.",
+    "recommendation": "Keep revisionHistoryLimit greater than 0 so kubectl rollout undo and controller rollback workflows remain available.",
+    "url": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit",
+    "resourceKind": "Deployment",
+    "nativeHandler": "WRK019",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK020",
+    "name": "Workload DNS and Host Alias Overrides",
+    "category": "Workloads",
+    "section": "Workloads",
+    "severity": "Medium",
+    "weight": 2,
+    "description": "Detects pods that set dnsPolicy: None or hostAliases, both of which can override normal Kubernetes service discovery behavior.",
+    "failMessage": "Pod overrides Kubernetes DNS behavior.",
+    "recommendation": "Use ClusterFirst DNS and Kubernetes Services for discovery. Keep dnsPolicy: None or hostAliases only for tightly documented exceptions.",
+    "url": "https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/",
+    "resourceKind": "Pod",
+    "nativeHandler": "WRK020",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK021",
+    "name": "Missing Workload PriorityClass",
+    "category": "Scheduling",
+    "section": "Workloads",
+    "severity": "Low",
+    "weight": 1,
+    "description": "Flags long-running workload controllers without priorityClassName, making eviction and scheduling priority implicit.",
+    "failMessage": "Workload does not set priorityClassName.",
+    "recommendation": "Assign PriorityClasses for critical services so scheduling and eviction behavior is explicit during resource pressure.",
+    "url": "https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/",
+    "resourceKind": "Deployment, StatefulSet, DaemonSet",
+    "nativeHandler": "WRK021",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "POD011",
+    "name": "Shared Process Namespace Enabled",
+    "category": "Pod Health",
+    "section": "Pods",
+    "severity": "Medium",
+    "weight": 2,
+    "description": "Flags pods with shareProcessNamespace enabled, allowing containers in the same pod to inspect each other's processes.",
+    "failMessage": "Pod shares process namespace across containers.",
+    "recommendation": "Disable shareProcessNamespace unless a sidecar has a documented need to signal or inspect the main process.",
+    "url": "https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/",
+    "resourceKind": "Pod",
+    "nativeHandler": "POD011",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "POD012",
+    "name": "Zero Termination Grace Period",
+    "category": "Pod Health",
+    "section": "Pods",
+    "severity": "Medium",
+    "weight": 2,
+    "description": "Detects pods setting terminationGracePeriodSeconds to 0, which immediately sends SIGKILL and prevents graceful shutdown.",
+    "failMessage": "Pod has zero termination grace period.",
+    "recommendation": "Set a positive terminationGracePeriodSeconds and ensure applications handle SIGTERM so in-flight work can drain cleanly.",
+    "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination",
+    "resourceKind": "Pod",
+    "nativeHandler": "POD012",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "POD013",
+    "name": "Bidirectional Mount Propagation",
+    "category": "Pod Health",
+    "section": "Pods",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects containers using Bidirectional mount propagation, which can propagate container-created mounts back to the host.",
+    "failMessage": "Pod uses bidirectional mount propagation.",
+    "recommendation": "Remove Bidirectional mount propagation unless the workload is a trusted node agent. Prefer None or HostToContainer propagation and document any exception.",
+    "url": "https://kubernetes.io/docs/concepts/storage/volumes/#mount-propagation",
+    "resourceKind": "Pod",
+    "nativeHandler": "POD013",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
     "id": "SEC001",
     "name": "Orphaned Secrets",
     "category": "Security",
@@ -2079,6 +2345,120 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "url": "https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/",
     "resourceKind": "MutatingWebhookConfiguration, ValidatingWebhookConfiguration",
     "nativeHandler": "SEC030",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC031",
+    "name": "Secret Material Pattern Detected",
+    "category": "Secrets",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Scans non-system Secrets for credential-like values such as cloud keys, GitHub tokens, private keys, database URLs, and weak short secret values.",
+    "failMessage": "Secret contains high-risk credential material or weak secret data.",
+    "recommendation": "Rotate the affected credential, remove it from Kubernetes if it is not required, and move long-lived sensitive values to an external secret manager with rotation. Keep only the minimum namespace-scoped Secret references needed by workloads.",
+    "url": "https://kubernetes.io/docs/concepts/configuration/secret/",
+    "resourceKind": "Secret",
+    "nativeHandler": "SEC031",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC032",
+    "name": "TLS Secret Certificate Expiry",
+    "category": "Secrets",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects kubernetes.io/tls Secrets with expired certificates or certificates expiring within 30 days.",
+    "failMessage": "TLS Secret certificate is expired or close to expiry.",
+    "recommendation": "Renew expired or expiring certificates and automate certificate lifecycle management with cert-manager or your platform certificate issuer.",
+    "url": "https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets",
+    "resourceKind": "Secret",
+    "nativeHandler": "SEC032",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC033",
+    "name": "Sensitive Data in ConfigMap",
+    "category": "ConfigMaps",
+    "section": "Security",
+    "severity": "Medium",
+    "weight": 3,
+    "description": "Flags ConfigMaps with keys or values that look like credentials, tokens, private keys, database URLs, or base64-encoded secret material.",
+    "failMessage": "ConfigMap may contain sensitive data.",
+    "recommendation": "Move sensitive values from ConfigMaps into Kubernetes Secrets or an external secret manager. ConfigMaps are not designed for confidential data.",
+    "url": "https://kubernetes.io/docs/concepts/configuration/configmap/",
+    "resourceKind": "ConfigMap",
+    "nativeHandler": "SEC033",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC034",
+    "name": "End-of-Life Base Image",
+    "category": "Image Security",
+    "section": "Security",
+    "severity": "High",
+    "weight": 3,
+    "description": "Detects workload images based on end-of-life operating system or runtime tags such as old CentOS, Ubuntu, Debian, Python, or Node.js versions.",
+    "failMessage": "Container image uses an end-of-life base image or runtime.",
+    "recommendation": "Move to a currently supported base image or runtime tag, preferably a minimal maintained image, and rebuild the workload image.",
+    "url": "https://kubernetes.io/docs/concepts/containers/images/",
+    "resourceKind": "Pod",
+    "nativeHandler": "SEC034",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC035",
+    "name": "Image Not Pinned to Digest",
+    "category": "Image Security",
+    "section": "Security",
+    "severity": "Low",
+    "weight": 1,
+    "description": "Flags container images that use mutable version tags instead of immutable sha256 digests.",
+    "failMessage": "Container image is tag-pinned but not digest-pinned.",
+    "recommendation": "Pin production images to immutable sha256 digests and use image signing or admission policy to verify provenance.",
+    "url": "https://kubernetes.io/docs/concepts/containers/images/#image-names",
+    "resourceKind": "Pod",
+    "nativeHandler": "SEC035",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC036",
+    "name": "Docker-in-Docker Container Detected",
+    "category": "Pod Security",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects containers using Docker-in-Docker images, which commonly require privileged access and can expose node-level control paths.",
+    "failMessage": "Container appears to run Docker-in-Docker.",
+    "recommendation": "Replace Docker-in-Docker with rootless build tooling such as BuildKit rootless, Kaniko, Buildah, or a managed CI runner isolated from the cluster.",
+    "url": "https://kubernetes.io/docs/concepts/containers/runtime-class/",
+    "resourceKind": "Pod",
+    "nativeHandler": "SEC036",
     "value": {
       "path": "metadata.name"
     },

@@ -449,7 +449,7 @@ func usesSyntheticInput(check checks.Check) bool {
 		return true
 	}
 	switch check.NativeHandler {
-	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "RBAC005", "RBAC006", "SEC028", "SEC030", "NODE002", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "WRK016", "NET004", "NET013", "NET018", "NET020":
+	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "RBAC005", "RBAC006", "RBAC007", "RBAC008", "RBAC009", "RBAC010", "SEC028", "SEC030", "NET021", "WRK017", "WRK018", "WRK019", "WRK021", "NODE002", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "WRK016", "NET004", "NET013", "NET018", "NET020":
 		return true
 	default:
 		return false

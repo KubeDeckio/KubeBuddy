@@ -219,6 +219,16 @@ const ValidatingAdmissionPolicy = makeCustomResourceClass({
   singularName: 'validatingadmissionpolicy',
   isNamespaced: false,
 });
+const ValidatingAdmissionPolicyBinding = makeCustomResourceClass({
+  apiInfo: [
+    { group: 'admissionregistration.k8s.io', version: 'v1' },
+    { group: 'admissionregistration.k8s.io', version: 'v1beta1' },
+  ],
+  kind: 'ValidatingAdmissionPolicyBinding',
+  pluralName: 'validatingadmissionpolicybindings',
+  singularName: 'validatingadmissionpolicybinding',
+  isNamespaced: false,
+});
 const ValidatingWebhookConfiguration = makeCustomResourceClass({
   apiInfo: [
     { group: 'admissionregistration.k8s.io', version: 'v1' },
@@ -924,7 +934,7 @@ function errorStatus(error: unknown): string {
 }
 
 function isOptionalMissingApi(label: string, error: unknown): boolean {
-  return ['Gateways', 'HTTPRoutes', 'ValidatingAdmissionPolicies'].includes(label) && errorStatus(error) === '404';
+  return ['Gateways', 'HTTPRoutes', 'ValidatingAdmissionPolicies', 'ValidatingAdmissionPolicyBindings'].includes(label) && errorStatus(error) === '404';
 }
 
 function logLevelColor(level: ScanLogEntry['level']): string {
@@ -1364,9 +1374,32 @@ function nodeReady(node: any): boolean {
   );
 }
 
+function nodePressureFindings(resources: ResourceStates): Finding[] {
+  return resources.node.data.flatMap(node =>
+    (json(node)?.status?.conditions || [])
+      .filter((condition: any) => ['MemoryPressure', 'DiskPressure', 'PIDPressure'].includes(condition?.type) && condition?.status === 'True')
+      .map((condition: any) => finding(node, `${condition.type}: ${condition.reason || condition.message || 'condition is True'}`))
+  );
+}
+
+function clusterStoragePressureFindings(resources: ResourceStates): Finding[] {
+  const pressured = resources.node.data.filter(node =>
+    (json(node)?.status?.conditions || []).some((condition: any) => condition?.type === 'DiskPressure' && condition?.status === 'True')
+  );
+  return pressured.length > 0
+    ? [{ resource: 'cluster/storage', kind: 'Node', details: `DiskPressure reported by nodes: ${pressured.map(name).join(', ')}` }]
+    : [];
+}
+
+function validatingAdmissionPolicyBindingFindings(resources: ResourceStates): Finding[] {
+  const boundPolicies = new Set(resources.validatingadmissionpolicybinding.data.map(binding => String(json(binding)?.spec?.policyName || '')));
+  return resources.validatingadmissionpolicy.data
+    .filter(policy => !boundPolicies.has(name(policy)))
+    .map(policy => finding(policy, `ValidatingAdmissionPolicy ${name(policy)} has no ValidatingAdmissionPolicyBinding`));
+}
 function normalizeSeverity(severity: string): Severity {
   const normalized = severity.toLowerCase();
-  if (normalized === 'high' || normalized === 'error') {
+  if (normalized === 'critical' || normalized === 'high' || normalized === 'error') {
     return 'high';
   }
   if (normalized === 'warning') {
@@ -1695,10 +1728,6 @@ function resultFromCheck(
     findings: suppression.findings,
     suppressedFindings: suppression.suppressedFindings,
   };
-}
-
-function emptyHandler(): Finding[] {
-  return [];
 }
 
 function isSensitiveHostPath(path: string): boolean {
@@ -2520,6 +2549,362 @@ function networkPolicyPermissiveFindings(resources: ResourceStates): Finding[] {
   });
 }
 
+function secretDecodedEntries(secret: any): { key: string; value: string }[] {
+  return Object.entries(json(secret)?.data || {}).flatMap(([key, value]) => {
+    try {
+      return [{ key, value: atob(String(value || '')) }];
+    } catch {
+      return [{ key, value: String(value || '') }];
+    }
+  });
+}
+
+function sensitiveTextReason(value: string): string {
+  const text = value.trim();
+  if (!text) {
+    return '';
+  }
+  const patterns: [RegExp, string][] = [
+    [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, 'private key material'],
+    [/AKIA[0-9A-Z]{16}/, 'AWS access key'],
+    [/gh[pousr]_[A-Za-z0-9_]{20,}/, 'GitHub token'],
+    [/postgres(ql)?:\/\/|mysql:\/\/|mongodb(\+srv)?:\/\//i, 'database connection string'],
+    [/AccountKey=[A-Za-z0-9+/=]{40,}/i, 'storage account key'],
+    [/password\s*[:=]\s*[^;&\s]{8,}/i, 'password-like value'],
+  ];
+
+  return patterns.find(([pattern]) => pattern.test(text))?.[1] || '';
+}
+
+function isCertificatePrivateKeyName(key: string): boolean {
+  return ['key', 'tls.key', 'ca.key', 'cert.key', 'server.key', 'private.key', 'key.pem', 'tls.key.pem', 'server-key.pem', 'private-key.pem'].includes(key.toLowerCase().trim());
+}
+
+function isCertificatePublicMaterialName(key: string): boolean {
+  return ['ca', 'cert', 'tls.crt', 'ca.crt', 'cert.crt', 'server.crt', 'certificate.crt', 'cert.pem', 'server.pem', 'tls.crt.pem', 'ca.pem'].includes(key.toLowerCase().trim());
+}
+
+function isExpectedSecretPrivateKey(secret: any, key: string, reason: string): boolean {
+  if (reason !== 'private key material') {
+    return false;
+  }
+  const secretType = String(json(secret)?.type || '').toLowerCase();
+  if (secretType === 'kubernetes.io/tls' || secretType === 'kubernetes.io/ssh-auth') {
+    return true;
+  }
+  const normalizedKey = key.toLowerCase().trim();
+  if (normalizedKey === 'ssh-privatekey') {
+    return true;
+  }
+  if (!isCertificatePrivateKeyName(normalizedKey)) {
+    return false;
+  }
+  return Object.keys(json(secret)?.data || {}).some(isCertificatePublicMaterialName);
+}
+
+function secretMaterialFindings(resources: ResourceStates): Finding[] {
+  return resources.secret.data.flatMap(secret => {
+    const secretName = name(secret);
+    if (namespace(secret) === 'kube-system' || secretName.startsWith('bootstrap-token-') || secretName.startsWith('default-token-') || json(secret)?.type === 'helm.sh/release.v1') {
+      return [];
+    }
+
+    const reasons = new Set(secretDecodedEntries(secret)
+      .map(entry => ({ ...entry, reason: sensitiveTextReason(entry.value) }))
+      .filter(entry => entry.reason && !isExpectedSecretPrivateKey(secret, entry.key, entry.reason))
+      .map(entry => entry.reason));
+    return reasons.size > 0 ? [finding(secret, [...reasons].join(', '))] : [];
+  });
+}
+
+function parseAsn1Length(bytes: Uint8Array, offset: number): { length: number; next: number } | null {
+  if (offset >= bytes.length) {
+    return null;
+  }
+  const first = bytes[offset];
+  if (first < 0x80) {
+    return { length: first, next: offset + 1 };
+  }
+  const count = first & 0x7f;
+  if (count === 0 || count > 4 || offset + count >= bytes.length) {
+    return null;
+  }
+  let length = 0;
+  for (let i = 0; i < count; i += 1) {
+    length = (length << 8) | bytes[offset + 1 + i];
+  }
+  return { length, next: offset + 1 + count };
+}
+
+function parseCertificateTime(value: string, generalized: boolean): Date | null {
+  const match = generalized
+    ? value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z$/)
+    : value.match(/^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z$/);
+  if (!match) {
+    return null;
+  }
+  const year = generalized ? Number(match[1]) : Number(match[1]) + (Number(match[1]) >= 50 ? 1900 : 2000);
+  const offset = generalized ? 1 : 0;
+  return new Date(Date.UTC(year, Number(match[1 + offset]) - 1, Number(match[2 + offset]), Number(match[3 + offset]), Number(match[4 + offset]), Number(match[5 + offset])));
+}
+
+function certificateExpiryFromDer(bytes: Uint8Array): Date | null {
+  const dates: Date[] = [];
+  for (let i = 0; i < bytes.length - 2; i += 1) {
+    if (bytes[i] !== 0x17 && bytes[i] !== 0x18) {
+      continue;
+    }
+    const parsed = parseAsn1Length(bytes, i + 1);
+    if (!parsed || parsed.next + parsed.length > bytes.length) {
+      continue;
+    }
+    const raw = Array.from(bytes.slice(parsed.next, parsed.next + parsed.length)).map(value => String.fromCharCode(value)).join('');
+    const date = parseCertificateTime(raw, bytes[i] === 0x18);
+    if (date) {
+      dates.push(date);
+    }
+  }
+
+  return dates.sort((a, b) => b.getTime() - a.getTime())[0] || null;
+}
+
+function certificateBytesFromBase64(base64: string): Uint8Array | null {
+  const cleaned = base64.replace(/\s/g, '');
+  if (!cleaned) {
+    return null;
+  }
+  try {
+    return Uint8Array.from(atob(cleaned), char => char.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
+
+function tlsCertificateExpiries(pem: string): Date[] {
+  const expiries: Date[] = [];
+  const blocks = [...pem.matchAll(/-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----/g)];
+  if (blocks.length > 0) {
+    blocks.forEach(block => {
+      const bytes = certificateBytesFromBase64(block[1]);
+      const expiry = bytes ? certificateExpiryFromDer(bytes) : null;
+      if (expiry) {
+        expiries.push(expiry);
+      }
+    });
+    return expiries;
+  }
+
+  const bytes = certificateBytesFromBase64(pem);
+  const expiry = bytes ? certificateExpiryFromDer(bytes) : null;
+  return expiry ? [expiry] : [];
+}
+
+function tlsSecretCertificateFindings(resources: ResourceStates): Finding[] {
+  const soon = 30 * 24 * 60 * 60 * 1000;
+  return resources.secret.data.flatMap(secret => {
+    if (json(secret)?.type !== 'kubernetes.io/tls') {
+      return [];
+    }
+    const encoded = json(secret)?.data?.['tls.crt'];
+    if (!encoded) {
+      return [finding(secret, 'TLS Secret is missing tls.crt')];
+    }
+    let pem = '';
+    try {
+      pem = atob(String(encoded));
+    } catch {
+      return [finding(secret, 'TLS certificate data is not valid base64')];
+    }
+    const expiries = tlsCertificateExpiries(pem);
+    if (expiries.length === 0) {
+      return [finding(secret, 'TLS certificate data is present but no X.509 validity period could be parsed')];
+    }
+    const expiry = expiries
+      .filter(candidate => candidate.getTime() - Date.now() <= soon)
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    if (expiry) {
+      const state = expiry.getTime() < Date.now() ? 'expired' : 'expires';
+      return [finding(secret, `TLS certificate ${state} ${expiry.toISOString().slice(0, 10)}`)];
+    }
+    return [];
+  });
+}
+function configMapSensitiveDataFindings(resources: ResourceStates): Finding[] {
+  return resources.configmap.data.flatMap(cm => {
+    const reasons = new Set(Object.values(json(cm)?.data || {}).map(value => sensitiveTextReason(String(value || ''))).filter(Boolean));
+    return reasons.size > 0 ? [finding(cm, [...reasons].join(', '))] : [];
+  });
+}
+
+function imageHasDigest(image: string): boolean {
+  return image.includes('@sha256:');
+}
+
+function eolImageReason(image: string): string {
+  const normalized = image.toLowerCase();
+  const matches = [
+    [/(:|\/)ubuntu:(14\.04|16\.04|18\.04)(-|$)/, 'EOL Ubuntu base image'],
+    [/(:|\/)debian:(jessie|stretch|buster)(-|$)/, 'EOL Debian base image'],
+    [/(:|\/)centos:(6|7|8)(-|$)/, 'EOL CentOS base image'],
+    [/(:|\/)alpine:3\.(?:[0-9]|1[0-2])(?:-|$)/, 'EOL Alpine base image'],
+    [/(:|\/)node:(10|12|14|16)(-|$)/, 'EOL Node.js base image'],
+    [/(:|\/)python:(2\.7|3\.[0-7])(-|$)/, 'EOL Python base image'],
+  ] as [RegExp, string][];
+
+  return matches.find(([pattern]) => pattern.test(normalized))?.[1] || '';
+}
+
+function imageFindings(resources: ResourceStates, predicate: (image: string) => string): Finding[] {
+  return [...allWorkloads(resources), ...resources.pod.data].flatMap(item =>
+    podImages(item).flatMap(image => {
+      const reason = predicate(String(image || ''));
+      return reason ? [finding(item, `${reason}: ${image}`)] : [];
+    })
+  );
+}
+
+function dockerInDockerFindings(resources: ResourceStates): Finding[] {
+  const hasDockerSocket = (item: any) => {
+    const spec = workloadTemplate(item)?.spec || json(item)?.spec || {};
+    return (spec?.volumes || []).some((volume: any) => /docker\.sock$/.test(String(volume?.hostPath?.path || '')));
+  };
+
+  return [...allWorkloads(resources), ...resources.pod.data].flatMap(item => {
+    const badContainers = workloadAllContainers(item)
+      .filter(container => /docker.*dind|dind/i.test(String(container?.image || '')) || container?.securityContext?.privileged === true);
+    return badContainers.length > 0 && hasDockerSocket(item)
+      ? [finding(item, `Docker socket with privileged/DinD container: ${badContainers.map(container => container.name || container.image).join(', ')}`)]
+      : [];
+  });
+}
+
+function metadataAddressBlocked(networkPolicy: any): boolean {
+  return (json(networkPolicy)?.spec?.egress || []).some((egress: any) =>
+    (egress?.to || []).some((to: any) => String(to?.ipBlock?.cidr || '') === '169.254.169.254/32')
+  );
+}
+
+function metadataApiEgressFindings(resources: ResourceStates): Finding[] {
+  const namespaces = new Set(resources.pod.data.map(pod => namespace(pod) || 'default'));
+  return [...namespaces].flatMap(namespaceName => {
+    const policies = resources.networkpolicy.data.filter(policy => namespace(policy) === namespaceName);
+    if (policies.length > 0 && policies.some(metadataAddressBlocked)) {
+      return [];
+    }
+    return [{ resource: `namespace/${namespaceName}`, namespace: namespaceName, kind: 'Namespace', details: 'No NetworkPolicy blocks egress to 169.254.169.254' }];
+  });
+}
+
+function metadataEndpointFindings(resources: ResourceStates): Finding[] {
+  return resources.endpoints.data.flatMap(endpoint =>
+    (json(endpoint)?.subsets || []).flatMap((subset: any) =>
+      (subset?.addresses || []).filter((address: any) => address?.ip === '169.254.169.254').map(() => finding(endpoint, 'Endpoint points to cloud metadata IP 169.254.169.254'))
+    )
+  );
+}
+
+function broadSubjectBindingFindings(resources: ResourceStates, config: KubeBuddyConfig): Finding[] {
+  return [...resources.rolebinding.data, ...resources.clusterrolebinding.data].flatMap(binding => {
+    if (isDefaultKubernetesRBACBinding(binding)) {
+      return [];
+    }
+    const bindingNamespace = namespace(binding) || 'default';
+    return (json(binding)?.subjects || [])
+      .filter((subject: any) => isReportableRBACSubject(subject, bindingNamespace, config))
+      .filter((subject: any) =>
+        (subject?.kind === 'Group' && ['system:authenticated', 'system:unauthenticated'].includes(subject?.name)) ||
+        (subject?.kind === 'User' && subject?.name === 'system:anonymous')
+      )
+      .map((subject: any) => finding(binding, `Broad subject ${subject.kind}/${subject.name}`));
+  });
+}
+
+function crossNamespaceServiceAccountBindingFindings(resources: ResourceStates, config: KubeBuddyConfig): Finding[] {
+  return resources.rolebinding.data.flatMap(binding => {
+    const bindingNamespace = namespace(binding) || 'default';
+    return (json(binding)?.subjects || [])
+      .filter((subject: any) => subject?.kind === 'ServiceAccount')
+      .filter((subject: any) => !isExcludedRBACNamespace(subject?.namespace || bindingNamespace, config))
+      .filter((subject: any) => (subject?.namespace || bindingNamespace) !== bindingNamespace)
+      .map((subject: any) => finding(binding, `ServiceAccount ${subject.namespace}/${subject.name} bound from namespace ${bindingNamespace}`));
+  });
+}
+
+function referencedRole(resources: ResourceStates, binding: any): any | undefined {
+  const roleRef = json(binding)?.roleRef;
+  const roleName = roleRef?.name || '';
+  if (roleRef?.kind === 'ClusterRole') {
+    return resources.clusterrole.data.find(role => name(role) === roleName);
+  }
+  return resources.role.data.find(role => namespace(role) === (namespace(binding) || 'default') && name(role) === roleName);
+}
+
+function roleHasDangerousPermission(role: any | undefined): boolean {
+  return Boolean(role) && (name(role) === 'cluster-admin' || roleIsWildcard(role) || roleIsSensitive(role));
+}
+
+function defaultServiceAccountDangerousFindings(resources: ResourceStates, config: KubeBuddyConfig): Finding[] {
+  return [...resources.rolebinding.data, ...resources.clusterrolebinding.data].flatMap(binding => {
+    const bindingNamespace = namespace(binding) || 'default';
+    if (!roleHasDangerousPermission(referencedRole(resources, binding))) {
+      return [];
+    }
+    return (json(binding)?.subjects || [])
+      .filter((subject: any) => subject?.kind === 'ServiceAccount' && subject?.name === 'default')
+      .filter((subject: any) => !isExcludedRBACNamespace(subject?.namespace || bindingNamespace, config))
+      .map((subject: any) => finding(binding, `Default ServiceAccount has dangerous permissions: ${subject.namespace || bindingNamespace}/default`));
+  });
+}
+
+function sensitiveServiceAccountWorkloadFindings(resources: ResourceStates, config: KubeBuddyConfig): Finding[] {
+  const risky = new Set<string>();
+  [...resources.rolebinding.data, ...resources.clusterrolebinding.data].forEach(binding => {
+    const bindingNamespace = namespace(binding) || 'default';
+    if (!roleHasDangerousPermission(referencedRole(resources, binding))) {
+      return;
+    }
+    (json(binding)?.subjects || []).forEach((subject: any) => {
+      if (subject?.kind === 'ServiceAccount' && !isExcludedRBACNamespace(subject?.namespace || bindingNamespace, config)) {
+        risky.add(`${subject.namespace || bindingNamespace}/${subject.name}`);
+      }
+    });
+  });
+
+  return [...allWorkloads(resources), ...resources.pod.data]
+    .filter(item => risky.has(`${namespace(item) || 'default'}/${serviceAccountName(item)}`))
+    .map(item => finding(item, `Uses ServiceAccount with dangerous RBAC: ${serviceAccountName(item)}`));
+}
+
+function workloadReplicaFindings(resources: ResourceStates): Finding[] {
+  return [...resources.deployment.data, ...resources.statefulset.data]
+    .filter(workload => Number(json(workload)?.spec?.replicas ?? 1) <= 1)
+    .map(workload => finding(workload, 'Workload has one replica'));
+}
+
+function workloadDnsOverrideFindings(resources: ResourceStates): Finding[] {
+  return [...allWorkloads(resources), ...resources.pod.data]
+    .filter(item => {
+      const spec = workloadTemplate(item)?.spec || json(item)?.spec || {};
+      return Boolean(spec.hostAliases?.length || spec.dnsConfig || (spec.dnsPolicy && spec.dnsPolicy !== 'ClusterFirst'));
+    })
+    .map(item => finding(item, 'DNS policy/config or hostAliases overridden'));
+}
+
+function missingPriorityClassFindings(resources: ResourceStates): Finding[] {
+  return allWorkloads(resources)
+    .filter(workload => !stringValue(workloadTemplate(workload)?.spec?.priorityClassName))
+    .map(workload => finding(workload, 'priorityClassName is not set'));
+}
+
+function bidirectionalMountPropagationFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod =>
+    containers(pod).flatMap(container =>
+      (container?.volumeMounts || [])
+        .filter((mount: any) => mount?.mountPropagation === 'Bidirectional')
+        .map((mount: any) => finding(pod, `Container ${container.name} uses Bidirectional mountPropagation on ${mount.mountPath || mount.name}`))
+    )
+  );
+}
 function allocatedDeviceHealthFindings(resources: ResourceStates): Finding[] {
   return resources.pod.data.flatMap(pod => {
     const signals: string[] = [];
@@ -2763,8 +3148,10 @@ const nativeHandlers: Record<string, NativeHandler> = {
     return Array.isArray(externalIPs) && externalIPs.length > 0;
   }).map(service => finding(service, `externalIPs: ${json(service)?.spec?.externalIPs.join(', ')}`)),
   NET020: resources => [...resources.deployment.data, ...resources.daemonset.data, ...resources.statefulset.data, ...resources.pod.data, ...resources.service.data].filter(item => /ingress-nginx/i.test(JSON.stringify(json(item)))).map(item => finding(item, 'Ingress NGINX detected')),
+  NET021: metadataApiEgressFindings,
+  NET022: metadataEndpointFindings,
   NODE001: resources => resources.node.data.filter(item => !nodeReady(item)).map(item => finding(item, 'Ready condition is not True')),
-  NODE002: emptyHandler,
+  NODE002: nodePressureFindings,
   NODE003: (resources, config) => resources.node.data.filter(node => Number(json(node)?.status?.capacity?.pods || 0) > 0 && resources.pod.data.filter(pod => json(pod)?.spec?.nodeName === name(node)).length / Number(json(node)?.status?.capacity?.pods || 1) > config.thresholds.podsPerNodeCritical / 100).map(node => finding(node, `Pod capacity above ${config.thresholds.podsPerNodeCritical}%`)),
   NS001: namespaceHygieneFindings,
   NS002: resources => resources.namespace.data.filter(ns => !resources.resourcequota.data.some(quota => namespace(quota) === name(ns))).map(ns => finding(ns, 'No ResourceQuota')),
@@ -2777,6 +3164,9 @@ const nativeHandlers: Record<string, NativeHandler> = {
   POD008: resources => resources.pod.data.filter(pod => json(pod)?.spec?.automountServiceAccountToken !== false).map(pod => finding(pod, 'automountServiceAccountToken is enabled or inherited')),
   POD009: allocatedDeviceHealthFindings,
   POD010: resources => resources.pod.data.filter(pod => !isStaticMirrorPod(pod) && !isControlledPod(pod)).map(pod => finding(pod, 'Pod is not managed by a workload controller')),
+  POD011: resources => resources.pod.data.filter(pod => json(pod)?.spec?.shareProcessNamespace === true).map(pod => finding(pod, 'shareProcessNamespace enabled')),
+  POD012: resources => resources.pod.data.filter(pod => Number(json(pod)?.spec?.terminationGracePeriodSeconds) === 0).map(pod => finding(pod, 'terminationGracePeriodSeconds is 0')),
+  POD013: bidirectionalMountPropagationFindings,
   PV001: resources => resources.persistentvolume.data.filter(pv => json(pv)?.status?.phase !== 'Bound' && !resources.persistentvolumeclaim.data.some(pvc => json(pvc)?.spec?.volumeName === name(pv))).map(pv => finding(pv, 'PV is not bound to any PVC')),
   PVC001: resources => resources.persistentvolumeclaim.data.filter(pvc => !resources.pod.data.some(pod => namespace(pod) === namespace(pvc) && (json(pod)?.spec?.volumes || []).some((volume: any) => volume.persistentVolumeClaim?.claimName === name(pvc)))).map(pvc => finding(pvc, 'PVC not used by any pod')),
   PVC003: resources => resources.persistentvolumeclaim.data.filter(pvc => (json(pvc)?.spec?.accessModes || []).includes('ReadWriteMany')).filter(pvc => !json(pvc)?.spec?.storageClassName || resources.storageclass.data.some(sc => name(sc) === json(pvc)?.spec?.storageClassName && /disk|ebs|pd|cinder|local-path/i.test(json(sc)?.provisioner || ''))).map(pvc => finding(pvc, 'ReadWriteMany PVC may use block storage')),
@@ -2813,9 +3203,13 @@ const nativeHandlers: Record<string, NativeHandler> = {
         .flatMap(dangerousRBACFindings),
     ];
   },
+  RBAC007: broadSubjectBindingFindings,
+  RBAC008: crossNamespaceServiceAccountBindingFindings,
+  RBAC009: defaultServiceAccountDangerousFindings,
+  RBAC010: sensitiveServiceAccountWorkloadFindings,
   SC002_AKS: resources => resources.storageclass.data.filter(sc => ['kubernetes.io/azure-disk', 'kubernetes.io/azure-file'].includes(json(sc)?.provisioner)).map(sc => finding(sc, 'Azure in-tree provisioner')),
   SC002_EXPANSION: resources => resources.storageclass.data.filter(sc => json(sc)?.allowVolumeExpansion !== true).map(sc => finding(sc, 'Volume expansion disabled')),
-  SC003: emptyHandler,
+  SC003: clusterStoragePressureFindings,
   SEC001: resources => {
     const used = usedSecretKeys(resources);
     return resources.secret.data
@@ -2840,11 +3234,17 @@ const nativeHandlers: Record<string, NativeHandler> = {
     ...resources.pod.data.flatMap(pod => (json(pod)?.spec?.imagePullSecrets || []).map((secret: any) => finding(pod, `imagePullSecret ${secret.name || 'unknown'}`))),
     ...resources.serviceaccount.data.flatMap(sa => (json(sa)?.imagePullSecrets || []).map((secret: any) => finding(sa, `imagePullSecret ${secret.name || 'unknown'}`))),
   ],
-  SEC025: emptyHandler,
+  SEC025: validatingAdmissionPolicyBindingFindings,
   SEC026: resources => resources.validatingadmissionpolicy.data
     .filter(policy => !toArray(json(policy)?.spec?.validations).some((validation: any) => stringValue(validation?.expression)))
     .map(policy => finding(policy, 'ValidatingAdmissionPolicy has no CEL validation rules defined.')),
   SEC030: admissionWebhookFindings,
+  SEC031: secretMaterialFindings,
+  SEC032: tlsSecretCertificateFindings,
+  SEC033: configMapSensitiveDataFindings,
+  SEC034: resources => imageFindings(resources, eolImageReason),
+  SEC035: resources => imageFindings(resources, image => imageHasDigest(image) ? '' : 'Image is not pinned to a digest'),
+  SEC036: dockerInDockerFindings,
   WRK001: resources => resources.daemonset.data.filter(daemonSet => (json(daemonSet)?.status?.numberReady || 0) < (json(daemonSet)?.status?.desiredNumberScheduled || 0)).map(daemonSet => finding(daemonSet, `${json(daemonSet)?.status?.numberReady || 0}/${json(daemonSet)?.status?.desiredNumberScheduled || 0} ready`)),
   WRK002: resources => resources.deployment.data.filter(deployment => (json(deployment)?.status?.availableReplicas || 0) < (json(deployment)?.spec?.replicas || 1)).map(deployment => finding(deployment, `${json(deployment)?.status?.availableReplicas || 0}/${json(deployment)?.spec?.replicas || 1} available`)),
   WRK003: resources => resources.statefulset.data.filter(statefulSet => (json(statefulSet)?.status?.readyReplicas || 0) < (json(statefulSet)?.status?.replicas || 1)).map(statefulSet => finding(statefulSet, `${json(statefulSet)?.status?.readyReplicas || 0}/${json(statefulSet)?.status?.replicas || 1} ready`)),
@@ -2888,6 +3288,11 @@ const nativeHandlers: Record<string, NativeHandler> = {
   }),
   WRK014: resources => workloadResourceFindings(resources, 'limits', true),
   WRK015: resources => allWorkloads(resources).filter(replicatedWorkloadMissingSpread).map(workload => finding(workload, 'Replicated workload defines neither pod anti-affinity nor topology spread constraints')),
+  WRK017: workloadReplicaFindings,
+  WRK018: resources => resources.deployment.data.filter(deployment => json(deployment)?.spec?.strategy?.type === 'Recreate').map(deployment => finding(deployment, 'Deployment strategy is Recreate')),
+  WRK019: resources => resources.deployment.data.filter(deployment => Number(json(deployment)?.spec?.revisionHistoryLimit) === 0).map(deployment => finding(deployment, 'revisionHistoryLimit is 0')),
+  WRK020: workloadDnsOverrideFindings,
+  WRK021: missingPriorityClassFindings,
   WRK016: resources => allWorkloads(resources).flatMap(recommendedLabelFindings),
 };
 
@@ -2970,6 +3375,7 @@ function useKubeBuddyChecks(
   const storageClasses = useResourceList<any>(K8s.ResourceClasses.StorageClass.useList());
   const mutatingWebhookConfigurations = useOptionalResourceList<any>(MutatingWebhookConfiguration);
   const validatingAdmissionPolicies = useOptionalResourceList<any>(ValidatingAdmissionPolicy);
+  const validatingAdmissionPolicyBindings = useOptionalResourceList<any>(ValidatingAdmissionPolicyBinding);
   const validatingWebhookConfigurations = useOptionalResourceList<any>(ValidatingWebhookConfiguration);
   const excludedNamespaceSet = React.useMemo(
     () => namespaceSet(config.excludedNamespaces),
@@ -3007,6 +3413,7 @@ function useKubeBuddyChecks(
   const filteredStorageClasses = filterResourceState(storageClasses, excludedNamespaceSet);
   const filteredMutatingWebhookConfigurations = filterResourceState(mutatingWebhookConfigurations, excludedNamespaceSet);
   const filteredValidatingAdmissionPolicies = filterResourceState(validatingAdmissionPolicies, excludedNamespaceSet);
+  const filteredValidatingAdmissionPolicyBindings = filterResourceState(validatingAdmissionPolicyBindings, excludedNamespaceSet);
   const filteredValidatingWebhookConfigurations = filterResourceState(validatingWebhookConfigurations, excludedNamespaceSet);
 
   const resources: ResourceStates = {
@@ -3044,6 +3451,8 @@ function useKubeBuddyChecks(
     statefulset: filteredStatefulSets,
     storageclass: filteredStorageClasses,
     validatingadmissionpolicy: filteredValidatingAdmissionPolicies,
+    validatingadmissionpolicybinding: filteredValidatingAdmissionPolicyBindings,
+    validatingadmissionpolicybindings: filteredValidatingAdmissionPolicyBindings,
     mutatingwebhookconfiguration: filteredMutatingWebhookConfigurations,
     validatingwebhookconfiguration: filteredValidatingWebhookConfigurations,
     'mutatingwebhookconfiguration,validatingwebhookconfiguration': {
@@ -3089,6 +3498,7 @@ function useKubeBuddyChecks(
     { ...storageClasses, label: 'StorageClasses' },
     { ...mutatingWebhookConfigurations, label: 'MutatingWebhookConfigurations' },
     { ...validatingAdmissionPolicies, label: 'ValidatingAdmissionPolicies' },
+    { ...validatingAdmissionPolicyBindings, label: 'ValidatingAdmissionPolicyBindings' },
     { ...validatingWebhookConfigurations, label: 'ValidatingWebhookConfigurations' },
   ];
   const loading = states.some(state => state.loading && !isOptionalMissingApi(state.label, state.error));

@@ -597,3 +597,39 @@ checks:
   - But your StorageClass might prevent it.
   - Check allowVolumeExpansion.
   - This keeps dynamic resizing possible.
+- id: NET021
+  name: Cloud Metadata API Egress Exposure
+  category: Networking
+  section: Networking
+  resource_kind: Namespace
+  severity: High
+  weight: 4
+  description: Flags workload namespaces that do not define egress NetworkPolicy controls blocking cloud metadata endpoints such as 169.254.169.254.
+  fail_message: Namespace does not block cloud metadata API egress.
+  recommendation: "Add default-deny egress NetworkPolicies and explicitly block cloud metadata IPs such as 169.254.169.254/32 unless a workload has a documented need."
+  url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  native_handler: NET021
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Pods that can reach cloud metadata endpoints may retrieve cloud identity credentials.
+  - Block metadata endpoints with egress policy and use workload identity with least privilege.
+- id: NET022
+  name: Endpoint Points to Cloud Metadata IP
+  category: Networking
+  section: Networking
+  resource_kind: Endpoints
+  severity: High
+  weight: 4
+  description: Detects Endpoints that route service traffic to cloud metadata IP addresses, creating an SSRF-style credential exposure path.
+  fail_message: Endpoint points to a cloud metadata IP.
+  recommendation: "Remove cloud metadata IPs from Endpoints and audit the owning Service or controller. Block metadata egress from workload namespaces."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors
+  native_handler: NET022
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Endpoints targeting metadata IPs can redirect workload traffic to cloud credential services.
+  - Remove the endpoint and review service ownership.

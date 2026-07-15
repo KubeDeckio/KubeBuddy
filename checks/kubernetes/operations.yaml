@@ -844,3 +844,222 @@ checks:
   - Time to find the hogs.
   - Clean up or add more capacity.
   - Don't run out of space!
+- id: RBAC007
+  name: Anonymous or Broad Authenticated Subject Binding
+  category: RBAC
+  section: Security
+  resource_kind: RoleBinding, ClusterRoleBinding
+  severity: Critical
+  weight: 5
+  description: Detects RoleBindings or ClusterRoleBindings that grant permissions to system:anonymous, system:unauthenticated, or broad system:authenticated subjects.
+  fail_message: RBAC binding grants access to anonymous or broad authenticated subjects.
+  recommendation: "Remove bindings to anonymous, unauthenticated, or broad authenticated groups unless they are Kubernetes bootstrap discovery bindings. Bind only explicit users, groups, or ServiceAccounts that need the access."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+  native_handler: RBAC007
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Broad subjects make RBAC permissions available to too many identities.
+  - Replace broad subjects with named groups or ServiceAccounts.
+- id: RBAC008
+  name: Cross-Namespace ServiceAccount Binding
+  category: RBAC
+  section: Security
+  resource_kind: RoleBinding
+  severity: High
+  weight: 4
+  description: Detects RoleBindings that grant namespace-local permissions to a ServiceAccount from a different namespace.
+  fail_message: RoleBinding grants access to a ServiceAccount from another namespace.
+  recommendation: "Avoid cross-namespace ServiceAccount bindings. Create a dedicated ServiceAccount in the same namespace or use tightly scoped ClusterRoleBindings only when cross-namespace access is intentional."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+  native_handler: RBAC008
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Cross-namespace ServiceAccount bindings weaken namespace isolation.
+  - Prefer namespace-local identities and bindings.
+- id: RBAC009
+  name: Default ServiceAccount with Dangerous Permissions
+  category: RBAC
+  section: Security
+  resource_kind: RoleBinding, ClusterRoleBinding
+  severity: High
+  weight: 4
+  description: Detects bindings that grant wildcard, secret, exec, bind, escalate, or impersonate permissions to a default ServiceAccount.
+  fail_message: Default ServiceAccount is bound to dangerous permissions.
+  recommendation: "Create dedicated least-privilege ServiceAccounts for workloads. Remove dangerous permissions from default ServiceAccounts and disable token automounting where API access is not needed."
+  url: https://kubernetes.io/docs/concepts/security/service-accounts/
+  native_handler: RBAC009
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Default ServiceAccounts should not carry powerful permissions.
+  - Use dedicated least-privilege ServiceAccounts per workload.
+- id: RBAC010
+  name: Sensitive ServiceAccount Bound to Workload
+  category: RBAC
+  section: Security
+  resource_kind: Pod
+  severity: High
+  weight: 4
+  description: Flags pods using non-default ServiceAccounts that are bound to sensitive RBAC permissions such as wildcard resources, secret read access, exec, bind, escalate, or impersonation.
+  fail_message: Workload uses a ServiceAccount with sensitive RBAC permissions.
+  recommendation: "Scope the ServiceAccount Role or ClusterRole to the minimum resource names and verbs required. Disable automountServiceAccountToken when the workload does not need Kubernetes API access."
+  url: https://kubernetes.io/docs/concepts/security/service-accounts/
+  native_handler: RBAC010
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Compromised workloads inherit their ServiceAccount permissions.
+  - Reduce sensitive permissions and disable token automount where possible.
+- id: WRK017
+  name: Single Replica Workload
+  category: Availability
+  section: Workloads
+  resource_kind: Deployment, StatefulSet
+  severity: Low
+  check_type: advisory
+  weight: 1
+  description: Flags Deployments and StatefulSets running a single replica, which can create an avoidable availability single point of failure.
+  fail_message: Workload has only one replica.
+  recommendation: "Run at least two replicas for production services where the application supports it, then add a PodDisruptionBudget and spread constraints."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+  native_handler: WRK017
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Single replica workloads are vulnerable to node drains and pod restarts.
+  - Scale production services to multiple replicas where possible.
+- id: WRK018
+  name: Recreate Deployment Strategy
+  category: Availability
+  section: Workloads
+  resource_kind: Deployment
+  severity: Low
+  check_type: advisory
+  weight: 1
+  description: Detects Deployments using the Recreate strategy, which stops old pods before new pods are available and can cause avoidable downtime.
+  fail_message: Deployment uses Recreate update strategy.
+  recommendation: "Use RollingUpdate for services that need continuous availability. Keep Recreate only when the workload cannot tolerate overlapping versions."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+  native_handler: WRK018
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Recreate deployments can cause downtime during rollout.
+  - Use RollingUpdate unless the application requires single-version execution.
+- id: WRK019
+  name: Deployment Revision History Disabled
+  category: Operations
+  section: Workloads
+  resource_kind: Deployment
+  severity: Medium
+  weight: 2
+  description: Flags Deployments with revisionHistoryLimit set to 0, which removes rollback history.
+  fail_message: Deployment revision history is disabled.
+  recommendation: "Keep revisionHistoryLimit greater than 0 so kubectl rollout undo and controller rollback workflows remain available."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit
+  native_handler: WRK019
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Disabling revision history removes normal Deployment rollback options.
+  - Keep several previous ReplicaSets for operational recovery.
+- id: WRK020
+  name: Workload DNS and Host Alias Overrides
+  category: Workloads
+  section: Workloads
+  resource_kind: Pod
+  severity: Medium
+  weight: 2
+  description: "Detects pods that set dnsPolicy: None or hostAliases, both of which can override normal Kubernetes service discovery behavior."
+  fail_message: Pod overrides Kubernetes DNS behavior.
+  recommendation: "Use ClusterFirst DNS and Kubernetes Services for discovery. Keep dnsPolicy: None or hostAliases only for tightly documented exceptions."
+  url: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/
+  native_handler: WRK020
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - DNS and host alias overrides can hide name-resolution problems and bypass service discovery.
+  - Prefer Kubernetes Services and ClusterFirst DNS.
+- id: WRK021
+  name: Missing Workload PriorityClass
+  category: Scheduling
+  section: Workloads
+  resource_kind: Deployment, StatefulSet, DaemonSet
+  severity: Low
+  check_type: advisory
+  weight: 1
+  description: Flags long-running workload controllers without priorityClassName, making eviction and scheduling priority implicit.
+  fail_message: Workload does not set priorityClassName.
+  recommendation: "Assign PriorityClasses for critical services so scheduling and eviction behavior is explicit during resource pressure."
+  url: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+  native_handler: WRK021
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - PriorityClass makes scheduling and eviction importance explicit.
+  - Assign priorities for critical platform and production services.
+- id: POD011
+  name: Shared Process Namespace Enabled
+  category: Pod Health
+  section: Pods
+  resource_kind: Pod
+  severity: Medium
+  weight: 2
+  description: Flags pods with shareProcessNamespace enabled, allowing containers in the same pod to inspect each other's processes.
+  fail_message: Pod shares process namespace across containers.
+  recommendation: "Disable shareProcessNamespace unless a sidecar has a documented need to signal or inspect the main process."
+  url: https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
+  native_handler: POD011
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Shared process namespaces weaken container isolation inside the pod.
+  - Use only for documented sidecar coordination cases.
+- id: POD012
+  name: Zero Termination Grace Period
+  category: Pod Health
+  section: Pods
+  resource_kind: Pod
+  severity: Medium
+  weight: 2
+  description: Detects pods setting terminationGracePeriodSeconds to 0, which immediately sends SIGKILL and prevents graceful shutdown.
+  fail_message: Pod has zero termination grace period.
+  recommendation: "Set a positive terminationGracePeriodSeconds and ensure applications handle SIGTERM so in-flight work can drain cleanly."
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination
+  native_handler: POD012
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Zero termination grace can cause data loss and failed drains.
+  - Give applications time to handle SIGTERM.
+- id: POD013
+  name: Bidirectional Mount Propagation
+  category: Pod Health
+  section: Pods
+  resource_kind: Pod
+  severity: High
+  weight: 4
+  description: Detects containers using Bidirectional mount propagation, which can propagate container-created mounts back to the host.
+  fail_message: Pod uses bidirectional mount propagation.
+  recommendation: "Remove Bidirectional mount propagation unless the workload is a trusted node agent. Prefer None or HostToContainer propagation and document any exception."
+  url: https://kubernetes.io/docs/concepts/storage/volumes/#mount-propagation
+  native_handler: POD013
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Bidirectional mount propagation can affect host mounts.
+  - Restrict it to trusted node agents with documented exceptions.

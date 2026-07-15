@@ -651,3 +651,112 @@ checks:
   speech_bubble:
   - Admission webhooks can silently weaken policy if they fail open.
   - Scope webhook rules carefully and make side effects explicit.
+- id: SEC031
+  name: Secret Material Pattern Detected
+  category: Secrets
+  section: Security
+  resource_kind: Secret
+  severity: High
+  weight: 4
+  description: Scans non-system Secrets for credential-like values such as cloud keys, GitHub tokens, private keys, database URLs, and weak short secret values.
+  fail_message: Secret contains high-risk credential material or weak secret data.
+  recommendation: "Rotate the affected credential, remove it from Kubernetes if it is not required, and move long-lived sensitive values to an external secret manager with rotation. Keep only the minimum namespace-scoped Secret references needed by workloads."
+  url: https://kubernetes.io/docs/concepts/configuration/secret/
+  native_handler: SEC031
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Secrets can contain leaked cloud, source-control, or database credentials.
+  - Rotate affected values and move long-lived credentials to an external secret manager.
+- id: SEC032
+  name: TLS Secret Certificate Expiry
+  category: Secrets
+  section: Security
+  resource_kind: Secret
+  severity: High
+  weight: 4
+  description: Detects kubernetes.io/tls Secrets with expired certificates or certificates expiring within 30 days.
+  fail_message: TLS Secret certificate is expired or close to expiry.
+  recommendation: "Renew expired or expiring certificates and automate certificate lifecycle management with cert-manager or your platform certificate issuer."
+  url: https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets
+  native_handler: SEC032
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - TLS certificates in Secrets can silently expire and break ingress traffic.
+  - Automate renewal and alerting for certificates stored in Kubernetes.
+- id: SEC033
+  name: Sensitive Data in ConfigMap
+  category: ConfigMaps
+  section: Security
+  resource_kind: ConfigMap
+  severity: Medium
+  weight: 3
+  description: Flags ConfigMaps with keys or values that look like credentials, tokens, private keys, database URLs, or base64-encoded secret material.
+  fail_message: ConfigMap may contain sensitive data.
+  recommendation: "Move sensitive values from ConfigMaps into Kubernetes Secrets or an external secret manager. ConfigMaps are not designed for confidential data."
+  url: https://kubernetes.io/docs/concepts/configuration/configmap/
+  native_handler: SEC033
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - ConfigMaps are not a safe location for credentials or tokens.
+  - Move sensitive values into Secrets or an external secret manager.
+- id: SEC034
+  name: End-of-Life Base Image
+  category: Image Security
+  section: Security
+  resource_kind: Pod
+  severity: High
+  weight: 3
+  description: Detects workload images based on end-of-life operating system or runtime tags such as old CentOS, Ubuntu, Debian, Python, or Node.js versions.
+  fail_message: Container image uses an end-of-life base image or runtime.
+  recommendation: "Move to a currently supported base image or runtime tag, preferably a minimal maintained image, and rebuild the workload image."
+  url: https://kubernetes.io/docs/concepts/containers/images/
+  native_handler: SEC034
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - End-of-life base images no longer receive security patches.
+  - Rebuild workloads on supported runtime and operating system versions.
+- id: SEC035
+  name: Image Not Pinned to Digest
+  category: Image Security
+  section: Security
+  resource_kind: Pod
+  severity: Low
+  check_type: advisory
+  weight: 1
+  description: Flags container images that use mutable version tags instead of immutable sha256 digests.
+  fail_message: Container image is tag-pinned but not digest-pinned.
+  recommendation: "Pin production images to immutable sha256 digests and use image signing or admission policy to verify provenance."
+  url: https://kubernetes.io/docs/concepts/containers/images/#image-names
+  native_handler: SEC035
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Image tags can be overwritten in registries.
+  - Digest pinning gives reproducible workload images.
+- id: SEC036
+  name: Docker-in-Docker Container Detected
+  category: Pod Security
+  section: Security
+  resource_kind: Pod
+  severity: High
+  weight: 4
+  description: Detects containers using Docker-in-Docker images, which commonly require privileged access and can expose node-level control paths.
+  fail_message: Container appears to run Docker-in-Docker.
+  recommendation: "Replace Docker-in-Docker with rootless build tooling such as BuildKit rootless, Kaniko, Buildah, or a managed CI runner isolated from the cluster."
+  url: https://kubernetes.io/docs/concepts/containers/runtime-class/
+  native_handler: SEC036
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Docker-in-Docker is a strong container escape and node trust risk signal.
+  - Prefer rootless builders and isolated CI infrastructure.

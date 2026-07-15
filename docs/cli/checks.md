@@ -98,6 +98,8 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | NET018 | Duplicate Service Selectors | Detects multiple Services in the same namespace with identical selectors. | Warning | 3 |
 | NET019 | Services Using External IPs | Detects Services that use `spec.externalIPs`, which can bypass normal load balancer ownership and create traffic interception risk. | High | 4 |
 | NET020 | Ingress-NGINX Controller Detected | Detects Ingress-NGINX controller components so teams can review maintenance and migration plans. | Low | 1 |
+| NET021 | Cloud Metadata API Egress Exposure | Detects namespaces without an egress guard for the cloud metadata endpoint. | High | 4 |
+| NET022 | Endpoint Points to Cloud Metadata IP | Detects Endpoints that route traffic to `169.254.169.254`. | High | 4 |
 | PROM003 | High Network Receive Rate (Prometheus) | Detects pods receiving large amounts of network traffic over the last 24 hours. | Medium | 2 |
 
 ### Nodes
@@ -143,6 +145,9 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | POD007 | Images Using `latest` Tag | Risk of inconsistent deployments due to floating tags. | Low      | 1      |
 | POD009 | Unhealthy Allocated Device Resources | Detects pods whose allocated device resources report `Unhealthy` or `Unknown` status. | High | 3 |
 | POD010 | Naked Pods              | Detects pods that are not owned by a workload controller. | Warning | 2 |
+| POD011 | Shared Process Namespace Enabled | Detects pods with `shareProcessNamespace: true`. | Medium | 2 |
+| POD012 | Zero Termination Grace Period | Detects pods with `terminationGracePeriodSeconds: 0`. | Medium | 2 |
+| POD013 | Bidirectional Mount Propagation | Detects pod volume mounts using bidirectional mount propagation. | High | 4 |
 
 ### RBAC
 
@@ -154,6 +159,10 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | RBAC004 | Ineffective Roles        | Unused roles cluttering the system.  | Medium   | 2      |
 | RBAC005 | Kubelet Proxy RBAC Access | Bound Roles or ClusterRoles that grant broad `nodes/proxy` kubelet access. | High | 4 |
 | RBAC006 | Dangerous RBAC Verbs and Subresources | Detects bound Roles or ClusterRoles granting impersonation, bind/escalate, exec, port-forward, or broad secret access. | High | 4 |
+| RBAC007 | Anonymous or Broad Authenticated Subject Binding | Detects bindings to anonymous or broad authenticated subjects. | Critical | 5 |
+| RBAC008 | Cross-Namespace ServiceAccount Binding | Detects ServiceAccounts bound outside their namespace or cluster-wide. | High | 4 |
+| RBAC009 | Default ServiceAccount with Dangerous Permissions | Detects default ServiceAccounts bound to dangerous permissions. | High | 4 |
+| RBAC010 | Sensitive ServiceAccount Bound to Workload | Detects workloads using ServiceAccounts that hold dangerous RBAC permissions. | High | 4 |
 
 ### Security
 
@@ -189,6 +198,12 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | SEC028 | Image Pull Secrets in Use             | Flags Pods or ServiceAccounts that reference imagePullSecrets for credential rotation review. | Low | 1 |
 | SEC029 | Sensitive HostPath Mounts             | Detects hostPath volumes that mount container runtime sockets or sensitive host filesystem paths. | Critical | 5 |
 | SEC030 | Admission Webhook Fail-Open or Broad Scope | Flags admission webhooks that fail open, omit sideEffects, or apply broadly without namespace scoping. | High | 4 |
+| SEC031 | Secret Material Pattern Detected | Detects credential-like material in Kubernetes Secrets. | High | 4 |
+| SEC032 | TLS Secret Certificate Expiry | Detects TLS Secrets with expired or soon-expiring certificates. | High | 4 |
+| SEC033 | Sensitive Data in ConfigMap | Detects credential-like material stored in ConfigMaps. | Medium | 3 |
+| SEC034 | End-of-Life Base Image | Detects container images using known end-of-life base image tags. | High | 3 |
+| SEC035 | Image Not Pinned to Digest | Detects workload images that are not pinned by digest. | Low | 1 |
+| SEC036 | Docker-in-Docker Container Detected | Detects Docker socket and DinD-style workload patterns. | High | 4 |
 
 ### Storage
 
@@ -224,6 +239,11 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | WRK014 | Missing Memory Limits | Detects workloads whose containers do not define a memory limit. | Warning | 2 |
 | WRK015 | Replicated Workloads Missing Spread Constraints | Detects Deployments or StatefulSets with 2+ replicas that define neither anti-affinity nor topology spread constraints. | Warning | 2 |
 | WRK016 | Missing Recommended Application Labels | Detects workloads that do not use the recommended `app.kubernetes.io` label set. | Low | 1 |
+| WRK017 | Single Replica Workload | Detects Deployments and StatefulSets running with one replica. | Low | 1 |
+| WRK018 | Recreate Deployment Strategy | Detects Deployments using the `Recreate` update strategy. | Low | 1 |
+| WRK019 | Deployment Revision History Disabled | Detects Deployments with `revisionHistoryLimit: 0`. | Medium | 2 |
+| WRK020 | Workload DNS and Host Alias Overrides | Detects workload DNS configuration or host alias overrides. | Medium | 2 |
+| WRK021 | Missing Workload PriorityClass | Detects workloads without an explicit `priorityClassName`. | Low | 1 |
 
 
 ## Usage Notes
