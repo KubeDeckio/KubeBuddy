@@ -6777,16 +6777,7 @@ function BoundaryImpactRow({ target }: { target: DirectRiskPath | CombinedRiskPa
   );
 }
 
-const chevronSx = {
-  color: 'text.secondary',
-  display: 'inline-flex',
-  fontSize: '1.25rem',
-  fontWeight: 900,
-  lineHeight: 1,
-  transition: 'transform 120ms ease',
-};
-
-const boundaryDetailsSx = (theme: Theme) => ({
+const boundaryDetailsSx = () => ({
   p: 0,
   '& summary': { listStyle: 'none' },
   '& summary::-webkit-details-marker': { display: 'none' },
@@ -7133,7 +7124,7 @@ function AttackGraphSummary({ graph, hideTitle = false }: { graph: RiskPathGraph
           <Box component="details" sx={{ mt: 1 }}>
             <Box
               component="summary"
-              sx={theme => ({
+              sx={{
                 alignItems: 'center',
                 cursor: 'pointer',
                 display: 'flex',
@@ -7141,7 +7132,7 @@ function AttackGraphSummary({ graph, hideTitle = false }: { graph: RiskPathGraph
                 '&::-webkit-details-marker': { display: 'none' },
                 '& .risk-path-chevron': { transition: 'transform 120ms ease' },
                 'details[open] > & .risk-path-chevron': { transform: 'rotate(180deg)' },
-              })}
+              }}
             >
               <Typography variant="caption" color="text.secondary" sx={{ flex: 1, fontWeight: 800 }}>Graph edges</Typography>
               <ExpandDownIcon className="risk-path-chevron" fontSize="small" />
