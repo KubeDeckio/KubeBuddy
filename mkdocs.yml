@@ -76,10 +76,12 @@ nav:
           - PowerShell: cli/powershell-usage.md
           - Docker: cli/docker-usage.md
           - Config File: cli/kubebuddy-config.md
+          - Prometheus Integration: cli/prometheus-integration.md
           - Parameters: cli/parameters.md
           - Kubernetes Permissions: cli/kubernetes-permissions.md
           - Logging Output: cli/logging-output.md
       - Headlamp Plugin: headlamp/index.md
+      - Examples: examples/README.md
   - Checks & Risk:
       - Overview: checks/index.md
       - Risk Paths: checks/risk-paths.md
@@ -88,9 +90,6 @@ nav:
       - AKS Best Practices: checks/aks-best-practices.md
       - GKE Best Practices: checks/gke-best-practices.md
       - AKS Automatic Migration Readiness: checks/aks-automatic-migration-readiness.md
-  - Reports & Output:
-      - Prometheus Integration: cli/prometheus-integration.md
-      - Examples: examples/README.md
   - Radar:
       - Overview: radar/index.md
       - Getting Started: radar/getting-started.md
