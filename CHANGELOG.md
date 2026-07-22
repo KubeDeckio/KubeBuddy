@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.35] - 2026-07-22
+
+### Fixed
+
+* Updated the Headlamp plugin lockfile to resolve high and critical npm audit findings for `brace-expansion`, `fast-uri`, `js-yaml`, and `tar`.
+
 ## [0.0.34] - 2026-07-22
 
 ### Added
