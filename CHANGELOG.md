@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+* Bumped `google.golang.org/grpc` from `1.81.1` to `1.82.1`, including upstream security fixes for HTTP/2 frame flood handling and xDS RBAC parsing/matching behavior.
 * Updated the Headlamp plugin lockfile to resolve high and critical npm audit findings for `brace-expansion`, `fast-uri`, `js-yaml`, and `tar`.
 
 ## [0.0.34] - 2026-07-22
