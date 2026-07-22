@@ -20,8 +20,9 @@ If you want the old guided Buddy experience, start with `kubebuddy guided`.
    - [Docker](docker-usage.md)
 4. Then use the reference pages:
    - [Config File](kubebuddy-config.md)
-   - [Prometheus Integration](prometheus-integration.md)
    - [Parameters](parameters.md)
+   - [Prometheus Integration](prometheus-integration.md)
+   - [Checks & Risk](../checks/index.md)
 
 ## What This Section Covers
 
@@ -29,8 +30,8 @@ If you want the old guided Buddy experience, start with `kubebuddy guided`.
 - how to run your first scan and report
 - runtime-specific usage for native CLI, PowerShell, and Docker
 - config file behavior
-- Prometheus and AKS usage
-- parameter reference and check catalog reference
+- Prometheus usage
+- parameter reference
 
 ## Quick Start Links
 
@@ -41,3 +42,4 @@ If you want the old guided Buddy experience, start with `kubebuddy guided`.
 - [Docker](docker-usage.md)
 - [Config File](kubebuddy-config.md)
 - [Parameters](parameters.md)
+- [Checks & Risk](../checks/index.md)

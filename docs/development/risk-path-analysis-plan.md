@@ -120,7 +120,7 @@ Initial compound rules:
 5. Extend HTML/text reports with a new `Risk Paths` section.
 6. Add Headlamp plugin parity using shared generated metadata and TypeScript analyzer functions.
 7. Add `Copy Validation Commands` actions in HTML and Headlamp. Commands must be safe/read-only or server-side dry-run by default.
-8. Add docs in `docs/cli/checks.md` and a user-facing page explaining how to interpret risk areas.
+8. Add docs in `docs/checks/index.md` and a user-facing page explaining how to interpret risk areas.
 
 ## Safety Rules for Validation Commands
 

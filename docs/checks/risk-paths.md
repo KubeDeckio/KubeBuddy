@@ -1,8 +1,3 @@
----
-title: Risk Paths
-nav_order: 6
----
-
 # Risk Paths
 
 Risk Paths is KubeBuddy's correlation layer. Normal checks still report the exact Kubernetes misconfiguration. Risk Paths groups related findings into direct risk paths and, when multiple paths combine, possible chained paths.

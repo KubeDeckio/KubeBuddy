@@ -1,6 +1,23 @@
-# KubeBuddy CLI Integration
+# KubeBuddy CLI + Radar Integration (Pro)
 
-This page shows how to connect both the native `kubebuddy` CLI and the PowerShell wrapper `Invoke-KubeBuddy` to Radar cluster-reports and cluster-configs endpoints.
+Use this guide to upload KubeBuddy JSON scan results into KubeBuddy Radar and to pull saved Radar cluster configs into KubeBuddy for:
+
+- run history
+- score trends
+- run-to-run compare
+- saved cluster configs
+- generated commands and YAML config files
+
+For the Radar web experience itself, see [Radar Overview](index.md), [Cluster Reports](cluster-reports.md), [Cluster Configs](cluster-configs.md), and [API Reference](api-reference.md).
+
+## What Gets Uploaded
+
+Only the JSON report payload is uploaded.
+
+- `kubebuddy run --json-report --radar-upload ...`
+- `Invoke-KubeBuddy -jsonReport -RadarUpload ...`
+- HTML and TXT outputs are local artifacts only
+- Radar derives report and compare data from the uploaded JSON report
 
 ## Authentication
 

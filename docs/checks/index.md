@@ -1,10 +1,3 @@
----
-title: Kubernetes Checks Reference
-parent: Usage
-nav_order: 3
-layout: default
----
-
 # Kubernetes Checks Reference
 
 KubeBuddy runs checks to find issues and misconfigurations in your Kubernetes cluster. These checks power the health report and help you fix problems, reduce risk, and improve stability. This page lists all checks by category, with their ID, name, description, severity, and score weight.
