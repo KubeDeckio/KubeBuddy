@@ -2,8 +2,8 @@
 
 Run KubeBuddy Kubernetes checks from inside Headlamp for the active cluster.
 
-Plugin version: 0.3.0
-Includes KubeBuddy checks from v0.0.34.
+Plugin version: 0.4.0
+Includes KubeBuddy checks from v0.0.35.
 
 The plugin uses Kubernetes resource data already available to Headlamp and evaluates browser-safe KubeBuddy checks in the current Headlamp page. It shows a summary score, failed checks, recommendations, affected resources, and export options without installing anything into the cluster.
 
@@ -125,7 +125,7 @@ Example:
 ```text
 KubeBuddy release: v0.0.31
 Headlamp plugin version: 0.1.0
-Includes KubeBuddy checks from v0.0.34
+Includes KubeBuddy checks from v0.0.35
 ```
 
 ## Development
