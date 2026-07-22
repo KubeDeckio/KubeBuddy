@@ -79,6 +79,7 @@ nav:
       - Prometheus Integration: cli/prometheus-integration.md
       - Parameters: cli/parameters.md
       - Resource Suppressions: cli/resource-suppressions.md
+      - Risk Paths: cli/risk-paths.md
       - Checks: cli/checks.md
       - AKS Best Practices: cli/aks-best-practice-checks.md
       - AKS Automatic Migration Readiness: cli/aks-automatic-migration-readiness.md
@@ -92,7 +93,7 @@ nav:
       - Cluster Configs (Pro): radar/cluster-configs.md
       - API Reference: radar/api-reference.md
   - Creating Checks: creating-Checks.md
-  - Capability Break Analysis Plan: capability-break-analysis-plan.md
+  - Risk Path Analysis Plan: risk-path-analysis-plan.md
   - Contributing: contributing.md
   - Release Process: releaseprocess.md
   - Changelog: changelog.md

@@ -5,9 +5,12 @@
 import {
   K8s,
   registerAppBarAction,
+  registerDetailsViewSection,
+  registerResourceTableColumnsProcessor,
   registerRoute,
   registerSidebarEntry,
 } from '@kinvolk/headlamp-plugin/lib';
+import type { ResourceTableColumn } from '@kinvolk/headlamp-plugin/lib/CommonComponents';
 import { SectionBox } from '@kinvolk/headlamp-plugin/lib/CommonComponents';
 import { makeCustomResourceClass } from '@kinvolk/headlamp-plugin/lib/lib/k8s/crd';
 import {
@@ -110,6 +113,56 @@ type SuppressedFinding = Finding & {
   suppressionReason?: string;
   suppressionUntil?: string;
 };
+const RISK_PATHS_SECTION = 'Risk Paths';
+
+type RiskPathStatus = 'clear' | 'triggered';
+
+type RiskPathEvidence = {
+  checkId: string;
+  checkName: string;
+  severity: Severity;
+  findingCount: number;
+  sampleFindings?: Finding[];
+};
+
+type ValidationCommand = {
+  title: string;
+  command: string;
+  purpose: string;
+  readOnly: boolean;
+};
+
+type RiskPathGraph = {
+  nodes: { id: string; label: string; type: string; checkId?: string }[];
+  edges: { from: string; to: string; label: string }[];
+};
+
+type DirectRiskPath = {
+  id: string;
+  name: string;
+  boundary: string;
+  status: RiskPathStatus;
+  confidence: string;
+  exploitability: string;
+  fixPriority: string;
+  summary: string;
+  signalChecks: string[];
+  evidence?: RiskPathEvidence[];
+  validationProof?: ValidationCommand[];
+  attackGraph?: RiskPathGraph;
+};
+
+type CombinedRiskPath = {
+  id: string;
+  name: string;
+  status: RiskPathStatus;
+  confidence: string;
+  fixPriority: string;
+  summary: string;
+  requires: string[];
+  triggeredDirectRiskPaths?: string[];
+  attackGraph?: RiskPathGraph;
+};
 
 type ResourceState<T = any> = {
   data: T[];
@@ -184,6 +237,7 @@ type ResourceStateEntry = ResourceState & {
 const SCORE_UPDATED_EVENT = 'kubebuddy-score-updated';
 const SCORE_FRESH_MS = 24 * 60 * 60 * 1000;
 const SCORE_HISTORY_LIMIT = 30;
+const SCORE_ALGORITHM_VERSION = 2;
 const CHECKS_PER_SCAN_STEP = 2;
 const SCAN_STEP_DELAY_MS = 25;
 const IGNORE_CHECKS_ANNOTATION = 'kubebuddy.io/ignore-checks';
@@ -250,6 +304,7 @@ type StoredScore = {
   failed: number;
   total: number;
   completedAt: string;
+  algorithmVersion?: number;
 };
 
 type StoredScoreHistoryPoint = StoredScore & {
@@ -260,6 +315,8 @@ type StoredScoreHistoryPoint = StoredScore & {
 
 type StoredReport = {
   checks: CheckResult[];
+  directRiskPaths?: DirectRiskPath[];
+  combinedRiskPaths?: CombinedRiskPath[];
   completedAt: string;
   excludedNamespaces?: string[];
   config?: KubeBuddyConfig;
@@ -567,6 +624,13 @@ function readStoredScore(clusterKey: string): StoredScore | null {
       return null;
     }
 
+    if (parsed.algorithmVersion !== SCORE_ALGORITHM_VERSION) {
+      const report = readStoredReport(clusterKey);
+      if (report?.checks?.length) {
+        return storeScore(clusterKey, report.checks, report.completedAt);
+      }
+    }
+
     return parsed as StoredScore;
   } catch {
     return null;
@@ -635,6 +699,7 @@ function storeScore(clusterKey: string, checks: CheckResult[], completedAt = new
     failed: score.failed,
     total: score.total,
     completedAt,
+    algorithmVersion: SCORE_ALGORITHM_VERSION,
   };
 
   window.localStorage.setItem(scoreStorageKey(clusterKey), JSON.stringify(storedScore));
@@ -651,8 +716,11 @@ function storeScore(clusterKey: string, checks: CheckResult[], completedAt = new
 
 function storeReport(clusterKey: string, checks: CheckResult[], config: KubeBuddyConfig): StoredReport {
   const completedAt = new Date().toISOString();
+  const analysis = analyzeDirectRiskPaths(checks);
   const storedReport: StoredReport = {
     checks,
+    directRiskPaths: analysis.directRiskPaths,
+    combinedRiskPaths: analysis.combinedRiskPaths,
     completedAt,
     excludedNamespaces: normalizeNamespaceList(config.excludedNamespaces),
     config,
@@ -697,6 +765,8 @@ function exportReportJson(clusterKey: string, report: StoredReport): void {
     excludedNamespaces: report.excludedNamespaces || [],
     config: report.config,
     checks: report.checks,
+    directRiskPaths: report.directRiskPaths || analyzeDirectRiskPaths(report.checks).directRiskPaths,
+    combinedRiskPaths: report.combinedRiskPaths || analyzeDirectRiskPaths(report.checks).combinedRiskPaths,
   };
 
   downloadTextFile(
@@ -826,6 +896,347 @@ function findingKey(finding: Finding): string {
     finding.kind || '',
     finding.details,
   ].join('\u001f');
+}
+
+const KUBEBUDDY_DETAIL_RESOURCE_KINDS = new Set([
+  'ClusterRole',
+  'ClusterRoleBinding',
+  'ConfigMap',
+  'CronJob',
+  'DaemonSet',
+  'Deployment',
+  'Endpoints',
+  'EndpointSlice',
+  'Gateway',
+  'HorizontalPodAutoscaler',
+  'HTTPRoute',
+  'Ingress',
+  'Job',
+  'JobSet',
+  'LimitRange',
+  'MutatingWebhookConfiguration',
+  'Namespace',
+  'NetworkPolicy',
+  'Node',
+  'PersistentVolume',
+  'PersistentVolumeClaim',
+  'Pod',
+  'PodDisruptionBudget',
+  'ReplicaSet',
+  'ResourceQuota',
+  'Role',
+  'RoleBinding',
+  'Secret',
+  'Service',
+  'ServiceAccount',
+  'StatefulSet',
+  'StorageClass',
+  'ValidatingAdmissionPolicy',
+  'ValidatingAdmissionPolicyBinding',
+  'ValidatingWebhookConfiguration',
+  'Kustomization',
+  'HelmRelease',
+  'Application',
+]);
+
+const KUBEBUDDY_GITOPS_RESOURCE_GROUPS = new Set([
+  'argoproj.io',
+  'kustomize.toolkit.fluxcd.io',
+  'helm.toolkit.fluxcd.io',
+  'toolkit.fluxcd.io',
+]);
+
+const KUBEBUDDY_TABLE_IDS = new Set([
+  'headlamp-clusterrolebindings',
+  'headlamp-clusterroles',
+  'headlamp-configmaps',
+  'headlamp-cronjobs',
+  'headlamp-daemonsets',
+  'headlamp-deployments',
+  'headlamp-endpoints',
+  'headlamp-endpointslices',
+  'headlamp-gateways',
+  'headlamp-horizontalpodautoscalers',
+  'headlamp-httproutes',
+  'headlamp-ingresses',
+  'headlamp-jobs',
+  'headlamp-jobsets',
+  'headlamp-limitranges',
+  'headlamp-mutatingwebhookconfigurations',
+  'headlamp-namespaces',
+  'headlamp-networkpolicies',
+  'headlamp-nodes',
+  'headlamp-persistentvolumeclaims',
+  'headlamp-persistentvolumes',
+  'headlamp-poddisruptionbudgets',
+  'headlamp-pods',
+  'headlamp-replicasets',
+  'headlamp-resourcequotas',
+  'headlamp-rolebindings',
+  'headlamp-roles',
+  'headlamp-secrets',
+  'headlamp-serviceaccounts',
+  'headlamp-services',
+  'headlamp-statefulsets',
+  'headlamp-storageclasses',
+  'headlamp-validatingadmissionpolicies',
+  'headlamp-validatingadmissionpolicybindings',
+  'headlamp-validatingwebhookconfigurations',
+  'headlamp-volumeattributesclasses',
+]);
+
+type ResourceFindingMatch = {
+  check: CheckResult;
+  finding: Finding;
+};
+
+function resourceApiGroup(resource: any): string {
+  const version = apiVersion(resource) || '';
+  return version.includes('/') ? version.split('/')[0] : '';
+}
+
+function isKubeBuddyDetailResource(resource: any): boolean {
+  const resourceKind = kind(resource);
+  if (!resourceKind) {
+    return false;
+  }
+
+  if (KUBEBUDDY_DETAIL_RESOURCE_KINDS.has(resourceKind)) {
+    return true;
+  }
+
+  return KUBEBUDDY_GITOPS_RESOURCE_GROUPS.has(resourceApiGroup(resource));
+}
+
+function sameResourceFinding(resource: any, finding: Finding): boolean {
+  const resourceUid = uid(resource);
+  if (resourceUid && finding.uid && resourceUid === finding.uid) {
+    return true;
+  }
+
+  const resourceName = name(resource);
+  const resourceKind = kind(resource);
+  const resourceNamespace = namespace(resource) || '';
+
+  if (!resourceName || finding.resource !== resourceName) {
+    return false;
+  }
+
+  if (finding.kind && resourceKind && finding.kind !== resourceKind) {
+    return false;
+  }
+
+  return (finding.namespace || '') === resourceNamespace;
+}
+
+function resourceFindingMatches(report: StoredReport | null, resource: any): ResourceFindingMatch[] {
+  if (!report || !resource) {
+    return [];
+  }
+
+  return report.checks.flatMap(check =>
+    check.findings
+      .filter(finding => sameResourceFinding(resource, finding))
+      .map(finding => ({ check, finding }))
+  );
+}
+
+function severityLabel(severity: Severity): string {
+  if (severity === 'warning') {
+    return 'Med';
+  }
+
+  return severity.charAt(0).toUpperCase() + severity.slice(1);
+}
+
+function summarizeResourceFindings(matches: ResourceFindingMatch[]): string {
+  if (matches.length === 0) {
+    return 'Pass';
+  }
+
+  const counts = matches.reduce<Record<Severity, number>>(
+    (acc, match) => {
+      acc[match.check.severity] += 1;
+      return acc;
+    },
+    { high: 0, warning: 0, medium: 0, low: 0 }
+  );
+
+  return (['high', 'warning', 'medium', 'low'] as Severity[])
+    .filter(severity => counts[severity] > 0)
+    .map(severity => `${counts[severity]} ${severityLabel(severity)}`)
+    .join(', ');
+}
+
+function resourceSeverityCounts(matches: ResourceFindingMatch[]): Record<Severity, number> {
+  return matches.reduce<Record<Severity, number>>(
+    (acc, match) => {
+      acc[match.check.severity] += 1;
+      return acc;
+    },
+    { high: 0, warning: 0, medium: 0, low: 0 }
+  );
+}
+
+function highestResourceSeverity(matches: ResourceFindingMatch[]): Severity | null {
+  const counts = resourceSeverityCounts(matches);
+  return (['high', 'warning', 'medium', 'low'] as Severity[]).find(severity => counts[severity] > 0) || null;
+}
+
+function resourceStatusSortValue(report: StoredReport | null, resource: any): number {
+  if (!report) {
+    return 0;
+  }
+
+  const matches = resourceFindingMatches(report, resource);
+  if (matches.length === 0) {
+    return 100000;
+  }
+
+  const severityRank: Record<Severity, number> = {
+    high: 900000,
+    warning: 800000,
+    medium: 800000,
+    low: 700000,
+  };
+  const highestSeverity = highestResourceSeverity(matches) || 'low';
+
+  return severityRank[highestSeverity] + Math.min(matches.length, 9999);
+}
+
+function resourceFindingMatchSortValue(match: ResourceFindingMatch): number {
+  const severityRank: Record<Severity, number> = {
+    high: 4000,
+    warning: 3000,
+    medium: 3000,
+    low: 2000,
+  };
+
+  return severityRank[match.check.severity] || 0;
+}
+
+function sortedResourceFindingMatches(matches: ResourceFindingMatch[]): ResourceFindingMatch[] {
+  return [...matches].sort((left, right) => {
+    const severityDelta = resourceFindingMatchSortValue(right) - resourceFindingMatchSortValue(left);
+    if (severityDelta) {
+      return severityDelta;
+    }
+
+    const checkDelta = left.check.id.localeCompare(right.check.id, undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+    if (checkDelta) {
+      return checkDelta;
+    }
+
+    return left.finding.details.localeCompare(right.finding.details);
+  });
+}
+
+function kubeBuddyRouteFromPath(pathname: string): string {
+  const clusterMatch = pathname.match(/^\/c\/([^/]+)/);
+  return clusterMatch ? `/c/${clusterMatch[1]}/kubebuddy` : '/kubebuddy';
+}
+
+function completedAtAge(completedAt: string): string {
+  return formatScoreAge({
+    completedAt,
+    failed: 0,
+    total: 0,
+    value: 0,
+  });
+}
+
+function isCompletedAtFresh(completedAt: string): boolean {
+  return Date.now() - new Date(completedAt).getTime() <= SCORE_FRESH_MS;
+}
+
+function severityChipSx(severity: Severity | null, filled = true) {
+  return (theme: Theme) => {
+    const palette = {
+      high: {
+        bg: theme.palette.error.main,
+        border: theme.palette.error.main,
+        color: theme.palette.error.contrastText,
+      },
+      warning: {
+        bg: theme.palette.warning.main,
+        border: theme.palette.warning.main,
+        color: theme.palette.warning.contrastText,
+      },
+      medium: {
+        bg: theme.palette.warning.main,
+        border: theme.palette.warning.main,
+        color: theme.palette.warning.contrastText,
+      },
+      low: {
+        bg: theme.palette.info.main,
+        border: theme.palette.info.main,
+        color: theme.palette.info.contrastText,
+      },
+      none: {
+        bg: theme.palette.success.dark || theme.palette.success.main,
+        border: theme.palette.success.main,
+        color: theme.palette.success.contrastText,
+      },
+    };
+    const colors = palette[severity || 'none'];
+
+    return {
+      bgcolor: filled ? colors.bg : 'transparent',
+      borderColor: colors.border,
+      borderRadius: 1,
+      color: filled ? colors.color : colors.border,
+      fontWeight: 700,
+      maxWidth: '100%',
+      '& .MuiChip-label': {
+        display: 'block',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      },
+      '&:hover': {
+        bgcolor: filled ? colors.bg : theme.palette.action.hover,
+        filter: filled ? 'brightness(0.96)' : undefined,
+      },
+    };
+  };
+}
+
+function useStoredKubeBuddyReport(clusterKey: string): StoredReport | null {
+  const [report, setReport] = React.useState<StoredReport | null>(() => readStoredReport(clusterKey));
+
+  React.useEffect(() => {
+    const updateReport = () => setReport(readStoredReport(clusterKey));
+
+    updateReport();
+    window.addEventListener(SCORE_UPDATED_EVENT, updateReport);
+    window.addEventListener('storage', updateReport);
+
+    return () => {
+      window.removeEventListener(SCORE_UPDATED_EVENT, updateReport);
+      window.removeEventListener('storage', updateReport);
+    };
+  }, [clusterKey]);
+
+  return report;
+}
+
+function openKubeBuddyFinding(
+  history: ReturnType<typeof useHistory>,
+  clusterKey: string,
+  pathname: string,
+  match?: ResourceFindingMatch
+): void {
+  if (match) {
+    storeReturnTarget(clusterKey, {
+      checkId: match.check.id,
+      section: match.check.section,
+      findingKey: findingKey(match.finding),
+    });
+  }
+
+  history.push(kubeBuddyRouteFromPath(pathname));
 }
 
 function storeReturnTarget(clusterKey: string, target: KubeBuddyReturnTarget): void {
@@ -958,6 +1369,508 @@ function resultLogLevel(result: CheckResult): ScanLogEntry['level'] {
     return 'warning';
   }
   return 'success';
+}
+
+
+type DirectRiskPathDefinition = {
+  id: string;
+  name: string;
+  boundary: string;
+  signals: string[];
+  triggerThreshold: number;
+  criticalSingleHits: string[];
+  summaryClear: string;
+  summaryTriggered: string;
+  validationProof: ValidationCommand[];
+};
+
+type CombinedRiskPathDefinition = {
+  id: string;
+  name: string;
+  requires: string[];
+  summaryClear: string;
+  summaryTriggered: string;
+};
+
+const DIRECT_RISK_PATH_DEFINITIONS: DirectRiskPathDefinition[] = [
+  {
+    id: 'RISK001',
+    name: 'Container Isolation Risk',
+    boundary: 'Workload to node/container isolation',
+    signals: ['POD011', 'POD013', 'SEC002', 'SEC004', 'SEC010', 'SEC012', 'SEC017', 'SEC021', 'SEC023', 'SEC029'],
+    triggerThreshold: 2,
+    criticalSingleHits: ['SEC004', 'SEC010', 'SEC012', 'SEC029'],
+    summaryClear: 'No correlated container isolation risk signals were detected.',
+    summaryTriggered: 'Correlated workload security findings indicate a possible path from workload settings toward host or node control.',
+    validationProof: [
+      { title: 'List pods with node placement', command: 'kubectl get pods --all-namespaces -o wide', purpose: 'Confirms which flagged workloads are scheduled and where they run.', readOnly: true },
+      { title: 'Inspect host namespace usage', command: 'kubectl get pods --all-namespaces -o jsonpath="{range .items[*]}{.metadata.namespace}/{.metadata.name}{\'\\t\'}{.spec.hostNetwork}{\'\\t\'}{.spec.hostPID}{\'\\t\'}{.spec.hostIPC}{\'\\n\'}{end}"', purpose: 'Shows host namespace settings that weaken container isolation.', readOnly: true },
+    ],
+  },
+  {
+    id: 'RISK002',
+    name: 'Namespace Isolation Risk',
+    boundary: 'Namespace tenancy and east-west isolation',
+    signals: ['NET004', 'NET021', 'RBAC002', 'RBAC007', 'RBAC008', 'RBAC010'],
+    triggerThreshold: 2,
+    criticalSingleHits: ['RBAC002', 'RBAC007', 'RBAC010'],
+    summaryClear: 'No correlated namespace isolation risk signals were detected.',
+    summaryTriggered: 'Network and RBAC findings indicate namespace boundaries may not contain workload access.',
+    validationProof: [
+      { title: 'List namespace network policies', command: 'kubectl get networkpolicy --all-namespaces', purpose: 'Confirms whether namespaces have network policy coverage.', readOnly: true },
+      { title: 'List role bindings', command: 'kubectl get rolebinding --all-namespaces -o wide', purpose: 'Shows namespace-local bindings that may grant access across namespace boundaries.', readOnly: true },
+    ],
+  },
+  {
+    id: 'RISK003',
+    name: 'RBAC Privilege Risk',
+    boundary: 'Identity authorization and privilege boundaries',
+    signals: ['RBAC002', 'RBAC005', 'RBAC006', 'RBAC007', 'RBAC009', 'RBAC010'],
+    triggerThreshold: 1,
+    criticalSingleHits: ['RBAC002', 'RBAC006', 'RBAC007', 'RBAC009', 'RBAC010'],
+    summaryClear: 'No RBAC privilege risk signals were detected.',
+    summaryTriggered: 'RBAC findings indicate identities may have privileges that cross intended authorization boundaries.',
+    validationProof: [
+      { title: 'Review effective permissions', command: 'kubectl auth can-i --list --all-namespaces', purpose: 'Shows the current user\'s effective permissions for comparison with flagged RBAC paths.', readOnly: true },
+      { title: 'List RBAC objects', command: 'kubectl get role,clusterrole,rolebinding,clusterrolebinding --all-namespaces', purpose: 'Collects RBAC objects needed to validate the reported privilege path.', readOnly: true },
+    ],
+  },
+  {
+    id: 'RISK004',
+    name: 'ServiceAccount Trust Risk',
+    boundary: 'ServiceAccount identity and token trust',
+    signals: ['POD008', 'SEC015', 'SEC018', 'RBAC009', 'RBAC010'],
+    triggerThreshold: 2,
+    criticalSingleHits: ['RBAC009', 'RBAC010'],
+    summaryClear: 'No correlated ServiceAccount trust risk signals were detected.',
+    summaryTriggered: 'ServiceAccount, workload token, and RBAC findings indicate workload identity trust may be overexposed.',
+    validationProof: [
+      { title: 'List ServiceAccounts', command: 'kubectl get serviceaccount --all-namespaces -o wide', purpose: 'Shows ServiceAccounts that may be bound to workloads or permissive RBAC.', readOnly: true },
+      { title: 'Inspect ServiceAccount token automounting', command: `kubectl get pods --all-namespaces -o jsonpath="{range .items[*]}{.metadata.namespace}/{.metadata.name}{'\t'}{.spec.serviceAccountName}{'\t'}{.spec.automountServiceAccountToken}{'\n'}{end}"`, purpose: 'Confirms workload ServiceAccount usage and token automount settings without reading token values.', readOnly: true },
+    ],
+  },
+  {
+    id: 'RISK007',
+    name: 'Secret Exposure Risk',
+    boundary: 'Secret data and credential exposure',
+    signals: ['SEC008', 'SEC022', 'SEC031', 'SEC032', 'SEC033', 'RBAC006', 'RBAC010'],
+    triggerThreshold: 2,
+    criticalSingleHits: ['SEC031', 'RBAC006'],
+    summaryClear: 'No correlated secret exposure risk signals were detected.',
+    summaryTriggered: 'Secret, ConfigMap, and RBAC findings indicate credential exposure may combine with access paths.',
+    validationProof: [
+      { title: 'List Secrets without values', command: 'kubectl get secrets --all-namespaces', purpose: 'Confirms Secret names, namespaces, and types without printing Secret data.', readOnly: true },
+      { title: 'Check who can read Secrets', command: 'kubectl auth can-i get secrets --all-namespaces', purpose: 'Confirms whether the current identity can read Secrets without exposing Secret values.', readOnly: true },
+    ],
+  },
+];
+
+const COMBINED_RISK_PATH_DEFINITIONS: CombinedRiskPathDefinition[] = [
+  {
+    id: 'CHAIN001',
+    name: 'Workload to Cluster Control Path',
+    requires: ['RISK001', 'RISK003'],
+    summaryClear: 'Container isolation and RBAC privilege risks were not both present.',
+    summaryTriggered: 'Container isolation and RBAC privilege risks combine into a possible workload-to-cluster-control path.',
+  },
+  {
+    id: 'CHAIN002',
+    name: 'Cross-Namespace Privilege Path',
+    requires: ['RISK002', 'RISK003'],
+    summaryClear: 'Namespace isolation and RBAC privilege risks were not both present.',
+    summaryTriggered: 'Namespace isolation and RBAC privilege risks combine into a possible cross-namespace privilege path.',
+  },
+  {
+    id: 'CHAIN003',
+    name: 'ServiceAccount to Cluster Control Path',
+    requires: ['RISK004', 'RISK003'],
+    summaryClear: 'ServiceAccount trust and RBAC privilege risks were not both present.',
+    summaryTriggered: 'ServiceAccount trust and RBAC privilege risks combine into a possible workload-identity-to-cluster-control path.',
+  },
+  {
+    id: 'CHAIN005',
+    name: 'Secret Exposure to Cluster Control Path',
+    requires: ['RISK003', 'RISK007'],
+    summaryClear: 'Secret exposure and RBAC privilege risks were not both present.',
+    summaryTriggered: 'Secret exposure and RBAC privilege risks combine into a possible credential-to-cluster-control path.',
+  },
+];
+
+function analyzeDirectRiskPaths(checks: CheckResult[]): { directRiskPaths: DirectRiskPath[]; combinedRiskPaths: CombinedRiskPath[] } {
+  const checksById = new Map(checks.map(check => [check.id.toUpperCase(), check]));
+  const directRiskPaths = DIRECT_RISK_PATH_DEFINITIONS.map(definition => buildDirectRiskPath(definition, checksById));
+  const combinedRiskPaths = COMBINED_RISK_PATH_DEFINITIONS.map(definition => buildCombinedRiskPath(definition, directRiskPaths));
+
+  return { directRiskPaths, combinedRiskPaths };
+}
+
+function buildDirectRiskPath(definition: DirectRiskPathDefinition, checksById: Map<string, CheckResult>): DirectRiskPath {
+  const evidence = definition.signals
+    .map(id => checksById.get(id))
+    .filter((check): check is CheckResult => Boolean(check && check.findings.length > 0))
+    .map(check => ({
+      checkId: check.id,
+      checkName: check.name,
+      severity: check.severity,
+      findingCount: check.findings.length,
+      sampleFindings: check.findings.slice(0, 3),
+    }))
+    .sort((left, right) => left.checkId.localeCompare(right.checkId, undefined, { numeric: true, sensitivity: 'base' }));
+  const criticalHit = evidence.some(item => definition.criticalSingleHits.includes(item.checkId));
+  const status: RiskPathStatus = evidence.length >= definition.triggerThreshold || criticalHit ? 'triggered' : 'clear';
+
+  return {
+    id: definition.id,
+    name: definition.name,
+    boundary: definition.boundary,
+    status,
+    confidence: riskPathConfidence(status, evidence.length),
+    exploitability: riskPathExploitability(status, evidence.length, criticalHit),
+    fixPriority: riskPathFixPriority(status, evidence.length),
+    summary: status === 'triggered' ? definition.summaryTriggered : definition.summaryClear,
+    signalChecks: [...definition.signals],
+    evidence,
+    validationProof: [...definition.validationProof],
+    attackGraph: status === 'triggered' ? buildRiskPathGraph(definition.id, definition.name, evidence) : undefined,
+  };
+}
+
+function buildCombinedRiskPath(definition: CombinedRiskPathDefinition, directRiskPaths: DirectRiskPath[]): CombinedRiskPath {
+  const byId = new Map(directRiskPaths.map(capability => [capability.id, capability]));
+  const triggeredDirectRiskPaths = definition.requires.filter(id => byId.get(id)?.status === 'triggered');
+  const status: RiskPathStatus = triggeredDirectRiskPaths.length === definition.requires.length ? 'triggered' : 'clear';
+
+  return {
+    id: definition.id,
+    name: definition.name,
+    status,
+    confidence: status === 'triggered' ? 'high' : 'none',
+    fixPriority: status === 'triggered' ? 'urgent' : 'normal',
+    summary: status === 'triggered' ? definition.summaryTriggered : definition.summaryClear,
+    requires: [...definition.requires],
+    triggeredDirectRiskPaths,
+    attackGraph: status === 'triggered' ? buildCombinedRiskPathGraph(definition.id, definition.name, definition.requires) : undefined,
+  };
+}
+
+function riskPathConfidence(status: RiskPathStatus, evidenceCount: number): string {
+  if (status !== 'triggered') {
+    return 'none';
+  }
+  return evidenceCount >= 3 ? 'high' : 'medium';
+}
+
+function riskPathExploitability(status: RiskPathStatus, evidenceCount: number, criticalHit: boolean): string {
+  if (status !== 'triggered') {
+    return 'none';
+  }
+  return criticalHit || evidenceCount >= 3 ? 'high' : 'medium';
+}
+
+function riskPathFixPriority(status: RiskPathStatus, evidenceCount: number): string {
+  if (status !== 'triggered') {
+    return 'normal';
+  }
+  return evidenceCount >= 3 ? 'urgent' : 'high';
+}
+
+function buildRiskPathGraph(id: string, name: string, evidence: RiskPathEvidence[]): RiskPathGraph {
+  return {
+    nodes: [
+      { id, label: name, type: 'directRiskPath' },
+      ...evidence.map(item => ({ id: `check:${item.checkId}`, label: item.checkName, type: 'check', checkId: item.checkId })),
+    ],
+    edges: evidence.map(item => ({ from: `check:${item.checkId}`, to: id, label: 'contributes' })),
+  };
+}
+
+
+function buildCombinedRiskPathGraph(id: string, name: string, requires: string[]): RiskPathGraph {
+  return {
+    nodes: [
+      { id, label: name, type: 'combinedRiskPath' },
+      ...requires.map(required => ({ id: required, label: required, type: 'directRiskPath' })),
+    ],
+    edges: requires.map(required => ({ from: required, to: id, label: 'enables' })),
+  };
+}
+
+function boundaryImpact(id: string): string {
+  switch (id) {
+    case 'RISK001':
+      return 'A workload may bypass container isolation and reach host or node-level control paths.';
+    case 'RISK002':
+      return 'Namespace boundaries may not contain workload, network, or identity access.';
+    case 'RISK003':
+      return 'Identities may hold privileges beyond the intended authorization boundary.';
+    case 'RISK004':
+      return 'Workload identities and ServiceAccount tokens may be trusted too broadly.';
+    case 'RISK007':
+      return 'Secret exposure findings may combine with credential access or identity paths.';
+    case 'CHAIN001':
+      return 'Workload foothold and RBAC overexposure can combine into cluster-control risk.';
+    case 'CHAIN002':
+      return 'Namespace escape and RBAC overexposure can combine into cross-namespace privilege risk.';
+    case 'CHAIN003':
+      return 'ServiceAccount trust and RBAC overexposure can combine into cluster-control risk.';
+    case 'CHAIN005':
+      return 'Secret exposure and RBAC overexposure can combine into credential-to-cluster-control risk.';
+    default:
+      return 'Correlated findings increase the security impact of this boundary.';
+  }
+}
+
+function boundaryBlastRadius(id: string): string {
+  switch (id) {
+    case 'RISK001':
+      return 'Node or host, depending on the affected workload placement.';
+    case 'RISK002':
+      return 'Namespace tenancy and east-west workload access.';
+    case 'RISK003':
+      return 'Cluster authorization scope for affected identities.';
+    case 'RISK004':
+      return 'Workload ServiceAccount identity and token trust paths.';
+    case 'RISK007':
+      return 'Credential exposure paths across Secrets, ConfigMaps, and RBAC access.';
+    case 'CHAIN001':
+      return 'Potential cluster-wide control path.';
+    case 'CHAIN002':
+      return 'Multiple namespaces and identities in the affected path.';
+    case 'CHAIN003':
+      return 'ServiceAccount identity to cluster authorization path.';
+    case 'CHAIN005':
+      return 'Credential exposure to cluster authorization path.';
+    default:
+      return 'Depends on the contributing findings.';
+  }
+}
+
+
+function isCombinedRiskPath(target: DirectRiskPath | CombinedRiskPath): target is CombinedRiskPath {
+  return 'requires' in target;
+}
+
+function boundaryVerdict(target: DirectRiskPath | CombinedRiskPath): string {
+  if (target.status !== 'triggered') {
+    return `KubeBuddy did not find the signals needed for this risk path in the latest scan.`;
+  }
+  if (!isCombinedRiskPath(target)) {
+    const evidence = target.evidence || [];
+    const ids = evidence.map(item => item.checkId).slice(0, 4).join(', ');
+    const suffix = evidence.length > 4 ? `, and ${evidence.length - 4} more` : '';
+    return `${ids}${suffix} combine into a risk path affecting ${boundaryBlastRadius(target.id).toLowerCase()}`;
+  }
+  return `${target.requires.join(' and ')} are both active, so this higher-impact path may be possible.`;
+}
+
+function findingLabel(finding: Finding): string {
+  const location = finding.namespace ? `${finding.resource} in ${finding.namespace}` : finding.resource;
+  const detail = finding.message || finding.details;
+  return detail ? `${location}: ${detail}` : location;
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function directRiskPathAffectedResourceCount(capability: DirectRiskPath): number {
+  const resources = new Set<string>();
+
+  (capability.evidence || []).forEach(evidence => {
+    (evidence.sampleFindings || []).forEach(finding => {
+      resources.add([
+        finding.kind || '',
+        finding.namespace || '',
+        finding.resource || '',
+      ].join('/'));
+    });
+  });
+
+  return resources.size;
+}
+
+function directRiskPathFindingCount(capability: DirectRiskPath): number {
+  return (capability.evidence || []).reduce((total, evidence) => total + evidence.findingCount, 0);
+}
+
+function directRiskPathEvidenceSummary(capability: DirectRiskPath): string {
+  const evidence = sortedRiskPathEvidence(capability);
+  const findingCount = directRiskPathFindingCount(capability);
+  const affectedCount = directRiskPathAffectedResourceCount(capability);
+
+  if (evidence.length === 0) {
+    return 'No contributing checks are currently failing for this path.';
+  }
+
+  const strongest = evidence[0];
+  const affectedText = affectedCount > 0
+    ? ` across at least ${pluralize(affectedCount, 'affected item')}`
+    : '';
+
+  return `KubeBuddy correlated ${pluralize(evidence.length, 'check')} with ${pluralize(findingCount, 'finding')}${affectedText}. The strongest signal is ${strongest.checkId} (${strongest.severity}), which contributes ${pluralize(strongest.findingCount, 'finding')}.`;
+}
+
+function directRiskPathLongDescription(capability: DirectRiskPath): string {
+  switch (capability.id) {
+    case 'RISK001':
+      return 'This path groups workload settings that can weaken the expected isolation between a container and the node it runs on, such as privileged execution, host access, or unsafe pod security settings.';
+    case 'RISK002':
+      return 'This path groups signals that suggest namespace-level isolation may be weak, including missing network controls or identity permissions that could make namespace boundaries less meaningful.';
+    case 'RISK003':
+      return 'This path focuses on authorization. It appears when RBAC findings suggest an identity may be able to do more than intended, especially broad verbs, sensitive resources, or cluster-wide bindings.';
+    case 'RISK004':
+      return 'This path groups ServiceAccount and workload identity signals, such as token exposure, default identities, or bindings that make workload credentials more useful than they should be.';
+    case 'RISK007':
+      return 'This path groups Secret and credential exposure signals. It is intended to highlight when exposed data and access permissions may combine into a more practical credential-risk route.';
+    default:
+      return capability.summary;
+  }
+}
+
+function sortedRiskPathEvidence(capability: DirectRiskPath): RiskPathEvidence[] {
+  return [...(capability.evidence || [])].sort((left, right) => {
+    const severityDelta = severityRank(left.severity) - severityRank(right.severity);
+    return severityDelta || right.findingCount - left.findingCount || left.checkId.localeCompare(right.checkId);
+  });
+}
+
+function firstFixForDirectRiskPath(capability: DirectRiskPath, checksById?: Map<string, CheckResult>): CheckResult | null {
+  const evidence = sortedRiskPathEvidence(capability)[0];
+  return evidence ? checksById?.get(evidence.checkId) || null : null;
+}
+function boundaryGraphProfile(id: string): {
+  controlLabel: string;
+  controlSubLabel: string;
+  firstEdge: string;
+  secondEdge: string;
+  sourceLabel: string;
+  targetLabel: string;
+  targetSubLabel: string;
+} {
+  switch (id) {
+    case 'RISK001':
+      return {
+        controlLabel: 'Weak Container Isolation',
+        controlSubLabel: 'privilege, host access, or unsafe pod settings',
+        firstEdge: 'bypass',
+        secondEdge: 'opens',
+        sourceLabel: 'Workload Signals',
+        targetLabel: 'Node Access Risk',
+        targetSubLabel: 'BOUNDARY TARGET',
+      };
+    case 'RISK002':
+      return {
+        controlLabel: 'Weak Namespace Isolation',
+        controlSubLabel: 'network and identity isolation gaps',
+        firstEdge: 'crosses',
+        secondEdge: 'exposes',
+        sourceLabel: 'Namespace Signals',
+        targetLabel: 'Cross-Namespace Access Risk',
+        targetSubLabel: 'BOUNDARY TARGET',
+      };
+    case 'RISK003':
+      return {
+        controlLabel: 'Broad RBAC Privilege',
+        controlSubLabel: 'broad verbs, subjects, or sensitive bindings',
+        firstEdge: 'grants',
+        secondEdge: 'escalates',
+        sourceLabel: 'RBAC Signals',
+        targetLabel: 'Privilege Escalation Risk',
+        targetSubLabel: 'BOUNDARY TARGET',
+      };
+    case 'RISK004':
+      return {
+        controlLabel: 'Weak ServiceAccount Trust',
+        controlSubLabel: 'token automount, default identity, or sensitive binding',
+        firstEdge: 'trusts',
+        secondEdge: 'exposes',
+        sourceLabel: 'ServiceAccount Signals',
+        targetLabel: 'Workload Identity Risk',
+        targetSubLabel: 'BOUNDARY TARGET',
+      };
+    case 'RISK007':
+      return {
+        controlLabel: 'Secret Exposure',
+        controlSubLabel: 'secret material, config data, or read paths',
+        firstEdge: 'exposes',
+        secondEdge: 'enables',
+        sourceLabel: 'Secret Exposure Signals',
+        targetLabel: 'Credential Exposure Risk',
+        targetSubLabel: 'BOUNDARY TARGET',
+      };
+    case 'CHAIN001':
+      return {
+        controlLabel: 'Boundaries Chain Together',
+        controlSubLabel: 'container isolation plus RBAC privilege',
+        firstEdge: 'chain',
+        secondEdge: 'enables',
+        sourceLabel: 'Workload Foothold',
+        targetLabel: 'Cluster Control Risk',
+        targetSubLabel: 'ATTACK PATH TARGET',
+      };
+    case 'CHAIN002':
+      return {
+        controlLabel: 'Boundaries Chain Together',
+        controlSubLabel: 'namespace isolation plus RBAC privilege',
+        firstEdge: 'chain',
+        secondEdge: 'enables',
+        sourceLabel: 'Namespace Foothold',
+        targetLabel: 'Cross-Namespace Privilege Risk',
+        targetSubLabel: 'ATTACK PATH TARGET',
+      };
+    case 'CHAIN003':
+      return {
+        controlLabel: 'Boundaries Chain Together',
+        controlSubLabel: 'ServiceAccount trust plus RBAC privilege',
+        firstEdge: 'chain',
+        secondEdge: 'enables',
+        sourceLabel: 'Workload Identity',
+        targetLabel: 'Cluster Control Risk',
+        targetSubLabel: 'ATTACK PATH TARGET',
+      };
+    case 'CHAIN005':
+      return {
+        controlLabel: 'Boundaries Chain Together',
+        controlSubLabel: 'secret exposure plus RBAC privilege',
+        firstEdge: 'chain',
+        secondEdge: 'enables',
+        sourceLabel: 'Credential Exposure',
+        targetLabel: 'Cluster Control Risk',
+        targetSubLabel: 'ATTACK PATH TARGET',
+      };
+    default:
+      return {
+        controlLabel: 'Weak Control',
+        controlSubLabel: 'missing or ineffective guardrail',
+        firstEdge: 'correlate',
+        secondEdge: 'breaks',
+        sourceLabel: 'Finding Signals',
+        targetLabel: 'Combined Risk',
+        targetSubLabel: 'BOUNDARY TARGET',
+      };
+  }
+}
+
+function riskPathFixFirstItems(directRiskPaths: DirectRiskPath[], checksById: Map<string, CheckResult>): { check: CheckResult; reduces: string[] }[] {
+  const reductions = new Map<string, Set<string>>();
+  directRiskPaths.forEach(capability => {
+    (capability.evidence || []).forEach(evidence => {
+      if (!reductions.has(evidence.checkId)) {
+        reductions.set(evidence.checkId, new Set());
+      }
+      reductions.get(evidence.checkId)?.add(capability.id);
+    });
+  });
+
+  return Array.from(reductions.entries())
+    .map(([checkId, reduces]) => ({ check: checksById.get(checkId), reduces: Array.from(reduces).sort() }))
+    .filter((item): item is { check: CheckResult; reduces: string[] } => Boolean(item.check))
+    .sort((left, right) => {
+      const reductionDelta = right.reduces.length - left.reduces.length;
+      const severityDelta = severityRank(left.check.severity) - severityRank(right.check.severity);
+      return reductionDelta || severityDelta || right.check.findings.length - left.check.findings.length || left.check.id.localeCompare(right.check.id);
+    })
+    .slice(0, 5);
 }
 
 function resultLogMessage(result: CheckResult): string {
@@ -1188,14 +2101,14 @@ function restartCount(pod: any): number {
 }
 
 function podImages(pod: any): string[] {
-  const spec = json(pod)?.spec || {};
+  const spec = workloadTemplate(pod)?.spec || json(pod)?.spec || {};
   return [...(spec.initContainers || []), ...(spec.containers || [])]
     .map((container: any) => container.image)
     .filter(Boolean);
 }
 
 function containers(pod: any, includeInit = true): any[] {
-  const spec = json(pod)?.spec || {};
+  const spec = workloadTemplate(pod)?.spec || json(pod)?.spec || {};
   return includeInit ? [...(spec.initContainers || []), ...(spec.containers || [])] : spec.containers || [];
 }
 
@@ -1411,15 +2324,50 @@ function normalizeSeverity(severity: string): Severity {
   return 'low';
 }
 
+type ScoreCompatOverride = {
+  weight?: number;
+  findingCount?: number;
+};
+
+const SCORE_COMPAT_OVERRIDES: Record<string, ScoreCompatOverride> = {
+  NET004: { weight: 3 },
+  NET005: { weight: 5 },
+  NET007: { weight: 4 },
+  NET012: { weight: 4 },
+  NODE002: { weight: 6, findingCount: 0 },
+  NODE003: { weight: 2 },
+  NS004: { weight: 1 },
+  POD008: { weight: 3 },
+  SC002: { weight: 2, findingCount: 1 },
+  SEC007: { weight: 1 },
+  SEC008: { weight: 4 },
+  SEC014: { weight: 3 },
+  SEC015: { weight: 3 },
+  SEC016: { weight: 3 },
+  SEC017: { weight: 3 },
+  SEC018: { weight: 3 },
+  WRK010: { weight: 3 },
+  WRK015: { weight: 3 },
+};
+
+function scoreWeight(check: CheckResult): number {
+  return SCORE_COMPAT_OVERRIDES[check.id]?.weight ?? check.weight;
+}
+
+function scoreFindingCount(check: CheckResult): number {
+  return SCORE_COMPAT_OVERRIDES[check.id]?.findingCount ?? check.findings.length;
+}
+
 function scoreChecks(checks: CheckResult[]): Score {
   const scoreableChecks = checks.filter(check => check.status !== 'skipped');
   const failedChecks = scoreableChecks.filter(check => check.status === 'failed');
-  const totalWeight = scoreableChecks.reduce((total, check) => total + check.weight, 0);
+  const totalWeight = scoreableChecks.reduce((total, check) => total + scoreWeight(check), 0);
   const earnedWeight = scoreableChecks.reduce((total, check) => {
-    if (check.weight <= 0) {
+    const weight = scoreWeight(check);
+    if (weight <= 0) {
       return total;
     }
-    return total + check.weight / (check.findings.length + 1);
+    return total + weight / (scoreFindingCount(check) + 1);
   }, 0);
   const failedWeight = Math.max(0, totalWeight - earnedWeight);
   const value = totalWeight === 0 ? 100 : Math.round((earnedWeight / totalWeight) * 100);
@@ -1477,6 +2425,21 @@ function severityColor(severity: Severity): 'error' | 'warning' | 'info' | 'succ
     return 'warning';
   }
   return 'info';
+}
+
+function themedAlertSx(tone: 'error' | 'warning' | 'info' | 'success') {
+  return (theme: Theme) => ({
+    alignItems: 'flex-start',
+    bgcolor: theme.palette.action.hover,
+    border: `1px solid ${theme.palette.divider}`,
+    color: theme.palette.text.primary,
+    '& .MuiAlert-icon': {
+      color: theme.palette[tone].main,
+    },
+    '& .MuiAlert-message': {
+      color: theme.palette.text.primary,
+    },
+  });
 }
 
 function normalizeResourceKind(kind: string): string {
@@ -2778,9 +3741,21 @@ function dockerInDockerFindings(resources: ResourceStates): Finding[] {
   });
 }
 
+function isMetadataEndpointAddress(value: string): boolean {
+  const address = value.trim().toLowerCase();
+  return address.startsWith('169.254.169.254') || address.startsWith('100.100.100.200') || address.startsWith('fd00:ec2::254');
+}
+
 function metadataAddressBlocked(networkPolicy: any): boolean {
-  return (json(networkPolicy)?.spec?.egress || []).some((egress: any) =>
-    (egress?.to || []).some((to: any) => String(to?.ipBlock?.cidr || '') === '169.254.169.254/32')
+  const spec = json(networkPolicy)?.spec || {};
+  const egress = spec.egress || [];
+  if ((spec.policyTypes || []).includes('Egress') && egress.length === 0) {
+    return true;
+  }
+  return egress.some((rule: any) =>
+    (rule?.to || []).some((to: any) =>
+      (to?.ipBlock?.except || []).some((exceptCidr: string) => isMetadataEndpointAddress(String(exceptCidr || '')))
+    )
   );
 }
 
@@ -3628,7 +4603,243 @@ function KubeBuddyScoreBadge() {
   return <KubeBuddyScoreBadgeContent clusterKey={clusterKeyFromPath(location.pathname)} />;
 }
 
+function KubeBuddyResourceFindingsDrawer({
+  clusterKey,
+  matches,
+  onClose,
+  open,
+  report,
+  resource,
+}: {
+  clusterKey: string;
+  matches: ResourceFindingMatch[];
+  onClose: () => void;
+  open: boolean;
+  report: StoredReport | null;
+  resource: any;
+}) {
+  const history = useHistory();
+  const location = useLocation();
+  const sortedMatches = React.useMemo(() => sortedResourceFindingMatches(matches), [matches]);
+  const counts = resourceSeverityCounts(matches);
+  const reportCompletedAt = report?.completedAt;
+  const staleReport = Boolean(reportCompletedAt && !isCompletedAtFresh(reportCompletedAt));
+
+  return (
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={onClose}
+      PaperProps={{
+        sx: theme => ({
+          bgcolor: theme.palette.background.paper,
+          borderLeft: `1px solid ${theme.palette.divider}`,
+          height: 'calc(100% - 64px)',
+          maxWidth: 'min(520px, 100vw)',
+          mt: '64px',
+          width: '100%',
+        }),
+      }}
+    >
+      <Box sx={{ width: '100%', maxWidth: '100vw', p: 2.5, pt: 3 }}>
+        <Stack spacing={2}>
+          <Box>
+            <Typography variant="h6">KubeBuddy</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {kind(resource)} {namespace(resource) ? `${namespace(resource)}/` : ''}
+              {name(resource)}
+            </Typography>
+          </Box>
+
+          {staleReport && reportCompletedAt && (
+            <Alert severity="warning">
+              These results are from a scan completed {completedAtAge(reportCompletedAt)}. Run a new KubeBuddy scan before acting on this resource.
+            </Alert>
+          )}
+
+          {matches.length === 0 ? (
+            <Alert severity="success">
+              No KubeBuddy findings for this resource in the latest stored scan{reportCompletedAt ? ` (${completedAtAge(reportCompletedAt)})` : ''}.
+            </Alert>
+          ) : (
+            <Stack spacing={1}>
+              <Paper variant="outlined" sx={{ p: 1.25 }}>
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Typography variant="body2" sx={{ fontWeight: 800, mr: 0.5 }}>
+                    {matches.length} finding{matches.length === 1 ? '' : 's'}
+                  </Typography>
+                  {(['high', 'warning', 'medium', 'low'] as Severity[])
+                    .filter(severity => counts[severity] > 0)
+                    .map(severity => (
+                      <Chip
+                        key={severity}
+                        size="small"
+                        label={`${counts[severity]} ${severityLabel(severity)}`}
+                        sx={severityChipSx(severity)}
+                      />
+                    ))}
+                </Stack>
+              </Paper>
+              {sortedMatches.slice(0, 6).map(match => (
+                <Paper
+                  key={`${match.check.id}-${findingKey(match.finding)}`}
+                  variant="outlined"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    onClose();
+                    openKubeBuddyFinding(history, clusterKey, location.pathname, match);
+                  }}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onClose();
+                      openKubeBuddyFinding(history, clusterKey, location.pathname, match);
+                    }
+                  }}
+                  sx={theme => ({
+                    cursor: 'pointer',
+                    p: 1.5,
+                    transition: theme.transitions.create(['background-color', 'border-color'], {
+                      duration: theme.transitions.duration.shortest,
+                    }),
+                    '&:hover, &:focus-visible': {
+                      bgcolor: theme.palette.action.hover,
+                      borderColor: theme.palette.primary.main,
+                      outline: 'none',
+                    },
+                  })}
+                >
+                  <Stack spacing={0.75}>
+                    <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                      <Box sx={{ minWidth: 0 }}>
+                        <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                          <Chip size="small" variant="outlined" label={match.check.id} />
+                          <Chip size="small" label={severityLabel(match.check.severity)} sx={severityChipSx(match.check.severity)} />
+                        </Stack>
+                        <Typography variant="subtitle2" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
+                          {match.check.name}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                      {match.finding.message || match.finding.details}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              ))}
+              {matches.length > 6 && (
+                <Typography variant="body2" color="text.secondary">
+                  {matches.length - 6} more finding{matches.length - 6 === 1 ? '' : 's'} in the full KubeBuddy view.
+                </Typography>
+              )}
+            </Stack>
+          )}
+
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Button onClick={onClose}>Close</Button>
+            <Button
+              variant="contained"
+              onClick={() => {
+                onClose();
+                openKubeBuddyFinding(history, clusterKey, location.pathname);
+              }}
+            >
+              Open KubeBuddy
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
+    </Drawer>
+  );
+}
+
+function KubeBuddyResourceStatusPill({ compact = false, resource }: { compact?: boolean; resource: any }) {
+  const location = useLocation();
+  const clusterKey = clusterKeyFromPath(location.pathname);
+  const report = useStoredKubeBuddyReport(clusterKey);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const matches = React.useMemo(() => resourceFindingMatches(report, resource), [report, resource]);
+  const hasScan = Boolean(report);
+  const hasFindings = matches.length > 0;
+  const highestSeverity = highestResourceSeverity(matches);
+  const label = !hasScan
+    ? 'KubeBuddy: No scan'
+    : hasFindings
+    ? `KubeBuddy: ${summarizeResourceFindings(matches)}`
+    : 'KubeBuddy: Pass';
+
+  return (
+    <>
+      <Tooltip title={hasScan ? 'Open KubeBuddy findings for this resource' : 'Run a KubeBuddy scan to populate this status'}>
+        <Chip
+          clickable
+          label={compact ? (hasFindings ? summarizeResourceFindings(matches) : hasScan ? 'Pass' : 'No scan') : label}
+          onClick={() => setDrawerOpen(true)}
+          size="small"
+          variant={hasFindings || hasScan ? 'filled' : 'outlined'}
+          sx={theme => ({
+            ...(hasScan
+              ? severityChipSx(highestSeverity, true)(theme)
+              : {
+                  borderColor: theme.palette.divider,
+                  borderRadius: 1,
+                  color: theme.palette.text.secondary,
+                  fontWeight: 700,
+                  maxWidth: '100%',
+                }),
+            minWidth: compact ? 64 : undefined,
+            width: compact ? '100%' : 'fit-content',
+            '& .MuiChip-label': {
+              display: 'block',
+              maxWidth: compact ? '100%' : 220,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            },
+          })}
+        />
+      </Tooltip>
+      <KubeBuddyResourceFindingsDrawer
+        clusterKey={clusterKey}
+        matches={matches}
+        onClose={() => setDrawerOpen(false)}
+        open={drawerOpen}
+        report={report}
+        resource={resource}
+      />
+    </>
+  );
+}
+
+function KubeBuddyResourceDetailsSection({ resource }: { resource: any }) {
+  if (!isKubeBuddyDetailResource(resource)) {
+    return null;
+  }
+
+  return (
+    <SectionBox title="KubeBuddy">
+      <Stack spacing={1.5}>
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <KubeBuddyResourceStatusPill resource={resource} />
+        </Stack>
+        <Typography variant="body2" color="text.secondary">
+          Security and health status from the latest KubeBuddy scan stored in this Headlamp session.
+        </Typography>
+      </Stack>
+    </SectionBox>
+  );
+}
+
+function KubeBuddyResourceTableCell({ resource }: { resource: any }) {
+  if (!isKubeBuddyDetailResource(resource)) {
+    return null;
+  }
+
+  return <KubeBuddyResourceStatusPill compact resource={resource} />;
+}
+
 function KubeBuddyScoreBadgeContent({ clusterKey }: { clusterKey: string }) {
+  const location = useLocation();
   const [storedScore, setStoredScore] = React.useState<StoredScore | null>(() => readStoredScore(clusterKey));
   const [, setFreshnessTick] = React.useState(0);
 
@@ -3660,44 +4871,46 @@ function KubeBuddyScoreBadgeContent({ clusterKey }: { clusterKey: string }) {
   const fresh = isFreshScore(storedScore);
 
   return (
-    <Tooltip
-      title={`KubeBuddy score ${storedScore.value}%. ${storedScore.failed} failed checks out of ${storedScore.total}. Completed ${formatScoreAge(storedScore)}. ${
-        fresh ? 'Fresh score.' : 'Stale score; run a new scan when you need current results.'
-      }`}
-    >
-      <Chip
-        component="a"
-        href="/kubebuddy"
-        icon={<KubeBuddyLogoMark />}
-        label={`${storedScore.value}% ${fresh ? 'Fresh' : 'Stale'}`}
-        size="small"
-        sx={theme => ({
-          bgcolor: scoreBadgeColor(storedScore.value, theme),
-          borderRadius: 999,
-          fontSize: '0.95rem',
-          fontWeight: 800,
-          height: 30,
-          px: 0.75,
-          '& .MuiChip-icon': {
-            color: 'inherit',
-            height: 19,
-            ml: 0.7,
-            mr: 0.15,
-            width: 19,
-          },
-          '& .MuiChip-label': {
-            lineHeight: 1,
-            pl: 0.35,
-            pr: 0.8,
-          },
-          color: scoreBadgeContrastColor(storedScore.value, theme),
-          '&:hover': {
+    <Box sx={{ alignItems: 'center', display: 'flex', ml: 1, mr: 0.5 }}>
+      <Tooltip
+        title={`KubeBuddy score ${storedScore.value}%. ${storedScore.failed} failed checks out of ${storedScore.total}. Completed ${formatScoreAge(storedScore)}. ${
+          fresh ? 'Fresh score.' : 'Stale score; run a new scan when you need current results.'
+        }`}
+      >
+        <Chip
+          component="a"
+          href={kubeBuddyRouteFromPath(location.pathname)}
+          icon={<KubeBuddyLogoMark />}
+          label={`${storedScore.value}% ${fresh ? 'Fresh' : 'Stale'}`}
+          size="small"
+          sx={theme => ({
             bgcolor: scoreBadgeColor(storedScore.value, theme),
-            filter: 'brightness(0.95)',
-          },
-        })}
-      />
-    </Tooltip>
+            borderRadius: 1,
+            fontSize: '0.95rem',
+            fontWeight: 800,
+            height: 30,
+            px: 0.75,
+            '& .MuiChip-icon': {
+              color: 'inherit',
+              height: 19,
+              ml: 0.7,
+              mr: 0.15,
+              width: 19,
+            },
+            '& .MuiChip-label': {
+              lineHeight: 1,
+              pl: 0.35,
+              pr: 0.8,
+            },
+            color: scoreBadgeContrastColor(storedScore.value, theme),
+            '&:hover': {
+              bgcolor: scoreBadgeColor(storedScore.value, theme),
+              filter: 'brightness(0.95)',
+            },
+          })}
+        />
+      </Tooltip>
+    </Box>
   );
 }
 
@@ -4161,13 +5374,19 @@ function ProblemYamlSnippet({ finding }: { finding: Finding }) {
 }
 
 function FindingDetailsDrawer({
+  directRiskPaths,
   check,
+  combinedRiskPaths,
   finding,
   onClose,
+  onViewDirectRiskPaths,
 }: {
+  directRiskPaths: DirectRiskPath[];
   check: CheckResult;
+  combinedRiskPaths: CombinedRiskPath[];
   finding: Finding | null;
   onClose: () => void;
+  onViewDirectRiskPaths?: () => void;
 }) {
   const history = useHistory();
   const location = useLocation();
@@ -4257,6 +5476,8 @@ function FindingDetailsDrawer({
               </Stack>
             </Paper>
           </Stack>
+
+          <RiskPathImpactPanel directRiskPaths={directRiskPaths} combinedRiskPaths={combinedRiskPaths} compact onViewDetails={onViewDirectRiskPaths} />
 
           <Stack spacing={1}>
             <DrawerSectionHeading>Affected Resource</DrawerSectionHeading>
@@ -4390,12 +5611,18 @@ function findingMessage(check: CheckResult, finding: Finding): string {
 }
 
 function FindingsTable({
+  directRiskPaths,
   check,
+  combinedRiskPaths,
   findings,
+  onViewDirectRiskPaths,
   returnFindingKey,
 }: {
+  directRiskPaths: DirectRiskPath[];
   check: CheckResult;
+  combinedRiskPaths: CombinedRiskPath[];
   findings: Finding[];
+  onViewDirectRiskPaths?: () => void;
   returnFindingKey?: string;
 }) {
   const [sortColumn, setSortColumn] = React.useState<FindingsSortColumn>('resource');
@@ -4603,20 +5830,31 @@ function FindingsTable({
         )}
       </TableContainer>
       <FindingDetailsDrawer
+        directRiskPaths={directRiskPaths}
         check={check}
+        combinedRiskPaths={combinedRiskPaths}
         finding={selectedFinding}
         onClose={() => setSelectedFinding(null)}
+        onViewDirectRiskPaths={onViewDirectRiskPaths}
       />
     </>
   );
 }
 
 function CheckCard({
+  directRiskPaths,
   check,
+  combinedRiskPaths,
+  fromRiskPaths,
+  onViewDirectRiskPaths,
   returnFindingKey,
   targeted,
 }: {
+  directRiskPaths: DirectRiskPath[];
   check: CheckResult;
+  combinedRiskPaths: CombinedRiskPath[];
+  fromRiskPaths?: boolean;
+  onViewDirectRiskPaths?: () => void;
   returnFindingKey?: string;
   targeted?: boolean;
 }) {
@@ -4722,6 +5960,20 @@ function CheckCard({
                 )}
               </Stack>
               <Typography variant="body2" color="text.secondary">{check.description}</Typography>
+              <RiskPathImpactPanel directRiskPaths={directRiskPaths} combinedRiskPaths={combinedRiskPaths} compact onViewDetails={onViewDirectRiskPaths} />
+              {fromRiskPaths && onViewDirectRiskPaths && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={event => {
+                    event.stopPropagation();
+                    onViewDirectRiskPaths();
+                  }}
+                  sx={{ mt: 1 }}
+                >
+                  Back to Risk Paths
+                </Button>
+              )}
             </Box>
           </Stack>
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ alignSelf: 'flex-start' }}>
@@ -4763,7 +6015,7 @@ function CheckCard({
           <Stack spacing={1.5}>
             {failed && <Alert severity={alertSeverity} sx={findingAlertSx}>{check.recommendation}</Alert>}
             {skipped && <Alert severity="info" sx={skippedAlertSx}>{check.skippedReason}</Alert>}
-            {!skipped && <FindingsTable check={check} findings={check.findings} returnFindingKey={returnFindingKey} />}
+            {!skipped && <FindingsTable directRiskPaths={directRiskPaths} check={check} combinedRiskPaths={combinedRiskPaths} findings={check.findings} onViewDirectRiskPaths={onViewDirectRiskPaths} returnFindingKey={returnFindingKey} />}
           </Stack>
         )}
       </Stack>
@@ -5093,11 +6345,827 @@ function compareChecksById(left: CheckResult, right: CheckResult): number {
   return left.id.localeCompare(right.id, undefined, { numeric: true, sensitivity: 'base' });
 }
 
+
+
+function directRiskPathsForCheck(checkId: string, directRiskPaths: DirectRiskPath[]): DirectRiskPath[] {
+  const normalized = checkId.toUpperCase();
+
+  return directRiskPaths.filter(capability => capability.signalChecks.map(id => id.toUpperCase()).includes(normalized));
+}
+
+function combinedRiskPathsForDirectRiskPaths(directRiskPaths: DirectRiskPath[], combinedRiskPaths: CombinedRiskPath[]): CombinedRiskPath[] {
+  const capabilityIds = new Set(directRiskPaths.map(capability => capability.id));
+
+  return combinedRiskPaths.filter(compound => compound.requires.some(id => capabilityIds.has(id)));
+}
+
+function RiskPathImpactPanel({
+  directRiskPaths,
+  combinedRiskPaths,
+  compact = false,
+  onViewDetails,
+}: {
+  directRiskPaths: DirectRiskPath[];
+  combinedRiskPaths: CombinedRiskPath[];
+  compact?: boolean;
+  onViewDetails?: () => void;
+}) {
+  if (directRiskPaths.length === 0 && combinedRiskPaths.length === 0) {
+    return null;
+  }
+
+  return (
+    <Paper variant="outlined" sx={{ p: compact ? 1.25 : 2 }}>
+      <Stack spacing={1.25}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+          <RiskPathImpactChips directRiskPaths={directRiskPaths} combinedRiskPaths={combinedRiskPaths} />
+          {compact && onViewDetails && (
+            <Button size="small" variant="text" onClick={onViewDetails}>
+              View details
+            </Button>
+          )}
+        </Stack>
+        {!compact && (
+          <Stack spacing={1}>
+            {directRiskPaths.map(capability => (
+              <RiskPathImpactDetails capability={capability} key={capability.id} />
+            ))}
+            {combinedRiskPaths.length > 0 && (
+              <RiskPathImpactSection title="Combined risk paths" defaultOpen={combinedRiskPaths.some(compound => compound.status === 'triggered')}>
+                <Stack spacing={0.75}>
+                  {combinedRiskPaths.map(compound => (
+                    <Box key={compound.id}>
+                      <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <Chip label={compound.id} size="small" variant="outlined" />
+                        <Chip color={compound.status === 'triggered' ? 'warning' : 'success'} label={compound.status === 'triggered' ? 'possible' : 'clear'} size="small" />
+                        <Chip label={`priority ${compound.fixPriority}`} size="small" variant="outlined" />
+                      </Stack>
+                      <Typography variant="body2" sx={{ fontWeight: 800, mt: 0.5 }}>{compound.name}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{compound.summary}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Combines: {compound.requires.join(', ')}</Typography>
+                      {compound.attackGraph && <AttackGraphSummary graph={compound.attackGraph} />}
+                    </Box>
+                  ))}
+                </Stack>
+              </RiskPathImpactSection>
+            )}
+          </Stack>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+function RiskPathImpactChips({
+  directRiskPaths,
+  combinedRiskPaths,
+}: {
+  directRiskPaths: DirectRiskPath[];
+  combinedRiskPaths: CombinedRiskPath[];
+}) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+        Risk paths
+      </Typography>
+      {directRiskPaths.map(capability => (
+        <Chip
+          key={capability.id}
+          color={capability.status === 'triggered' ? 'error' : 'success'}
+          label={`${capability.id} ${capability.status === 'triggered' ? 'active' : 'clear'}`}
+          size="small"
+          variant={capability.status === 'triggered' ? 'filled' : 'outlined'}
+        />
+      ))}
+      {combinedRiskPaths.map(compound => (
+        <Chip
+          key={compound.id}
+          color={compound.status === 'triggered' ? 'warning' : 'default'}
+          label={`${compound.id} ${compound.status === 'triggered' ? 'possible' : 'clear'}`}
+          size="small"
+          variant="outlined"
+        />
+      ))}
+    </Stack>
+  );
+}
+
+
+function RiskPathsTab({
+  directRiskPaths,
+  checks,
+  combinedRiskPaths,
+  onOpenCheck,
+}: {
+  directRiskPaths: DirectRiskPath[];
+  checks: CheckResult[];
+  combinedRiskPaths: CombinedRiskPath[];
+  onOpenCheck: (check: CheckResult) => void;
+}) {
+  const [showAll, setShowAll] = React.useState(false);
+  const checksById = React.useMemo(() => new Map(checks.map(check => [check.id, check])), [checks]);
+  const directRiskPathsById = React.useMemo(() => new Map(directRiskPaths.map(capability => [capability.id, capability])), [directRiskPaths]);
+  const triggeredDirectRiskPaths = directRiskPaths.filter(capability => capability.status === 'triggered');
+  const triggeredCombinedRiskPaths = combinedRiskPaths.filter(compound => compound.status === 'triggered');
+  const visibleDirectRiskPaths = showAll ? directRiskPaths : triggeredDirectRiskPaths;
+  const fixFirst = riskPathFixFirstItems(triggeredDirectRiskPaths, checksById);
+
+  return (
+    <Stack spacing={2}>
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between">
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              Risk Paths
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Correlates individual findings into practical paths that explain where combined risk may exist.
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            <Chip color={triggeredDirectRiskPaths.length ? 'error' : 'success'} label={`${triggeredDirectRiskPaths.length} direct paths`} size="small" />
+            <Chip color={triggeredCombinedRiskPaths.length ? 'warning' : 'success'} label={`${triggeredCombinedRiskPaths.length} combined paths`} size="small" variant="outlined" />
+          </Stack>
+        </Stack>
+      </Paper>
+
+      {fixFirst.length > 0 && <BoundaryFixFirstPanel items={fixFirst} onOpenCheck={onOpenCheck} />}
+
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack spacing={1.25}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Direct Risk Paths
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Paths inferred from one or more checks against the same control area.
+              </Typography>
+            </Box>
+            <Button size="small" variant="outlined" onClick={() => setShowAll(value => !value)}>
+              {showAll ? 'Hide clear paths' : 'Show clear paths'}
+            </Button>
+          </Stack>
+          <Stack spacing={1}>
+            {visibleDirectRiskPaths.map(capability => (
+              <DirectRiskPathTabCard
+                capability={capability}
+                checksById={checksById}
+                key={capability.id}
+                onOpenCheck={onOpenCheck}
+              />
+            ))}
+            {visibleDirectRiskPaths.length === 0 && <Alert severity="success">No active risk paths in this scan.</Alert>}
+          </Stack>
+        </Stack>
+      </Paper>
+      {triggeredCombinedRiskPaths.length > 0 && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack spacing={1.25}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Combined Risk Paths
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Higher-impact routes where multiple direct paths appear together.
+              </Typography>
+            </Box>
+            <Stack spacing={1}>
+              {triggeredCombinedRiskPaths.map(compound => (
+                <CombinedRiskPathTabCard
+                  directRiskPathsById={directRiskPathsById}
+                  compound={compound}
+                  key={compound.id}
+                />
+              ))}
+            </Stack>
+          </Stack>
+        </Paper>
+      )}
+    </Stack>
+  );
+}
+
+function BoundaryFixFirstPanel({
+  items,
+  onOpenCheck,
+}: {
+  items: { check: CheckResult; reduces: string[] }[];
+  onOpenCheck: (check: CheckResult) => void;
+}) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Stack spacing={1.25}>
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Fix First</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Start with these checks because each one reduces one or more active risk paths.
+          </Typography>
+        </Box>
+        <Stack spacing={1}>
+          {items.map(item => (
+            <Stack
+              key={item.check.id}
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+              justifyContent="space-between"
+              sx={theme => ({ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 1 })}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Chip label={item.check.id} size="small" variant="outlined" />
+                  <Chip color={severityColor(item.check.severity)} label={item.check.severity} size="small" />
+                  <Chip label={`${item.check.findings.length} findings`} size="small" variant="outlined" />
+                  <Chip label={`reduces ${item.reduces.length} path${item.reduces.length === 1 ? '' : 's'}`} size="small" variant="outlined" />
+                </Stack>
+                <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5, overflowWrap: 'anywhere' }}>{item.check.name}</Typography>
+              </Box>
+              <Button size="small" onClick={() => onOpenCheck(item.check)}>View check</Button>
+            </Stack>
+          ))}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function DirectRiskPathTabCard({
+  capability,
+  checksById,
+  onOpenCheck,
+}: {
+  capability: DirectRiskPath;
+  checksById: Map<string, CheckResult>;
+  onOpenCheck: (check: CheckResult) => void;
+}) {
+  const firstFix = firstFixForDirectRiskPath(capability, checksById);
+
+  return (
+    <Paper component="details" variant="outlined" sx={boundaryDetailsSx}>
+      <Stack component="summary" direction="row" justifyContent="space-between" spacing={1} sx={boundarySummarySx}>
+        <Stack direction="row" spacing={1.25} sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+              <Typography variant="h6" sx={{ overflowWrap: 'anywhere' }}>{capability.name}</Typography>
+              <Chip label={capability.id} size="small" variant="outlined" />
+              <Chip color={capability.status === 'triggered' ? 'error' : 'success'} label={capability.status === 'triggered' ? 'active' : 'clear'} size="small" />
+              <Chip label={`priority ${capability.fixPriority}`} size="small" variant="outlined" />
+            </Stack>
+            <Typography variant="body2" color="text.secondary">{directRiskPathLongDescription(capability)}</Typography>
+          </Box>
+        </Stack>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ alignSelf: 'center' }}>
+          <ExpandDownIcon className="boundary-chevron" fontSize="small" />
+        </Stack>
+      </Stack>
+      <Stack spacing={1.5} sx={{ px: 2, pb: 2 }}>
+        <Alert
+          severity={capability.status === 'triggered' ? 'error' : 'success'}
+          sx={themedAlertSx(capability.status === 'triggered' ? 'error' : 'success')}
+        >
+          {boundaryVerdict(capability)}
+        </Alert>
+        {firstFix && (
+          <Paper variant="outlined" sx={theme => ({ bgcolor: theme.palette.action.hover, p: 1.25 })}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 800 }}>First fix</Typography>
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Chip label={firstFix.id} size="small" variant="outlined" />
+                  <Chip color={severityColor(firstFix.severity)} label={firstFix.severity} size="small" />
+                </Stack>
+                <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5, overflowWrap: 'anywhere' }}>{firstFix.name}</Typography>
+              </Box>
+              <Button size="small" onClick={() => onOpenCheck(firstFix)}>View check</Button>
+            </Stack>
+          </Paper>
+        )}
+        <BoundaryImpactRow target={capability} />
+        <RiskPathImpactSection title="How to validate">
+          <ValidationProofList commands={capability.validationProof || []} capabilityId={capability.id} />
+        </RiskPathImpactSection>
+        {capability.attackGraph && (
+          <RiskPathImpactSection title="Path">
+            <AttackGraphSummary graph={capability.attackGraph} hideTitle />
+          </RiskPathImpactSection>
+        )}
+        {(capability.evidence || []).length > 0 && (
+          <RiskPathImpactSection title="Evidence summary" defaultOpen>
+            <Stack spacing={1}>
+              <Alert severity="info" sx={themedAlertSx('info')}>
+                {directRiskPathEvidenceSummary(capability)}
+              </Alert>
+              <RiskPathEvidenceList capability={capability} checksById={checksById} onOpenCheck={onOpenCheck} />
+            </Stack>
+          </RiskPathImpactSection>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+function combinedRiskPathEvidenceSummary(compound: CombinedRiskPath, directRiskPathsById: Map<string, DirectRiskPath>): string {
+  const activeDirectRiskPaths = compound.requires
+    .map(id => directRiskPathsById.get(id))
+    .filter((capability): capability is DirectRiskPath => Boolean(capability && capability.status === 'triggered'));
+  const findingCount = activeDirectRiskPaths.reduce((total, capability) => total + directRiskPathFindingCount(capability), 0);
+  const directNames = activeDirectRiskPaths.map(capability => capability.name).join(' and ');
+
+  if (activeDirectRiskPaths.length === 0) {
+    return 'The direct paths needed for this combined path are not active in this scan.';
+  }
+
+  return `${directNames} are active together. Across those direct paths, KubeBuddy correlated ${pluralize(findingCount, 'finding')} before marking this as a possible higher-impact route.`;
+}
+
+function CombinedRiskPathTabCard({
+  directRiskPathsById,
+  compound,
+}: {
+  directRiskPathsById: Map<string, DirectRiskPath>;
+  compound: CombinedRiskPath;
+}) {
+  return (
+    <Paper component="details" variant="outlined" sx={boundaryDetailsSx}>
+      <Stack component="summary" direction="row" justifyContent="space-between" spacing={1} sx={boundarySummarySx}>
+        <Stack direction="row" spacing={1.25} sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center">
+              <Typography variant="h6" sx={{ overflowWrap: 'anywhere' }}>{compound.name}</Typography>
+              <Chip label={compound.id} size="small" variant="outlined" />
+              <Chip color={compound.status === 'triggered' ? 'error' : 'success'} label={compound.status === 'triggered' ? 'possible' : 'clear'} size="small" />
+              <Chip label={`priority ${compound.fixPriority}`} size="small" variant="outlined" />
+            </Stack>
+            <Typography variant="body2" color="text.secondary">{compound.summary}</Typography>
+          </Box>
+        </Stack>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ alignSelf: 'center' }}>
+          <ExpandDownIcon className="boundary-chevron" fontSize="small" />
+        </Stack>
+      </Stack>
+      <Stack spacing={1.5} sx={{ px: 2, pb: 2 }}>
+        <Alert
+          severity={compound.status === 'triggered' ? 'warning' : 'success'}
+          sx={themedAlertSx(compound.status === 'triggered' ? 'warning' : 'success')}
+        >
+          {boundaryVerdict(compound)}
+        </Alert>
+        <BoundaryImpactRow target={compound} />
+        <RiskPathImpactSection title="Why this is combined" defaultOpen>
+          <Stack spacing={1}>
+            <Alert severity="warning" sx={themedAlertSx('warning')}>
+              {combinedRiskPathEvidenceSummary(compound, directRiskPathsById)}
+            </Alert>
+            <Stack spacing={0.75}>
+              {compound.requires.map(required => {
+                const capability = directRiskPathsById.get(required);
+
+                return (
+                  <Box key={required} sx={theme => ({ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 1 })}>
+                    <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Chip label={required} size="small" variant="outlined" />
+                      <Chip
+                        color={capability?.status === 'triggered' ? 'error' : 'success'}
+                        label={capability?.status === 'triggered' ? 'active' : 'clear'}
+                        size="small"
+                      />
+                      {capability && (
+                        <Chip label={pluralize(directRiskPathFindingCount(capability), 'finding')} size="small" variant="outlined" />
+                      )}
+                    </Stack>
+                    <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5 }}>
+                      {capability?.name || required}
+                    </Typography>
+                    {capability && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {directRiskPathLongDescription(capability)}
+                      </Typography>
+                    )}
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Stack>
+        </RiskPathImpactSection>
+        {compound.attackGraph && (
+          <RiskPathImpactSection title="Path">
+            <AttackGraphSummary graph={compound.attackGraph} hideTitle />
+          </RiskPathImpactSection>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+function BoundaryImpactRow({ target }: { target: DirectRiskPath | CombinedRiskPath }) {
+  return (
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+      <Paper variant="outlined" sx={{ flex: 1, p: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 800 }}>Impact</Typography>
+          <Typography variant="body2">{boundaryImpact(target.id)}</Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ flex: 1, p: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 800 }}>Where it matters</Typography>
+          <Typography variant="body2">{boundaryBlastRadius(target.id)}</Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ flex: 1, p: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 800 }}>Fix priority</Typography>
+        <Typography variant="body2">{target.fixPriority}</Typography>
+      </Paper>
+    </Stack>
+  );
+}
+
+const chevronSx = {
+  color: 'text.secondary',
+  display: 'inline-flex',
+  fontSize: '1.25rem',
+  fontWeight: 900,
+  lineHeight: 1,
+  transition: 'transform 120ms ease',
+};
+
+const boundaryDetailsSx = (theme: Theme) => ({
+  p: 0,
+  '& summary': { listStyle: 'none' },
+  '& summary::-webkit-details-marker': { display: 'none' },
+  '&[open] > summary .boundary-chevron': { transform: 'rotate(180deg)' },
+});
+
+const boundarySummarySx = (theme: Theme) => ({
+  borderRadius: 1,
+  cursor: 'pointer',
+  mx: 1,
+  my: 1,
+  p: 1,
+  transition: theme.transitions.create('background-color', { duration: theme.transitions.duration.shortest }),
+  '&:hover': {
+    bgcolor: theme.palette.action.hover,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: 2,
+  },
+  '& .boundary-chevron': {
+    color: theme.palette.text.secondary,
+    transition: 'transform 120ms ease',
+  },
+});
+
+function RiskPathOverviewPanel({
+  directRiskPaths,
+  combinedRiskPaths,
+}: {
+  directRiskPaths: DirectRiskPath[];
+  combinedRiskPaths: CombinedRiskPath[];
+}) {
+  const triggeredDirectRiskPaths = directRiskPaths.filter(capability => capability.status === 'triggered');
+  const triggeredCombinedRiskPaths = combinedRiskPaths.filter(compound => compound.status === 'triggered');
+  const triggered = [...triggeredDirectRiskPaths, ...triggeredCombinedRiskPaths];
+
+  if (directRiskPaths.length === 0 && combinedRiskPaths.length === 0) {
+    return null;
+  }
+
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+            Risk paths
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            KubeBuddy correlates related findings into practical paths you can review in the Risk Paths tab.
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          <Chip color={triggeredDirectRiskPaths.length ? 'error' : 'success'} label={`${triggeredDirectRiskPaths.length} direct paths`} size="small" />
+          <Chip color={triggeredCombinedRiskPaths.length ? 'warning' : 'success'} label={`${triggeredCombinedRiskPaths.length} combined paths`} size="small" variant="outlined" />
+          {triggered.slice(0, 6).map(item => (
+            <Chip key={item.id} label={item.id} size="small" variant="outlined" />
+          ))}
+          {triggered.length > 6 && <Chip label={`+${triggered.length - 6} more`} size="small" variant="outlined" />}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function RiskPathImpactDetails({ capability }: { capability: DirectRiskPath }) {
+  return (
+    <Box sx={theme => ({ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 1.25 })}>
+      <Stack spacing={1}>
+        <Box>
+          <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Typography variant="body2" sx={{ fontWeight: 800 }}>{capability.name}</Typography>
+            <Chip label={capability.id} size="small" variant="outlined" />
+            <Chip color={capability.status === 'triggered' ? 'error' : 'success'} label={capability.status === 'triggered' ? 'active' : 'clear'} size="small" />
+            <Chip label={capability.boundary} size="small" variant="outlined" />
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{capability.summary}</Typography>
+        </Box>
+
+        <RiskPathImpactSection title="How to validate">
+          <ValidationProofList commands={capability.validationProof || []} capabilityId={capability.id} />
+        </RiskPathImpactSection>
+
+        {capability.attackGraph && (
+          <RiskPathImpactSection title="Path">
+            <AttackGraphSummary graph={capability.attackGraph} hideTitle />
+          </RiskPathImpactSection>
+        )}
+
+        {(capability.evidence || []).length > 0 && (
+          <RiskPathImpactSection title={`Why KubeBuddy thinks this (${(capability.evidence || []).length})`}>
+            <RiskPathEvidenceList capability={capability} />
+          </RiskPathImpactSection>
+        )}
+      </Stack>
+    </Box>
+  );
+}
+
+function RiskPathImpactSection({
+  children,
+  defaultOpen = false,
+  title,
+}: {
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  title: string;
+}) {
+  return (
+    <Box
+      component="details"
+      open={defaultOpen}
+      sx={theme => ({
+        borderTop: `1px solid ${theme.palette.divider}`,
+        pt: 0.75,
+        '& summary': { cursor: 'pointer', listStyle: 'none' },
+        '& summary::-webkit-details-marker': { display: 'none' },
+        '&[open] > summary .risk-path-chevron': { transform: 'rotate(180deg)' },
+      })}
+    >
+      <Box component="summary" sx={{ alignItems: 'center', display: 'flex', gap: 0.75 }}>
+        <Typography variant="subtitle2" sx={{ flex: 1, fontWeight: 800 }}>{title}</Typography>
+        <ExpandDownIcon className="risk-path-chevron" fontSize="small" />
+      </Box>
+      <Box sx={{ pt: 0.75 }}>{children}</Box>
+    </Box>
+  );
+}
+
+function RiskPathEvidenceList({
+  capability,
+  checksById,
+  onOpenCheck,
+}: {
+  capability: DirectRiskPath;
+  checksById?: Map<string, CheckResult>;
+  onOpenCheck?: (check: CheckResult) => void;
+}) {
+  return (
+    <Stack spacing={0.75}>
+      {sortedRiskPathEvidence(capability).map(evidence => {
+        const sourceCheck = checksById?.get(evidence.checkId);
+
+        return (
+          <Box key={evidence.checkId} sx={theme => ({ border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 1 })}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="space-between">
+              <Box sx={{ minWidth: 0 }}>
+                <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Chip label={evidence.checkId} size="small" variant="outlined" />
+                  <Chip label={evidence.severity} size="small" />
+                  <Chip label={`${evidence.findingCount} findings`} size="small" variant="outlined" />
+                </Stack>
+                <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5 }}>{evidence.checkName}</Typography>
+                {(evidence.sampleFindings || []).length > 0 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 800, mt: 0.5 }}>Examples</Typography>
+                )}
+                {(evidence.sampleFindings || []).slice(0, 3).map((finding, index) => (
+                  <Typography key={`${evidence.checkId}-${index}`} variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
+                    {findingLabel(finding)}
+                  </Typography>
+                ))}
+              </Box>
+              {sourceCheck && onOpenCheck && (
+                <Button size="small" onClick={() => onOpenCheck(sourceCheck)} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}>
+                  View check
+                </Button>
+              )}
+            </Stack>
+          </Box>
+        );
+      })}
+    </Stack>
+  );
+}
+
+function ValidationProofList({ commands, capabilityId }: { commands: ValidationCommand[]; capabilityId: string }) {
+  const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
+  const copyText = React.useCallback(async (key: string, value: string) => {
+    if (!navigator.clipboard?.writeText) {
+      return;
+    }
+    await navigator.clipboard.writeText(value);
+    setCopiedKey(key);
+    window.setTimeout(() => setCopiedKey(null), 1800);
+  }, []);
+
+  if (commands.length === 0) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        No validation commands are defined for this risk path yet.
+      </Typography>
+    );
+  }
+
+  const allCommands = commands.map(command => `# ${command.title}\n${command.command}`).join('\n\n');
+
+  return (
+    <Stack spacing={1}>
+      <Stack direction="row" justifyContent="flex-end">
+        <Button size="small" variant="outlined" onClick={() => copyText(`${capabilityId}-all`, allCommands)}>
+          {copiedKey === `${capabilityId}-all` ? 'Copied' : 'Copy all'}
+        </Button>
+      </Stack>
+      {commands.map(command => {
+        const key = `${capabilityId}-${command.title}`;
+
+        return (
+          <Paper key={key} variant="outlined" sx={{ p: 1 }}>
+            <Stack spacing={0.75}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+                <Box sx={{ minWidth: 0 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }}>{command.title}</Typography>
+                    <Chip label={command.readOnly ? 'read-only' : 'changes cluster state'} size="small" color={command.readOnly ? 'success' : 'warning'} variant="outlined" />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{command.purpose}</Typography>
+                </Box>
+                <Button size="small" onClick={() => copyText(key, command.command)}>
+                  {copiedKey === key ? 'Copied' : 'Copy'}
+                </Button>
+              </Stack>
+              <Box component="pre" sx={theme => ({ bgcolor: theme.palette.action.hover, borderRadius: 1, fontSize: '0.78rem', m: 0, overflow: 'auto', p: 1, whiteSpace: 'pre-wrap' })}>{command.command}</Box>
+            </Stack>
+          </Paper>
+        );
+      })}
+    </Stack>
+  );
+}
+
+function attackGraphModel(graph: RiskPathGraph): {
+  edges: RiskPathGraph['edges'];
+  steps: { accent: 'error' | 'success' | 'info'; text: string }[];
+  path: { edgeLabel?: string; id: string; label: string; subLabel: string; tone: 'source' | 'control' | 'target' }[];
+} {
+  const incoming = new Map(graph.nodes.map(node => [node.id, 0]));
+  const outgoing = new Map(graph.nodes.map(node => [node.id, 0]));
+  graph.edges.forEach(edge => {
+    incoming.set(edge.to, (incoming.get(edge.to) || 0) + 1);
+    outgoing.set(edge.from, (outgoing.get(edge.from) || 0) + 1);
+  });
+
+  const sources = graph.nodes.filter(node => (incoming.get(node.id) || 0) === 0);
+  const targets = graph.nodes.filter(node => (outgoing.get(node.id) || 0) === 0);
+  const target = targets[0] || graph.nodes[graph.nodes.length - 1];
+  const profile = boundaryGraphProfile(target?.id || '');
+  const sourceSummary = sources.slice(0, 3).map(node => node.checkId || node.label).join(', ') || 'cluster observations';
+  const signalCount = sources.length || graph.nodes.length;
+  const sourceStep = target?.type === 'combinedRiskPath' ? 'Direct paths active' : `${signalCount} finding signal${signalCount === 1 ? '' : 's'} detected`;
+
+  return {
+    edges: graph.edges,
+    steps: [
+      { accent: 'error', text: sourceStep },
+      { accent: 'success', text: profile.controlSubLabel },
+      { accent: 'info', text: `${profile.targetLabel} is reachable` },
+    ],
+    path: [
+      {
+        id: 'source',
+        label: profile.sourceLabel,
+        subLabel: sourceSummary,
+        tone: 'source',
+      },
+      {
+        edgeLabel: profile.firstEdge,
+        id: 'control',
+        label: profile.controlLabel,
+        subLabel: profile.controlSubLabel,
+        tone: 'control',
+      },
+      {
+        edgeLabel: profile.secondEdge,
+        id: target?.id || 'target',
+        label: profile.targetLabel,
+        subLabel: profile.targetSubLabel,
+        tone: 'target',
+      },
+    ],
+  };
+}
+
+function attackGraphNodeSx(tone: 'source' | 'control' | 'target') {
+  return (theme: Theme) => {
+    const colors = {
+      control: theme.palette.warning.main,
+      source: theme.palette.primary.main,
+      target: theme.palette.error.main,
+    };
+
+    return {
+      bgcolor: theme.palette.background.paper,
+      border: `1px solid ${colors[tone]}`,
+      borderRadius: 1,
+      boxShadow: `inset 3px 0 0 ${colors[tone]}`,
+      flex: '0 1 230px',
+      minHeight: 72,
+      minWidth: 0,
+      p: 1,
+      textAlign: 'center',
+    };
+  };
+}
+
+function AttackGraphSummary({ graph, hideTitle = false }: { graph: RiskPathGraph; hideTitle?: boolean }) {
+  const model = attackGraphModel(graph);
+
+  if (graph.nodes.length === 0) {
+    return null;
+  }
+
+  return (
+    <Stack spacing={0.75}>
+      {!hideTitle && <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Path</Typography>}
+      <Paper variant="outlined" sx={theme => ({ bgcolor: theme.palette.action.hover, p: 1.25 })}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center" justifyContent="center">
+          {model.path.map((node, index) => (
+            <React.Fragment key={node.id}>
+              {index > 0 && (
+                <Stack alignItems="center" justifyContent="center" sx={{ color: 'text.secondary', flex: '0 0 auto', fontWeight: 900, minWidth: 48 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800 }}>{node.edgeLabel}</Typography>
+                  <Typography variant="h6" sx={{ lineHeight: 1 }}>→</Typography>
+                </Stack>
+              )}
+              <Paper variant="outlined" sx={attackGraphNodeSx(node.tone)}>
+                <Typography variant="body2" sx={{ fontWeight: 900, overflowWrap: 'anywhere' }}>{node.label}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, overflowWrap: 'anywhere' }}>{node.subLabel}</Typography>
+              </Paper>
+            </React.Fragment>
+          ))}
+        </Stack>
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+          {model.steps.map((step, index) => (
+            <Chip
+              key={`${step.text}-${index}`}
+              color={step.accent === 'error' ? 'error' : step.accent === 'success' ? 'success' : 'primary'}
+              label={step.text}
+              size="small"
+              variant="outlined"
+            />
+          ))}
+        </Stack>
+        {model.edges.length > 0 && (
+          <Box component="details" sx={{ mt: 1 }}>
+            <Box
+              component="summary"
+              sx={theme => ({
+                alignItems: 'center',
+                cursor: 'pointer',
+                display: 'flex',
+                gap: 0.5,
+                '&::-webkit-details-marker': { display: 'none' },
+                '& .risk-path-chevron': { transition: 'transform 120ms ease' },
+                'details[open] > & .risk-path-chevron': { transform: 'rotate(180deg)' },
+              })}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ flex: 1, fontWeight: 800 }}>Graph edges</Typography>
+              <ExpandDownIcon className="risk-path-chevron" fontSize="small" />
+            </Box>
+            <Stack spacing={0.35} sx={{ pt: 0.5 }}>
+              {model.edges.map(edge => (
+                <Typography key={`${edge.from}-${edge.to}-${edge.label}`} variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
+                  {edge.from} → {edge.to}: {edge.label}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        )}
+      </Paper>
+    </Stack>
+  );
+}
 function ReportSummary({
   checks,
   clusterKey,
   completedAt,
   excludedNamespaces,
+  directRiskPaths,
+  combinedRiskPaths,
   onOpenSection,
   onOpenCheck,
 }: {
@@ -5105,6 +7173,8 @@ function ReportSummary({
   clusterKey: string;
   completedAt?: string;
   excludedNamespaces: string[];
+  directRiskPaths: DirectRiskPath[];
+  combinedRiskPaths: CombinedRiskPath[];
   onOpenSection: (section: string) => void;
   onOpenCheck: (check: CheckResult) => void;
 }) {
@@ -5139,6 +7209,7 @@ function ReportSummary({
     <Stack spacing={2}>
       <ScoreHero checks={checks} clusterKey={clusterKey} completedAt={completedAt} />
       <NamespaceExclusionsSummary namespaces={excludedNamespaces} />
+      <RiskPathOverviewPanel directRiskPaths={directRiskPaths} combinedRiskPaths={combinedRiskPaths} />
 
       <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2}>
         <Paper variant="outlined" sx={{ flex: 1, p: 2 }}>
@@ -5574,19 +7645,29 @@ function KubeBuddyScanResults({
   const [section, setSection] = React.useState(returnTarget?.section || 'Summary');
   const [renderedSection, setRenderedSection] = React.useState(returnTarget?.section || 'Summary');
   const [targetCheckId, setTargetCheckId] = React.useState<string | null>(returnTarget?.checkId || null);
+  const [riskPathReturnCheckId, setRiskPathReturnCheckId] = React.useState<string | null>(null);
   const [status, setStatus] = React.useState<StatusFilter>('all');
   const [renderedStatus, setRenderedStatus] = React.useState<StatusFilter>('all');
   const [severity, setSeverity] = React.useState<SeverityFilter>('all');
   const [renderedSeverity, setRenderedSeverity] = React.useState<SeverityFilter>('all');
   const [isViewPending, setIsViewPending] = React.useState(false);
   const viewTimerRef = React.useRef<number | null>(null);
+  const riskPathAnalysis = React.useMemo(() => {
+    const generated = analyzeDirectRiskPaths(checks);
+    return {
+      directRiskPaths: initialReport?.directRiskPaths || generated.directRiskPaths,
+      combinedRiskPaths: initialReport?.combinedRiskPaths || generated.combinedRiskPaths,
+    };
+  }, [checks, initialReport?.directRiskPaths, initialReport?.combinedRiskPaths]);
   const sections = ['Summary', 'All', ...Array.from(new Set(checks.map(check => check.section))).sort((left, right) => {
     const leftLabel = reportSectionLabel(left);
     const rightLabel = reportSectionLabel(right);
     const rankDelta = reportSectionRank(leftLabel) - reportSectionRank(rightLabel);
 
     return rankDelta || leftLabel.localeCompare(rightLabel);
-  })];
+  }), RISK_PATHS_SECTION];
+  const riskPathTabCount = riskPathAnalysis.directRiskPaths.filter(capability => capability.status === 'triggered').length +
+    riskPathAnalysis.combinedRiskPaths.filter(compound => compound.status === 'triggered').length;
   const failedCountsBySection = React.useMemo(
     () =>
       checks.reduce<Record<string, number>>(
@@ -5603,7 +7684,7 @@ function KubeBuddyScanResults({
       ),
     [checks]
   );
-  const detailSection = renderedSection === 'Summary' ? 'All' : renderedSection;
+  const detailSection = renderedSection === 'Summary' || renderedSection === RISK_PATHS_SECTION ? 'All' : renderedSection;
   const sectionChecks = detailSection === 'All' ? checks : checks.filter(check => check.section === detailSection);
   const statusFilteredChecks =
     renderedStatus === 'all' ? sectionChecks : sectionChecks.filter(check => check.status === renderedStatus);
@@ -5650,6 +7731,9 @@ function KubeBuddyScanResults({
       setStatus('all');
       setSeverity('all');
       setTargetCheckId(nextTargetCheckId);
+      if (nextSection === RISK_PATHS_SECTION) {
+        setRiskPathReturnCheckId(null);
+      }
       deferViewRender(() => {
         setRenderedSection(nextSection);
         setRenderedStatus('all');
@@ -5660,9 +7744,10 @@ function KubeBuddyScanResults({
   );
   const openCheckFromSummary = React.useCallback(
     (check: CheckResult) => {
+      setRiskPathReturnCheckId(renderedSection === RISK_PATHS_SECTION ? check.id : null);
       changeSection(check.section, check.id);
     },
-    [changeSection]
+    [changeSection, renderedSection]
   );
   const changeStatus = React.useCallback(
     (nextStatus: StatusFilter) => {
@@ -5792,7 +7877,7 @@ function KubeBuddyScanResults({
             {sections.map(item => (
               <Tab
                 key={item}
-                label={<SectionTabLabel label={reportSectionLabel(item)} failedCount={item === 'Summary' ? 0 : failedCountsBySection[item] || 0} />}
+                label={<SectionTabLabel label={reportSectionLabel(item)} failedCount={item === 'Summary' ? 0 : item === RISK_PATHS_SECTION ? riskPathTabCount : failedCountsBySection[item] || 0} />}
                 value={item}
               />
             ))}
@@ -5816,9 +7901,13 @@ function KubeBuddyScanResults({
               clusterKey={clusterKey}
               completedAt={initialReport?.completedAt}
               excludedNamespaces={excludedNamespaces}
+              directRiskPaths={riskPathAnalysis.directRiskPaths}
+              combinedRiskPaths={riskPathAnalysis.combinedRiskPaths}
               onOpenCheck={openCheckFromSummary}
               onOpenSection={changeSection}
             />
+          ) : renderedSection === RISK_PATHS_SECTION ? (
+            <RiskPathsTab directRiskPaths={riskPathAnalysis.directRiskPaths} checks={checks} combinedRiskPaths={riskPathAnalysis.combinedRiskPaths} onOpenCheck={openCheckFromSummary} />
           ) : (
             <>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} flexWrap="wrap" alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between">
@@ -5838,8 +7927,12 @@ function KubeBuddyScanResults({
               <Stack spacing={2}>
                 {visibleChecks.map(check => (
                   <CheckCard
+                    directRiskPaths={directRiskPathsForCheck(check.id, riskPathAnalysis.directRiskPaths)}
                     check={check}
+                    combinedRiskPaths={combinedRiskPathsForDirectRiskPaths(directRiskPathsForCheck(check.id, riskPathAnalysis.directRiskPaths), riskPathAnalysis.combinedRiskPaths)}
+                    fromRiskPaths={riskPathReturnCheckId === check.id}
                     key={check.id}
+                    onViewDirectRiskPaths={() => changeSection(RISK_PATHS_SECTION)}
                     returnFindingKey={returnTarget?.checkId === check.id ? returnTarget.findingKey : undefined}
                     targeted={targetCheckId === check.id}
                   />
@@ -6035,6 +8128,39 @@ function KubeBuddyConfigPage() {
 }
 
 registerAppBarAction(<KubeBuddyScoreBadge />);
+
+registerDetailsViewSection(KubeBuddyResourceDetailsSection);
+
+registerResourceTableColumnsProcessor(function addKubeBuddyResourceStatusColumn({ id, columns }) {
+  if (!KUBEBUDDY_TABLE_IDS.has(id)) {
+    return columns;
+  }
+
+  if (
+    columns.some(column => typeof column === 'object' && column !== null && column.id === 'kubebuddy-status')
+  ) {
+    return columns;
+  }
+
+  const statusColumn: ResourceTableColumn<any> = {
+    id: 'kubebuddy-status',
+    label: 'KubeBuddy',
+    gridTemplate: 'minmax(128px, 180px)',
+    cellProps: {
+      sx: {
+        minWidth: 128,
+      },
+    },
+    getValue: resource => {
+      const report = readStoredReport(clusterKeyFromPath(window.location.pathname));
+      return resourceStatusSortValue(report, resource);
+    },
+    render: resource => <KubeBuddyResourceTableCell resource={resource} />,
+    sort: false,
+  };
+
+  return [...columns, statusColumn];
+});
 
 registerSidebarEntry({
   parent: null,

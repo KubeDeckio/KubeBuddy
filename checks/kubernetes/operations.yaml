@@ -976,10 +976,10 @@ checks:
   name: Workload DNS and Host Alias Overrides
   category: Workloads
   section: Workloads
-  resource_kind: Pod
+  resource_kind: Deployment, StatefulSet, DaemonSet, Pod
   severity: Medium
   weight: 2
-  description: "Detects pods that set dnsPolicy: None or hostAliases, both of which can override normal Kubernetes service discovery behavior."
+  description: "Detects pods and workload templates that set custom DNS policy/configuration or hostAliases, which can override normal Kubernetes service discovery behavior."
   fail_message: Pod overrides Kubernetes DNS behavior.
   recommendation: "Use ClusterFirst DNS and Kubernetes Services for discovery. Keep dnsPolicy: None or hostAliases only for tightly documented exceptions."
   url: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/

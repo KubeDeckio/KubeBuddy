@@ -4227,7 +4227,7 @@ func runSEC031(check checks.Check, item map[string]any, cache map[string][]map[s
 	var findings []Finding
 	data := mustResolve(item, "data")
 	for _, key := range sortedMapKeys(data) {
-		raw := stringifyLookup(data, key)
+		raw := mapStringValue(data, key)
 		decoded := decodeSecretData(raw)
 		if decoded == "" {
 			continue
@@ -4249,23 +4249,23 @@ func runSEC032(check checks.Check, item map[string]any, cache map[string][]map[s
 	if stringifyLookup(item, "type") != "kubernetes.io/tls" {
 		return nil, nil
 	}
-	certPEM := []byte(decodeSecretData(stringifyLookup(item, "data.tls.crt")))
-	block, _ := pem.Decode(certPEM)
-	if block == nil {
-		return nil, nil
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, nil
-	}
+	certPEM := []byte(decodeSecretData(mapStringValue(mustResolve(item, "data"), "tls.crt")))
 	now := time.Now()
-	if cert.NotAfter.Before(now) {
-		return []Finding{{Namespace: namespaceOf(item), Resource: "secret/" + stringifyLookup(item, "metadata.name"), Value: cert.NotAfter.Format("2006-01-02"), Message: "TLS certificate has expired"}}, nil
+	soon := now.Add(30 * 24 * time.Hour)
+	var earliest *x509.Certificate
+	for _, cert := range parseCertificates(certPEM) {
+		if !cert.NotAfter.After(soon) && (earliest == nil || cert.NotAfter.Before(earliest.NotAfter)) {
+			earliest = cert
+		}
 	}
-	if cert.NotAfter.Before(now.Add(30 * 24 * time.Hour)) {
-		return []Finding{{Namespace: namespaceOf(item), Resource: "secret/" + stringifyLookup(item, "metadata.name"), Value: cert.NotAfter.Format("2006-01-02"), Message: "TLS certificate expires within 30 days"}}, nil
+	if earliest == nil {
+		return nil, nil
 	}
-	return nil, nil
+	state := "expires"
+	if earliest.NotAfter.Before(now) {
+		state = "expired"
+	}
+	return []Finding{{Namespace: namespaceOf(item), Resource: "secret/" + stringifyLookup(item, "metadata.name"), Value: earliest.NotAfter.Format("2006-01-02"), Message: "TLS certificate " + state + " " + earliest.NotAfter.Format("2006-01-02")}}, nil
 }
 
 func runSEC033(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
@@ -4276,25 +4276,24 @@ func runSEC033(check checks.Check, item map[string]any, cache map[string][]map[s
 	data := mustResolve(item, "data")
 	for _, key := range sortedMapKeys(data) {
 		value := stringifyLookup(data, key)
-		if len(strings.TrimSpace(value)) < 8 || isPlaceholderSecretValue(value) {
+		title := sensitiveTextReason(value)
+		if title == "" {
 			continue
 		}
-		if title, ok := secretMaterialTitle(key, value); ok || (isSensitiveKeyName(key) || looksBase64Value(value)) {
-			if title == "" {
-				title = "Sensitive-looking ConfigMap value"
-			}
-			findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "configmap/" + stringifyLookup(item, "metadata.name"), Value: key, Message: title})
-		}
+		findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "configmap/" + stringifyLookup(item, "metadata.name"), Value: key, Message: title})
 	}
 	return findings, nil
 }
 
 func runSEC034(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	var findings []Finding
-	for _, container := range containersOnly(item) {
-		image := strings.ToLower(stringifyLookup(container, "image"))
-		if title := eolImageTitle(image); title != "" {
-			findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: stringifyLookup(container, "image"), Message: title})
+	pods := cachedItemsOrLoad(cache, "pods")
+	for _, workload := range append(allControllerWorkloads(cache), pods...) {
+		for _, container := range containersIncludingInit(podSpecView(workload)) {
+			image := strings.ToLower(stringifyLookup(container, "image"))
+			if title := eolImageTitle(image); title != "" {
+				findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: stringifyLookup(container, "image"), Message: title})
+			}
 		}
 	}
 	return findings, nil
@@ -4302,12 +4301,15 @@ func runSEC034(check checks.Check, item map[string]any, cache map[string][]map[s
 
 func runSEC035(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	var findings []Finding
-	for _, container := range containersOnly(item) {
-		image := stringifyLookup(container, "image")
-		if image == "" || strings.Contains(image, "@sha256:") || !imageHasExplicitTag(image) || strings.HasSuffix(strings.ToLower(image), ":latest") {
-			continue
+	pods := cachedItemsOrLoad(cache, "pods")
+	for _, workload := range append(allControllerWorkloads(cache), pods...) {
+		for _, container := range containersIncludingInit(podSpecView(workload)) {
+			image := stringifyLookup(container, "image")
+			if image == "" || strings.Contains(image, "@sha256:") {
+				continue
+			}
+			findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: image, Message: "Image is not pinned to a digest: " + image})
 		}
-		findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: image, Message: "Image uses a mutable tag instead of a sha256 digest"})
 	}
 	return findings, nil
 }
@@ -4324,11 +4326,22 @@ func runSEC036(check checks.Check, item map[string]any, cache map[string][]map[s
 }
 
 func runNET021(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
-	name := stringifyLookup(item, "metadata.name")
-	if isSystemNamespaceName(name) || !namespaceHasPods(cache, name) || namespaceBlocksMetadata(cache, name) {
-		return nil, nil
+	pods := cachedItemsOrLoad(cache, "pods")
+	_ = cachedItemsOrLoad(cache, "networkpolicies")
+	namespaces := map[string]struct{}{}
+	for _, pod := range pods {
+		if ns := namespaceOf(pod); ns != "" {
+			namespaces[ns] = struct{}{}
+		}
 	}
-	return []Finding{{Namespace: name, Resource: "namespace/" + name, Value: "169.254.169.254", Message: "Namespace lacks egress policy blocking cloud metadata API"}}, nil
+	var findings []Finding
+	for _, name := range sortedStringSet(namespaces) {
+		if namespaceBlocksMetadata(cache, name) {
+			continue
+		}
+		findings = append(findings, Finding{Namespace: name, Resource: "namespace/" + name, Value: "169.254.169.254", Message: "Namespace lacks egress policy blocking cloud metadata API"})
+	}
+	return findings, nil
 }
 
 func runNET022(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
@@ -4404,11 +4417,22 @@ func runWRK019(check checks.Check, item map[string]any, cache map[string][]map[s
 
 func runWRK020(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	var findings []Finding
-	if stringifyLookup(item, "spec.dnsPolicy") == "None" {
-		findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: "dnsPolicy: None", Message: "Pod overrides Kubernetes DNS policy"})
-	}
-	if len(asSlice(mustResolve(item, "spec.hostAliases"))) > 0 {
-		findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: "hostAliases", Message: "Pod configures hostAliases"})
+	pods := cachedItemsOrLoad(cache, "pods")
+	for _, workload := range append(allControllerWorkloads(cache), pods...) {
+		spec := podSpecView(workload)
+		var values []string
+		if policy := stringifyLookup(spec, "spec.dnsPolicy"); policy != "" && policy != "ClusterFirst" {
+			values = append(values, "dnsPolicy: "+policy)
+		}
+		if len(asSlice(mustResolve(spec, "spec.dnsConfig"))) > 0 || mustResolve(spec, "spec.dnsConfig") != nil {
+			values = append(values, "dnsConfig")
+		}
+		if len(asSlice(mustResolve(spec, "spec.hostAliases"))) > 0 {
+			values = append(values, "hostAliases")
+		}
+		if len(values) > 0 {
+			findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: strings.Join(values, ", "), Message: "DNS policy/config or hostAliases overridden"})
+		}
 	}
 	return findings, nil
 }
@@ -4416,7 +4440,7 @@ func runWRK020(check checks.Check, item map[string]any, cache map[string][]map[s
 func runWRK021(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	var findings []Finding
 	for _, workload := range allControllerWorkloads(cache) {
-		if stringifyLookup(podSpecView(workload), "priorityClassName") == "" {
+		if stringifyLookup(podSpecView(workload), "spec.priorityClassName") == "" {
 			findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: "", Message: "Workload does not set priorityClassName"})
 		}
 	}
@@ -4455,7 +4479,7 @@ var secretRegexes = []struct {
 }{
 	{regexp.MustCompile(`(?i)(AKIA|AGPA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}`), "Potential AWS access key"},
 	{regexp.MustCompile(`(?i)ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}`), "Potential GitHub token"},
-	{regexp.MustCompile(`-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----`), "Potential private key"},
+	{regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`), "private key material"},
 	{regexp.MustCompile(`(?i)xoxb-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{24}`), "Potential Slack token"},
 	{regexp.MustCompile(`(?i)(mysql|postgres|mongodb|redis)://[^:\s]+:[^@\s]+@`), "Potential database credentials"},
 	{regexp.MustCompile(`(?i)(password|passwd|pwd|secret|api[_-]?key|token|auth)[_\s]*[=:]+\s*[^\s]{8,}`), "Potential generic secret"},
@@ -4476,8 +4500,32 @@ func secretMaterialTitle(key, value string) (string, bool) {
 	return "", false
 }
 
+func sensitiveTextReason(value string) string {
+	text := strings.TrimSpace(value)
+	if text == "" {
+		return ""
+	}
+	patterns := []struct {
+		reason string
+		re     *regexp.Regexp
+	}{
+		{"private key material", regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)},
+		{"AWS access key", regexp.MustCompile(`AKIA[0-9A-Z]{16}`)},
+		{"GitHub token", regexp.MustCompile(`gh[pousr]_[A-Za-z0-9_]{20,}`)},
+		{"database connection string", regexp.MustCompile(`(?i)postgres(ql)?://|mysql://|mongodb(\+srv)?://`)},
+		{"storage account key", regexp.MustCompile(`(?i)AccountKey=[A-Za-z0-9+/=]{40,}`)},
+		{"password-like value", regexp.MustCompile(`(?i)password\s*[:=]\s*[^;&\s]{8,}`)},
+	}
+	for _, pattern := range patterns {
+		if pattern.re.MatchString(text) {
+			return pattern.reason
+		}
+	}
+	return ""
+}
+
 func isExpectedSecretPrivateKey(secret map[string]any, key, title string) bool {
-	if title != "Potential private key" {
+	if title != "Potential private key" && title != "private key material" {
 		return false
 	}
 	secretType := strings.ToLower(stringifyLookup(secret, "type"))
@@ -4525,6 +4573,37 @@ func decodeSecretData(value string) string {
 		return value
 	}
 	return string(decoded)
+}
+
+func parseCertificates(data []byte) []*x509.Certificate {
+	var certs []*x509.Certificate
+	remaining := bytesTrimSpace(data)
+	for len(remaining) > 0 {
+		block, rest := pem.Decode(remaining)
+		if block == nil {
+			break
+		}
+		remaining = rest
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err == nil {
+			certs = append(certs, cert)
+		}
+	}
+	if len(certs) > 0 {
+		return certs
+	}
+	cert, err := x509.ParseCertificate(data)
+	if err == nil {
+		return []*x509.Certificate{cert}
+	}
+	return nil
+}
+
+func bytesTrimSpace(data []byte) []byte {
+	return []byte(strings.TrimSpace(string(data)))
 }
 
 func sortedMapKeys(value any) []string {
@@ -4611,9 +4690,6 @@ func namespaceBlocksMetadata(cache map[string][]map[string]any, ns string) bool 
 		}
 		for _, rule := range asSlice(mustResolve(policy, "spec.egress")) {
 			for _, to := range asSlice(mustResolve(rule, "to")) {
-				if isMetadataIP(stringifyLookup(to, "ipBlock.cidr")) {
-					return false
-				}
 				for _, except := range asSlice(mustResolve(to, "ipBlock.except")) {
 					if isMetadataIP(fmt.Sprint(except)) {
 						return true
@@ -4636,6 +4712,9 @@ func isMetadataIP(ip string) bool {
 func broadSubjectBindingFindings(cache map[string][]map[string]any) []Finding {
 	var findings []Finding
 	for _, binding := range append(cache["rolebindings"], cache["clusterrolebindings"]...) {
+		if isDefaultKubernetesRBACBinding(binding) {
+			continue
+		}
 		kind := strings.ToLower(stringifyLookup(binding, "kind"))
 		if kind == "" {
 			kind = "rolebinding"
@@ -4717,26 +4796,28 @@ func findReferencedRole(cache map[string][]map[string]any, binding map[string]an
 }
 
 func roleHasDangerousPermission(role map[string]any) bool {
-	for _, rule := range asSlice(mustResolve(role, "rules")) {
-		verbs := asSlice(mustResolve(rule, "verbs"))
-		resources := asSlice(mustResolve(rule, "resources"))
-		if containsString(verbs, "*") || containsString(resources, "*") || containsString(resources, "secrets") || containsString(resources, "pods/exec") {
-			return true
-		}
-		for _, verb := range []string{"bind", "escalate", "impersonate"} {
-			if containsString(verbs, verb) {
-				return true
-			}
-		}
-	}
-	return false
+	return role != nil && (stringifyLookup(role, "metadata.name") == "cluster-admin" || roleIsWildcard(role) || roleIsSensitive(role))
 }
 
 func allControllerWorkloads(cache map[string][]map[string]any) []map[string]any {
-	out := append([]map[string]any{}, cache["deployments"]...)
-	out = append(out, cache["statefulsets"]...)
-	out = append(out, cache["daemonsets"]...)
+	out := append([]map[string]any{}, cachedItemsOrLoad(cache, "deployments")...)
+	out = append(out, cachedItemsOrLoad(cache, "statefulsets")...)
+	out = append(out, cachedItemsOrLoad(cache, "daemonsets")...)
 	return out
+}
+
+func cachedItemsOrLoad(cache map[string][]map[string]any, kind string) []map[string]any {
+	if items, ok := cache[kind]; ok {
+		return items
+	}
+	if currentRuntime.KubeClient == nil {
+		return nil
+	}
+	items, err := getCachedItems(cache, kind)
+	if err != nil {
+		return nil
+	}
+	return items
 }
 
 func isSystemNamespaceName(ns string) bool {
@@ -4778,6 +4859,15 @@ func uniqueStrings(values []string) []string {
 		seen[value] = struct{}{}
 		out = append(out, value)
 	}
+	return out
+}
+
+func sortedStringSet(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
 	return out
 }
 
@@ -4899,6 +4989,18 @@ func containersOnly(item map[string]any) []map[string]any {
 	return out
 }
 
+func containersIncludingInit(item map[string]any) []map[string]any {
+	var out []map[string]any
+	for _, path := range []string{"spec.initContainers", "spec.containers"} {
+		for _, value := range asSlice(mustResolve(item, path)) {
+			if m, ok := value.(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+	}
+	return out
+}
+
 func collectContainers(item map[string]any, includeMissingSlots bool) []map[string]any {
 	var out []map[string]any
 	for _, path := range []string{
@@ -4954,6 +5056,15 @@ func stringifyLookup(item any, path string) string {
 		return ""
 	}
 	return fmt.Sprint(value)
+}
+
+func mapStringValue(item any, key string) string {
+	if values, ok := item.(map[string]any); ok {
+		if value, ok := values[key]; ok && value != nil {
+			return fmt.Sprint(value)
+		}
+	}
+	return ""
 }
 
 func mustResolve(item any, path string) any {

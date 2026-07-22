@@ -4,6 +4,53 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.34] - 2026-07-22
+
+### Added
+
+* Added additional Kubernetes risk checks for secrets, ConfigMaps, workload resilience, pod isolation, networking, and RBAC correlation:
+  * **SEC031** – Detects private key and secret-like material in Kubernetes Secrets while avoiding expected TLS and service-account token fields.
+  * **SEC032** – Detects expired or soon-to-expire TLS certificates in `kubernetes.io/tls` Secrets.
+  * **SEC033** – Flags sensitive-looking values stored in ConfigMaps.
+  * **SEC034** – Flags workloads using end-of-life base image families.
+  * **SEC035** – Flags container images that are not pinned to immutable digests.
+  * **SEC036** – Detects Docker-in-Docker style workload patterns.
+  * **NET021** – Detects workload egress exposure to cloud metadata APIs.
+  * **NET022** – Detects Endpoints that point at cloud metadata IPs.
+  * **RBAC007** – Detects anonymous or broad authenticated subject bindings.
+  * **RBAC008** – Detects cross-namespace ServiceAccount RoleBindings.
+  * **RBAC009** – Detects default ServiceAccounts with dangerous permissions.
+  * **RBAC010** – Detects sensitive ServiceAccounts bound to workloads.
+  * **WRK017** – Flags single-replica workloads.
+  * **WRK018** – Flags Deployments using the `Recreate` strategy.
+  * **WRK019** – Flags Deployments with revision history disabled.
+  * **WRK020** – Flags workload DNS and host alias overrides.
+  * **WRK021** – Flags workloads missing a PriorityClass.
+  * **POD011** – Detects shared process namespace usage.
+  * **POD012** – Detects zero termination grace periods.
+  * **POD013** – Detects bidirectional mount propagation.
+* Added **Risk Paths** to correlate individual findings into direct risk paths and chained paths:
+  * **RISK001** – Container Isolation Risk.
+  * **RISK002** – Namespace Isolation Risk.
+  * **RISK003** – RBAC Privilege Risk.
+  * **RISK004** – ServiceAccount Trust Risk.
+  * **RISK007** – Secret Exposure Risk.
+  * **CHAIN001** – Workload to Cluster Control Path.
+  * **CHAIN002** – Cross-Namespace Privilege Path.
+  * **CHAIN003** – ServiceAccount to Cluster Control Path.
+  * **CHAIN005** – Secret Exposure to Cluster Control Path.
+* Added Risk Paths output to JSON reports, the HTML report, and the Headlamp plugin export.
+* Added validation-proof commands, evidence links, and attack graph data for Risk Paths results.
+* Added user-facing Risk Paths documentation explaining `RISK###`, `CHAIN###`, validation proof, evidence, and remediation flow.
+* Added a Risk Paths planning document covering future `RISK004`-`RISK010` direct paths and `CHAIN003`-`CHAIN010` chained paths.
+
+### Changed
+
+* Improved the Headlamp plugin and HTML report Risk Paths UX so triggered risk areas are shown first, clear risk areas are optional, and compound attack paths only appear when multiple active risk areas create a higher-impact route.
+* Improved the Headlamp plugin with KubeBuddy status pills on resource tables and detail views, including resource-scoped finding drawers and cluster-aware navigation back to the KubeBuddy summary or check details.
+* Aligned new networking checks with the existing Networking category and new RBAC checks with the existing RBAC/Security grouping.
+* Improved TLS Secret and Secret material checks to reduce false positives for expected TLS, service-account token, and platform-managed secret formats.
+
 ## [0.0.33] - 2026-07-15
 
 ### Security

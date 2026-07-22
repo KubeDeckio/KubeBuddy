@@ -1436,6 +1436,80 @@ code {
   transition: transform var(--transition), box-shadow var(--transition);
 }
 
+.risk-path-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 220, 255, 0.32);
+  background: rgba(124, 220, 255, 0.08);
+  color: #dbe8f8;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.risk-path-chip.default {
+  border-color: rgba(148, 163, 184, 0.42);
+  background: rgba(148, 163, 184, 0.12);
+  color: #dbe8f8;
+}
+
+.risk-path-chip.normal {
+  border-color: rgba(34, 197, 94, 0.42);
+  background: rgba(34, 197, 94, 0.13);
+  color: #bdf7cf;
+}
+
+.risk-path-chip.warning {
+  border-color: rgba(245, 158, 11, 0.46);
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde7a2;
+}
+
+.risk-path-chip.critical {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+}
+
+.check-risk-path-panel {
+  margin: 0.85rem 0 1rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid rgba(85, 104, 132, 0.55);
+  background: rgba(33, 47, 69, 0.82);
+}
+
+.check-risk-path-panel > strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #dbe8f8;
+}
+
+.check-risk-path-list {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.check-risk-path-panel p {
+  margin: 0;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.45;
+}
+
 .health-status:hover .status-chip {
   transform: scale(1.2);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);

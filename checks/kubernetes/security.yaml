@@ -709,10 +709,10 @@ checks:
   name: End-of-Life Base Image
   category: Image Security
   section: Security
-  resource_kind: Pod
+  resource_kind: Deployment, StatefulSet, DaemonSet, Pod
   severity: High
   weight: 3
-  description: Detects workload images based on end-of-life operating system or runtime tags such as old CentOS, Ubuntu, Debian, Python, or Node.js versions.
+  description: Detects pod and workload images based on end-of-life operating system or runtime tags such as old CentOS, Ubuntu, Debian, Python, or Node.js versions.
   fail_message: Container image uses an end-of-life base image or runtime.
   recommendation: "Move to a currently supported base image or runtime tag, preferably a minimal maintained image, and rebuild the workload image."
   url: https://kubernetes.io/docs/concepts/containers/images/
@@ -727,11 +727,11 @@ checks:
   name: Image Not Pinned to Digest
   category: Image Security
   section: Security
-  resource_kind: Pod
+  resource_kind: Deployment, StatefulSet, DaemonSet, Pod
   severity: Low
   check_type: advisory
   weight: 1
-  description: Flags container images that use mutable version tags instead of immutable sha256 digests.
+  description: Flags pod and workload images that use mutable version tags instead of immutable sha256 digests.
   fail_message: Container image is tag-pinned but not digest-pinned.
   recommendation: "Pin production images to immutable sha256 digests and use image signing or admission policy to verify provenance."
   url: https://kubernetes.io/docs/concepts/containers/images/#image-names

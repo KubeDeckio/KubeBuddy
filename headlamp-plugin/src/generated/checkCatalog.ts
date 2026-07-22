@@ -1642,11 +1642,11 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Workloads",
     "severity": "Medium",
     "weight": 2,
-    "description": "Detects pods that set dnsPolicy: None or hostAliases, both of which can override normal Kubernetes service discovery behavior.",
+    "description": "Detects pods and workload templates that set custom DNS policy/configuration or hostAliases, which can override normal Kubernetes service discovery behavior.",
     "failMessage": "Pod overrides Kubernetes DNS behavior.",
     "recommendation": "Use ClusterFirst DNS and Kubernetes Services for discovery. Keep dnsPolicy: None or hostAliases only for tightly documented exceptions.",
     "url": "https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/",
-    "resourceKind": "Pod",
+    "resourceKind": "Deployment, StatefulSet, DaemonSet, Pod",
     "nativeHandler": "WRK020",
     "value": {
       "path": "metadata.name"
@@ -2415,11 +2415,11 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Security",
     "severity": "High",
     "weight": 3,
-    "description": "Detects workload images based on end-of-life operating system or runtime tags such as old CentOS, Ubuntu, Debian, Python, or Node.js versions.",
+    "description": "Detects pod and workload images based on end-of-life operating system or runtime tags such as old CentOS, Ubuntu, Debian, Python, or Node.js versions.",
     "failMessage": "Container image uses an end-of-life base image or runtime.",
     "recommendation": "Move to a currently supported base image or runtime tag, preferably a minimal maintained image, and rebuild the workload image.",
     "url": "https://kubernetes.io/docs/concepts/containers/images/",
-    "resourceKind": "Pod",
+    "resourceKind": "Deployment, StatefulSet, DaemonSet, Pod",
     "nativeHandler": "SEC034",
     "value": {
       "path": "metadata.name"
@@ -2434,11 +2434,11 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Security",
     "severity": "Low",
     "weight": 1,
-    "description": "Flags container images that use mutable version tags instead of immutable sha256 digests.",
+    "description": "Flags pod and workload images that use mutable version tags instead of immutable sha256 digests.",
     "failMessage": "Container image is tag-pinned but not digest-pinned.",
     "recommendation": "Pin production images to immutable sha256 digests and use image signing or admission policy to verify provenance.",
     "url": "https://kubernetes.io/docs/concepts/containers/images/#image-names",
-    "resourceKind": "Pod",
+    "resourceKind": "Deployment, StatefulSet, DaemonSet, Pod",
     "nativeHandler": "SEC035",
     "value": {
       "path": "metadata.name"
