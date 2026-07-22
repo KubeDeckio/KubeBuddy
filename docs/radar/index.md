@@ -18,7 +18,7 @@
     <strong>Cluster Configs</strong>
     <span>Store encrypted scan profiles, generate commands, and download a ready-to-run config file.</span>
   </a>
-  <a class="kb-docs-link-card" href="../kubebuddy-radar-cli-integration/">
+  <a class="kb-docs-link-card" href="cli-integration/">
     <strong>KubeBuddy CLI Usage</strong>
     <span>Jump to the CLI-first guide for PowerShell, Docker examples, and local report generation guidance.</span>
   </a>

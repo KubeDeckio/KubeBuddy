@@ -73,6 +73,27 @@ func TestScanRenderer(t *testing.T) {
 				},
 			},
 		},
+		DirectRiskPaths: []scan.DirectRiskPath{
+			{
+				ID:             "RISK001",
+				Name:           "Container Isolation Risk",
+				Boundary:       "Workload to node/container isolation",
+				Status:         "triggered",
+				Confidence:     "high",
+				Exploitability: "high",
+				FixPriority:    "urgent",
+				Summary:        "Correlated workload security findings indicate a possible break from container isolation toward host or node control.",
+				SignalChecks:   []string{"SEC004", "SEC010"},
+				Evidence: []scan.RiskPathEvidence{
+					{CheckID: "SEC004", CheckName: "Privileged Container", Severity: "High", FindingCount: 1, SampleFindings: []scan.Finding{{Namespace: "default", Resource: "pod/a", Message: "privileged container"}}},
+				},
+				ValidationProof: []scan.ValidationCommand{{Title: "List pods", Command: "kubectl get pods --all-namespaces -o wide", Purpose: "Confirm flagged workloads.", ReadOnly: true}},
+				AttackGraph:     &scan.RiskPathGraph{Nodes: []scan.RiskPathGraphNode{{ID: "RISK001", Label: "Container Isolation Risk", Type: "directRiskPath"}}, Edges: []scan.RiskPathGraphEdge{{From: "check:SEC004", To: "RISK001", Label: "contributes"}}},
+			},
+		},
+		CombinedRiskPaths: []scan.CombinedRiskPath{
+			{ID: "CHAIN001", Name: "Workload to Cluster Control Path", Status: "triggered", Confidence: "high", FixPriority: "urgent", Summary: "Container isolation and RBAC privilege risks combine into a possible workload-to-cluster-control path.", Requires: []string{"RISK001", "RISK003"}, TriggeredDirectRiskPaths: []string{"RISK001", "RISK003"}, AttackGraph: &scan.RiskPathGraph{Nodes: []scan.RiskPathGraphNode{{ID: "RISK001", Label: "Container Isolation Risk", Type: "directRiskPath"}, {ID: "RISK003", Label: "RBAC Privilege Risk", Type: "directRiskPath"}, {ID: "CHAIN001", Label: "Workload to Cluster Control Path", Type: "combinedRiskPath"}}, Edges: []scan.RiskPathGraphEdge{{From: "RISK001", To: "CHAIN001", Label: "required"}, {From: "RISK003", To: "CHAIN001", Label: "required"}}}},
+		},
 		AutomaticReadiness: &scan.AutomaticReadiness{
 			Summary: scan.AutomaticSummary{
 				ClusterName:    "aks-test",
@@ -169,6 +190,27 @@ func TestScanRenderer(t *testing.T) {
 	}
 	if !strings.Contains(out, "Unable to complete this check") || !strings.Contains(out, "resourcequotas is forbidden") {
 		t.Fatalf("expected skipped-check warning notice in output")
+	}
+	if !strings.Contains(out, "Risk Paths") || !strings.Contains(out, "RISK001") {
+		t.Fatalf("expected risk paths tab and RISK001 in output")
+	}
+	if !strings.Contains(out, `data-tab="risk-paths"`) || !strings.Contains(out, `id="risk-paths"`) {
+		t.Fatalf("expected risk paths tab id in output")
+	}
+	if strings.Contains(out, "capability-breaks") {
+		t.Fatalf("expected old capability-breaks tab id to be removed")
+	}
+	if !strings.Contains(out, "Container Isolation Risk is active because SEC004") {
+		t.Fatalf("expected boundary verdict in output")
+	}
+	if !strings.Contains(out, "Sample affected resources") || !strings.Contains(out, "pod/a in default: privileged container") {
+		t.Fatalf("expected sample affected resources in boundary evidence")
+	}
+	if !strings.Contains(out, "Combined Risk Paths") || !strings.Contains(out, "CHAIN001") {
+		t.Fatalf("expected triggered chain path in output")
+	}
+	if !strings.Contains(out, "validationProof") && !strings.Contains(out, "Copy all") {
+		t.Fatalf("expected validation proof controls in output")
 	}
 }
 

@@ -10,7 +10,7 @@ The plugin is released with the main KubeBuddy release so the Headlamp checks st
 
 ## Screenshot
 
-![KubeBuddy Headlamp plugin scan summary](images/headlamp-plugin-scan.png)
+![KubeBuddy Headlamp plugin scan summary](../images/headlamp-plugin-scan.png)
 
 ## Versioning
 
@@ -138,4 +138,4 @@ For Pod findings created by workload controllers, add the annotation to `spec.te
 
 The plugin package is attached to the same GitHub release as the native KubeBuddy CLI artifacts. Artifact Hub metadata records the plugin version and the KubeBuddy checks version included in the package.
 
-For release automation details, see the [Release Process](releaseprocess.md).
+For release automation details, see the [Release Process](../development/release-process.md).

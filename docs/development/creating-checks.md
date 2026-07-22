@@ -1,10 +1,3 @@
----
-title: Creating Checks
-layout: default
-hide:
-  - navigation
----
-
 # Creating Checks
 
 KubeBuddy checks are now authored for the native Go runtime.
@@ -284,6 +277,6 @@ go run ./cmd/kubebuddy checks --checks-dir checks/aks
 
 ## Related Docs
 
-- [Checks](cli/checks.md)
-- [Config File](cli/kubebuddy-config.md)
-- [Native CLI Usage](cli/native-cli-usage.md)
+- [Checks](../checks/index.md)
+- [Config File](../cli/kubebuddy-config.md)
+- [Native CLI Usage](../cli/native-cli-usage.md)

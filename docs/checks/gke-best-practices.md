@@ -1,9 +1,3 @@
----
-title: GKE Configuration & Best Practices Checks
-parent: Usage
-nav_order: 5
----
-
 # GKE Best Practice Checks
 
 KubeBuddy evaluates various aspects of your **Google Kubernetes Engine (GKE)** setup, highlighting potential misconfigurations and confirming best practices aligned with the Google Cloud CIS Kubernetes Benchmark.

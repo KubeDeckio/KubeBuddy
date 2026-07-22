@@ -930,6 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? target
             : target?.querySelector?.('details');
         if (!details) return;
+        if (details.closest('#risk-paths')) return;
 
         const table = details.querySelector('table');
         if (!table) return;

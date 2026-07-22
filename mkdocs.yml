@@ -67,23 +67,29 @@ edit_uri: edit/main/docs/
 
 nav:
   - Home: index.md
-  - Headlamp Plugin: headlamp-plugin.md
-  - CLI: 
-      - Overview: cli/index.md
-      - Install: cli/install.md
-      - Getting Started: cli/getting-started.md
-      - Native CLI: cli/native-cli-usage.md
-      - PowerShell: cli/powershell-usage.md
-      - Docker: cli/docker-usage.md
-      - Config File: cli/kubebuddy-config.md
-      - Prometheus Integration: cli/prometheus-integration.md
-      - Parameters: cli/parameters.md
-      - Resource Suppressions: cli/resource-suppressions.md
-      - Checks: cli/checks.md
-      - AKS Best Practices: cli/aks-best-practice-checks.md
-      - AKS Automatic Migration Readiness: cli/aks-automatic-migration-readiness.md
-      - Logging Output: cli/logging-output.md
-      - Radar Integration (Pro): kubebuddy-radar-cli-integration.md
+  - Use KubeBuddy:
+      - CLI:
+          - Overview: cli/index.md
+          - Install: cli/install.md
+          - Getting Started: cli/getting-started.md
+          - Native CLI: cli/native-cli-usage.md
+          - PowerShell: cli/powershell-usage.md
+          - Docker: cli/docker-usage.md
+          - Config File: cli/kubebuddy-config.md
+          - Prometheus Integration: cli/prometheus-integration.md
+          - Parameters: cli/parameters.md
+          - Kubernetes Permissions: cli/kubernetes-permissions.md
+          - Logging Output: cli/logging-output.md
+      - Headlamp Plugin: headlamp/index.md
+      - Examples: examples/README.md
+  - Checks & Risk:
+      - Overview: checks/index.md
+      - Risk Paths: checks/risk-paths.md
+      - Resource Suppressions: checks/resource-suppressions.md
+      - Security Risk Ranking: checks/security-risk-ranking.md
+      - AKS Best Practices: checks/aks-best-practices.md
+      - GKE Best Practices: checks/gke-best-practices.md
+      - AKS Automatic Migration Readiness: checks/aks-automatic-migration-readiness.md
   - Radar:
       - Overview: radar/index.md
       - Getting Started: radar/getting-started.md
@@ -91,9 +97,11 @@ nav:
       - Cluster Reports (Pro): radar/cluster-reports.md
       - Cluster Configs (Pro): radar/cluster-configs.md
       - API Reference: radar/api-reference.md
-  - Creating Checks: creating-Checks.md
-  - Contributing: contributing.md
-  - Release Process: releaseprocess.md
+  - Development:
+      - Creating Checks: development/creating-checks.md
+      - Risk Path Analysis Plan: development/risk-path-analysis-plan.md
+      - Contributing: development/contributing.md
+      - Release Process: development/release-process.md
   - Changelog: changelog.md
   - KubeDeck: https://kubedeck.io
 

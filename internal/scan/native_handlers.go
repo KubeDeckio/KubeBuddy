@@ -1,10 +1,14 @@
 package scan
 
 import (
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -38,6 +42,10 @@ var nativeHandlers = map[string]nativeHandler{
 	"RBAC004":         runRBAC004,
 	"RBAC005":         runRBAC005,
 	"RBAC006":         runRBAC006,
+	"RBAC007":         runRBAC007,
+	"RBAC008":         runRBAC008,
+	"RBAC009":         runRBAC009,
+	"RBAC010":         runRBAC010,
 	"SEC001":          runSEC001,
 	"SEC002":          runSEC002,
 	"SEC003":          runSEC003,
@@ -61,6 +69,12 @@ var nativeHandlers = map[string]nativeHandler{
 	"SEC028":          runSEC028,
 	"SEC029":          runSEC029,
 	"SEC030":          runSEC030,
+	"SEC031":          runSEC031,
+	"SEC032":          runSEC032,
+	"SEC033":          runSEC033,
+	"SEC034":          runSEC034,
+	"SEC035":          runSEC035,
+	"SEC036":          runSEC036,
 	"SEC016":          runSEC016,
 	"SEC017":          runSEC017,
 	"SEC019":          runSEC019,
@@ -87,6 +101,8 @@ var nativeHandlers = map[string]nativeHandler{
 	"NET017":          runNET017,
 	"NET018":          runNET018,
 	"NET020":          runNET020,
+	"NET021":          runNET021,
+	"NET022":          runNET022,
 	"PV001":           runPV001,
 	"PVC001":          runPVC001,
 	"PVC003":          runPVC003,
@@ -113,7 +129,15 @@ var nativeHandlers = map[string]nativeHandler{
 	"WRK014":          runWRK014,
 	"WRK015":          runWRK015,
 	"WRK016":          runWRK016,
+	"WRK017":          runWRK017,
+	"WRK018":          runWRK018,
+	"WRK019":          runWRK019,
+	"WRK020":          runWRK020,
+	"WRK021":          runWRK021,
 	"POD009":          runPOD009,
+	"POD011":          runPOD011,
+	"POD012":          runPOD012,
+	"POD013":          runPOD013,
 }
 
 func executeNativeHandler(check checks.Check, items []map[string]any, cache map[string][]map[string]any) ([]Finding, bool, error) {
@@ -4196,6 +4220,610 @@ func grantsKubeletProxy(role map[string]any) bool {
 	return false
 }
 
+func runSEC031(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if isSystemNamespaceName(namespaceOf(item)) || strings.HasPrefix(stringifyLookup(item, "type"), "kubernetes.io/service-account-token") || stringifyLookup(item, "type") == "helm.sh/release.v1" {
+		return nil, nil
+	}
+	var findings []Finding
+	data := mustResolve(item, "data")
+	for _, key := range sortedMapKeys(data) {
+		raw := mapStringValue(data, key)
+		decoded := decodeSecretData(raw)
+		if decoded == "" {
+			continue
+		}
+		if title, ok := secretMaterialTitle(key, decoded); ok {
+			if isExpectedSecretPrivateKey(item, key, title) {
+				continue
+			}
+			findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "secret/" + stringifyLookup(item, "metadata.name"), Value: key, Message: title})
+		}
+		if isSensitiveKeyName(key) && len(decoded) > 0 && len(decoded) < 8 {
+			findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "secret/" + stringifyLookup(item, "metadata.name"), Value: key, Message: "Weak short secret value"})
+		}
+	}
+	return findings, nil
+}
+
+func runSEC032(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if stringifyLookup(item, "type") != "kubernetes.io/tls" {
+		return nil, nil
+	}
+	certPEM := []byte(decodeSecretData(mapStringValue(mustResolve(item, "data"), "tls.crt")))
+	now := time.Now()
+	soon := now.Add(30 * 24 * time.Hour)
+	var earliest *x509.Certificate
+	for _, cert := range parseCertificates(certPEM) {
+		if !cert.NotAfter.After(soon) && (earliest == nil || cert.NotAfter.Before(earliest.NotAfter)) {
+			earliest = cert
+		}
+	}
+	if earliest == nil {
+		return nil, nil
+	}
+	state := "expires"
+	if earliest.NotAfter.Before(now) {
+		state = "expired"
+	}
+	return []Finding{{Namespace: namespaceOf(item), Resource: "secret/" + stringifyLookup(item, "metadata.name"), Value: earliest.NotAfter.Format("2006-01-02"), Message: "TLS certificate " + state + " " + earliest.NotAfter.Format("2006-01-02")}}, nil
+}
+
+func runSEC033(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if isSystemNamespaceName(namespaceOf(item)) {
+		return nil, nil
+	}
+	var findings []Finding
+	data := mustResolve(item, "data")
+	for _, key := range sortedMapKeys(data) {
+		value := stringifyLookup(data, key)
+		title := sensitiveTextReason(value)
+		if title == "" {
+			continue
+		}
+		findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "configmap/" + stringifyLookup(item, "metadata.name"), Value: key, Message: title})
+	}
+	return findings, nil
+}
+
+func runSEC034(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	pods := cachedItemsOrLoad(cache, "pods")
+	for _, workload := range append(allControllerWorkloads(cache), pods...) {
+		for _, container := range containersIncludingInit(podSpecView(workload)) {
+			image := strings.ToLower(stringifyLookup(container, "image"))
+			if title := eolImageTitle(image); title != "" {
+				findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: stringifyLookup(container, "image"), Message: title})
+			}
+		}
+	}
+	return findings, nil
+}
+
+func runSEC035(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	pods := cachedItemsOrLoad(cache, "pods")
+	for _, workload := range append(allControllerWorkloads(cache), pods...) {
+		for _, container := range containersIncludingInit(podSpecView(workload)) {
+			image := stringifyLookup(container, "image")
+			if image == "" || strings.Contains(image, "@sha256:") {
+				continue
+			}
+			findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: image, Message: "Image is not pinned to a digest: " + image})
+		}
+	}
+	return findings, nil
+}
+
+func runSEC036(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, container := range allContainers(item) {
+		image := strings.ToLower(stringifyLookup(container, "image"))
+		if strings.Contains(image, "docker:dind") || strings.Contains(image, "docker-in-docker") || strings.Contains(image, "jpetazzo/dind") {
+			findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: stringifyLookup(container, "image"), Message: "Docker-in-Docker image detected"})
+		}
+	}
+	return findings, nil
+}
+
+func runNET021(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	pods := cachedItemsOrLoad(cache, "pods")
+	_ = cachedItemsOrLoad(cache, "networkpolicies")
+	namespaces := map[string]struct{}{}
+	for _, pod := range pods {
+		if ns := namespaceOf(pod); ns != "" {
+			namespaces[ns] = struct{}{}
+		}
+	}
+	var findings []Finding
+	for _, name := range sortedStringSet(namespaces) {
+		if namespaceBlocksMetadata(cache, name) {
+			continue
+		}
+		findings = append(findings, Finding{Namespace: name, Resource: "namespace/" + name, Value: "169.254.169.254", Message: "Namespace lacks egress policy blocking cloud metadata API"})
+	}
+	return findings, nil
+}
+
+func runNET022(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, subset := range asSlice(mustResolve(item, "subsets")) {
+		for _, address := range asSlice(mustResolve(subset, "addresses")) {
+			ip := stringifyLookup(address, "ip")
+			if isMetadataIP(ip) {
+				findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "endpoints/" + stringifyLookup(item, "metadata.name"), Value: ip, Message: "Endpoint points to cloud metadata IP"})
+			}
+		}
+	}
+	return findings, nil
+}
+
+func runRBAC007(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	return broadSubjectBindingFindings(cache), nil
+}
+
+func runRBAC008(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, rb := range cache["rolebindings"] {
+		ns := namespaceOf(rb)
+		for _, subject := range asSlice(mustResolve(rb, "subjects")) {
+			if stringifyLookup(subject, "kind") == "ServiceAccount" {
+				saNS := stringifyLookup(subject, "namespace")
+				if saNS != "" && saNS != ns {
+					findings = append(findings, Finding{Namespace: ns, Resource: "rolebinding/" + stringifyLookup(rb, "metadata.name"), Value: saNS + "/" + stringifyLookup(subject, "name"), Message: "RoleBinding grants access to a ServiceAccount from another namespace"})
+				}
+			}
+		}
+	}
+	return findings, nil
+}
+
+func runRBAC009(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	return defaultSADangerousPermissionFindings(cache), nil
+}
+
+func runRBAC010(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	return sensitiveServiceAccountWorkloadFindings(cache), nil
+}
+
+func runWRK017(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, workload := range append(cache["deployments"], cache["statefulsets"]...) {
+		if asInt64(mustResolve(workload, "spec.replicas")) == 1 {
+			findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: "1", Message: "Workload has a single replica"})
+		}
+	}
+	return findings, nil
+}
+
+func runWRK018(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, d := range cache["deployments"] {
+		if stringifyLookup(d, "spec.strategy.type") == "Recreate" {
+			findings = append(findings, Finding{Namespace: namespaceOf(d), Resource: "deployment/" + stringifyLookup(d, "metadata.name"), Value: "Recreate", Message: "Deployment uses Recreate strategy"})
+		}
+	}
+	return findings, nil
+}
+
+func runWRK019(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, d := range cache["deployments"] {
+		if value := mustResolve(d, "spec.revisionHistoryLimit"); value != nil && asInt64(value) == 0 {
+			findings = append(findings, Finding{Namespace: namespaceOf(d), Resource: "deployment/" + stringifyLookup(d, "metadata.name"), Value: "0", Message: "Deployment revision history is disabled"})
+		}
+	}
+	return findings, nil
+}
+
+func runWRK020(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	pods := cachedItemsOrLoad(cache, "pods")
+	for _, workload := range append(allControllerWorkloads(cache), pods...) {
+		spec := podSpecView(workload)
+		var values []string
+		if policy := stringifyLookup(spec, "spec.dnsPolicy"); policy != "" && policy != "ClusterFirst" {
+			values = append(values, "dnsPolicy: "+policy)
+		}
+		if len(asSlice(mustResolve(spec, "spec.dnsConfig"))) > 0 || mustResolve(spec, "spec.dnsConfig") != nil {
+			values = append(values, "dnsConfig")
+		}
+		if len(asSlice(mustResolve(spec, "spec.hostAliases"))) > 0 {
+			values = append(values, "hostAliases")
+		}
+		if len(values) > 0 {
+			findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: strings.Join(values, ", "), Message: "DNS policy/config or hostAliases overridden"})
+		}
+	}
+	return findings, nil
+}
+
+func runWRK021(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, workload := range allControllerWorkloads(cache) {
+		if stringifyLookup(podSpecView(workload), "spec.priorityClassName") == "" {
+			findings = append(findings, Finding{Namespace: namespaceOf(workload), Resource: workloadResourceRef(workload), Value: "", Message: "Workload does not set priorityClassName"})
+		}
+	}
+	return findings, nil
+}
+
+func runPOD011(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if flag, ok := readBool(item, "spec.shareProcessNamespace"); ok && flag {
+		return []Finding{{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: "true", Message: "Pod shares process namespace across containers"}}, nil
+	}
+	return nil, nil
+}
+
+func runPOD012(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if value := mustResolve(item, "spec.terminationGracePeriodSeconds"); value != nil && asInt64(value) == 0 {
+		return []Finding{{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: "0", Message: "Pod has zero termination grace period"}}, nil
+	}
+	return nil, nil
+}
+
+func runPOD013(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, container := range allContainers(item) {
+		for _, mount := range asSlice(mustResolve(container, "volumeMounts")) {
+			if stringifyLookup(mount, "mountPropagation") == "Bidirectional" {
+				findings = append(findings, Finding{Namespace: namespaceOf(item), Resource: "pod/" + stringifyLookup(item, "metadata.name"), Value: stringifyLookup(mount, "name"), Message: "Container uses Bidirectional mount propagation"})
+			}
+		}
+	}
+	return findings, nil
+}
+
+var secretRegexes = []struct {
+	re    *regexp.Regexp
+	title string
+}{
+	{regexp.MustCompile(`(?i)(AKIA|AGPA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}`), "Potential AWS access key"},
+	{regexp.MustCompile(`(?i)ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}`), "Potential GitHub token"},
+	{regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`), "private key material"},
+	{regexp.MustCompile(`(?i)xoxb-[0-9]{10,13}-[0-9]{10,13}-[A-Za-z0-9]{24}`), "Potential Slack token"},
+	{regexp.MustCompile(`(?i)(mysql|postgres|mongodb|redis)://[^:\s]+:[^@\s]+@`), "Potential database credentials"},
+	{regexp.MustCompile(`(?i)(password|passwd|pwd|secret|api[_-]?key|token|auth)[_\s]*[=:]+\s*[^\s]{8,}`), "Potential generic secret"},
+}
+
+func secretMaterialTitle(key, value string) (string, bool) {
+	if isPlaceholderSecretValue(value) {
+		return "", false
+	}
+	for _, item := range secretRegexes {
+		if item.re.MatchString(value) {
+			return item.title, true
+		}
+	}
+	if isSensitiveKeyName(key) && strings.Contains(value, "://") {
+		return "Sensitive connection string", true
+	}
+	return "", false
+}
+
+func sensitiveTextReason(value string) string {
+	text := strings.TrimSpace(value)
+	if text == "" {
+		return ""
+	}
+	patterns := []struct {
+		reason string
+		re     *regexp.Regexp
+	}{
+		{"private key material", regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`)},
+		{"AWS access key", regexp.MustCompile(`AKIA[0-9A-Z]{16}`)},
+		{"GitHub token", regexp.MustCompile(`gh[pousr]_[A-Za-z0-9_]{20,}`)},
+		{"database connection string", regexp.MustCompile(`(?i)postgres(ql)?://|mysql://|mongodb(\+srv)?://`)},
+		{"storage account key", regexp.MustCompile(`(?i)AccountKey=[A-Za-z0-9+/=]{40,}`)},
+		{"password-like value", regexp.MustCompile(`(?i)password\s*[:=]\s*[^;&\s]{8,}`)},
+	}
+	for _, pattern := range patterns {
+		if pattern.re.MatchString(text) {
+			return pattern.reason
+		}
+	}
+	return ""
+}
+
+func isExpectedSecretPrivateKey(secret map[string]any, key, title string) bool {
+	if title != "Potential private key" && title != "private key material" {
+		return false
+	}
+	secretType := strings.ToLower(stringifyLookup(secret, "type"))
+	if secretType == "kubernetes.io/tls" || secretType == "kubernetes.io/ssh-auth" {
+		return true
+	}
+
+	normalizedKey := strings.ToLower(strings.TrimSpace(key))
+	if normalizedKey == "ssh-privatekey" {
+		return true
+	}
+	if !isCertificatePrivateKeyName(normalizedKey) {
+		return false
+	}
+	data := mustResolve(secret, "data")
+	for _, candidate := range sortedMapKeys(data) {
+		if isCertificatePublicMaterialName(strings.ToLower(strings.TrimSpace(candidate))) {
+			return true
+		}
+	}
+	return false
+}
+
+func isCertificatePrivateKeyName(key string) bool {
+	switch key {
+	case "key", "tls.key", "ca.key", "cert.key", "server.key", "private.key", "key.pem", "tls.key.pem", "server-key.pem", "private-key.pem":
+		return true
+	default:
+		return false
+	}
+}
+
+func isCertificatePublicMaterialName(key string) bool {
+	switch key {
+	case "ca", "cert", "tls.crt", "ca.crt", "cert.crt", "server.crt", "certificate.crt", "cert.pem", "server.pem", "tls.crt.pem", "ca.pem":
+		return true
+	default:
+		return false
+	}
+}
+
+func decodeSecretData(value string) string {
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(value))
+	if err != nil {
+		return value
+	}
+	return string(decoded)
+}
+
+func parseCertificates(data []byte) []*x509.Certificate {
+	var certs []*x509.Certificate
+	remaining := bytesTrimSpace(data)
+	for len(remaining) > 0 {
+		block, rest := pem.Decode(remaining)
+		if block == nil {
+			break
+		}
+		remaining = rest
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err == nil {
+			certs = append(certs, cert)
+		}
+	}
+	if len(certs) > 0 {
+		return certs
+	}
+	cert, err := x509.ParseCertificate(data)
+	if err == nil {
+		return []*x509.Certificate{cert}
+	}
+	return nil
+}
+
+func bytesTrimSpace(data []byte) []byte {
+	return []byte(strings.TrimSpace(string(data)))
+}
+
+func sortedMapKeys(value any) []string {
+	v := reflect.ValueOf(value)
+	for v.IsValid() && (v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface) {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+	if !v.IsValid() || v.Kind() != reflect.Map {
+		return nil
+	}
+	keys := make([]string, 0, v.Len())
+	for _, key := range v.MapKeys() {
+		keys = append(keys, fmt.Sprint(key.Interface()))
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func isSensitiveKeyName(key string) bool {
+	key = strings.ToLower(key)
+	for _, token := range []string{"password", "passwd", "pwd", "secret", "token", "key", "api", "auth", "credential", "private", "cert"} {
+		if strings.Contains(key, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPlaceholderSecretValue(value string) bool {
+	value = strings.TrimSpace(value)
+	lower := strings.ToLower(value)
+	return strings.HasPrefix(value, "{{") || strings.HasPrefix(value, "$(") || lower == "changeme" || lower == "placeholder" || lower == "todo" || (strings.HasPrefix(value, "<") && strings.HasSuffix(value, ">"))
+}
+
+func looksBase64Value(value string) bool {
+	value = strings.TrimSpace(value)
+	if len(value) < 20 {
+		return false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(value)
+	return err == nil && len(decoded) >= 10
+}
+
+func eolImageTitle(image string) string {
+	checks := []struct{ needle, title string }{
+		{"centos:6", "End-of-life CentOS base image"}, {"centos:7", "End-of-life CentOS base image"}, {"centos:8", "End-of-life CentOS base image"},
+		{"ubuntu:14.04", "End-of-life Ubuntu base image"}, {"ubuntu:16.04", "End-of-life Ubuntu base image"}, {"ubuntu:18.04", "End-of-life Ubuntu base image"},
+		{"debian:jessie", "End-of-life Debian base image"}, {"debian:stretch", "End-of-life Debian base image"}, {"debian:buster", "End-of-life Debian base image"},
+		{"python:2", "End-of-life Python 2 image"}, {"python:2.7", "End-of-life Python 2 image"},
+		{"node:10", "End-of-life Node.js image"}, {"node:12", "End-of-life Node.js image"}, {"node:14", "End-of-life Node.js image"},
+	}
+	for _, check := range checks {
+		if strings.Contains(image, check.needle) {
+			return check.title
+		}
+	}
+	return ""
+}
+
+func imageHasExplicitTag(image string) bool {
+	last := image
+	if idx := strings.LastIndex(last, "/"); idx >= 0 {
+		last = last[idx+1:]
+	}
+	return strings.Contains(last, ":")
+}
+
+func namespaceHasPods(cache map[string][]map[string]any, ns string) bool {
+	for _, pod := range cache["pods"] {
+		if namespaceOf(pod) == ns {
+			return true
+		}
+	}
+	return false
+}
+
+func namespaceBlocksMetadata(cache map[string][]map[string]any, ns string) bool {
+	for _, policy := range cache["networkpolicies"] {
+		if namespaceOf(policy) != ns {
+			continue
+		}
+		for _, rule := range asSlice(mustResolve(policy, "spec.egress")) {
+			for _, to := range asSlice(mustResolve(rule, "to")) {
+				for _, except := range asSlice(mustResolve(to, "ipBlock.except")) {
+					if isMetadataIP(fmt.Sprint(except)) {
+						return true
+					}
+				}
+			}
+		}
+		if containsString(asSlice(mustResolve(policy, "spec.policyTypes")), "Egress") && len(asSlice(mustResolve(policy, "spec.egress"))) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func isMetadataIP(ip string) bool {
+	ip = strings.TrimSpace(ip)
+	return strings.HasPrefix(ip, "169.254.169.254") || strings.HasPrefix(ip, "100.100.100.200") || strings.HasPrefix(strings.ToLower(ip), "fd00:ec2::254")
+}
+
+func broadSubjectBindingFindings(cache map[string][]map[string]any) []Finding {
+	var findings []Finding
+	for _, binding := range append(cache["rolebindings"], cache["clusterrolebindings"]...) {
+		if isDefaultKubernetesRBACBinding(binding) {
+			continue
+		}
+		kind := strings.ToLower(stringifyLookup(binding, "kind"))
+		if kind == "" {
+			kind = "rolebinding"
+		}
+		for _, subject := range asSlice(mustResolve(binding, "subjects")) {
+			name := stringifyLookup(subject, "name")
+			if name == "system:anonymous" || name == "system:unauthenticated" || name == "system:authenticated" {
+				findings = append(findings, Finding{Namespace: namespaceOf(binding), Resource: kind + "/" + stringifyLookup(binding, "metadata.name"), Value: name, Message: "Binding grants access to broad or anonymous subject"})
+			}
+		}
+	}
+	return findings
+}
+
+func defaultSADangerousPermissionFindings(cache map[string][]map[string]any) []Finding {
+	var findings []Finding
+	for _, binding := range append(cache["rolebindings"], cache["clusterrolebindings"]...) {
+		for _, subject := range asSlice(mustResolve(binding, "subjects")) {
+			if stringifyLookup(subject, "kind") != "ServiceAccount" || stringifyLookup(subject, "name") != "default" {
+				continue
+			}
+			role := findReferencedRole(cache, binding)
+			if role != nil && roleHasDangerousPermission(role) {
+				findings = append(findings, Finding{Namespace: namespaceOf(binding), Resource: strings.ToLower(stringifyLookup(binding, "kind")) + "/" + stringifyLookup(binding, "metadata.name"), Value: stringifyLookup(binding, "roleRef.name"), Message: "Default ServiceAccount is bound to dangerous permissions"})
+			}
+		}
+	}
+	return findings
+}
+
+func sensitiveServiceAccountWorkloadFindings(cache map[string][]map[string]any) []Finding {
+	sensitive := map[string]string{}
+	for _, binding := range append(cache["rolebindings"], cache["clusterrolebindings"]...) {
+		role := findReferencedRole(cache, binding)
+		if role == nil || !roleHasDangerousPermission(role) {
+			continue
+		}
+		for _, subject := range asSlice(mustResolve(binding, "subjects")) {
+			if stringifyLookup(subject, "kind") != "ServiceAccount" {
+				continue
+			}
+			saNS := stringifyLookup(subject, "namespace")
+			if saNS == "" {
+				saNS = namespaceOf(binding)
+			}
+			sensitive[saNS+"/"+stringifyLookup(subject, "name")] = stringifyLookup(binding, "roleRef.name")
+		}
+	}
+	var findings []Finding
+	for _, pod := range cache["pods"] {
+		sa := stringifyLookup(pod, "spec.serviceAccountName")
+		if sa == "" || sa == "default" {
+			continue
+		}
+		key := namespaceOf(pod) + "/" + sa
+		if role := sensitive[key]; role != "" {
+			findings = append(findings, Finding{Namespace: namespaceOf(pod), Resource: "pod/" + stringifyLookup(pod, "metadata.name"), Value: sa, Message: "ServiceAccount has sensitive RBAC permissions via " + role})
+		}
+	}
+	return findings
+}
+
+func findReferencedRole(cache map[string][]map[string]any, binding map[string]any) map[string]any {
+	roleName := stringifyLookup(binding, "roleRef.name")
+	roleKind := stringifyLookup(binding, "roleRef.kind")
+	if roleKind == "Role" {
+		for _, role := range cache["roles"] {
+			if namespaceOf(role) == namespaceOf(binding) && stringifyLookup(role, "metadata.name") == roleName {
+				return role
+			}
+		}
+	}
+	for _, role := range cache["clusterroles"] {
+		if stringifyLookup(role, "metadata.name") == roleName {
+			return role
+		}
+	}
+	return nil
+}
+
+func roleHasDangerousPermission(role map[string]any) bool {
+	return role != nil && (stringifyLookup(role, "metadata.name") == "cluster-admin" || roleIsWildcard(role) || roleIsSensitive(role))
+}
+
+func allControllerWorkloads(cache map[string][]map[string]any) []map[string]any {
+	out := append([]map[string]any{}, cachedItemsOrLoad(cache, "deployments")...)
+	out = append(out, cachedItemsOrLoad(cache, "statefulsets")...)
+	out = append(out, cachedItemsOrLoad(cache, "daemonsets")...)
+	return out
+}
+
+func cachedItemsOrLoad(cache map[string][]map[string]any, kind string) []map[string]any {
+	if items, ok := cache[kind]; ok {
+		return items
+	}
+	if currentRuntime.KubeClient == nil {
+		return nil
+	}
+	items, err := getCachedItems(cache, kind)
+	if err != nil {
+		return nil
+	}
+	return items
+}
+
+func isSystemNamespaceName(ns string) bool {
+	ns = strings.ToLower(strings.TrimSpace(ns))
+	return ns == "kube-system" || ns == "kube-public" || ns == "kube-node-lease" || ns == "monitoring" || ns == "logging" || ns == "cert-manager" || ns == "istio-system"
+}
 func mapValues(value any) []any {
 	if value == nil {
 		return nil
@@ -4231,6 +4859,15 @@ func uniqueStrings(values []string) []string {
 		seen[value] = struct{}{}
 		out = append(out, value)
 	}
+	return out
+}
+
+func sortedStringSet(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Strings(out)
 	return out
 }
 
@@ -4352,6 +4989,18 @@ func containersOnly(item map[string]any) []map[string]any {
 	return out
 }
 
+func containersIncludingInit(item map[string]any) []map[string]any {
+	var out []map[string]any
+	for _, path := range []string{"spec.initContainers", "spec.containers"} {
+		for _, value := range asSlice(mustResolve(item, path)) {
+			if m, ok := value.(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+	}
+	return out
+}
+
 func collectContainers(item map[string]any, includeMissingSlots bool) []map[string]any {
 	var out []map[string]any
 	for _, path := range []string{
@@ -4407,6 +5056,15 @@ func stringifyLookup(item any, path string) string {
 		return ""
 	}
 	return fmt.Sprint(value)
+}
+
+func mapStringValue(item any, key string) string {
+	if values, ok := item.(map[string]any); ok {
+		if value, ok := values[key]; ok && value != nil {
+			return fmt.Sprint(value)
+		}
+	}
+	return ""
 }
 
 func mustResolve(item any, path string) any {

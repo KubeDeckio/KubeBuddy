@@ -54,6 +54,8 @@ type jsonEnvelope struct {
 	Metadata              jsonMetadata               `json:"metadata"`
 	Checks                map[string]jsonCheckResult `json:"checks"`
 	AKSAutomaticReadiness *scan.AutomaticReadiness   `json:"aksAutomaticReadiness,omitempty"`
+	DirectRiskPaths       []scan.DirectRiskPath      `json:"directRiskPaths,omitempty"`
+	CombinedRiskPaths     []scan.CombinedRiskPath    `json:"combinedRiskPaths,omitempty"`
 	Metrics               any                        `json:"metrics"`
 }
 
@@ -153,6 +155,8 @@ func buildJSONEnvelope(result scan.Result, metadata Metadata) jsonEnvelope {
 		},
 		Checks:                checks,
 		AKSAutomaticReadiness: result.AutomaticReadiness,
+		DirectRiskPaths:       result.DirectRiskPaths,
+		CombinedRiskPaths:     result.CombinedRiskPaths,
 		Metrics:               resolved.Metrics,
 	}
 	if result.AutomaticReadiness != nil {
@@ -909,10 +913,140 @@ func writeText(w io.Writer, result scan.Result, metadata Metadata) error {
 		}
 	}
 
+	if err := writeRiskPathsText(writeLine, result); err != nil {
+		return err
+	}
+
 	if err := writeLine(""); err != nil {
 		return err
 	}
 	return writeLine("🩺 Cluster Health Score: %.0f / 100", clusterHealthScore(reporthtml.CompatChecks(result.Checks)))
+}
+
+func writeRiskPathsText(writeLine func(string, ...any) error, result scan.Result) error {
+	if len(result.DirectRiskPaths) == 0 && len(result.CombinedRiskPaths) == 0 {
+		return nil
+	}
+	if err := writeLine(""); err != nil {
+		return err
+	}
+	if err := writeLine("=== Risk Paths ==="); err != nil {
+		return err
+	}
+	if len(result.DirectRiskPaths) > 0 {
+		if err := writeLine("Direct Risk Paths:"); err != nil {
+			return err
+		}
+		for _, risk := range orderedDirectRiskPaths(result.DirectRiskPaths) {
+			if err := writeLine("- %s - %s [%s]", risk.ID, risk.Name, risk.Status); err != nil {
+				return err
+			}
+			if strings.TrimSpace(risk.Summary) != "" {
+				if err := writeLine("  Summary: %s", textSanitize(risk.Summary)); err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(risk.FixPriority) != "" {
+				if err := writeLine("  Fix Priority: %s", risk.FixPriority); err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(risk.Confidence) != "" {
+				if err := writeLine("  Confidence: %s", risk.Confidence); err != nil {
+					return err
+				}
+			}
+			if total := directRiskPathFindingTotal(risk); total > 0 {
+				if err := writeLine("  Findings: %d across %d checks", total, len(risk.Evidence)); err != nil {
+					return err
+				}
+			}
+			if len(risk.SignalChecks) > 0 {
+				if err := writeLine("  Checks: %s", strings.Join(risk.SignalChecks, ", ")); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if len(result.CombinedRiskPaths) > 0 {
+		if err := writeLine("Combined Risk Paths:"); err != nil {
+			return err
+		}
+		for _, chain := range orderedCombinedRiskPaths(result.CombinedRiskPaths) {
+			if err := writeLine("- %s - %s [%s]", chain.ID, chain.Name, chain.Status); err != nil {
+				return err
+			}
+			if strings.TrimSpace(chain.Summary) != "" {
+				if err := writeLine("  Summary: %s", textSanitize(chain.Summary)); err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(chain.FixPriority) != "" {
+				if err := writeLine("  Fix Priority: %s", chain.FixPriority); err != nil {
+					return err
+				}
+			}
+			if strings.TrimSpace(chain.Confidence) != "" {
+				if err := writeLine("  Confidence: %s", chain.Confidence); err != nil {
+					return err
+				}
+			}
+			if len(chain.TriggeredDirectRiskPaths) > 0 {
+				if err := writeLine("  Active Risks: %s", strings.Join(chain.TriggeredDirectRiskPaths, ", ")); err != nil {
+					return err
+				}
+			}
+			if len(chain.Requires) > 0 {
+				if err := writeLine("  Requires: %s", strings.Join(chain.Requires, ", ")); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func orderedDirectRiskPaths(risks []scan.DirectRiskPath) []scan.DirectRiskPath {
+	ordered := append([]scan.DirectRiskPath(nil), risks...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return riskSortKey(ordered[i].Status, ordered[i].FixPriority, ordered[i].ID) < riskSortKey(ordered[j].Status, ordered[j].FixPriority, ordered[j].ID)
+	})
+	return ordered
+}
+
+func orderedCombinedRiskPaths(chains []scan.CombinedRiskPath) []scan.CombinedRiskPath {
+	ordered := append([]scan.CombinedRiskPath(nil), chains...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return riskSortKey(ordered[i].Status, ordered[i].FixPriority, ordered[i].ID) < riskSortKey(ordered[j].Status, ordered[j].FixPriority, ordered[j].ID)
+	})
+	return ordered
+}
+
+func riskSortKey(status, priority, id string) string {
+	statusRank := "1"
+	if strings.EqualFold(status, "triggered") || strings.EqualFold(status, "active") || strings.EqualFold(status, "possible") {
+		statusRank = "0"
+	}
+	priorityRank := "9"
+	switch strings.ToLower(strings.TrimSpace(priority)) {
+	case "urgent":
+		priorityRank = "0"
+	case "high":
+		priorityRank = "1"
+	case "medium":
+		priorityRank = "2"
+	case "low":
+		priorityRank = "3"
+	}
+	return statusRank + priorityRank + id
+}
+
+func directRiskPathFindingTotal(risk scan.DirectRiskPath) int {
+	total := 0
+	for _, evidence := range risk.Evidence {
+		total += evidence.FindingCount
+	}
+	return total
 }
 
 func writeCSV(w io.Writer, result scan.Result, metadata Metadata) error {
@@ -968,7 +1102,59 @@ func writeCSV(w io.Writer, result scan.Result, metadata Metadata) error {
 			}
 		}
 	}
+	if err := writeRiskPathsCSV(w, result); err != nil {
+		return err
+	}
 	return nil
+}
+
+func writeRiskPathsCSV(w io.Writer, result scan.Result) error {
+	for _, risk := range orderedDirectRiskPaths(result.DirectRiskPaths) {
+		if _, err := io.WriteString(w, csvLine([]string{
+			risk.ID,
+			risk.Name,
+			"Risk Paths",
+			"Direct",
+			strings.ToUpper(strings.TrimSpace(risk.Status)),
+			riskPathCSVMessage(risk.Summary, directRiskPathFindingTotal(risk), risk.SignalChecks, nil),
+			risk.FixPriority,
+			"",
+		})); err != nil {
+			return err
+		}
+	}
+	for _, chain := range orderedCombinedRiskPaths(result.CombinedRiskPaths) {
+		if _, err := io.WriteString(w, csvLine([]string{
+			chain.ID,
+			chain.Name,
+			"Risk Paths",
+			"Combined",
+			strings.ToUpper(strings.TrimSpace(chain.Status)),
+			riskPathCSVMessage(chain.Summary, 0, chain.TriggeredDirectRiskPaths, chain.Requires),
+			chain.FixPriority,
+			"",
+		})); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func riskPathCSVMessage(summary string, findingTotal int, active []string, requires []string) string {
+	parts := []string{}
+	if strings.TrimSpace(summary) != "" {
+		parts = append(parts, textSanitize(summary))
+	}
+	if findingTotal > 0 {
+		parts = append(parts, fmt.Sprintf("Findings: %d", findingTotal))
+	}
+	if len(active) > 0 {
+		parts = append(parts, "Active: "+strings.Join(active, ", "))
+	}
+	if len(requires) > 0 {
+		parts = append(parts, "Requires: "+strings.Join(requires, ", "))
+	}
+	return strings.Join(parts, " | ")
 }
 
 func writeClusterSummaryText(w io.Writer, metadata Metadata) error {

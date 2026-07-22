@@ -1,12 +1,3 @@
----
-title: Contributing
-parent: Documentation
-nav_order: 3
-layout: default
-hide:
-  - navigation
----
-
 # Contributing
 
 KubeBuddy is now maintained as a Go-first project.
@@ -34,12 +25,12 @@ Optional tools:
 
 ## Main Repo Areas
 
-- Native CLI: [cmd/kubebuddy](/Users/pixelrobots/Documents/Git/KubeBuddy/cmd/kubebuddy)
-- Runtime packages: [internal](/Users/pixelrobots/Documents/Git/KubeBuddy/internal)
-- Kubernetes checks: [checks/kubernetes](/Users/pixelrobots/Documents/Git/KubeBuddy/checks/kubernetes)
-- AKS checks: [checks/aks](/Users/pixelrobots/Documents/Git/KubeBuddy/checks/aks)
-- PowerShell wrapper: [Public/kubebuddy.ps1](/Users/pixelrobots/Documents/Git/KubeBuddy/Public/kubebuddy.ps1)
-- Release scripts: [scripts](/Users/pixelrobots/Documents/Git/KubeBuddy/scripts)
+- Native CLI: [cmd/kubebuddy](https://github.com/KubeDeckio/KubeBuddy/tree/main/cmd/kubebuddy)
+- Runtime packages: [internal](https://github.com/KubeDeckio/KubeBuddy/tree/main/internal)
+- Kubernetes checks: [checks/kubernetes](https://github.com/KubeDeckio/KubeBuddy/tree/main/checks/kubernetes)
+- AKS checks: [checks/aks](https://github.com/KubeDeckio/KubeBuddy/tree/main/checks/aks)
+- PowerShell wrapper: [Public/kubebuddy.ps1](https://github.com/KubeDeckio/KubeBuddy/blob/main/Public/kubebuddy.ps1)
+- Release scripts: [scripts](https://github.com/KubeDeckio/KubeBuddy/tree/main/scripts)
 
 ## Basic Validation
 
@@ -77,7 +68,7 @@ Use the native check model:
 
 Do not add new PowerShell `Script:` checks.
 
-For the current format, see [Creating Checks](creating-Checks.md).
+For the current format, see [Creating Checks](creating-checks.md).
 
 ## Pull Requests
 
@@ -93,9 +84,9 @@ Good PRs do these things:
 
 If you touch packaging or distribution, also review:
 
-- [Release Process](releaseprocess.md)
-- [Install](cli/install.md)
-- [Native CLI Usage](cli/native-cli-usage.md)
+- [Release Process](release-process.md)
+- [Install](../cli/install.md)
+- [Native CLI Usage](../cli/native-cli-usage.md)
 
 ## Code of Conduct
 

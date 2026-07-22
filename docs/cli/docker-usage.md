@@ -71,7 +71,7 @@ This is ideal for DevOps, SRE, or security teams managing AKS or any CNCF-compli
 
 * A Service Principal (SPN) with **Cluster Admin** or **KubeBuddy Reader** role
 
-> 📘 See the full [AKS Configuration & Best Practices Setup](aks-best-practice-checks.md) for SPN creation and role setup.
+> 📘 See the full [AKS Configuration & Best Practices Setup](../checks/aks-best-practices.md) for SPN creation and role setup.
 
 For generic Kubernetes (non-AKS) scans, see [Kubernetes Scan Permissions](kubernetes-permissions.md) for the required read-only RBAC setup.
 
@@ -407,4 +407,4 @@ To use `AKS_MODE`, you must:
 * Assign it the correct role (e.g., Cluster Admin or custom Reader role)
 * Provide SPN credentials as environment variables
 
-👉 See [AKS Configuration & Best Practices](aks-best-practice-checks.md) for step-by-step setup.
+👉 See [AKS Configuration & Best Practices](../checks/aks-best-practices.md) for step-by-step setup.

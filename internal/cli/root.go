@@ -36,11 +36,7 @@ behavior through the native runtime and wrapper surfaces.`),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if opts.ui {
-				return
-			}
-			switch cmd.Name() {
-			case "version", "assets":
+			if shouldSuppressBanner(opts.ui, cmd) {
 				return
 			}
 			printBanner(cmd)
@@ -52,7 +48,7 @@ behavior through the native runtime and wrapper surfaces.`),
 
 	cmd.Version = version.Version
 	cmd.SetVersionTemplate("kubebuddy {{.Version}}\n")
-	cmd.Flags().BoolVar(&opts.ui, "ui", false, "Suppress the banner for UI integrations.")
+	cmd.PersistentFlags().BoolVar(&opts.ui, "ui", false, "Suppress the banner for UI integrations.")
 
 	cmd.AddCommand(newVersionCommand())
 	cmd.AddCommand(newAssetsCommand())
@@ -69,6 +65,21 @@ behavior through the native runtime and wrapper surfaces.`),
 	cmd.AddCommand(newRunEnvCommand())
 
 	return cmd
+}
+
+func shouldSuppressBanner(ui bool, cmd *cobra.Command) bool {
+	if ui {
+		return true
+	}
+	switch cmd.Name() {
+	case "version", "assets":
+		return true
+	}
+	if flag := cmd.Flags().Lookup("output"); flag != nil {
+		mode := strings.ToLower(strings.TrimSpace(flag.Value.String()))
+		return mode != "" && mode != "text"
+	}
+	return false
 }
 
 func printBanner(cmd *cobra.Command) {
