@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.36] - 2026-08-13
+
+### Added
+
+* Added 20 native Kubernetes checks to the CLI and Headlamp plugin, bringing the generated Kubernetes check catalog to 146 checks:
+  * **CFG004** - Detects deprecated Kubernetes API usage.
+  * **CFG005** - Detects missing or unavailable metrics-server.
+  * **CFG006** - Detects risky CoreDNS rewrite, hosts, proxy, or broad forwarding configuration.
+  * **CFG007** - Detects duplicate environment variable keys in containers.
+  * **CFG008** - Detects deprecated `spec.serviceAccount` usage and recommends `spec.serviceAccountName`.
+  * **NET023** - Detects NetworkPolicy selectors that currently match no pods or namespaces.
+  * **NET024** - Detects publicly exposed sensitive admin interfaces.
+  * **NODE004** - Detects node taints that no current pod tolerates.
+  * **RBAC011** - Detects Roles and ClusterRoles that can delete Kubernetes Events.
+  * **SEC037** - Detects containers that appear to run or expose SSH.
+  * **SEC038** - Detects sensitive writable `hostPath` mounts.
+  * **SEC040** - Detects projected ServiceAccount tokens with weak audience or expiration scoping.
+  * **WRK022** - Detects HPA burst settings that can exceed cluster CPU or memory capacity.
+  * **WRK023** - Detects multiple PodDisruptionBudgets matching the same workload.
+  * **WRK024** - Detects PodDisruptionBudgets that cannot currently allow voluntary disruptions.
+  * **WRK025** - Detects identical readiness and liveness probes.
+  * **WRK026** - Detects missing ephemeral-storage requests or limits.
+  * **WRK027** - Detects StatefulSets missing a valid headless Service.
+  * **WRK028** - Detects HorizontalPodAutoscalers with missing target workloads.
+  * **WRK029** - Detects PodDisruptionBudgets without intentional unhealthy pod eviction policy settings.
+* Added the new security/networking signals to CLI and Headlamp risk paths:
+  * **SEC038** now contributes to Container Isolation Risk.
+  * **NET023** and **NET024** now contribute to Namespace Isolation Risk.
+  * **SEC040** now contributes to ServiceAccount Trust Risk.
+
+### Changed
+
+* Bumped Go dependencies from open Dependabot updates:
+  * `cloud.google.com/go/container` from `1.53.0` to `1.53.1`.
+  * `k8s.io/apimachinery` and `k8s.io/client-go` from `0.36.2` to `0.36.3`.
+* Updated the pinned `docker/login-action` SHA used by the Docker build workflow.
+
+### Fixed
+
+* Updated the Headlamp plugin lockfile to resolve Dependabot alerts for `fast-uri`, `js-yaml`, `postcss`, and `undici`.
+
 ## [0.0.35] - 2026-07-22
 
 ### Fixed

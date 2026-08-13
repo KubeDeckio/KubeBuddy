@@ -684,6 +684,44 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "sourceFile": "network-storage.yaml"
   },
   {
+    "id": "NET023",
+    "name": "NetworkPolicy Selector Matches Nothing",
+    "category": "Networking",
+    "section": "Networking",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects NetworkPolicies whose podSelector, namespaceSelector, or peer podSelector currently matches no resources.",
+    "failMessage": "NetworkPolicy selector matches no current pods or namespaces.",
+    "recommendation": "Review stale or incorrect NetworkPolicy selectors so intended traffic controls are actually applied.",
+    "url": "https://kubernetes.io/docs/concepts/services-networking/network-policies/",
+    "resourceKind": "NetworkPolicy",
+    "nativeHandler": "NET023",
+    "value": {
+      "path": "spec"
+    },
+    "operator": "exists",
+    "sourceFile": "network-storage.yaml"
+  },
+  {
+    "id": "NET024",
+    "name": "Sensitive Admin Interface Exposed",
+    "category": "Networking",
+    "section": "Networking",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects public Services and routing resources that appear to expose sensitive admin interfaces such as dashboards, CI systems, observability consoles, or platform control planes.",
+    "failMessage": "Sensitive admin interface appears publicly exposed.",
+    "recommendation": "Restrict sensitive admin interfaces with private networking, authentication, source allow lists, or an internal-only Service/Gateway. Avoid exposing dashboards and control planes directly to the internet.",
+    "url": "https://kubernetes.io/docs/concepts/services-networking/service/",
+    "resourceKind": "Service, Ingress, Gateway, HTTPRoute",
+    "nativeHandler": "NET024",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "network-storage.yaml"
+  },
+  {
     "id": "CFG001",
     "name": "Orphaned ConfigMaps",
     "category": "Best Practices",
@@ -739,6 +777,101 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "nativeHandler": "CFG003",
     "value": {
       "path": "data"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "CFG004",
+    "name": "Deprecated Kubernetes API Usage",
+    "category": "Best Practices",
+    "section": "Configuration Hygiene",
+    "severity": "Warning",
+    "weight": 3,
+    "description": "Detects live resources using Kubernetes API versions that are deprecated or removed in recent Kubernetes releases.",
+    "failMessage": "Deprecated Kubernetes API version detected.",
+    "recommendation": "Migrate resources to a supported API version before upgrading the cluster.",
+    "url": "https://kubernetes.io/docs/reference/using-api/deprecation-guide/",
+    "resourceKind": "KubernetesResource",
+    "nativeHandler": "CFG004",
+    "value": {
+      "path": "apiVersion"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "CFG005",
+    "name": "Metrics Server Missing",
+    "category": "Best Practices",
+    "section": "Configuration Hygiene",
+    "severity": "Low",
+    "weight": 1,
+    "description": "Detects clusters where metrics-server appears unavailable.",
+    "failMessage": "metrics-server was not detected.",
+    "recommendation": "Install or repair metrics-server so resource usage and autoscaling signals are available.",
+    "url": "https://github.com/kubernetes-sigs/metrics-server",
+    "resourceKind": "Cluster",
+    "nativeHandler": "CFG005",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "CFG006",
+    "name": "CoreDNS Poisoning Risk",
+    "category": "Best Practices",
+    "section": "Configuration Hygiene",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects CoreDNS Corefiles with risky rewrite, hosts, proxy, or broad upstream forwarding rules that can hijack cluster DNS resolution.",
+    "failMessage": "CoreDNS configuration contains a risky DNS override.",
+    "recommendation": "Review the CoreDNS Corefile and remove unexpected rewrite, hosts, proxy, or broad forwarding rules. Keep DNS overrides documented and scoped.",
+    "url": "https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/",
+    "resourceKind": "ConfigMap",
+    "nativeHandler": "CFG006",
+    "value": {
+      "path": "data.Corefile"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "CFG007",
+    "name": "Duplicate Environment Variable Keys",
+    "category": "Best Practices",
+    "section": "Configuration Hygiene",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects containers with duplicate environment variable names, where later entries can shadow earlier values.",
+    "failMessage": "Container has duplicate environment variable keys.",
+    "recommendation": "Remove duplicate env entries and keep each environment variable name defined once per container.",
+    "url": "https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/",
+    "resourceKind": "Pod",
+    "nativeHandler": "CFG007",
+    "value": {
+      "path": "spec.containers[].env"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "CFG008",
+    "name": "Deprecated ServiceAccount Field Used",
+    "category": "Best Practices",
+    "section": "Configuration Hygiene",
+    "severity": "Low",
+    "weight": 1,
+    "description": "Detects workloads using the deprecated spec.serviceAccount field instead of spec.serviceAccountName.",
+    "failMessage": "Workload uses deprecated serviceAccount field.",
+    "recommendation": "Use spec.serviceAccountName and remove spec.serviceAccount from pod specs and workload templates.",
+    "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+    "resourceKind": "Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob",
+    "nativeHandler": "CFG008",
+    "value": {
+      "path": "spec.serviceAccount"
     },
     "operator": "exists",
     "sourceFile": "operations.yaml"
@@ -1483,6 +1616,25 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "sourceFile": "operations.yaml"
   },
   {
+    "id": "NODE004",
+    "name": "Node Taint With No Matching Toleration",
+    "category": "Scheduling",
+    "section": "Nodes",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects node taints that no current workload pod can tolerate.",
+    "failMessage": "Node taint has no matching pod toleration.",
+    "recommendation": "Review whether the taint is intentional. Add matching tolerations to eligible workloads or remove stale taints.",
+    "url": "https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/",
+    "resourceKind": "Node",
+    "nativeHandler": "NODE004",
+    "value": {
+      "path": "spec.taints"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
     "id": "SC003",
     "name": "High Cluster Storage Usage",
     "category": "Utilization",
@@ -1579,6 +1731,25 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "sourceFile": "operations.yaml"
   },
   {
+    "id": "RBAC011",
+    "name": "Event Tampering Permissions",
+    "category": "RBAC",
+    "section": "Security",
+    "severity": "Medium",
+    "weight": 3,
+    "description": "Detects Roles and ClusterRoles that grant delete, deletecollection, or wildcard permissions on Kubernetes Events.",
+    "failMessage": "RBAC role can delete Kubernetes Events.",
+    "recommendation": "Remove event deletion permissions unless they are explicitly required. Events are short-lived operational evidence, so deleting them can hide recent troubleshooting context even when durable audit logs exist elsewhere.",
+    "url": "https://kubernetes.io/docs/reference/access-authn-authz/rbac/",
+    "resourceKind": "Role, ClusterRole",
+    "nativeHandler": "RBAC011",
+    "value": {
+      "path": "rules"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
     "id": "WRK017",
     "name": "Single Replica Workload",
     "category": "Availability",
@@ -1669,6 +1840,158 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "nativeHandler": "WRK021",
     "value": {
       "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK022",
+    "name": "HPA Burst Capacity Risk",
+    "category": "Autoscaling",
+    "section": "Workloads",
+    "severity": "Warning",
+    "weight": 3,
+    "description": "Detects HPAs whose maxReplicas could request more CPU or memory than the cluster can allocate.",
+    "failMessage": "HPA maxReplicas may exceed cluster allocatable capacity.",
+    "recommendation": "Review HPA maxReplicas, workload requests, and cluster autoscaling capacity before burst conditions occur.",
+    "url": "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/",
+    "resourceKind": "HorizontalPodAutoscaler",
+    "nativeHandler": "WRK022",
+    "value": {
+      "path": "spec.maxReplicas"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK023",
+    "name": "Multiple PDBs Match Same Workload",
+    "category": "PDBs",
+    "section": "Workloads",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects workloads whose pods are selected by more than one PodDisruptionBudget.",
+    "failMessage": "Multiple PodDisruptionBudgets match the same workload.",
+    "recommendation": "Ensure each workload is governed by a single, clear PodDisruptionBudget.",
+    "url": "https://kubernetes.io/docs/tasks/run-application/configure-pdb/",
+    "resourceKind": "PodDisruptionBudget",
+    "nativeHandler": "WRK023",
+    "value": {
+      "path": "spec.selector"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK024",
+    "name": "Impossible PDB Budget",
+    "category": "PDBs",
+    "section": "Workloads",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects PodDisruptionBudgets that cannot currently allow voluntary disruptions.",
+    "failMessage": "PodDisruptionBudget budget is impossible with current pod health.",
+    "recommendation": "Tune minAvailable or maxUnavailable so maintenance can proceed while preserving availability.",
+    "url": "https://kubernetes.io/docs/tasks/run-application/configure-pdb/",
+    "resourceKind": "PodDisruptionBudget",
+    "nativeHandler": "WRK024",
+    "value": {
+      "path": "status.disruptionsAllowed"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK025",
+    "name": "Identical Readiness and Liveness Probes",
+    "category": "Availability",
+    "section": "Workloads",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects containers where readinessProbe and livenessProbe are identical, which can restart pods for dependency or warm-up issues that should only affect readiness.",
+    "failMessage": "Container readiness and liveness probes are identical.",
+    "recommendation": "Use readiness probes to gate traffic and liveness probes only for unrecoverable process health. Avoid copying the same probe into both fields without reviewing behavior.",
+    "url": "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes",
+    "resourceKind": "Pod",
+    "nativeHandler": "WRK025",
+    "value": {
+      "path": "spec.containers[].readinessProbe"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK026",
+    "name": "Missing Ephemeral Storage Requests or Limits",
+    "category": "Efficiency",
+    "section": "Workloads",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects containers missing ephemeral-storage requests or limits.",
+    "failMessage": "Container is missing ephemeral-storage request or limit.",
+    "recommendation": "Set resources.requests.ephemeral-storage and resources.limits.ephemeral-storage for containers that write to local ephemeral storage.",
+    "url": "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#local-ephemeral-storage",
+    "resourceKind": "Pod",
+    "nativeHandler": "WRK026",
+    "value": {
+      "path": "spec.containers[].resources"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK027",
+    "name": "StatefulSet Missing or Invalid Headless Service",
+    "category": "Availability",
+    "section": "Workloads",
+    "severity": "Warning",
+    "weight": 3,
+    "description": "Detects StatefulSets whose spec.serviceName is missing, references no Service, or references a Service that is not headless.",
+    "failMessage": "StatefulSet serviceName is missing or invalid.",
+    "recommendation": "Create a matching headless Service with clusterIP: None and set the StatefulSet spec.serviceName to that Service name.",
+    "url": "https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/",
+    "resourceKind": "StatefulSet",
+    "nativeHandler": "WRK027",
+    "value": {
+      "path": "spec.serviceName"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK028",
+    "name": "HPA Target Missing",
+    "category": "Autoscaling",
+    "section": "Workloads",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects HorizontalPodAutoscalers whose scaleTargetRef does not resolve to a current workload.",
+    "failMessage": "HPA target workload was not found.",
+    "recommendation": "Fix the HPA scaleTargetRef apiVersion, kind, or name so it points to the intended Deployment, StatefulSet, ReplicaSet, or other scalable workload.",
+    "url": "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/",
+    "resourceKind": "HorizontalPodAutoscaler",
+    "nativeHandler": "WRK028",
+    "value": {
+      "path": "spec.scaleTargetRef"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "WRK029",
+    "name": "PDB Unhealthy Pod Eviction Policy Risk",
+    "category": "PDBs",
+    "section": "Workloads",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects PodDisruptionBudgets without an explicit unhealthyPodEvictionPolicy, especially when the budget can block node drains during unhealthy workload states.",
+    "failMessage": "PDB unhealthyPodEvictionPolicy is not explicitly set.",
+    "recommendation": "Review drain behavior and set unhealthyPodEvictionPolicy intentionally. Consider AlwaysAllow for workloads where node drains should proceed even when pods are unhealthy.",
+    "url": "https://kubernetes.io/docs/tasks/run-application/configure-pdb/",
+    "resourceKind": "PodDisruptionBudget",
+    "nativeHandler": "WRK029",
+    "value": {
+      "path": "spec.unhealthyPodEvictionPolicy"
     },
     "operator": "exists",
     "sourceFile": "operations.yaml"
@@ -2461,6 +2784,63 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "nativeHandler": "SEC036",
     "value": {
       "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC037",
+    "name": "SSH Server Running Inside Container",
+    "category": "Pod Security",
+    "section": "Security",
+    "severity": "Medium",
+    "weight": 3,
+    "description": "Detects containers that appear to run an SSH daemon or expose SSH ports.",
+    "failMessage": "Container appears to run SSH.",
+    "recommendation": "Remove SSH daemons from containers and use kubectl exec, ephemeral debug containers, or controlled break-glass access instead.",
+    "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/",
+    "resourceKind": "Pod",
+    "nativeHandler": "SEC037",
+    "value": {
+      "path": "spec.containers"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC038",
+    "name": "Sensitive Writable HostPath Mount",
+    "category": "Pod Security",
+    "section": "Security",
+    "severity": "High",
+    "weight": 4,
+    "description": "Detects sensitive hostPath volumes mounted into containers without readOnly enabled.",
+    "failMessage": "Container mounts a sensitive hostPath volume read-write.",
+    "recommendation": "Avoid sensitive hostPath volumes where possible. If host access is required, mount the narrowest path read-only and use Pod Security admission or policy to restrict hostPath usage.",
+    "url": "https://kubernetes.io/docs/concepts/storage/volumes/#hostpath",
+    "resourceKind": "Pod",
+    "nativeHandler": "SEC038",
+    "value": {
+      "path": "spec.volumes"
+    },
+    "operator": "exists",
+    "sourceFile": "security.yaml"
+  },
+  {
+    "id": "SEC040",
+    "name": "ServiceAccount Token Projection Risk",
+    "category": "Pod Security",
+    "section": "Security",
+    "severity": "Medium",
+    "weight": 3,
+    "description": "Detects projected ServiceAccount tokens with missing audience or long expiration settings.",
+    "failMessage": "Projected ServiceAccount token has weak scoping.",
+    "recommendation": "Set a specific audience and short expirationSeconds on projected ServiceAccount tokens. Avoid broad or long-lived tokens unless the workload requires them.",
+    "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+    "resourceKind": "Pod",
+    "nativeHandler": "SEC040",
+    "value": {
+      "path": "spec.volumes"
     },
     "operator": "exists",
     "sourceFile": "security.yaml"

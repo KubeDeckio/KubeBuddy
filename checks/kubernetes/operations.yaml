@@ -59,6 +59,96 @@ checks:
   - "\U0001F916 Some ConfigMaps are larger than 1 MiB."
   - "\U0001F4CC This can lead to performance issues or hit platform limits."
   - "\u26A0\uFE0F Avoid putting big data or binaries in ConfigMaps."
+- id: CFG004
+  name: Deprecated Kubernetes API Usage
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: KubernetesResource
+  severity: Warning
+  weight: 3
+  description: Detects live resources using Kubernetes API versions that are deprecated or removed in recent Kubernetes releases.
+  fail_message: Deprecated Kubernetes API version detected.
+  recommendation: "Migrate resources to a supported API version before upgrading the cluster."
+  url: https://kubernetes.io/docs/reference/using-api/deprecation-guide/
+  native_handler: CFG004
+  value:
+    path: apiVersion
+  operator: exists
+  speech_bubble:
+  - Deprecated APIs can block or break cluster upgrades.
+  - Migrate manifests to supported API versions before upgrading Kubernetes.
+- id: CFG005
+  name: Metrics Server Missing
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: Cluster
+  severity: Low
+  weight: 1
+  description: Detects clusters where metrics-server appears unavailable.
+  fail_message: metrics-server was not detected.
+  recommendation: "Install or repair metrics-server so resource usage and autoscaling signals are available."
+  url: https://github.com/kubernetes-sigs/metrics-server
+  native_handler: CFG005
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Missing metrics-server reduces autoscaling and sizing visibility.
+  - Install or repair metrics-server if kubectl top does not work.
+- id: CFG006
+  name: CoreDNS Poisoning Risk
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: ConfigMap
+  severity: High
+  weight: 4
+  description: Detects CoreDNS Corefiles with risky rewrite, hosts, proxy, or broad upstream forwarding rules that can hijack cluster DNS resolution.
+  fail_message: CoreDNS configuration contains a risky DNS override.
+  recommendation: "Review the CoreDNS Corefile and remove unexpected rewrite, hosts, proxy, or broad forwarding rules. Keep DNS overrides documented and scoped."
+  url: https://kubernetes.io/docs/tasks/administer-cluster/dns-custom-nameservers/
+  native_handler: CFG006
+  value:
+    path: data.Corefile
+  operator: exists
+  speech_bubble:
+  - CoreDNS rewrites and host overrides can redirect cluster traffic.
+  - Keep DNS overrides narrow, documented, and reviewed.
+- id: CFG007
+  name: Duplicate Environment Variable Keys
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Detects containers with duplicate environment variable names, where later entries can shadow earlier values.
+  fail_message: Container has duplicate environment variable keys.
+  recommendation: "Remove duplicate env entries and keep each environment variable name defined once per container."
+  url: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+  native_handler: CFG007
+  value:
+    path: spec.containers[].env
+  operator: exists
+  speech_bubble:
+  - Duplicate env vars can make runtime configuration ambiguous.
+  - Keep each env var name unique within a container.
+- id: CFG008
+  name: Deprecated ServiceAccount Field Used
+  category: Best Practices
+  section: Configuration Hygiene
+  resource_kind: Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob
+  severity: Low
+  weight: 1
+  description: Detects workloads using the deprecated spec.serviceAccount field instead of spec.serviceAccountName.
+  fail_message: Workload uses deprecated serviceAccount field.
+  recommendation: "Use spec.serviceAccountName and remove spec.serviceAccount from pod specs and workload templates."
+  url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  native_handler: CFG008
+  value:
+    path: spec.serviceAccount
+  operator: exists
+  speech_bubble:
+  - spec.serviceAccount is deprecated.
+  - Use spec.serviceAccountName instead.
 - id: WRK016
   name: Missing Recommended Application Labels
   category: Workloads
@@ -823,6 +913,24 @@ checks:
   speech_bubble:
   - "\U0001F6A8 High pod density detected on node!"
   - "\U0001F50E Consider rescheduling or scaling your cluster."
+- id: NODE004
+  name: Node Taint With No Matching Toleration
+  category: Scheduling
+  section: Nodes
+  resource_kind: Node
+  severity: Warning
+  weight: 2
+  description: Detects node taints that no current workload pod can tolerate.
+  fail_message: Node taint has no matching pod toleration.
+  recommendation: "Review whether the taint is intentional. Add matching tolerations to eligible workloads or remove stale taints."
+  url: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  native_handler: NODE004
+  value:
+    path: spec.taints
+  operator: exists
+  speech_bubble:
+  - Untolerated taints can strand node capacity.
+  - Add specific tolerations or remove stale taints.
 - id: SC003
   name: High Cluster Storage Usage
   category: Utilization
@@ -916,6 +1024,24 @@ checks:
   speech_bubble:
   - Compromised workloads inherit their ServiceAccount permissions.
   - Reduce sensitive permissions and disable token automount where possible.
+- id: RBAC011
+  name: Event Tampering Permissions
+  category: RBAC
+  section: Security
+  resource_kind: Role, ClusterRole
+  severity: Medium
+  weight: 3
+  description: Detects Roles and ClusterRoles that grant delete, deletecollection, or wildcard permissions on Kubernetes Events.
+  fail_message: RBAC role can delete Kubernetes Events.
+  recommendation: "Remove event deletion permissions unless they are explicitly required. Events are short-lived operational evidence, so deleting them can hide recent troubleshooting context even when durable audit logs exist elsewhere."
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+  native_handler: RBAC011
+  value:
+    path: rules
+  operator: exists
+  speech_bubble:
+  - Events are short-lived, useful troubleshooting evidence.
+  - Avoid granting event deletion unless a controller genuinely needs it.
 - id: WRK017
   name: Single Replica Workload
   category: Availability
@@ -1009,6 +1135,150 @@ checks:
   speech_bubble:
   - PriorityClass makes scheduling and eviction importance explicit.
   - Assign priorities for critical platform and production services.
+- id: WRK022
+  name: HPA Burst Capacity Risk
+  category: Autoscaling
+  section: Workloads
+  resource_kind: HorizontalPodAutoscaler
+  severity: Warning
+  weight: 3
+  description: Detects HPAs whose maxReplicas could request more CPU or memory than the cluster can allocate.
+  fail_message: HPA maxReplicas may exceed cluster allocatable capacity.
+  recommendation: "Review HPA maxReplicas, workload requests, and cluster autoscaling capacity before burst conditions occur."
+  url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  native_handler: WRK022
+  value:
+    path: spec.maxReplicas
+  operator: exists
+  speech_bubble:
+  - Max replica settings can exceed real cluster capacity.
+  - Tune HPA limits or add capacity before burst conditions occur.
+- id: WRK023
+  name: Multiple PDBs Match Same Workload
+  category: PDBs
+  section: Workloads
+  resource_kind: PodDisruptionBudget
+  severity: Warning
+  weight: 2
+  description: Detects workloads whose pods are selected by more than one PodDisruptionBudget.
+  fail_message: Multiple PodDisruptionBudgets match the same workload.
+  recommendation: "Ensure each workload is governed by a single, clear PodDisruptionBudget."
+  url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  native_handler: WRK023
+  value:
+    path: spec.selector
+  operator: exists
+  speech_bubble:
+  - Multiple PDBs for the same workload can make disruption behavior confusing.
+  - Keep PDB ownership clear and non-overlapping.
+- id: WRK024
+  name: Impossible PDB Budget
+  category: PDBs
+  section: Workloads
+  resource_kind: PodDisruptionBudget
+  severity: Warning
+  weight: 2
+  description: Detects PodDisruptionBudgets that cannot currently allow voluntary disruptions.
+  fail_message: PodDisruptionBudget budget is impossible with current pod health.
+  recommendation: "Tune minAvailable or maxUnavailable so maintenance can proceed while preserving availability."
+  url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  native_handler: WRK024
+  value:
+    path: status.disruptionsAllowed
+  operator: exists
+  speech_bubble:
+  - Impossible budgets can block upgrades, drains, and maintenance.
+  - Tune the PDB or restore healthy replicas.
+- id: WRK025
+  name: Identical Readiness and Liveness Probes
+  category: Availability
+  section: Workloads
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Detects containers where readinessProbe and livenessProbe are identical, which can restart pods for dependency or warm-up issues that should only affect readiness.
+  fail_message: Container readiness and liveness probes are identical.
+  recommendation: "Use readiness probes to gate traffic and liveness probes only for unrecoverable process health. Avoid copying the same probe into both fields without reviewing behavior."
+  url: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+  native_handler: WRK025
+  value:
+    path: spec.containers[].readinessProbe
+  operator: exists
+  speech_bubble:
+  - Identical readiness and liveness probes can cause avoidable restarts.
+  - Keep liveness checks stricter about process health than readiness checks.
+- id: WRK026
+  name: Missing Ephemeral Storage Requests or Limits
+  category: Efficiency
+  section: Workloads
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Detects containers missing ephemeral-storage requests or limits.
+  fail_message: Container is missing ephemeral-storage request or limit.
+  recommendation: "Set resources.requests.ephemeral-storage and resources.limits.ephemeral-storage for containers that write to local ephemeral storage."
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#local-ephemeral-storage
+  native_handler: WRK026
+  value:
+    path: spec.containers[].resources
+  operator: exists
+  speech_bubble:
+  - Missing ephemeral storage limits can lead to node-pressure evictions.
+  - Set requests and limits for workloads that write local data.
+- id: WRK027
+  name: StatefulSet Missing or Invalid Headless Service
+  category: Availability
+  section: Workloads
+  resource_kind: StatefulSet
+  severity: Warning
+  weight: 3
+  description: Detects StatefulSets whose spec.serviceName is missing, references no Service, or references a Service that is not headless.
+  fail_message: StatefulSet serviceName is missing or invalid.
+  recommendation: "Create a matching headless Service with clusterIP: None and set the StatefulSet spec.serviceName to that Service name."
+  url: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/
+  native_handler: WRK027
+  value:
+    path: spec.serviceName
+  operator: exists
+  speech_bubble:
+  - StatefulSets need a stable headless Service identity.
+  - Ensure spec.serviceName points to a headless Service.
+- id: WRK028
+  name: HPA Target Missing
+  category: Autoscaling
+  section: Workloads
+  resource_kind: HorizontalPodAutoscaler
+  severity: High
+  weight: 4
+  description: Detects HorizontalPodAutoscalers whose scaleTargetRef does not resolve to a current workload.
+  fail_message: HPA target workload was not found.
+  recommendation: "Fix the HPA scaleTargetRef apiVersion, kind, or name so it points to the intended Deployment, StatefulSet, ReplicaSet, or other scalable workload."
+  url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  native_handler: WRK028
+  value:
+    path: spec.scaleTargetRef
+  operator: exists
+  speech_bubble:
+  - Dangling HPAs cannot scale the intended workload.
+  - Fix scaleTargetRef or remove stale HPAs.
+- id: WRK029
+  name: PDB Unhealthy Pod Eviction Policy Risk
+  category: PDBs
+  section: Workloads
+  resource_kind: PodDisruptionBudget
+  severity: Warning
+  weight: 2
+  description: Detects PodDisruptionBudgets without an explicit unhealthyPodEvictionPolicy, especially when the budget can block node drains during unhealthy workload states.
+  fail_message: PDB unhealthyPodEvictionPolicy is not explicitly set.
+  recommendation: "Review drain behavior and set unhealthyPodEvictionPolicy intentionally. Consider AlwaysAllow for workloads where node drains should proceed even when pods are unhealthy."
+  url: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  native_handler: WRK029
+  value:
+    path: spec.unhealthyPodEvictionPolicy
+  operator: exists
+  speech_bubble:
+  - PDB unhealthy pod eviction behavior should be intentional.
+  - Explicitly set unhealthyPodEvictionPolicy for drain-sensitive workloads.
 - id: POD011
   name: Shared Process Namespace Enabled
   category: Pod Health

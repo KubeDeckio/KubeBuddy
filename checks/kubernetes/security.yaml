@@ -760,3 +760,57 @@ checks:
   speech_bubble:
   - Docker-in-Docker is a strong container escape and node trust risk signal.
   - Prefer rootless builders and isolated CI infrastructure.
+- id: SEC037
+  name: SSH Server Running Inside Container
+  category: Pod Security
+  section: Security
+  resource_kind: Pod
+  severity: Medium
+  weight: 3
+  description: Detects containers that appear to run an SSH daemon or expose SSH ports.
+  fail_message: Container appears to run SSH.
+  recommendation: "Remove SSH daemons from containers and use kubectl exec, ephemeral debug containers, or controlled break-glass access instead."
+  url: https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/
+  native_handler: SEC037
+  value:
+    path: spec.containers
+  operator: exists
+  speech_bubble:
+  - SSH inside containers increases lateral movement and access-management risk.
+  - Use Kubernetes-native debugging paths instead of long-running SSH daemons.
+- id: SEC038
+  name: Sensitive Writable HostPath Mount
+  category: Pod Security
+  section: Security
+  resource_kind: Pod
+  severity: High
+  weight: 4
+  description: Detects sensitive hostPath volumes mounted into containers without readOnly enabled.
+  fail_message: Container mounts a sensitive hostPath volume read-write.
+  recommendation: "Avoid sensitive hostPath volumes where possible. If host access is required, mount the narrowest path read-only and use Pod Security admission or policy to restrict hostPath usage."
+  url: https://kubernetes.io/docs/concepts/storage/volumes/#hostpath
+  native_handler: SEC038
+  value:
+    path: spec.volumes
+  operator: exists
+  speech_bubble:
+  - Sensitive writable hostPath mounts can modify node files from inside a pod.
+  - Prefer non-host storage or read-only, tightly scoped hostPath mounts.
+- id: SEC040
+  name: ServiceAccount Token Projection Risk
+  category: Pod Security
+  section: Security
+  resource_kind: Pod
+  severity: Medium
+  weight: 3
+  description: Detects projected ServiceAccount tokens with missing audience or long expiration settings.
+  fail_message: Projected ServiceAccount token has weak scoping.
+  recommendation: "Set a specific audience and short expirationSeconds on projected ServiceAccount tokens. Avoid broad or long-lived tokens unless the workload requires them."
+  url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  native_handler: SEC040
+  value:
+    path: spec.volumes
+  operator: exists
+  speech_bubble:
+  - Projected ServiceAccount tokens should be short-lived and audience-scoped.
+  - Avoid broad token audiences and long token expiration windows.

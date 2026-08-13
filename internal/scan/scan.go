@@ -452,7 +452,7 @@ func usesSyntheticInput(check checks.Check) bool {
 		return true
 	}
 	switch check.NativeHandler {
-	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "RBAC005", "RBAC006", "RBAC007", "RBAC008", "RBAC009", "RBAC010", "SEC028", "SEC030", "SEC034", "SEC035", "NET021", "WRK017", "WRK018", "WRK019", "WRK020", "WRK021", "NODE002", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "WRK016", "NET004", "NET013", "NET018", "NET020":
+	case "PROM006", "PROM007", "RBAC001", "RBAC002", "RBAC004", "RBAC005", "RBAC006", "RBAC007", "RBAC008", "RBAC009", "RBAC010", "SEC028", "SEC030", "SEC034", "SEC035", "CFG004", "CFG005", "CFG008", "NET021", "NET023", "WRK017", "WRK018", "WRK019", "WRK020", "WRK021", "WRK022", "WRK023", "WRK024", "WRK027", "WRK028", "WRK029", "NODE002", "NODE004", "SC003", "WRK005", "WRK006", "WRK007", "WRK012", "WRK014", "WRK015", "WRK016", "NET004", "NET013", "NET018", "NET020":
 		return true
 	default:
 		return false
@@ -539,6 +539,12 @@ func normalizedKind(kind string) string {
 		return "mutatingwebhookconfigurations"
 	case "validatingwebhookconfiguration":
 		return "validatingwebhookconfigurations"
+	case "apiservice":
+		return "apiservices"
+	case "customresourcedefinition":
+		return "customresourcedefinitions"
+	case "certificatesigningrequest":
+		return "certificatesigningrequests"
 	default:
 		return strings.ToLower(strings.TrimSpace(kind))
 	}
@@ -547,6 +553,7 @@ func normalizedKind(kind string) string {
 func isClusterScoped(kind string) bool {
 	switch kind {
 	case "nodes", "namespaces", "persistentvolumes", "storageclasses",
+		"apiservices", "customresourcedefinitions", "certificatesigningrequests",
 		"mutatingwebhookconfigurations", "validatingwebhookconfigurations",
 		"validatingadmissionpolicies", "validatingadmissionpolicybindings",
 		"validatingadmissionpolicy", "validatingadmissionpolicybinding":

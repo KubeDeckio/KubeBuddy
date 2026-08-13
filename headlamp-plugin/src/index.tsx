@@ -253,6 +253,13 @@ const EventResource = makeCustomResourceClass({
   singularName: 'event',
   isNamespaced: true,
 });
+const APIServiceResource = makeCustomResourceClass({
+  apiInfo: [{ group: 'apiregistration.k8s.io', version: 'v1' }],
+  kind: 'APIService',
+  pluralName: 'apiservices',
+  singularName: 'apiservice',
+  isNamespaced: false,
+});
 const MutatingWebhookConfiguration = makeCustomResourceClass({
   apiInfo: [
     { group: 'admissionregistration.k8s.io', version: 'v1' },
@@ -1397,9 +1404,9 @@ const DIRECT_RISK_PATH_DEFINITIONS: DirectRiskPathDefinition[] = [
     id: 'RISK001',
     name: 'Container Isolation Risk',
     boundary: 'Workload to node/container isolation',
-    signals: ['POD011', 'POD013', 'SEC002', 'SEC004', 'SEC010', 'SEC012', 'SEC017', 'SEC021', 'SEC023', 'SEC029'],
+    signals: ['POD011', 'POD013', 'SEC002', 'SEC004', 'SEC010', 'SEC012', 'SEC017', 'SEC021', 'SEC023', 'SEC029', 'SEC038'],
     triggerThreshold: 2,
-    criticalSingleHits: ['SEC004', 'SEC010', 'SEC012', 'SEC029'],
+    criticalSingleHits: ['SEC004', 'SEC010', 'SEC012', 'SEC029', 'SEC038'],
     summaryClear: 'No correlated container isolation risk signals were detected.',
     summaryTriggered: 'Correlated workload security findings indicate a possible path from workload settings toward host or node control.',
     validationProof: [
@@ -1411,9 +1418,9 @@ const DIRECT_RISK_PATH_DEFINITIONS: DirectRiskPathDefinition[] = [
     id: 'RISK002',
     name: 'Namespace Isolation Risk',
     boundary: 'Namespace tenancy and east-west isolation',
-    signals: ['NET004', 'NET021', 'RBAC002', 'RBAC007', 'RBAC008', 'RBAC010'],
+    signals: ['NET004', 'NET021', 'NET023', 'NET024', 'RBAC002', 'RBAC007', 'RBAC008', 'RBAC010'],
     triggerThreshold: 2,
-    criticalSingleHits: ['RBAC002', 'RBAC007', 'RBAC010'],
+    criticalSingleHits: ['NET024', 'RBAC002', 'RBAC007', 'RBAC010'],
     summaryClear: 'No correlated namespace isolation risk signals were detected.',
     summaryTriggered: 'Network and RBAC findings indicate namespace boundaries may not contain workload access.',
     validationProof: [
@@ -1439,7 +1446,7 @@ const DIRECT_RISK_PATH_DEFINITIONS: DirectRiskPathDefinition[] = [
     id: 'RISK004',
     name: 'ServiceAccount Trust Risk',
     boundary: 'ServiceAccount identity and token trust',
-    signals: ['POD008', 'SEC015', 'SEC018', 'RBAC009', 'RBAC010'],
+    signals: ['POD008', 'SEC015', 'SEC018', 'SEC040', 'RBAC009', 'RBAC010'],
     triggerThreshold: 2,
     criticalSingleHits: ['RBAC009', 'RBAC010'],
     summaryClear: 'No correlated ServiceAccount trust risk signals were detected.',
@@ -2235,6 +2242,134 @@ function serviceTargetPortMatchesPods(targetPort: string, pods: any[]): boolean 
       )
     )
   );
+}
+
+function deprecatedApiReason(apiVersion: string): string {
+  switch (apiVersion) {
+    case 'extensions/v1beta1':
+      return 'extensions/v1beta1 is removed in Kubernetes 1.22; migrate to the stable API for this resource';
+    case 'apps/v1beta1':
+    case 'apps/v1beta2':
+      return `${apiVersion} is removed in Kubernetes 1.16; migrate workloads to apps/v1`;
+    case 'networking.k8s.io/v1beta1':
+      return 'networking.k8s.io/v1beta1 is removed in Kubernetes 1.22; migrate networking resources to networking.k8s.io/v1';
+    case 'batch/v1beta1':
+      return 'batch/v1beta1 CronJob is removed in Kubernetes 1.25; migrate to batch/v1';
+    case 'policy/v1beta1':
+      return 'policy/v1beta1 is removed for PodDisruptionBudget in Kubernetes 1.25 and PodSecurityPolicy in Kubernetes 1.25';
+    case 'autoscaling/v2beta1':
+    case 'autoscaling/v2beta2':
+      return `${apiVersion} is removed in Kubernetes 1.26; migrate HPAs to autoscaling/v2`;
+    case 'rbac.authorization.k8s.io/v1beta1':
+      return 'rbac.authorization.k8s.io/v1beta1 is removed in Kubernetes 1.22; migrate RBAC resources to v1';
+    case 'apiextensions.k8s.io/v1beta1':
+      return 'apiextensions.k8s.io/v1beta1 is removed in Kubernetes 1.22; migrate CRDs to v1';
+    case 'admissionregistration.k8s.io/v1beta1':
+      return 'admissionregistration.k8s.io/v1beta1 is removed in Kubernetes 1.22; migrate webhooks to v1';
+    case 'apiregistration.k8s.io/v1beta1':
+      return 'apiregistration.k8s.io/v1beta1 is removed in Kubernetes 1.22; migrate APIService resources to v1';
+    case 'storage.k8s.io/v1beta1':
+      return 'storage.k8s.io/v1beta1 is removed for several storage APIs; migrate to storage.k8s.io/v1';
+    case 'certificates.k8s.io/v1beta1':
+      return 'certificates.k8s.io/v1beta1 is removed in Kubernetes 1.22; migrate CSRs to certificates.k8s.io/v1';
+    case 'events.k8s.io/v1beta1':
+      return 'events.k8s.io/v1beta1 is deprecated; migrate event integrations to events.k8s.io/v1';
+    case 'discovery.k8s.io/v1beta1':
+      return 'discovery.k8s.io/v1beta1 EndpointSlice is removed in Kubernetes 1.25; migrate to discovery.k8s.io/v1';
+    case 'flowcontrol.apiserver.k8s.io/v1beta1':
+    case 'flowcontrol.apiserver.k8s.io/v1beta2':
+      return `${apiVersion} flow control resources are deprecated or removed in newer Kubernetes releases`;
+    default:
+      return '';
+  }
+}
+
+function cpuMillicoresValue(value: unknown): number {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return 0;
+  }
+  if (raw.endsWith('m')) {
+    return Number(raw.slice(0, -1)) || 0;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed * 1000 : 0;
+}
+
+function memoryMiValue(value: unknown): number {
+  const raw = String(value || '').trim().toLowerCase();
+  const parsed = Number(raw.replace(/[a-z]+$/, ''));
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  if (raw.endsWith('ki')) return parsed / 1024;
+  if (raw.endsWith('mi')) return parsed;
+  if (raw.endsWith('gi')) return parsed * 1024;
+  if (raw.endsWith('ti')) return parsed * 1024 * 1024;
+  if (raw.endsWith('k')) return parsed / 1000 / 1000;
+  if (raw.endsWith('m')) return parsed;
+  if (raw.endsWith('g')) return parsed * 1000;
+  return parsed / 1024 / 1024;
+}
+
+function selectorEmpty(selector: unknown): boolean {
+  if (!selector || typeof selector !== 'object') {
+    return true;
+  }
+  const s = selector as Record<string, any>;
+  const labels = s.matchLabels && typeof s.matchLabels === 'object' ? Object.keys(s.matchLabels) : [];
+  const expressions = Array.isArray(s.matchExpressions) ? s.matchExpressions : [];
+  const direct = Object.keys(s).filter(key => key !== 'matchLabels' && key !== 'matchExpressions');
+  return labels.length === 0 && expressions.length === 0 && direct.length === 0;
+}
+
+function labelSelectorMatches(selector: unknown, labels: unknown): boolean {
+  if (selectorEmpty(selector)) {
+    return true;
+  }
+  if (!selector || !labels || typeof selector !== 'object' || typeof labels !== 'object') {
+    return false;
+  }
+  const s = selector as Record<string, any>;
+  const l = labels as Record<string, unknown>;
+  const matchLabels = s.matchLabels && typeof s.matchLabels === 'object' ? s.matchLabels : s;
+  for (const [key, expected] of Object.entries(matchLabels)) {
+    if (key === 'matchLabels' || key === 'matchExpressions') {
+      continue;
+    }
+    if (String(l[key]) !== String(expected)) {
+      return false;
+    }
+  }
+  for (const expression of Array.isArray(s.matchExpressions) ? s.matchExpressions : []) {
+    const key = String(expression.key || '');
+    const operator = String(expression.operator || '');
+    const values = new Set((expression.values || []).map((value: unknown) => String(value)));
+    const exists = Object.prototype.hasOwnProperty.call(l, key);
+    const value = String(l[key]);
+    if (operator === 'In' && (!exists || !values.has(value))) return false;
+    if (operator === 'NotIn' && exists && values.has(value)) return false;
+    if (operator === 'Exists' && !exists) return false;
+    if (operator === 'DoesNotExist' && exists) return false;
+  }
+  return true;
+}
+
+function taintTolerated(taint: any, tolerations: any[]): boolean {
+  const key = String(taint?.key || '');
+  const value = String(taint?.value || '');
+  const effect = String(taint?.effect || '');
+  return tolerations.some(toleration => {
+    const operator = String(toleration?.operator || 'Equal');
+    const tolerationEffect = String(toleration?.effect || '');
+    if (tolerationEffect && effect && tolerationEffect !== effect) {
+      return false;
+    }
+    if (operator === 'Exists') {
+      return !toleration?.key || String(toleration.key) === key;
+    }
+    return String(toleration?.key || '') === key && String(toleration?.value || '') === value;
+  });
 }
 
 function runAsUserValue(value: unknown): { set: boolean; value: number } {
@@ -3778,6 +3913,441 @@ function metadataEndpointFindings(resources: ResourceStates): Finding[] {
   );
 }
 
+function deprecatedApiFindings(resources: ResourceStates): Finding[] {
+  return Object.values(resources).flatMap(state =>
+    state.data.flatMap(resource => {
+      const apiVersion = String(json(resource)?.apiVersion || '');
+      const reason = deprecatedApiReason(apiVersion);
+      return reason ? [finding(resource, reason)] : [];
+    })
+  );
+}
+
+function metricsServerFindings(resources: ResourceStates): Finding[] {
+  const apiService = resources.apiservice?.data.find(item => name(item) === 'v1beta1.metrics.k8s.io');
+  if (!apiService) {
+    return [{ resource: 'cluster/metrics-server', kind: 'Cluster', details: 'metrics-server was not detected' }];
+  }
+  const available = (json(apiService)?.status?.conditions || []).some(
+    (condition: any) => condition.type === 'Available' && String(condition.status) === 'True'
+  );
+  return available ? [] : [finding(apiService, 'metrics.k8s.io APIService is not Available')];
+}
+
+function nodeUntoleratedTaintFindings(resources: ResourceStates): Finding[] {
+  const tolerations = resources.pod.data.flatMap(pod => json(pod)?.spec?.tolerations || []);
+  return resources.node.data.flatMap(node =>
+    (json(node)?.spec?.taints || [])
+      .filter((taint: any) => taint?.key && !taintTolerated(taint, tolerations))
+      .map((taint: any) => {
+        const value = taint.value ? `=${taint.value}` : '';
+        const effect = taint.effect ? `:${taint.effect}` : '';
+        return finding(node, `No current pod toleration matches taint ${taint.key}${value}${effect}`);
+      })
+  );
+}
+
+function hpaBurstCapacityFindings(resources: ResourceStates): Finding[] {
+  const allocCpu = resources.node.data.reduce((total, node) => total + cpuMillicoresValue(json(node)?.status?.allocatable?.cpu), 0);
+  const allocMem = resources.node.data.reduce((total, node) => total + memoryMiValue(json(node)?.status?.allocatable?.memory), 0);
+  let totalCpu = 0;
+  let totalMem = 0;
+  const findings: Finding[] = [];
+
+  for (const hpa of resources.horizontalpodautoscaler.data) {
+    const target = json(hpa)?.spec?.scaleTargetRef || {};
+    const workload = allWorkloads(resources).find(
+      item => namespace(item) === namespace(hpa) && name(item) === target.name && String(json(item)?.kind || '').toLowerCase() === String(target.kind || '').toLowerCase()
+    );
+    if (!workload) continue;
+    const maxReplicas = Number(json(hpa)?.spec?.maxReplicas || 0);
+    const requests = workloadContainers(workload).reduce(
+      (totals, container) => ({
+        cpu: totals.cpu + cpuMillicoresValue(container?.resources?.requests?.cpu),
+        mem: totals.mem + memoryMiValue(container?.resources?.requests?.memory),
+      }),
+      { cpu: 0, mem: 0 }
+    );
+    const burstCpu = requests.cpu * maxReplicas;
+    const burstMem = requests.mem * maxReplicas;
+    totalCpu += burstCpu;
+    totalMem += burstMem;
+    const reasons = [];
+    if (allocCpu > 0 && burstCpu >= allocCpu) reasons.push(`CPU burst ${Math.round(burstCpu)}m >= cluster allocatable ${Math.round(allocCpu)}m`);
+    if (allocMem > 0 && burstMem >= allocMem) reasons.push(`memory burst ${Math.round(burstMem)}Mi >= cluster allocatable ${Math.round(allocMem)}Mi`);
+    if (reasons.length) findings.push(finding(hpa, reasons.join('; ')));
+  }
+
+  const clusterReasons = [];
+  if (allocCpu > 0 && totalCpu >= allocCpu) clusterReasons.push(`all HPA CPU burst ${Math.round(totalCpu)}m >= cluster allocatable ${Math.round(allocCpu)}m`);
+  if (allocMem > 0 && totalMem >= allocMem) clusterReasons.push(`all HPA memory burst ${Math.round(totalMem)}Mi >= cluster allocatable ${Math.round(allocMem)}Mi`);
+  if (clusterReasons.length) findings.push({ resource: 'cluster/hpa-burst', kind: 'Cluster', details: clusterReasons.join('; ') });
+  return findings;
+}
+
+function multiplePdbFindings(resources: ResourceStates): Finding[] {
+  return allWorkloads(resources).flatMap(workload => {
+    const matches = resources.poddisruptionbudget.data.filter(
+      pdb => namespace(pdb) === namespace(workload) && labelSelectorMatches(json(pdb)?.spec?.selector, workloadLabels(workload))
+    );
+    return matches.length > 1 ? [finding(workload, `Multiple PodDisruptionBudgets match this workload: ${matches.map(name).sort().join(', ')}`)] : [];
+  });
+}
+
+function impossiblePdbFindings(resources: ResourceStates): Finding[] {
+  return resources.poddisruptionbudget.data.flatMap(pdb => {
+    const status = json(pdb)?.status || {};
+    const expected = Number(status.expectedPods || 0);
+    const desired = Number(status.desiredHealthy || 0);
+    const current = Number(status.currentHealthy || 0);
+    const allowed = Number(status.disruptionsAllowed || 0);
+    if (expected <= 0) return [];
+    const reasons = [];
+    if (desired > expected) reasons.push(`desiredHealthy ${desired} > expectedPods ${expected}`);
+    if (current < desired) reasons.push(`currentHealthy ${current} < desiredHealthy ${desired}`);
+    if (allowed === 0 && desired >= expected) reasons.push('disruptionsAllowed is 0 because desiredHealthy blocks voluntary disruption');
+    return reasons.length ? [finding(pdb, reasons.join('; '))] : [];
+  });
+}
+
+function networkPolicySelectorNoMatchFindings(resources: ResourceStates): Finding[] {
+  return resources.networkpolicy.data.flatMap(policy => {
+    const findings: Finding[] = [];
+    const policyNamespace = namespace(policy);
+    const localPods = resources.pod.data.filter(pod => namespace(pod) === policyNamespace);
+    if (!localPods.some(pod => labelSelectorMatches(json(policy)?.spec?.podSelector, objectLabels(pod)))) {
+      findings.push(finding(policy, 'NetworkPolicy podSelector matches no pods in its namespace'));
+    }
+
+    for (const direction of ['ingress', 'egress'] as const) {
+      const peersKey = direction === 'ingress' ? 'from' : 'to';
+      for (const rule of json(policy)?.spec?.[direction] || []) {
+        for (const peer of rule?.[peersKey] || []) {
+          if (peer.ipBlock) continue;
+          let selectedNamespaces = [policyNamespace];
+          if (peer.namespaceSelector) {
+            selectedNamespaces = resources.namespace.data
+              .filter(ns => labelSelectorMatches(peer.namespaceSelector, objectLabels(ns)))
+              .map(name);
+            if (selectedNamespaces.length === 0) {
+              findings.push(finding(policy, `NetworkPolicy ${direction} namespaceSelector matches no namespaces`));
+              continue;
+            }
+          }
+          if (peer.podSelector) {
+            const scopedPods = resources.pod.data.filter(pod => selectedNamespaces.includes(namespace(pod)));
+            if (!scopedPods.some(pod => labelSelectorMatches(peer.podSelector, objectLabels(pod)))) {
+              findings.push(finding(policy, `NetworkPolicy ${direction} podSelector matches no pods`));
+            }
+          }
+        }
+      }
+    }
+    return findings;
+  });
+}
+
+function coreDnsPoisoningFindings(resources: ResourceStates): Finding[] {
+  return resources.configmap.data.flatMap(configMap => {
+    const cmName = name(configMap);
+    const cmNamespace = namespace(configMap);
+    if (cmName !== 'coredns' && !(cmNamespace === 'kube-system' && cmName.toLowerCase().includes('coredns'))) {
+      return [];
+    }
+    const corefile = String(json(configMap)?.data?.Corefile || '');
+    if (!corefile.trim()) {
+      return [];
+    }
+    return corefile.split('\n').flatMap(line => {
+      const trimmed = line.trim();
+      const lower = trimmed.toLowerCase();
+      if (!trimmed || trimmed.startsWith('#')) {
+        return [];
+      }
+      let reason = '';
+      if (lower.startsWith('rewrite ')) reason = 'CoreDNS rewrite rule can redirect service names';
+      if (lower.startsWith('hosts ')) reason = 'CoreDNS hosts block can override DNS answers';
+      if (lower.startsWith('proxy ')) reason = 'CoreDNS proxy plugin can redirect DNS lookups';
+      if (lower.startsWith('forward . ') && !lower.includes('/etc/resolv.conf')) reason = 'CoreDNS forwards all unresolved names to a custom upstream';
+      return reason ? [finding(configMap, `${reason}: ${trimmed}`)] : [];
+    });
+  });
+}
+
+function eventTamperingRbacFindings(resources: ResourceStates): Finding[] {
+  return [...resources.role.data, ...resources.clusterrole.data].flatMap(role => (json(role)?.rules || []).flatMap((rule: any) => {
+    const matchesResource = listIncludesAny(rule?.resources, ['events', '*']);
+    const matchesApiGroup = listIncludesAny(rule?.apiGroups, ['', 'events.k8s.io', '*']);
+    const matchesVerb = listIncludesAny(rule?.verbs, ['delete', 'deletecollection', '*']);
+    return matchesResource && matchesApiGroup && matchesVerb
+      ? [finding(role, `Role grants event deletion permissions: ${(rule?.verbs || []).join(', ')}`)]
+      : [];
+  }));
+}
+
+function sensitiveAdminInterfaceFindings(resources: ResourceStates): Finding[] {
+  const findings: Finding[] = [];
+  const serviceIndex = new Map<string, any>();
+  resources.service.data.forEach(service => {
+    serviceIndex.set(`${namespace(service)}/${name(service)}`, service);
+    if (servicePubliclyExposedTs(service) && sensitiveAdminNameTs(name(service))) {
+      findings.push(finding(service, `Sensitive service appears publicly exposed: ${json(service)?.spec?.type || 'externalIPs'}`));
+    }
+  });
+
+  [
+    { key: 'ingress', items: resources.ingress.data },
+    { key: 'gateway', items: resources.gateway.data },
+    { key: 'httproute', items: resources.httproute.data },
+  ].forEach(group => {
+    group.items.forEach(resource => {
+      sensitiveRoutingReasonsTs(resource, group.key, serviceIndex).forEach(reason => {
+        findings.push(finding(resource, `Sensitive admin interface appears exposed: ${reason}`));
+      });
+    });
+  });
+  return findings;
+}
+
+function sshServerContainerFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod => containers(pod).flatMap(container => {
+    const commandLine = [...(container.command || []), ...(container.args || [])].join(' ').toLowerCase();
+    const hasCommand = commandLine.includes('sshd') || commandLine.includes('openssh-server') || commandLine.includes('/usr/sbin/sshd');
+    const hasPort = (container.ports || []).some((port: any) => String(port.containerPort) === '22' || String(port.name || '').toLowerCase().includes('ssh'));
+    return hasCommand || hasPort ? [finding(pod, `Container appears to run or expose SSH: ${container.name || container.image || 'container'}`)] : [];
+  }));
+}
+
+function writableHostPathFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod => {
+    const hostPathVolumes = new Map<string, string>((json(pod)?.spec?.volumes || [])
+      .filter((volume: any) => volume.hostPath?.path && isSensitiveHostPath(String(volume.hostPath.path)))
+      .map((volume: any) => [String(volume.name || ''), String(volume.hostPath.path)]));
+    if (hostPathVolumes.size === 0) {
+      return [];
+    }
+    return containers(pod).flatMap(container => (container.volumeMounts || []).flatMap((mount: any) => {
+      const hostPath = hostPathVolumes.get(String(mount.name || ''));
+      if (!hostPath || mount.readOnly === true) {
+        return [];
+      }
+      return [finding(pod, `Container ${container.name || 'container'} mounts sensitive hostPath volume read-write: ${mount.name} (${hostPath})`)];
+    }));
+  });
+}
+
+function serviceAccountTokenProjectionFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod => (json(pod)?.spec?.volumes || []).flatMap((volume: any) => {
+    if (String(volume?.name || '').startsWith('kube-api-access-')) {
+      return [];
+    }
+    const sources = volume?.projected?.sources || [];
+    return sources.flatMap((source: any) => {
+      const token = source?.serviceAccountToken;
+      if (!token) {
+        return [];
+      }
+      const reasons: string[] = [];
+      const audience = String(token.audience || '').trim();
+      const expiration = Number(token.expirationSeconds || 0);
+      if (!audience) reasons.push('missing audience');
+      if (['api', 'kubernetes', 'https://kubernetes.default.svc'].includes(audience)) reasons.push('broad Kubernetes API audience');
+      if (!expiration) reasons.push('missing expirationSeconds');
+      if (expiration > 3600) reasons.push(`long expirationSeconds=${expiration}`);
+      return reasons.length ? [finding(pod, `Projected ServiceAccount token has weak scoping on volume ${volume.name}: ${reasons.join(', ')}`)] : [];
+    });
+  }));
+}
+
+function duplicateEnvVarFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod => containers(pod).flatMap(container => {
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    (container.env || []).forEach((env: any) => {
+      const envName = String(env.name || '');
+      if (!envName) return;
+      if (seen.has(envName)) duplicates.add(envName);
+      seen.add(envName);
+    });
+    return duplicates.size
+      ? [finding(pod, `Container ${container.name || 'container'} has duplicate environment variable keys: ${Array.from(duplicates).sort().join(', ')}`)]
+      : [];
+  }));
+}
+
+function deprecatedServiceAccountFieldFindings(resources: ResourceStates): Finding[] {
+  const groups = [
+    { items: resources.pod.data, path: (item: any) => json(item)?.spec?.serviceAccount },
+    { items: resources.deployment.data, path: (item: any) => json(item)?.spec?.template?.spec?.serviceAccount },
+    { items: resources.statefulset.data, path: (item: any) => json(item)?.spec?.template?.spec?.serviceAccount },
+    { items: resources.daemonset.data, path: (item: any) => json(item)?.spec?.template?.spec?.serviceAccount },
+    { items: resources.job.data, path: (item: any) => json(item)?.spec?.template?.spec?.serviceAccount },
+    { items: resources.cronjob.data, path: (item: any) => json(item)?.spec?.jobTemplate?.spec?.template?.spec?.serviceAccount },
+  ];
+  return groups.flatMap(group => group.items.flatMap(item => {
+    const value = group.path(item);
+    const spec = workloadTemplate(item)?.spec || json(item)?.spec || {};
+    return value && value !== spec.serviceAccountName ? [finding(item, `Deprecated serviceAccount field is set; use serviceAccountName: ${value}`)] : [];
+  }));
+}
+
+function identicalProbeFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod => containers(pod).flatMap(container => {
+    const readiness = container.readinessProbe;
+    const liveness = container.livenessProbe;
+    if (!readiness || !liveness) {
+      return [];
+    }
+    return JSON.stringify(readiness) === JSON.stringify(liveness)
+      ? [finding(pod, `Container readinessProbe and livenessProbe are identical: ${container.name || 'container'}`)]
+      : [];
+  }));
+}
+
+function ephemeralStorageFindings(resources: ResourceStates): Finding[] {
+  return resources.pod.data.flatMap(pod => containers(pod).flatMap(container => {
+    const missing = [];
+    if (!container.resources?.requests?.['ephemeral-storage']) missing.push('requests.ephemeral-storage');
+    if (!container.resources?.limits?.['ephemeral-storage']) missing.push('limits.ephemeral-storage');
+    return missing.length
+      ? [finding(pod, `Container ${container.name || 'container'} missing ${missing.join(', ')}`)]
+      : [];
+  }));
+}
+
+function statefulSetHeadlessServiceFindings(resources: ResourceStates): Finding[] {
+  return resources.statefulset.data.flatMap(statefulSet => {
+    const serviceName = json(statefulSet)?.spec?.serviceName;
+    if (!serviceName) {
+      return [finding(statefulSet, 'StatefulSet spec.serviceName is missing')];
+    }
+    const service = resources.service.data.find(item => namespace(item) === namespace(statefulSet) && name(item) === serviceName);
+    if (!service) {
+      return [finding(statefulSet, `StatefulSet serviceName does not match a Service: ${serviceName}`)];
+    }
+    return json(service)?.spec?.clusterIP === 'None'
+      ? []
+      : [finding(statefulSet, `StatefulSet serviceName should reference a headless Service with clusterIP None: ${serviceName}`)];
+  });
+}
+
+function hpaTargetMissingFindings(resources: ResourceStates): Finding[] {
+  return resources.horizontalpodautoscaler.data.flatMap(hpa => {
+    const target = json(hpa)?.spec?.scaleTargetRef || {};
+    if (!target.kind || !target.name) {
+      return [finding(hpa, 'HPA scaleTargetRef is incomplete')];
+    }
+    const targetKey = hpaTargetResourceKey(String(target.kind));
+    if (!targetKey) {
+      return [];
+    }
+    return resourceKindNameExists(resources, targetKey, namespace(hpa), String(target.name))
+      ? []
+      : [finding(hpa, `HPA target workload was not found: ${target.kind}/${target.name}`)];
+  });
+}
+
+function pdbUnhealthyPodEvictionPolicyFindings(resources: ResourceStates): Finding[] {
+  return resources.poddisruptionbudget.data.flatMap(pdb => {
+    const policy = json(pdb)?.spec?.unhealthyPodEvictionPolicy;
+    if (!policy) {
+      return [finding(pdb, 'PDB unhealthyPodEvictionPolicy is not explicitly set')];
+    }
+    return policy === 'IfHealthyBudget' && Number(json(pdb)?.status?.disruptionsAllowed || 0) === 0
+      ? [finding(pdb, 'PDB uses IfHealthyBudget while disruptionsAllowed is 0')]
+      : [];
+  });
+}
+
+function hpaTargetResourceKey(kind: string): string {
+  const aliases: Record<string, string> = {
+    deployment: 'deployment',
+    statefulset: 'statefulset',
+  };
+  return aliases[kind.toLowerCase()] || '';
+}
+
+function resourceKindNameExists(resources: ResourceStates, resourceKey: string, resourceNamespace: string | undefined, resourceName: string): boolean {
+  const state = resources[resourceKey];
+  return Boolean(state?.data?.some(item => name(item) === resourceName && namespace(item) === resourceNamespace));
+}
+
+function listIncludesAny(values: unknown, expected: string[]): boolean {
+  return Array.isArray(values) && values.some(value => expected.includes(String(value)));
+}
+
+function servicePubliclyExposedTs(service: any): boolean {
+  const spec = json(service)?.spec || {};
+  return spec.type === 'LoadBalancer' || spec.type === 'NodePort' || (Array.isArray(spec.externalIPs) && spec.externalIPs.length > 0);
+}
+
+function sensitiveAdminNameTs(value: string): boolean {
+  const lower = value.toLowerCase();
+  return [
+    'kubernetes-dashboard',
+    'dashboard',
+    'argo-server',
+    'argocd-server',
+    'prometheus',
+    'grafana',
+    'jenkins',
+    'kubeflow',
+    'nifi',
+    'weave-scope',
+  ].some(keyword => lower.includes(keyword));
+}
+
+function sensitiveRoutingReasonsTs(resource: any, kind: string, serviceIndex: Map<string, any>): string[] {
+  const reasons = new Set<string>();
+  if (sensitiveAdminNameTs(name(resource))) {
+    reasons.add('resource name matches sensitive admin interface');
+  }
+  routingHostsTs(resource, kind).forEach(host => {
+    if (sensitiveAdminNameTs(host)) {
+      reasons.add(`host matches sensitive admin interface: ${host}`);
+    }
+  });
+  routingBackendServicesTs(resource, kind).forEach(serviceName => {
+    const backend = serviceIndex.get(`${namespace(resource)}/${serviceName}`);
+    if (sensitiveAdminNameTs(serviceName) || (backend && sensitiveAdminNameTs(name(backend)))) {
+      reasons.add(`backend service matches sensitive admin interface: ${serviceName}`);
+    }
+  });
+  return Array.from(reasons).sort();
+}
+
+function routingHostsTs(resource: any, kind: string): string[] {
+  const spec = json(resource)?.spec || {};
+  if (kind === 'ingress') {
+    return (spec.rules || []).map((rule: any) => rule.host).filter(Boolean);
+  }
+  if (kind === 'httproute') {
+    return (spec.hostnames || []).filter(Boolean);
+  }
+  if (kind === 'gateway') {
+    return (spec.listeners || []).map((listener: any) => listener.hostname).filter(Boolean);
+  }
+  return [];
+}
+
+function routingBackendServicesTs(resource: any, kind: string): string[] {
+  const services = new Set<string>();
+  const spec = json(resource)?.spec || {};
+  const add = (serviceName?: string) => {
+    if (serviceName) services.add(serviceName);
+  };
+  if (kind === 'ingress') {
+    add(spec.defaultBackend?.service?.name);
+    (spec.rules || []).forEach((rule: any) => (rule.http?.paths || []).forEach((path: any) => add(path.backend?.service?.name)));
+  }
+  if (kind === 'httproute') {
+    (spec.rules || []).forEach((rule: any) => (rule.backendRefs || []).forEach((ref: any) => {
+      if (!ref.kind || ref.kind === 'Service') add(ref.name);
+    }));
+  }
+  return Array.from(services).sort();
+}
+
 function broadSubjectBindingFindings(resources: ResourceStates, config: KubeBuddyConfig): Finding[] {
   return [...resources.rolebinding.data, ...resources.clusterrolebinding.data].flatMap(binding => {
     if (isDefaultKubernetesRBACBinding(binding)) {
@@ -4030,6 +4600,11 @@ const nativeHandlers: Record<string, NativeHandler> = {
       })));
   },
   CFG003: resources => resources.configmap.data.filter(cm => JSON.stringify(json(cm)?.data || {}).length > 1048576).map(cm => finding(cm, 'ConfigMap exceeds 1 MiB')),
+  CFG004: deprecatedApiFindings,
+  CFG005: metricsServerFindings,
+  CFG006: coreDnsPoisoningFindings,
+  CFG007: duplicateEnvVarFindings,
+  CFG008: deprecatedServiceAccountFieldFindings,
   EVENT001: warningEventFindings,
   EVENT002: resources => resources.events.data.filter(event => json(event)?.type === 'Warning').map(event => finding(event, json(event)?.reason || json(event)?.note || 'Warning event')),
   SEC014: (resources, config) => resources.pod.data.flatMap(pod =>
@@ -4125,9 +4700,12 @@ const nativeHandlers: Record<string, NativeHandler> = {
   NET020: resources => [...resources.deployment.data, ...resources.daemonset.data, ...resources.statefulset.data, ...resources.pod.data, ...resources.service.data].filter(item => /ingress-nginx/i.test(JSON.stringify(json(item)))).map(item => finding(item, 'Ingress NGINX detected')),
   NET021: metadataApiEgressFindings,
   NET022: metadataEndpointFindings,
+  NET023: networkPolicySelectorNoMatchFindings,
+  NET024: sensitiveAdminInterfaceFindings,
   NODE001: resources => resources.node.data.filter(item => !nodeReady(item)).map(item => finding(item, 'Ready condition is not True')),
   NODE002: nodePressureFindings,
   NODE003: (resources, config) => resources.node.data.filter(node => Number(json(node)?.status?.capacity?.pods || 0) > 0 && resources.pod.data.filter(pod => json(pod)?.spec?.nodeName === name(node)).length / Number(json(node)?.status?.capacity?.pods || 1) > config.thresholds.podsPerNodeCritical / 100).map(node => finding(node, `Pod capacity above ${config.thresholds.podsPerNodeCritical}%`)),
+  NODE004: nodeUntoleratedTaintFindings,
   NS001: namespaceHygieneFindings,
   NS002: resources => resources.namespace.data.filter(ns => !resources.resourcequota.data.some(quota => namespace(quota) === name(ns))).map(ns => finding(ns, 'No ResourceQuota')),
   NS003: resources => resources.namespace.data.filter(ns => !resources.limitrange.data.some(limit => namespace(limit) === name(ns))).map(ns => finding(ns, 'No LimitRange')),
@@ -4182,6 +4760,7 @@ const nativeHandlers: Record<string, NativeHandler> = {
   RBAC008: crossNamespaceServiceAccountBindingFindings,
   RBAC009: defaultServiceAccountDangerousFindings,
   RBAC010: sensitiveServiceAccountWorkloadFindings,
+  RBAC011: eventTamperingRbacFindings,
   SC002_AKS: resources => resources.storageclass.data.filter(sc => ['kubernetes.io/azure-disk', 'kubernetes.io/azure-file'].includes(json(sc)?.provisioner)).map(sc => finding(sc, 'Azure in-tree provisioner')),
   SC002_EXPANSION: resources => resources.storageclass.data.filter(sc => json(sc)?.allowVolumeExpansion !== true).map(sc => finding(sc, 'Volume expansion disabled')),
   SC003: clusterStoragePressureFindings,
@@ -4220,6 +4799,9 @@ const nativeHandlers: Record<string, NativeHandler> = {
   SEC034: resources => imageFindings(resources, eolImageReason),
   SEC035: resources => imageFindings(resources, image => imageHasDigest(image) ? '' : 'Image is not pinned to a digest'),
   SEC036: dockerInDockerFindings,
+  SEC037: sshServerContainerFindings,
+  SEC038: writableHostPathFindings,
+  SEC040: serviceAccountTokenProjectionFindings,
   WRK001: resources => resources.daemonset.data.filter(daemonSet => (json(daemonSet)?.status?.numberReady || 0) < (json(daemonSet)?.status?.desiredNumberScheduled || 0)).map(daemonSet => finding(daemonSet, `${json(daemonSet)?.status?.numberReady || 0}/${json(daemonSet)?.status?.desiredNumberScheduled || 0} ready`)),
   WRK002: resources => resources.deployment.data.filter(deployment => (json(deployment)?.status?.availableReplicas || 0) < (json(deployment)?.spec?.replicas || 1)).map(deployment => finding(deployment, `${json(deployment)?.status?.availableReplicas || 0}/${json(deployment)?.spec?.replicas || 1} available`)),
   WRK003: resources => resources.statefulset.data.filter(statefulSet => (json(statefulSet)?.status?.readyReplicas || 0) < (json(statefulSet)?.status?.replicas || 1)).map(statefulSet => finding(statefulSet, `${json(statefulSet)?.status?.readyReplicas || 0}/${json(statefulSet)?.status?.replicas || 1} ready`)),
@@ -4268,6 +4850,14 @@ const nativeHandlers: Record<string, NativeHandler> = {
   WRK019: resources => resources.deployment.data.filter(deployment => Number(json(deployment)?.spec?.revisionHistoryLimit) === 0).map(deployment => finding(deployment, 'revisionHistoryLimit is 0')),
   WRK020: workloadDnsOverrideFindings,
   WRK021: missingPriorityClassFindings,
+  WRK022: hpaBurstCapacityFindings,
+  WRK023: multiplePdbFindings,
+  WRK024: impossiblePdbFindings,
+  WRK025: identicalProbeFindings,
+  WRK026: ephemeralStorageFindings,
+  WRK027: statefulSetHeadlessServiceFindings,
+  WRK028: hpaTargetMissingFindings,
+  WRK029: pdbUnhealthyPodEvictionPolicyFindings,
   WRK016: resources => allWorkloads(resources).flatMap(recommendedLabelFindings),
 };
 
@@ -4329,6 +4919,7 @@ function useKubeBuddyChecks(
   const events = useOptionalResourceList<any>(EventResource);
   const gateways = useOptionalResourceList<any>(K8s.ResourceClasses.Gateway);
   const hpas = useResourceList<any>(K8s.ResourceClasses.HorizontalPodAutoscaler.useList());
+  const apiServices = useResourceList<any>(APIServiceResource.useList());
   const httpRoutes = useOptionalResourceList<any>(K8s.ResourceClasses.HTTPRoute);
   const ingresses = useResourceList<any>(K8s.ResourceClasses.Ingress.useList());
   const jobs = useResourceList<any>(K8s.ResourceClasses.Job.useList());
@@ -4367,6 +4958,7 @@ function useKubeBuddyChecks(
   const filteredEvents = filterResourceState(events, excludedNamespaceSet);
   const filteredGateways = filterResourceState(gateways, excludedNamespaceSet);
   const filteredHpas = filterResourceState(hpas, excludedNamespaceSet);
+  const filteredApiServices = filterResourceState(apiServices, excludedNamespaceSet);
   const filteredHttpRoutes = filterResourceState(httpRoutes, excludedNamespaceSet);
   const filteredIngresses = filterResourceState(ingresses, excludedNamespaceSet);
   const filteredJobs = filterResourceState(jobs, excludedNamespaceSet);
@@ -4404,6 +4996,7 @@ function useKubeBuddyChecks(
     events: filteredEvents,
     gateway: filteredGateways,
     horizontalpodautoscaler: filteredHpas,
+    apiservice: filteredApiServices,
     httproute: filteredHttpRoutes,
     ingress: filteredIngresses,
     jobs: filteredJobs,
@@ -4452,6 +5045,7 @@ function useKubeBuddyChecks(
     { ...events, label: 'Events' },
     { ...gateways, label: 'Gateways' },
     { ...hpas, label: 'HorizontalPodAutoscalers' },
+    { ...apiServices, label: 'APIServices' },
     { ...httpRoutes, label: 'HTTPRoutes' },
     { ...ingresses, label: 'Ingresses' },
     { ...jobs, label: 'Jobs' },

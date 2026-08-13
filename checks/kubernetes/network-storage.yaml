@@ -633,3 +633,39 @@ checks:
   speech_bubble:
   - Endpoints targeting metadata IPs can redirect workload traffic to cloud credential services.
   - Remove the endpoint and review service ownership.
+- id: NET023
+  name: NetworkPolicy Selector Matches Nothing
+  category: Networking
+  section: Networking
+  resource_kind: NetworkPolicy
+  severity: Warning
+  weight: 2
+  description: Detects NetworkPolicies whose podSelector, namespaceSelector, or peer podSelector currently matches no resources.
+  fail_message: NetworkPolicy selector matches no current pods or namespaces.
+  recommendation: "Review stale or incorrect NetworkPolicy selectors so intended traffic controls are actually applied."
+  url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  native_handler: NET023
+  value:
+    path: spec
+  operator: exists
+  speech_bubble:
+  - Stale NetworkPolicy selectors can leave intended controls ineffective.
+  - Review labels and selectors so policies match the expected pods and namespaces.
+- id: NET024
+  name: Sensitive Admin Interface Exposed
+  category: Networking
+  section: Networking
+  resource_kind: Service, Ingress, Gateway, HTTPRoute
+  severity: High
+  weight: 4
+  description: Detects public Services and routing resources that appear to expose sensitive admin interfaces such as dashboards, CI systems, observability consoles, or platform control planes.
+  fail_message: Sensitive admin interface appears publicly exposed.
+  recommendation: "Restrict sensitive admin interfaces with private networking, authentication, source allow lists, or an internal-only Service/Gateway. Avoid exposing dashboards and control planes directly to the internet."
+  url: https://kubernetes.io/docs/concepts/services-networking/service/
+  native_handler: NET024
+  value:
+    path: metadata.name
+  operator: exists
+  speech_bubble:
+  - Admin interfaces should not be directly exposed through public routing.
+  - Keep dashboards and control planes private or strongly authenticated.
