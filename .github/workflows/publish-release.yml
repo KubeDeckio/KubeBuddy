@@ -91,6 +91,10 @@ jobs:
         working-directory: headlamp-plugin
         run: npm run build
 
+      - name: Clean existing Headlamp plugin package
+        working-directory: headlamp-plugin
+        run: rm -f kubebuddy-headlamp-plugin-*.tar.gz
+
       - name: Package Headlamp plugin
         working-directory: headlamp-plugin
         run: npm run package

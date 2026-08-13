@@ -6,3 +6,4 @@ site/
 # Headlamp plugin build/dependency output
 headlamp-plugin/node_modules/
 headlamp-plugin/dist/
+headlamp-plugin/*.tar.gz
