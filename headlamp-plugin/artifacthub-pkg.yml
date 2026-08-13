@@ -66,7 +66,7 @@ provider:
   name: KubeDeck
 annotations:
   headlamp/plugin/archive-url: "https://github.com/KubeDeckio/KubeBuddy/releases/download/v0.0.36/kubebuddy-headlamp-plugin-0.5.0.tar.gz"
-  headlamp/plugin/archive-checksum: "SHA256:70c9d684b34bdbd2189fe16cee3fab0fb2315acabaeccd44f28cd8f97e97cc75"
+  headlamp/plugin/archive-checksum: "SHA256:c758271682bea44046842257f9fa90d32a4d97cfc4d5e8d5c3b8d2e1c5a1a566"
   headlamp/plugin/version-compat: ">=0.22"
   headlamp/plugin/distro-compat: "in-cluster,web,docker-desktop,desktop"
   kubebuddy.io/checks-version: "v0.0.36"
