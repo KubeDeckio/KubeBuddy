@@ -109,6 +109,26 @@ jobs:
           checksum="$(sha256sum "$tarball" | awk '{print $1}')"
           node scripts/prepare-headlamp-plugin-release.mjs "${TAG}" "--plugin-version=${plugin_version}" "--checksum=${checksum}"
 
+      - name: Verify Headlamp plugin Artifact Hub checksum
+        shell: bash
+        run: |
+          plugin_version="$(node -p "require('./headlamp-plugin/package.json').version")"
+          tarball="headlamp-plugin/kubebuddy-headlamp-plugin-${plugin_version}.tar.gz"
+          actual_checksum="$(sha256sum "$tarball" | awk '{print $1}')"
+          metadata_checksum="$(grep 'headlamp/plugin/archive-checksum:' headlamp-plugin/artifacthub-pkg.yml | sed -E 's/.*SHA256:([a-fA-F0-9]+).*/\1/' | tr '[:upper:]' '[:lower:]')"
+
+          if [ -z "$metadata_checksum" ]; then
+            echo "Unable to read headlamp/plugin/archive-checksum from Artifact Hub metadata." >&2
+            exit 1
+          fi
+
+          if [ "$actual_checksum" != "$metadata_checksum" ]; then
+            echo "Headlamp plugin checksum mismatch." >&2
+            echo "Tarball:  ${actual_checksum}" >&2
+            echo "Metadata: ${metadata_checksum}" >&2
+            exit 1
+          fi
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
