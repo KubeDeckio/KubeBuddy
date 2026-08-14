@@ -40,7 +40,7 @@ pluginsManager:
     plugins:
       - name: kubebuddy-headlamp-plugin
         source: https://artifacthub.io/packages/headlamp/kubebuddy/kubebuddy-headlamp-plugin
-        version: 0.1.0
+        version: 0.5.0
     installOptions:
       parallel: true
       maxConcurrent: 2

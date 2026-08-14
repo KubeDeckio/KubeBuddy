@@ -70,6 +70,7 @@ fs.writeFileSync(path.join(root, 'headlamp-plugin', 'artifacthub-pkg.yml'), arti
 let readme = fs.readFileSync(path.join(root, 'headlamp-plugin', 'README.md'), 'utf8');
 readme = readme
   .replace(/Plugin version: \d+\.\d+\.\d+/g, `Plugin version: ${pluginVersion}`)
+  .replace(/version: \d+\.\d+\.\d+/g, `version: ${pluginVersion}`)
   .replace(/Includes KubeBuddy checks from v\d+\.\d+\.\d+/g, `Includes KubeBuddy checks from ${kubebuddyVersion}`)
   .replace(/kubebuddy-headlamp-plugin-\d+\.\d+\.\d+\.tar\.gz/g, `kubebuddy-headlamp-plugin-${pluginVersion}.tar.gz`);
 fs.writeFileSync(path.join(root, 'headlamp-plugin', 'README.md'), readme);
