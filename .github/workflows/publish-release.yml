@@ -139,7 +139,6 @@ jobs:
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
           chmod +x ./scripts/build-release-artifacts.sh
-          chmod +x ./scripts/render-homebrew-formula.sh
           ./scripts/build-release-artifacts.sh "${TAG}"
 
       - name: Prepare GitHub release notes
@@ -212,18 +211,14 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-
-      - name: Build release artifacts
+      - name: Download published checksums
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.build-and-release.outputs.tag }}
         run: |
-          chmod +x ./scripts/build-release-artifacts.sh
           chmod +x ./scripts/render-homebrew-formula.sh
-          ./scripts/build-release-artifacts.sh "${TAG}"
+          mkdir -p dist
+          gh release download "${TAG}" --repo "${{ github.repository }}" --pattern checksums.txt --dir dist --clobber
 
       - name: Checkout homebrew tap
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -236,7 +231,7 @@ jobs:
         env:
           TAG: ${{ needs.build-and-release.outputs.tag }}
         run: |
-          ./scripts/render-homebrew-formula.sh "${TAG}" homebrew-kubebuddy/Formula/kubebuddy.rb
+          ./scripts/render-homebrew-formula.sh "${TAG}" dist/checksums.txt homebrew-kubebuddy/Formula/kubebuddy.rb
 
           cat > homebrew-kubebuddy/README.md <<'EOF'
           # Homebrew Tap for KubeBuddy

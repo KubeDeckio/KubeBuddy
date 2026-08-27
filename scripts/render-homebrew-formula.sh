@@ -1,21 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAG="${1:-}"
-OUT_FILE="${2:-}"
+CHECKSUMS_FILE="${2:-}"
+OUT_FILE="${3:-}"
 
-if [[ -z "${TAG}" || -z "${OUT_FILE}" ]]; then
-  echo "usage: $0 <version-tag> <output-file>" >&2
+if [[ -z "${TAG}" || -z "${CHECKSUMS_FILE}" || -z "${OUT_FILE}" ]]; then
+  echo "usage: $0 <version-tag> <checksums-file> <output-file>" >&2
   exit 1
 fi
 
 VERSION="${TAG#v}"
 
+# Read checksums from the published release's checksums.txt so the formula
+# always matches the actual uploaded assets instead of a freshly rebuilt
+# (and non-reproducible) tarball.
 sha_for() {
   local target="$1"
-  local file="${ROOT_DIR}/dist/kubebuddy_${VERSION}_${target}.tar.gz"
-  shasum -a 256 "$file" | awk '{print $1}'
+  local name="kubebuddy_${VERSION}_${target}.tar.gz"
+  local sha
+  sha="$(grep -E "  \./?${name}\$" "${CHECKSUMS_FILE}" | awk '{print $1}')"
+  if [[ -z "${sha}" ]]; then
+    echo "Unable to find checksum for ${name} in ${CHECKSUMS_FILE}" >&2
+    exit 1
+  fi
+  echo "${sha}"
 }
 
 DARWIN_AMD64_SHA="$(sha_for darwin_amd64)"
