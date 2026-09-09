@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+* Resolved Dependabot dependency updates and alerts across the Go CLI and Headlamp plugin:
+  * Bumped `github.com/Azure/azure-sdk-for-go/sdk/azcore` from `1.22.0` to `1.23.1`.
+  * Bumped `github.com/Azure/azure-sdk-for-go/sdk/azidentity` from `1.14.0` to `1.14.1`.
+  * Bumped `google.golang.org/protobuf` from `1.36.12-0.20260120151049-f2248ac996af` to `1.36.12`.
+  * Bumped `google.golang.org/grpc` from `1.82.1` to `1.83.2`.
+  * Bumped `k8s.io/apimachinery`, `k8s.io/client-go`, and transitive `k8s.io/api` from `0.36.3` to `0.37.0`.
+  * Updated Headlamp plugin npm overrides and lockfile entries for `js-yaml`, `fast-uri`, `browserslist`, `baseline-browser-mapping`, `qs`, `vitest`, and `@vitest/mocker`.
+* Left the remaining low-severity `elliptic` npm alert unresolved because npm's available fix requires a breaking `@kinvolk/headlamp-plugin` dependency change.
+
 ## [0.0.36] - 2026-08-13
 
 ### Added
