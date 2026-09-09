@@ -5,7 +5,7 @@ displayName: KubeBuddy
 createdAt: "2026-06-23T00:00:00Z"
 description: >
   KubeBuddy checks for Headlamp. This plugin evaluates Kubernetes resources
-  visible to Headlamp and includes KubeBuddy checks from v0.0.36.
+  visible to Headlamp and includes KubeBuddy checks from v0.0.37.
 logoURL: https://raw.githubusercontent.com/KubeDeckio/KubeBuddy/main/images/KubeBuddy.png
 homeURL: https://kubebuddy.io
 keywords:
@@ -65,8 +65,8 @@ maintainers:
 provider:
   name: KubeDeck
 annotations:
-  headlamp/plugin/archive-url: "https://github.com/KubeDeckio/KubeBuddy/releases/download/headlamp-plugin-v0.5.1/kubebuddy-headlamp-plugin-0.5.1.tar.gz"
-  headlamp/plugin/archive-checksum: "SHA256:05c79b920386c46f2501e04ca53d51cc2fed293f13d1f83a4e27d8fd8615b95e"
+  headlamp/plugin/archive-url: "https://github.com/KubeDeckio/KubeBuddy/releases/download/v0.0.37/kubebuddy-headlamp-plugin-0.5.1.tar.gz"
+  headlamp/plugin/archive-checksum: "SHA256:dd710b213e787cdb8dd028cd3df4d8c13ff4dd76ce0981cf3c72727328c8d680"
   headlamp/plugin/version-compat: ">=0.22"
   headlamp/plugin/distro-compat: "in-cluster,web,docker-desktop,desktop"
-  kubebuddy.io/checks-version: "v0.0.36"
+  kubebuddy.io/checks-version: "v0.0.37"
