@@ -1,4 +1,4 @@
-version: 0.5.1
+version: 0.5.2
 name: kubebuddy-headlamp-plugin
 category: security
 displayName: KubeBuddy
@@ -45,7 +45,7 @@ install: |
       plugins:
         - name: kubebuddy-headlamp-plugin
           source: https://artifacthub.io/packages/headlamp/kubebuddy/kubebuddy-headlamp-plugin
-          version: 0.5.1
+          version: 0.5.2
       installOptions:
         parallel: true
         maxConcurrent: 2
@@ -65,8 +65,8 @@ maintainers:
 provider:
   name: KubeDeck
 annotations:
-  headlamp/plugin/archive-url: "https://github.com/KubeDeckio/KubeBuddy/releases/download/v0.0.37/kubebuddy-headlamp-plugin-0.5.1.tar.gz"
-  headlamp/plugin/archive-checksum: "SHA256:dd710b213e787cdb8dd028cd3df4d8c13ff4dd76ce0981cf3c72727328c8d680"
+  headlamp/plugin/archive-url: "https://github.com/KubeDeckio/KubeBuddy/releases/download/headlamp-plugin-v0.5.2/kubebuddy-headlamp-plugin-0.5.2.tar.gz"
+  headlamp/plugin/archive-checksum: "SHA256:b4020e5bddb2a6c03646f352b13f310b66403fb6e05eb930e624a2b5dafda3d2"
   headlamp/plugin/version-compat: ">=0.22"
   headlamp/plugin/distro-compat: "in-cluster,web,docker-desktop,desktop"
   kubebuddy.io/checks-version: "v0.0.37"

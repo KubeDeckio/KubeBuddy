@@ -5,11 +5,12 @@ import { fileURLToPath } from 'node:url';
 const kubebuddyVersionInput = process.argv[2];
 const pluginVersionArg = process.argv.find(arg => arg.startsWith('--plugin-version='));
 const checksumArg = process.argv.find(arg => arg.startsWith('--checksum='));
+const archiveTagArg = process.argv.find(arg => arg.startsWith('--archive-tag='));
 const shouldBumpPluginPatch = process.argv.includes('--bump-plugin-patch');
 
 if (!kubebuddyVersionInput) {
   throw new Error(
-    'Usage: node scripts/prepare-headlamp-plugin-release.mjs <kubebuddy-version> [--plugin-version=<x.y.z> | --bump-plugin-patch] [--checksum=<sha256>]'
+    'Usage: node scripts/prepare-headlamp-plugin-release.mjs <kubebuddy-version> [--plugin-version=<x.y.z> | --bump-plugin-patch] [--archive-tag=<tag>] [--checksum=<sha256>]'
   );
 }
 
@@ -26,6 +27,11 @@ const packageJsonPath = path.join(root, 'headlamp-plugin', 'package.json');
 const packageLockPath = path.join(root, 'headlamp-plugin', 'package-lock.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const checksum = checksumArg?.replace('--checksum=', '');
+const archiveTag = archiveTagArg?.replace('--archive-tag=', '') || kubebuddyVersion;
+
+if (!/^[A-Za-z0-9._-]+$/.test(archiveTag)) {
+  throw new Error(`Archive tag contains unsupported characters. Got: ${archiveTag}`);
+}
 
 if (pluginVersionArg && shouldBumpPluginPatch) {
   throw new Error('Use either --plugin-version or --bump-plugin-patch, not both.');
@@ -61,7 +67,7 @@ if (packageLock.packages?.['']) {
 }
 writeJson('headlamp-plugin/package-lock.json', packageLock);
 
-const archiveUrl = `https://github.com/KubeDeckio/KubeBuddy/releases/download/${kubebuddyVersion}/kubebuddy-headlamp-plugin-${pluginVersion}.tar.gz`;
+const archiveUrl = `https://github.com/KubeDeckio/KubeBuddy/releases/download/${archiveTag}/kubebuddy-headlamp-plugin-${pluginVersion}.tar.gz`;
 let artifactHub = fs.readFileSync(path.join(root, 'headlamp-plugin', 'artifacthub-pkg.yml'), 'utf8');
 
 artifactHub = artifactHub

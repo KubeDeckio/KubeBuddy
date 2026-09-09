@@ -2,7 +2,7 @@
 
 Run KubeBuddy Kubernetes checks from inside Headlamp for the active cluster.
 
-Plugin version: 0.5.1
+Plugin version: 0.5.2
 Includes KubeBuddy checks from v0.0.37.
 
 The plugin uses Kubernetes resource data already available to Headlamp and evaluates browser-safe KubeBuddy checks in the current Headlamp page. It shows a summary score, failed checks, recommendations, affected resources, and export options without installing anything into the cluster.
@@ -40,7 +40,7 @@ pluginsManager:
     plugins:
       - name: kubebuddy-headlamp-plugin
         source: https://artifacthub.io/packages/headlamp/kubebuddy/kubebuddy-headlamp-plugin
-        version: 0.5.1
+        version: 0.5.2
     installOptions:
       parallel: true
       maxConcurrent: 2
@@ -124,7 +124,7 @@ Example:
 
 ```text
 KubeBuddy release: v0.0.36
-Headlamp plugin version: 0.5.1
+Headlamp plugin version: 0.5.2
 Includes KubeBuddy checks from v0.0.37
 ```
 

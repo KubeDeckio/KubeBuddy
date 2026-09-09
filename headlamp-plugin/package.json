@@ -1,6 +1,6 @@
 {
   "name": "kubebuddy-headlamp-plugin",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "KubeBuddy Kubernetes checks for Headlamp",
   "author": {
     "name": "KubeDeck",
