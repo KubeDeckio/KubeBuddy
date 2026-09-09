@@ -24,17 +24,19 @@ Each tagged release should publish:
 
 The PowerShell Gallery package remains a wrapper surface, but it now bundles the native binaries for supported platforms so `Invoke-KubeBuddy` works immediately after install.
 
-The Headlamp plugin has its own package version, starting at `0.1.0`, but it is released with the main KubeBuddy tag because the plugin check catalog is generated from `checks/kubernetes/*`. Artifact Hub metadata should state both the plugin version and the KubeBuddy checks version included in the package.
+The Headlamp plugin has its own package version, starting at `0.1.0`. Normal KubeBuddy tag releases auto-increment the plugin patch version and attach the plugin package to the main KubeBuddy release. Out-of-band plugin-only releases are published with tags like `headlamp-plugin-v0.5.2`. Artifact Hub metadata should state both the plugin version and the KubeBuddy checks version included in the package.
 
 ## Headlamp Plugin Versioning
 
-The Headlamp plugin version is read from `headlamp-plugin/package.json`. It does not auto-increment on every KubeBuddy tag because the plugin follows its own semantic version:
+The Headlamp plugin version is read from `headlamp-plugin/package.json`. KubeBuddy tag releases auto-increment the plugin patch version by default. If you manually dispatch the full release workflow, you can provide `headlamp_plugin_version` as an input.
+
+Use plugin semver like this:
 
 - patch version for plugin fixes or check-catalog-only updates
 - minor version for plugin UI/features
 - major version later for breaking plugin behavior
 
-Before tagging a KubeBuddy release, bump the plugin version only when the plugin package should publish a new version. The release helper updates `package.json`, `package-lock.json`, the plugin README, and Artifact Hub metadata together:
+The release helper updates `package.json`, `package-lock.json`, the plugin README, and Artifact Hub metadata together:
 
 ```bash
 node scripts/prepare-headlamp-plugin-release.mjs v0.0.32 --plugin-version=0.1.1
@@ -46,9 +48,18 @@ For the first Headlamp plugin release:
 node scripts/prepare-headlamp-plugin-release.mjs v0.0.31 --plugin-version=0.1.0
 ```
 
-When the GitHub release workflow runs, it packages the plugin version from `headlamp-plugin/package.json`, calculates the final tarball checksum, updates `artifacthub-pkg.yml`, and commits that release metadata back to `main`.
+When the full GitHub release workflow runs from a tag, it bumps the plugin patch version, packages the plugin, calculates the final tarball checksum, updates `artifacthub-pkg.yml`, and commits that release metadata back to `main`.
 
-If you manually dispatch the release workflow, you can also provide `headlamp_plugin_version` as an input. Tag-based releases should have the desired plugin version committed before the tag is created.
+## Out-of-Band Headlamp Plugin Release
+
+Use the `Publish Headlamp Plugin` workflow when the Headlamp plugin needs a new version but the native KubeBuddy CLI does not.
+
+Required inputs:
+
+- `kubebuddy_checks_version`: the KubeBuddy checks version included in the plugin, for example `v0.0.37`
+- `plugin_version`: the Headlamp plugin version to publish, for example `0.5.3`
+
+The workflow publishes a GitHub release tag named `headlamp-plugin-v<plugin_version>` with only the Headlamp plugin tarball, then commits the updated plugin metadata back to `main`.
 
 ## Build Artifacts Locally
 

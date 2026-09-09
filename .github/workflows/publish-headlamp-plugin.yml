@@ -1,0 +1,156 @@
+name: Publish Headlamp Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      kubebuddy_checks_version:
+        description: KubeBuddy checks version included in the plugin, for example v0.0.37
+        required: true
+        type: string
+      plugin_version:
+        description: Headlamp plugin version to publish, for example 0.5.3
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolve release metadata
+        id: meta
+        env:
+          KUBEBUDDY_CHECKS_VERSION: ${{ github.event.inputs.kubebuddy_checks_version }}
+          PLUGIN_VERSION: ${{ github.event.inputs.plugin_version }}
+        run: |
+          set -euo pipefail
+
+          case "$KUBEBUDDY_CHECKS_VERSION" in
+            v*) ;;
+            *) KUBEBUDDY_CHECKS_VERSION="v${KUBEBUDDY_CHECKS_VERSION}" ;;
+          esac
+
+          if ! [[ "$KUBEBUDDY_CHECKS_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "kubebuddy_checks_version must use vX.Y.Z format. Got: $KUBEBUDDY_CHECKS_VERSION" >&2
+            exit 1
+          fi
+
+          if ! [[ "$PLUGIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "plugin_version must use X.Y.Z format. Got: $PLUGIN_VERSION" >&2
+            exit 1
+          fi
+
+          archive_tag="headlamp-plugin-v${PLUGIN_VERSION}"
+          echo "kubebuddy_checks_version=$KUBEBUDDY_CHECKS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "plugin_version=$PLUGIN_VERSION" >> "$GITHUB_OUTPUT"
+          echo "archive_tag=$archive_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: headlamp-plugin/package-lock.json
+
+      - name: Prepare Headlamp plugin metadata
+        run: |
+          node scripts/prepare-headlamp-plugin-release.mjs \
+            "${{ steps.meta.outputs.kubebuddy_checks_version }}" \
+            "--plugin-version=${{ steps.meta.outputs.plugin_version }}" \
+            "--archive-tag=${{ steps.meta.outputs.archive_tag }}"
+
+      - name: Install Headlamp plugin dependencies
+        working-directory: headlamp-plugin
+        run: npm ci
+
+      - name: Lint Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run lint
+
+      - name: Typecheck Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run tsc
+
+      - name: Build Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run build
+
+      - name: Clean existing Headlamp plugin package
+        working-directory: headlamp-plugin
+        run: rm -f kubebuddy-headlamp-plugin-*.tar.gz
+
+      - name: Package Headlamp plugin
+        working-directory: headlamp-plugin
+        run: npm run package
+
+      - name: Update Headlamp plugin Artifact Hub checksum
+        run: |
+          set -euo pipefail
+          plugin_version="${{ steps.meta.outputs.plugin_version }}"
+          tarball="headlamp-plugin/kubebuddy-headlamp-plugin-${plugin_version}.tar.gz"
+          checksum="$(sha256sum "$tarball" | awk '{print $1}')"
+          node scripts/prepare-headlamp-plugin-release.mjs \
+            "${{ steps.meta.outputs.kubebuddy_checks_version }}" \
+            "--plugin-version=${plugin_version}" \
+            "--archive-tag=${{ steps.meta.outputs.archive_tag }}" \
+            "--checksum=${checksum}"
+          echo "checksum=${checksum}" >> "$GITHUB_ENV"
+
+      - name: Verify Headlamp plugin Artifact Hub checksum
+        run: |
+          set -euo pipefail
+          plugin_version="${{ steps.meta.outputs.plugin_version }}"
+          tarball="headlamp-plugin/kubebuddy-headlamp-plugin-${plugin_version}.tar.gz"
+          actual_checksum="$(sha256sum "$tarball" | awk '{print $1}')"
+          metadata_checksum="$(grep 'headlamp/plugin/archive-checksum:' headlamp-plugin/artifacthub-pkg.yml | sed -E 's/.*SHA256:([a-fA-F0-9]+).*/\1/' | tr '[:upper:]' '[:lower:]')"
+
+          if [ -z "$metadata_checksum" ]; then
+            echo "Unable to read headlamp/plugin/archive-checksum from Artifact Hub metadata." >&2
+            exit 1
+          fi
+
+          if [ "$actual_checksum" != "$metadata_checksum" ]; then
+            echo "Headlamp plugin checksum mismatch." >&2
+            echo "Tarball:  ${actual_checksum}" >&2
+            echo "Metadata: ${metadata_checksum}" >&2
+            exit 1
+          fi
+
+      - name: Commit Headlamp plugin release metadata
+        id: commit_metadata
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add headlamp-plugin/package.json \
+            headlamp-plugin/package-lock.json \
+            headlamp-plugin/artifacthub-pkg.yml \
+            headlamp-plugin/README.md
+
+          if git diff --cached --quiet; then
+            echo "No Headlamp plugin release metadata changes to commit"
+          else
+            git commit -m "plugin: Prepare Headlamp plugin ${{ steps.meta.outputs.plugin_version }}"
+            git push origin HEAD:main
+          fi
+
+          echo "target_commitish=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create Headlamp plugin release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ steps.meta.outputs.archive_tag }}
+          name: KubeBuddy Headlamp Plugin ${{ steps.meta.outputs.plugin_version }}
+          target_commitish: ${{ steps.commit_metadata.outputs.target_commitish }}
+          body: |
+            Headlamp plugin-only release for KubeBuddy checks from ${{ steps.meta.outputs.kubebuddy_checks_version }}.
+
+            Asset: kubebuddy-headlamp-plugin-${{ steps.meta.outputs.plugin_version }}.tar.gz
+            SHA256: ${{ env.checksum }}
+          files: headlamp-plugin/kubebuddy-headlamp-plugin-${{ steps.meta.outputs.plugin_version }}.tar.gz
