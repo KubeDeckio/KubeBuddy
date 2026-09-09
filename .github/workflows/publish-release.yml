@@ -68,10 +68,13 @@ jobs:
         env:
           TAG: ${{ steps.meta.outputs.tag }}
           HEADLAMP_PLUGIN_VERSION: ${{ github.event.inputs.headlamp_plugin_version }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           args=("${TAG}")
           if [ -n "${HEADLAMP_PLUGIN_VERSION}" ]; then
             args+=("--plugin-version=${HEADLAMP_PLUGIN_VERSION}")
+          elif [ "${EVENT_NAME}" = "push" ]; then
+            args+=("--bump-plugin-patch")
           fi
           node scripts/prepare-headlamp-plugin-release.mjs "${args[@]}"
 

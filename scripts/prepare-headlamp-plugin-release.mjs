@@ -5,10 +5,11 @@ import { fileURLToPath } from 'node:url';
 const kubebuddyVersionInput = process.argv[2];
 const pluginVersionArg = process.argv.find(arg => arg.startsWith('--plugin-version='));
 const checksumArg = process.argv.find(arg => arg.startsWith('--checksum='));
+const shouldBumpPluginPatch = process.argv.includes('--bump-plugin-patch');
 
 if (!kubebuddyVersionInput) {
   throw new Error(
-    'Usage: node scripts/prepare-headlamp-plugin-release.mjs <kubebuddy-version> [--plugin-version=<x.y.z>] [--checksum=<sha256>]'
+    'Usage: node scripts/prepare-headlamp-plugin-release.mjs <kubebuddy-version> [--plugin-version=<x.y.z> | --bump-plugin-patch] [--checksum=<sha256>]'
   );
 }
 
@@ -24,8 +25,23 @@ if (!/^v\d+\.\d+\.\d+$/.test(kubebuddyVersion)) {
 const packageJsonPath = path.join(root, 'headlamp-plugin', 'package.json');
 const packageLockPath = path.join(root, 'headlamp-plugin', 'package-lock.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const pluginVersion = pluginVersionArg?.replace('--plugin-version=', '') || packageJson.version;
 const checksum = checksumArg?.replace('--checksum=', '');
+
+if (pluginVersionArg && shouldBumpPluginPatch) {
+  throw new Error('Use either --plugin-version or --bump-plugin-patch, not both.');
+}
+
+function bumpPatchVersion(version) {
+  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    throw new Error(`Plugin version must use X.Y.Z format. Got: ${version}`);
+  }
+
+  const [major, minor, patch] = version.split('.').map(Number);
+  return `${major}.${minor}.${patch + 1}`;
+}
+
+const pluginVersion = pluginVersionArg?.replace('--plugin-version=', '') ||
+  (shouldBumpPluginPatch ? bumpPatchVersion(packageJson.version) : packageJson.version);
 
 if (!/^\d+\.\d+\.\d+$/.test(pluginVersion)) {
   throw new Error(`Plugin version must use X.Y.Z format. Got: ${pluginVersion}`);
