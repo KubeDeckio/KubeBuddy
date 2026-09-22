@@ -1840,6 +1840,19 @@ func runPV001(check checks.Check, item map[string]any, cache map[string][]map[st
 }
 
 func runPVC001(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	if status, lastTransitionTime, ok := pvcUnusedCondition(item); ok {
+		if !strings.EqualFold(status, "True") {
+			return nil, nil
+		}
+		message := "PVC is not used by any non-terminal pod"
+		value := stringifyLookup(item, "spec.resources.requests.storage")
+		if strings.TrimSpace(lastTransitionTime) != "" {
+			message += "; unused since " + lastTransitionTime
+			value = appendDetail(value, "Unused since: "+lastTransitionTime)
+		}
+		return []Finding{{Namespace: namespaceOf(item), Resource: "pvc/" + stringifyLookup(item, "metadata.name"), Value: value, Message: message}}, nil
+	}
+
 	pods, err := getCachedItems(cache, "pods")
 	if err != nil {
 		return nil, err
@@ -1850,13 +1863,34 @@ func runPVC001(check checks.Check, item map[string]any, cache map[string][]map[s
 		if namespaceOf(pod) != ns {
 			continue
 		}
+		phase := stringifyLookup(pod, "status.phase")
+		if phase == "Succeeded" || phase == "Failed" {
+			continue
+		}
 		for _, volume := range asSlice(mustResolve(pod, "spec.volumes")) {
 			if stringifyLookup(volume, "persistentVolumeClaim.claimName") == name {
 				return nil, nil
 			}
 		}
 	}
-	return []Finding{{Namespace: ns, Resource: "pvc/" + name, Value: stringifyLookup(item, "spec.resources.requests.storage"), Message: "PVC is not used by any running pod"}}, nil
+	return []Finding{{Namespace: ns, Resource: "pvc/" + name, Value: stringifyLookup(item, "spec.resources.requests.storage"), Message: "PVC is not used by any non-terminal pod"}}, nil
+}
+
+func pvcUnusedCondition(item map[string]any) (string, string, bool) {
+	for _, condition := range asSlice(mustResolve(item, "status.conditions")) {
+		if !strings.EqualFold(stringifyLookup(condition, "type"), "Unused") {
+			continue
+		}
+		return stringifyLookup(condition, "status"), stringifyLookup(condition, "lastTransitionTime"), true
+	}
+	return "", "", false
+}
+
+func appendDetail(value string, detail string) string {
+	if strings.TrimSpace(value) == "" {
+		return detail
+	}
+	return value + ", " + detail
 }
 
 func runPVC003(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {

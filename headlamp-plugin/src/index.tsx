@@ -2100,6 +2100,33 @@ function finding(resource: any, details: string, message?: string, options: Find
   };
 }
 
+function pvcUnusedCondition(pvc: any): { status: string; lastTransitionTime?: string } | undefined {
+  return (json(pvc)?.status?.conditions || [])
+    .find((condition: any) => String(condition?.type).toLowerCase() === 'unused');
+}
+
+function nonTerminalPodUsesPVC(pod: any, pvc: any): boolean {
+  const phase = String(json(pod)?.status?.phase || '');
+  if (phase === 'Succeeded' || phase === 'Failed') {
+    return false;
+  }
+
+  return namespace(pod) === namespace(pvc) && (json(pod)?.spec?.volumes || [])
+    .some((volume: any) => volume.persistentVolumeClaim?.claimName === name(pvc));
+}
+
+function pvcUnusedFinding(pvc: any): Finding {
+  const condition = pvcUnusedCondition(pvc);
+  const unusedSince = condition?.lastTransitionTime ? `; unused since ${condition.lastTransitionTime}` : '';
+
+  return finding(
+    pvc,
+    `PVC not used by any non-terminal pod${unusedSince}`,
+    `PVC not used by any non-terminal pod${unusedSince}`,
+    condition?.lastTransitionTime ? { yamlPath: 'status.conditions' } : {}
+  );
+}
+
 function restartCount(pod: any): number {
   return (json(pod)?.status?.containerStatuses || []).reduce(
     (total: number, status: any) => total + (status.restartCount || 0),
@@ -4721,7 +4748,13 @@ const nativeHandlers: Record<string, NativeHandler> = {
   POD012: resources => resources.pod.data.filter(pod => Number(json(pod)?.spec?.terminationGracePeriodSeconds) === 0).map(pod => finding(pod, 'terminationGracePeriodSeconds is 0')),
   POD013: bidirectionalMountPropagationFindings,
   PV001: resources => resources.persistentvolume.data.filter(pv => json(pv)?.status?.phase !== 'Bound' && !resources.persistentvolumeclaim.data.some(pvc => json(pvc)?.spec?.volumeName === name(pv))).map(pv => finding(pv, 'PV is not bound to any PVC')),
-  PVC001: resources => resources.persistentvolumeclaim.data.filter(pvc => !resources.pod.data.some(pod => namespace(pod) === namespace(pvc) && (json(pod)?.spec?.volumes || []).some((volume: any) => volume.persistentVolumeClaim?.claimName === name(pvc)))).map(pvc => finding(pvc, 'PVC not used by any pod')),
+  PVC001: resources => resources.persistentvolumeclaim.data.filter(pvc => {
+    const condition = pvcUnusedCondition(pvc);
+    if (condition) {
+      return String(condition.status).toLowerCase() === 'true';
+    }
+    return !resources.pod.data.some(pod => nonTerminalPodUsesPVC(pod, pvc));
+  }).map(pvcUnusedFinding),
   PVC003: resources => resources.persistentvolumeclaim.data.filter(pvc => (json(pvc)?.spec?.accessModes || []).includes('ReadWriteMany')).filter(pvc => !json(pvc)?.spec?.storageClassName || resources.storageclass.data.some(sc => name(sc) === json(pvc)?.spec?.storageClassName && /disk|ebs|pd|cinder|local-path/i.test(json(sc)?.provisioner || ''))).map(pvc => finding(pvc, 'ReadWriteMany PVC may use block storage')),
   PVC004: resources => resources.persistentvolumeclaim.data.filter(pvc => json(pvc)?.status?.phase === 'Pending').map(pvc => finding(pvc, 'Pending')),
   PVC005: resources => resources.persistentvolumeclaim.data.filter(pvc => JSON.stringify(json(pvc)?.status || {}).toLowerCase().includes('fail')).map(pvc => finding(pvc, 'PVC resize or allocation failure signal')),
