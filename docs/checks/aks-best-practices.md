@@ -239,7 +239,18 @@ AKS runs also include one AKS-specific compatibility check from the shared Kuber
 | AKSSEC005  | Azure Key Vault Integration       | High     |
 | AKSSEC006  | Image Cleaner Enabled             | Medium   |
 | AKSSEC007  | Kubernetes Dashboard Disabled     | High     |
-| AKSSEC008  | Pod Security Admission Enabled    | High     |
+| AKSSEC008  | Pod Security Admission Available  | High     |
 
+
+### Interpreting AKS evidence
+
+* `AKSBP007` requires the standard `CriticalAddonsOnly=true:NoSchedule` isolation taint on each system pool; a taint on a user pool does not satisfy it. The in-cluster `NODE004` check recognises this taint as intentional only on nodes labelled `kubernetes.azure.com/mode=system`.
+* `AKSBP011` requires at least two current nodes in each system pool. It does not require two system pools, combine undersized pools, or substitute the autoscaler minimum for the current node count.
+* `AKSBP012` prefers running control-plane and pool versions, falling back to requested versions when necessary. Requested minor-only versions are compared at the precision supplied.
+* `AKSBP014` accepts VM generations v5 and newer, including v10 and later.
+* `AKSRES001` checks node-pool `enableAutoScaling` flags. An autoscaler settings object alone does not enable scaling. `AKSRES005` accepts either enabled pool autoscaling or Node Auto-provisioning in `Auto` mode.
+* `AKSDR002` accepts Standard and Premium tiers for the control-plane SLA. `AKSIAM004` accepts both system-assigned and user-assigned managed identity; `AKSIAM002` separately expresses a preference for user-assigned identity.
+* `AKSSEC007` fails only when the legacy dashboard addon is enabled. Enablement alone does not establish public accessibility; verify authentication and network access separately.
+* `AKSSEC008` checks PSA availability using the Kubernetes version. AKS enables PSA by default from Kubernetes 1.23, but availability does not prove namespace enforcement. Use the in-cluster `SEC007` check and namespace `pod-security.kubernetes.io/enforce` labels to review enforcement. An absent ARM PSA property is not evidence that PSA is disabled.
 
 Each check provides insights into security, performance, and cost optimization.

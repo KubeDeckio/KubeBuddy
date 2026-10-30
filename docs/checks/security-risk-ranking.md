@@ -6,6 +6,9 @@ Based on the KubeBuddy scan report dated 2026-06-18. Ordered by **attack chain c
 
 ## Recommended Fix Order (Attack Chain Priority)
 
+!!! warning "Historical example: revalidate before remediation"
+    This page preserves an assessment from 2026-06-18, not a current verified cluster diagnosis. Re-run checks with KubeBuddy v0.0.38 or newer before acting on the findings or counts below. The older dashboard result does not prove addon enablement or public reachability. Missing user settings do not prove UID 0, and absent ARM PSA configuration does not prove PSA is disabled. Use `SEC007` for namespace enforcement; `AKSSEC008` now checks version-based PSA availability. Treat the attack chains below as hypotheses until reachability, identities, permissions, and workload evidence are verified. Review controller permissions and operational dependencies before deleting bindings or resources.
+
 The weighted risk scores favour volume — 854 pods × score gives a big number, but a targeted attacker doesn't need 854 pods. They need one entry point. The order below follows the most dangerous attack chains first.
 
 ### Fix Today — These Form a Complete External Attack Chain
@@ -40,4 +43,3 @@ The weighted risk scores favour volume — 854 pods × score gives a big number,
 | 10 | SEC006 + SEC009 | Missing Secure Defaults / No Capabilities Drop | Natural follow-on from root fixes — complete the securityContext hardening pass. |
 | 11 | RBAC001 | Orphaned Rancher ClusterRoleBindings | Low effort cleanup — remove bindings referencing `cattle-fleet-system`, `cattle-system`, `cattle-provisioning-capi-system`. Reduces RBAC noise and attack surface. |
 | 12 | NET003 + NET007 | Broken Ingress / TargetPort Mismatches | Reliability fixes — services are not routing correctly in several namespaces. |
-

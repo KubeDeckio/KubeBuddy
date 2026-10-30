@@ -121,9 +121,11 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 
 | ID    | Name                           | Description                                       | Severity | Weight |
 | ----- | ------------------------------ | ------------------------------------------------- | -------- | ------ |
-| NS001 | Empty Namespaces               | No resources; can be cleaned up.                  | Low      | 1      |
+| NS001 | Empty Namespaces               | Application namespaces without pods, distinguishing empty namespaces from those with other resources. Excludes built-in namespaces. | Low | 1 |
 | NS002 | Weak or Missing ResourceQuotas | No quotas or soft limits; risks resource overuse. | Medium   | 2      |
 | NS003 | Missing LimitRanges            | No resource caps; enables excessive use.          | Medium   | 2      |
+
+The built-in namespaces `default`, `kube-system`, `kube-public`, and `kube-node-lease` are not namespace cleanup targets. In particular, `default` normally contains the `kubernetes` API Service even without application pods. This exemption does not exempt application workloads from security checks.
 
 ### Pods
 
@@ -148,8 +150,8 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | ------- | ------------------------ | ------------------------------------ | -------- | ------ |
 | RBAC001 | Misconfigurations        | Missing or incorrect role bindings.  | High     | 3      |
 | RBAC002 | Overexposed Roles        | Roles with overly broad permissions. | High     | 3      |
-| RBAC003 | Orphaned ServiceAccounts | Not in use; can be removed.          | Medium   | 2      |
-| RBAC004 | Ineffective Roles        | Unused roles cluttering the system.  | Medium   | 2      |
+| RBAC003 | Orphaned ServiceAccounts | No observed pod or RBAC references; excludes automatically created `default` ServiceAccounts. Review before removal. | Medium | 2 |
+| RBAC004 | Ineffective Roles        | Unreferenced or empty roles and bindings, accounting for role aggregation and managed/bootstrap resources. | Medium | 2 |
 | RBAC005 | Kubelet Proxy RBAC Access | Bound Roles or ClusterRoles that grant broad `nodes/proxy` kubelet access. | High | 4 |
 | RBAC006 | Dangerous RBAC Verbs and Subresources | Detects bound Roles or ClusterRoles granting impersonation, bind/escalate, exec, port-forward, or broad secret access. | High | 4 |
 | RBAC007 | Anonymous or Broad Authenticated Subject Binding | Detects bindings to anonymous or broad authenticated subjects. | Critical | 5 |
@@ -163,7 +165,7 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | ------ | ------------------------------------- | ----------------------------------------------------------------------- | -------- | ------ |
 | SEC001 | Orphaned Secrets                      | Not used; safe to delete.                                               | Medium   | 2      |
 | SEC002 | hostPID/hostNetwork Usage             | Shared host namespaces increase risk.                                   | High     | 3      |
-| SEC003 | Pods Running as Root                  | Containers should avoid root for security.                              | High     | 3      |
+| SEC003 | Pods Running as Root                  | Actual containers explicitly using UID 0 or lacking a non-root guarantee; respects inherited settings and container overrides. An unspecified UID requires image-user verification. | High | 3 |
 | SEC004 | Privileged Containers                 | Grants unnecessary access.                                              | High     | 3      |
 | SEC005 | hostIPC Usage                         | Sharing IPC namespace with host is a security risk.                     | Medium   | 2      |
 | SEC006 | Pods Missing Secure Defaults          | Missing recommended `securityContext` fields (e.g. `runAsNonRoot`).     | Medium   | 3      |
@@ -200,10 +202,12 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 
 ### Storage
 
+For `PVC001`, the `Unused` condition is authoritative when present: only a true condition produces an unused-PVC finding. Its transition timestamp indicates when that condition changed, not the PVC creation time. Without the condition, completed or failed pods do not count as active PVC consumers. Verify application, controller, and backup requirements before deleting storage.
+
 | ID     | Name                                       | Description                                                                                                                                                         | Severity | Weight |
 | ------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------ |
 | PV001  | Orphaned Persistent Volumes                | Detects Persistent Volumes that are not bound to any Persistent Volume Claim.                                                                                       | Warning  | 3      |
-| PVC001 | Unused Persistent Volume Claims            | Detects PVCs not attached to any pod.                                                                                                                               | Warning  | 2      |
+| PVC001 | Unused Persistent Volume Claims            | Uses the Kubernetes `Unused` condition when available and reports its `lastTransitionTime`; otherwise checks references from non-terminal pods. | Warning | 2 |
 | PVC002 | PVCs Using Default StorageClass            | Detects PVCs that do not explicitly specify a storageClassName.                                                                                                     | Low      | 1      |
 | PVC003 | ReadWriteMany PVCs on Incompatible Storage | Detects PVCs requesting ReadWriteMany access mode where the underlying storage is typically block-based and does not support concurrent writes from multiple nodes. | High     | 5      |
 | PVC004 | Unbound Persistent Volume Claims           | Detects Persistent Volume Claims that are in a Pending phase and have not been bound to a Persistent Volume.                                                        | High     | 3      |

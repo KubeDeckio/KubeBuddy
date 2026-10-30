@@ -52,6 +52,16 @@ Not included:
 
 The plugin keeps scans explicit and local to the active Headlamp page. If the page is closed, refreshed, or navigated away during a scan, the browser-side scan stops.
 
+## Interpreting findings
+
+The plugin checks actual containers, including init and ephemeral containers, and respects effective pod/container security settings. A missing user guarantee is a prompt to verify the image user, not proof that a container runs as root.
+
+Built-in namespaces and automatically created `default` ServiceAccounts are excluded from orphan cleanup checks. Other workload and permission checks still apply. Standard AKS system isolation taints are recognised only on labelled system-pool nodes; Services targeting another Deployment or pod and aggregated RBAC roles are considered before reporting mismatches or orphans.
+
+The unused-PVC check uses the Kubernetes `Unused` condition when available, including its transition timestamp. Otherwise it checks references from non-terminal pods. See the [checks reference](../checks/index.md#storage) for interpretation and deletion precautions.
+
+Re-run scans after upgrading; previously exported JSON reports are not rewritten. Namespace exclusions or missing resource permissions can limit the evidence available for cross-resource checks.
+
 ## Install
 
 From Headlamp Desktop:
