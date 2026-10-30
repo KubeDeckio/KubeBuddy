@@ -6,9 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased] - 2026-10-30
 
+### Security
+
+* Applied the five pending Dependabot Go dependency updates:
+  * Bumped `cloud.google.com/go/container` from `1.53.1` to `1.55.0`.
+  * Bumped `golang.org/x/oauth2` from `0.36.0` to `0.37.0`.
+  * Bumped `golang.org/x/term` from `0.45.0` to `0.46.0`.
+  * Bumped `k8s.io/apimachinery` and `k8s.io/client-go` from `0.37.0` to `0.37.1`.
+  * Aligned transitive `k8s.io/api` to `0.37.1` and updated the required `golang.org/x/sys` dependency to `0.48.0`.
+* These dependency updates passed the full Go test suite, build, and module checksum verification; they do not establish that all outstanding security alerts are resolved.
+
 ### Changed
 
-* Applied the five pending Dependabot Go updates: `cloud.google.com/go/container` to `1.55.0`, `golang.org/x/oauth2` to `0.37.0`, `golang.org/x/term` to `0.46.0`, and `k8s.io/apimachinery` / `k8s.io/client-go` to `0.37.1`. Aligned `k8s.io/api` to `0.37.1` and updated the required `golang.org/x/sys` dependency to `0.48.0`.
 * Headlamp's unused PVC check uses the Kubernetes `Unused` condition when available and includes its `lastTransitionTime` in findings. Without that condition, it checks references from non-terminal pods.
 * Clarified that missing container user settings require image-user verification and do not prove root execution.
 * AKS Pod Security Admission checks now distinguish version-based availability from namespace enforcement, which is covered by the in-cluster `SEC007` check.
