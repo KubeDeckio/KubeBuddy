@@ -57,16 +57,6 @@ pluginsManager:
 - Exports JSON reports and CSV findings.
 - Imports and exports supported `kubebuddy-config.yaml` settings.
 
-### Finding accuracy
-
-- Built-in namespaces (including `default` and its `kubernetes` API Service) are not stale application namespaces, and automatically created `default` ServiceAccounts are not orphan cleanup targets.
-- The standard AKS system isolation taint is exempt only on labelled system-pool nodes. Other taints remain checked.
-- Root-user checks inspect actual containers and effective pod/container security settings; absent init or ephemeral container arrays do not create findings. Missing user guarantees require image-user verification.
-- Services may intentionally select a different Deployment in the same namespace. Bootstrap bindings, managed roles and role aggregation are considered before reporting orphaned RBAC resources.
-- Volume-expansion and admission-policy findings report disabled expansion and `failurePolicy: Ignore`, respectively.
-
-Keep approved registries and justified controller permissions in configuration or scoped suppressions. Re-run scans to replace older exports after upgrading.
-
 ## Scope
 
 The plugin currently supports Kubernetes checks that can run safely in the browser with data Headlamp can already read.

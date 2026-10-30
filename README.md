@@ -129,18 +129,6 @@ Run AKS YAML checks against an AKS JSON document:
 ./kubebuddy scan-aks --input ./aks-cluster.json --output html
 ```
 
-### Check evidence and built-in resources
-
-The Go scanner and Headlamp plugin exclude built-in namespaces from `NS001` stale-namespace findings, and automatically created `default` ServiceAccounts from `RBAC003` orphan findings. The `default` namespace normally contains the `kubernetes` API Service even without application pods; do not delete it as clutter. Application pods in `default` remain covered by `NS004`.
-
-`NODE004` recognises `CriticalAddonsOnly=true:NoSchedule` as intentional isolation only on nodes labelled `kubernetes.azure.com/mode=system`. Other taints and user-pool nodes remain checked. Service-selector checks account for Services targeting another Deployment or pod in the namespace; RBAC orphan checks account for aggregated roles and Kubernetes bootstrap bindings.
-
-`SEC003` inspects real containers, including init and ephemeral containers, and respects container overrides and inherited `runAsNonRoot`. An unspecified user is a hardening warning, not proof of UID 0: verify the image user. `SC004` reports disabled volume expansion, and `SEC024` reports `failurePolicy: Ignore`, not `Fail`.
-
-For AKS, `AKSBP011` requires at least two current nodes in each system pool, not two system pools. Autoscaler settings alone do not enable scaling: pool-level `enableAutoScaling` is checked. Standard and Premium tiers satisfy the control-plane SLA check, and both managed identity types satisfy `AKSIAM004` (the separate `AKSIAM002` check retains its user-assigned preference). `AKSSEC008` checks PSA availability from the Kubernetes version; AKS enables it by default from 1.23. Actual namespace enforcement is checked in-cluster by `SEC007`, not inferred from an absent ARM property.
-
-Approved image repositories, controller API access and application-specific exceptions remain configuration or resource-scoped suppression decisions, not blanket exemptions. Re-run scans after upgrading; existing exported results are not rewritten.
-
 ### **PowerShell Command**
 Run **KubeBuddy** in PowerShell:
 ```powershell
