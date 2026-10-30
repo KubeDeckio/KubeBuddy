@@ -590,7 +590,7 @@ checks:
   url: https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion
   value:
     path: allowVolumeExpansion
-  operator: not_equals
+  operator: equals
   expected: true
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4C8 Enable Volume Expansion</h4>\n  <ul>\n    <li><strong>Assess:</strong> Determine if your applications need dynamic volume resizing.</li>\n    <li><strong>Configure:</strong> Add or set <code>allowVolumeExpansion: true</code> in the StorageClass definition.</li>\n    <li><strong>Backend Check:</strong> Ensure your storage backend supports online volume expansion.</li>\n  </ul>\n</div>"
   speech_bubble:

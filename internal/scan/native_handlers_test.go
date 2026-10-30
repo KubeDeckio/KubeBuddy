@@ -36,10 +36,10 @@ func TestExecuteNativeHandlerSEC003(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected native handler to be registered")
 	}
-	if len(findings) != 3 {
-		t.Fatalf("expected 3 findings, got %d", len(findings))
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding for the actual container, got %d", len(findings))
 	}
-	if findings[0].Value != "Not Set (Defaults to root)" {
+	if findings[0].Value != "Not Set (Verify image user)" {
 		t.Fatalf("unexpected value: %+v", findings[0])
 	}
 }

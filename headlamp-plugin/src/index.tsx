@@ -55,6 +55,7 @@ import type { Theme } from '@mui/material/styles';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import YAML from 'yaml';
+import { isBuiltInNamespace, isSystemIsolationTaint, podContainers, rootUserIssue } from './checkHygiene';
 import {
   GeneratedCheck,
   GeneratedExpression,
@@ -2146,14 +2147,8 @@ function containers(pod: any, includeInit = true): any[] {
   return includeInit ? [...(spec.initContainers || []), ...(spec.containers || [])] : spec.containers || [];
 }
 
-function containersWithMissingSlots(pod: any): any[] {
-  const spec = json(pod)?.spec || {};
-  return ['containers', 'initContainers', 'ephemeralContainers'].flatMap(containerSet => {
-    if (spec[containerSet] === undefined || spec[containerSet] === null) {
-      return [{}];
-    }
-    return spec[containerSet] || [];
-  });
+function allPodContainers(pod: any): any[] {
+  return podContainers(json(pod)?.spec || {});
 }
 
 function containerYamlOptions(pod: any, container: any, fieldPath: string, yamlValue = valueAtPath(container, fieldPath)): FindingOptions {
@@ -2889,14 +2884,11 @@ function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[
     }),
     SEC003: pods.flatMap(pod => {
       const podUser = runAsUserValue(json(pod)?.spec?.securityContext?.runAsUser);
-      return containersWithMissingSlots(pod).flatMap(container => {
+      return allPodContainers(pod).flatMap(container => {
         const containerUser = runAsUserValue(container?.securityContext?.runAsUser);
-        const runsAsRoot =
-          (containerUser.set && containerUser.value === 0) ||
-          (!containerUser.set && podUser.set && podUser.value === 0) ||
-          (!containerUser.set && !podUser.set);
+        const issue = rootUserIssue(container.securityContext, json(pod)?.spec?.securityContext);
 
-        if (!runsAsRoot) {
+        if (!issue) {
           return [];
         }
 
@@ -2905,7 +2897,7 @@ function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[
           : podUser.set
             ? { yamlPath: 'spec.securityContext.runAsUser', yamlValue: podUser.value }
             : containerYamlOptions(pod, container, 'securityContext', container.securityContext || {});
-        return [finding(pod, `Container ${container.name} runs as root or has no runAsUser set`, `Container ${container.name} runs as root or has no runAsUser set`, options)];
+        return [finding(pod, `Container ${container.name} ${issue}`, `Container ${container.name} ${issue}`, options)];
       });
     }),
     SEC004: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.privileged).map(container => finding(
@@ -3004,6 +2996,7 @@ function namespaceHygieneFindings(resources: ResourceStates): Finding[] {
   const trackedKinds = ['secret', 'persistentvolumeclaim', 'service', 'configmap', 'deployment', 'statefulset', 'daemonset'];
 
   return resources.namespace.data
+    .filter(ns => !isBuiltInNamespace(name(ns)))
     .filter(ns => !namespaceHasAny(resources, name(ns), ['pod']))
     .map(ns => finding(
       ns,
@@ -3141,18 +3134,6 @@ function isBuiltInClusterRole(role: any): boolean {
     roleName.startsWith('system:kube-') ||
     roleName.startsWith('system:node') ||
     aksManagedClusterRoles.has(roleName) ||
-    labels['kubernetes.io/bootstrapping'] === 'rbac-defaults'
-  );
-}
-
-function isKubernetesBootstrapClusterRole(role: any): boolean {
-  const roleName = name(role);
-  const labels = objectLabels(role);
-  return (
-    ['cluster-admin', 'admin', 'edit', 'view', 'system:public-info-viewer'].includes(roleName) ||
-    roleName.startsWith('system:') ||
-    roleName.startsWith('system:kube-') ||
-    roleName.startsWith('system:node') ||
     labels['kubernetes.io/bootstrapping'] === 'rbac-defaults'
   );
 }
@@ -3442,7 +3423,7 @@ function orphanedRolesFindings(resources: ResourceStates): Finding[] {
       usedRoles.add(roleName);
     }
 
-    if ((json(binding)?.subjects || []).length === 0) {
+    if (!isDefaultKubernetesRBACBinding(binding) && (json(binding)?.subjects || []).length === 0) {
       findings.push(finding(binding, 'ClusterRoleBinding has no subjects'));
     }
   });
@@ -3456,11 +3437,20 @@ function orphanedRolesFindings(resources: ResourceStates): Finding[] {
 
   resources.clusterrole.data.forEach(role => {
     const roleName = name(role);
-    if (isKubernetesBootstrapClusterRole(role)) {
+    if (isBuiltInClusterRole(role)) {
       if ((json(role)?.rules || []).length === 0) {
         findings.push(finding(role, 'ClusterRole has no rules'));
       }
       return;
+    }
+
+    const aggregated = resources.clusterrole.data.some(aggregate =>
+      (json(aggregate)?.aggregationRule?.clusterRoleSelectors || []).some((selector: unknown) =>
+        labelSelectorMatches(selector, objectLabels(role))
+      )
+    );
+    if (aggregated) {
+      usedRoles.add(roleName);
     }
 
     if (!usedRoles.has(roleName)) {
@@ -3966,6 +3956,7 @@ function nodeUntoleratedTaintFindings(resources: ResourceStates): Finding[] {
   return resources.node.data.flatMap(node =>
     (json(node)?.spec?.taints || [])
       .filter((taint: any) => taint?.key && !taintTolerated(taint, tolerations))
+      .filter((taint: any) => !isSystemIsolationTaint(taint, objectLabels(node)))
       .map((taint: any) => {
         const value = taint.value ? `=${taint.value}` : '';
         const effect = taint.effect ? `:${taint.effect}` : '';
@@ -4567,6 +4558,14 @@ function deploymentLabelConsistencyFindings(resources: ResourceStates): Finding[
       if (selectorMatches(selector, templateLabels)) {
         return;
       }
+      const hasTarget = resources.deployment.data.some(other =>
+        namespace(other) === namespace(service) && selectorMatches(selector, workloadLabels(other))
+      ) || resources.pod.data.some(pod =>
+        namespace(pod) === namespace(service) && selectorMatches(selector, objectLabels(pod))
+      );
+      if (hasTarget) {
+        return;
+      }
       if (selectorOverlaps(selector, templateLabels)) {
         findings.push(finding(deployment, `Service selector does not align with deployment pod labels: service/${name(service)}`));
       }
@@ -4763,7 +4762,7 @@ const nativeHandlers: Record<string, NativeHandler> = {
   RBAC003: resources => {
     const used = usedServiceAccountKeys(resources);
     return resources.serviceaccount.data
-      .filter(sa => !used.has(rbacResourceKey(sa)))
+      .filter(sa => name(sa) !== 'default' && !used.has(rbacResourceKey(sa)))
       .map(sa => finding(sa, 'ServiceAccount not used by pods or RBAC bindings'));
   },
   RBAC004: orphanedRolesFindings,

@@ -461,18 +461,25 @@ func runSEC003(check checks.Check, item map[string]any, cache map[string][]map[s
 	podNamespace := namespaceOf(item)
 	podResource := resourceRef("pod", item)
 	podUser, podUserSet := readRunAsUser(item, "spec.securityContext.runAsUser")
-	containers := appendContainerSets(item)
+	containers := allContainers(item)
 
 	var findings []Finding
 	for _, container := range containers {
 		name := strings.TrimSpace(stringifyLookup(container, "name"))
 		containerUser, containerUserSet := readRunAsUser(container, "securityContext.runAsUser")
-		isRootDefault := !containerUserSet && !podUserSet
-		if (!containerUserSet || containerUser != 0) && (!podUserSet || podUser != 0) && !isRootDefault {
+		user, userSet := podUser, podUserSet
+		if containerUserSet {
+			user, userSet = containerUser, true
+		}
+		nonRoot, nonRootSet := readBool(container, "securityContext.runAsNonRoot")
+		if !nonRootSet {
+			nonRoot, _ = readBool(item, "spec.securityContext.runAsNonRoot")
+		}
+		if userSet && user != 0 || !userSet && nonRoot {
 			continue
 		}
 
-		value := "Not Set (Defaults to root)"
+		value := "Not Set (Verify image user)"
 		switch {
 		case containerUserSet:
 			value = fmt.Sprint(containerUser)
@@ -484,7 +491,7 @@ func runSEC003(check checks.Check, item map[string]any, cache map[string][]map[s
 			Namespace: podNamespace,
 			Resource:  podResource,
 			Value:     value,
-			Message:   fmt.Sprintf("Container %s runs as root or has no runAsUser set", name),
+			Message:   fmt.Sprintf("Container %s has no non-root user guarantee or explicitly uses UID 0; verify the security context and image user", name),
 		})
 	}
 	return findings, nil
@@ -2542,6 +2549,10 @@ func runWRK016(check checks.Check, item map[string]any, cache map[string][]map[s
 
 func runNS001(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	ns := stringifyLookup(item, "metadata.name")
+	switch ns {
+	case "default", "kube-system", "kube-public", "kube-node-lease":
+		return nil, nil
+	}
 	pods, err := getCachedItems(cache, "pods")
 	if err != nil {
 		return nil, err
@@ -3048,6 +3059,26 @@ func runWRK009(check checks.Check, item map[string]any, cache map[string][]map[s
 		if sel == nil || selectorMatchesLabels(sel, templateLabels) {
 			continue
 		}
+		hasTarget := false
+		for _, kind := range []string{"deployments", "pods"} {
+			targets, err := getCachedItems(cache, kind)
+			if err != nil {
+				return nil, err
+			}
+			for _, target := range targets {
+				labels := mustResolve(target, "metadata.labels")
+				if kind == "deployments" {
+					labels = mustResolve(target, "spec.template.metadata.labels")
+				}
+				if namespaceOf(target) == ns && selectorMatchesLabels(sel, labels) {
+					hasTarget = true
+					break
+				}
+			}
+		}
+		if hasTarget {
+			continue
+		}
 		if selectorOverlaps(sel, templateLabels) {
 			findings = append(findings, Finding{Namespace: ns, Resource: "deployment/" + name, Value: "service/" + stringifyLookup(svc, "metadata.name"), Message: "Service selector does not align with deployment pod labels"})
 		}
@@ -3066,6 +3097,9 @@ func runRBAC002(check checks.Check, item map[string]any, cache map[string][]map[
 func runRBAC003(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	name := stringifyLookup(item, "metadata.name")
 	ns := namespaceOf(item)
+	if name == "default" {
+		return nil, nil
+	}
 	used, err := usedServiceAccounts(cache)
 	if err != nil {
 		return nil, err
@@ -3162,6 +3196,7 @@ func runNODE004(check checks.Check, item map[string]any, cache map[string][]map[
 	var findings []Finding
 	for _, node := range nodes {
 		nodeName := stringifyLookup(node, "metadata.name")
+		nodeLabels, _ := mustResolve(node, "metadata.labels").(map[string]any)
 		for _, rawTaint := range asSlice(mustResolve(node, "spec.taints")) {
 			taint, ok := rawTaint.(map[string]any)
 			if !ok {
@@ -3170,6 +3205,10 @@ func runNODE004(check checks.Check, item map[string]any, cache map[string][]map[
 			key := strings.TrimSpace(fmt.Sprint(taint["key"]))
 			value := strings.TrimSpace(fmt.Sprint(taint["value"]))
 			effect := strings.TrimSpace(fmt.Sprint(taint["effect"]))
+			if strings.EqualFold(fmt.Sprint(nodeLabels["kubernetes.azure.com/mode"]), "System") &&
+				key == "CriticalAddonsOnly" && value == "true" && effect == "NoSchedule" {
+				continue
+			}
 			if key == "" || taintTolerated(key, value, effect, tolerations) {
 				continue
 			}
@@ -4344,7 +4383,7 @@ func orphanedRoles(cache map[string][]map[string]any) ([]Finding, error) {
 		if refName != "" {
 			used[refName] = true
 		}
-		if len(asSlice(mustResolve(crb, "subjects"))) == 0 {
+		if !isDefaultKubernetesRBACBinding(crb) && len(asSlice(mustResolve(crb, "subjects"))) == 0 {
 			findings = append(findings, Finding{Namespace: "cluster-wide", Resource: "clusterrolebinding/" + stringifyLookup(crb, "metadata.name"), Value: refName, Message: "ClusterRoleBinding has no subjects"})
 		}
 	}
@@ -4366,6 +4405,13 @@ func orphanedRoles(cache map[string][]map[string]any) ([]Finding, error) {
 				findings = append(findings, Finding{Namespace: "cluster-wide", Resource: "clusterrole/" + key, Value: key, Message: "ClusterRole has no rules"})
 			}
 			continue
+		}
+		for _, aggregate := range clusterRoles {
+			for _, selector := range asSlice(mustResolve(aggregate, "aggregationRule.clusterRoleSelectors")) {
+				if labelSelectorMatches(selector, mustResolve(role, "metadata.labels")) {
+					used[key] = true
+				}
+			}
 		}
 		if used[key] {
 			if len(asSlice(mustResolve(role, "rules"))) == 0 {
@@ -4396,10 +4442,15 @@ func isBuiltInClusterRole(role map[string]any) bool {
 	if name == "cluster-admin" || name == "admin" || name == "edit" || name == "view" || name == "system:public-info-viewer" {
 		return true
 	}
+	switch name {
+	case "aks-secretproviderclasses-admin-role", "aks-secretproviderclasses-viewer-role", "aks-service", "aks:trustedaccessrole:defender-cloudposture:microsoft-defender-operator":
+		return true
+	}
 	if strings.HasPrefix(name, "system:") || strings.HasPrefix(name, "system:kube-") || strings.HasPrefix(name, "system:node") {
 		return true
 	}
-	return stringifyLookup(role, "metadata.labels.kubernetes.io/bootstrapping") == "rbac-defaults"
+	labels, _ := mustResolve(role, "metadata.labels").(map[string]any)
+	return labels["kubernetes.io/bootstrapping"] == "rbac-defaults"
 }
 
 func roleIsWildcard(role map[string]any) bool {
@@ -5134,7 +5185,8 @@ func isDefaultKubernetesRBACBinding(binding map[string]any) bool {
 	if aksManagedBindings[name] {
 		return true
 	}
-	return stringifyLookup(binding, "metadata.labels.kubernetes.io/bootstrapping") == "rbac-defaults"
+	labels, _ := mustResolve(binding, "metadata.labels").(map[string]any)
+	return labels["kubernetes.io/bootstrapping"] == "rbac-defaults"
 }
 
 func isKubernetesSystemSubjectName(name string) bool {

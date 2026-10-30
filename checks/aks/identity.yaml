@@ -55,11 +55,17 @@ checks:
     sources:
       - aks.cluster
     value:
-      path: identity.type
+      any:
+        - path: identity.type
+          operator: equals
+          expected: SystemAssigned
+        - path: identity.type
+          operator: equals
+          expected: UserAssigned
     operator: equals
-    expected: UserAssigned
-    fail_message: Cluster is using Azure AD Service Principal with client secrets that require manual rotation, have expiration dates, and pose security risks if compromised. Service principals lack the automatic credential management and enhanced security features of managed identities.
-    recommendation: Migrate from Service Principal to User-Assigned Managed Identity using 'az aks update --resource-group <rg> --name <cluster> --assign-identity <identity-resource-id>'. This provides automatic credential rotation and eliminates the need to manage client secrets.
+    expected: true
+    fail_message: Cluster is not using a system-assigned or user-assigned managed identity. Service principal credentials require rotation and can expire or be compromised.
+    recommendation: Migrate from service principal credentials to a system-assigned or user-assigned managed identity. Use 'az aks update --resource-group <rg> --name <cluster> --enable-managed-identity'; add '--assign-identity <identity-resource-id>' when using a user-assigned identity.
     url: https://learn.microsoft.com/azure/aks/use-managed-identity
 
   - id: AKSIAM005

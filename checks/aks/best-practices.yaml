@@ -124,10 +124,7 @@ checks:
     resource_kind: aksCluster
     sources:
       - aks.cluster
-    value:
-      path: properties.agentPoolProfiles
-    operator: contains
-    expected: CriticalAddonsOnly=true:NoSchedule
+    native_handler: AKSBP007
     fail_message: System node pool lacks the CriticalAddonsOnly taint, allowing user workloads to be scheduled on system nodes. This can cause resource contention with critical system components (kube-proxy, DNS, CNI), potentially leading to cluster instability and system pod eviction.
     recommendation: Apply system node pool taint using 'az aks nodepool update --resource-group <rg> --cluster-name <cluster> --name <system-pool> --node-taints CriticalAddonsOnly=true:NoSchedule'. This ensures only critical system pods run on system nodes, improving reliability and resource isolation.
     url: https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#system-and-user-node-pools
@@ -184,15 +181,7 @@ checks:
     resource_kind: aksCluster
     sources:
       - aks.cluster
-    value:
-      count_where:
-        path: properties.agentPoolProfiles
-        where:
-          path: mode
-          operator: equals
-          expected: System
-    operator: greater_than
-    expected: 1
+    native_handler: AKSBP011
     fail_message: System node pool has fewer than 2 nodes, creating a single point of failure for critical cluster components (kube-proxy, CoreDNS, CNI). Node failure or maintenance will cause system pod disruption, cluster instability, and workload connectivity issues.
     recommendation: Scale system node pool to at least 2 nodes using 'az aks nodepool scale --resource-group <rg> --cluster-name <cluster> --name <system-pool> --node-count 2'. Configure cluster autoscaler with --min-count 2 to ensure resiliency against node failures and maintenance events.
     url: https://learn.microsoft.com/azure/aks/use-system-pools?tabs=azure-cli#recommendations
@@ -242,7 +231,7 @@ checks:
         where:
           path: vmSize
           operator: not_matches
-          expected: _v[5-9][0-9]*$
+          expected: _v([5-9]|[1-9][0-9]+)$
     operator: equals
     expected: 0
     fail_message: Node pools are using older VM generations (v4 or earlier) that have reduced performance, lack modern security features, don't support ephemeral OS disks by default, and may experience more frequent maintenance events affecting availability and reliability.

@@ -30,6 +30,17 @@ func TestRunAKS(t *testing.T) {
 	if !found {
 		t.Fatalf("expected AKSSEC001 finding from sample input")
 	}
+	for _, id := range []string{"AKSBP007", "AKSBP011", "AKSRES005", "AKSSEC008"} {
+		found := false
+		for _, check := range result.Checks {
+			if check.ID == id {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("native AKS check %s was skipped", id)
+		}
+	}
 }
 
 func TestRunAKSRespectsExcludedChecksFromConfig(t *testing.T) {

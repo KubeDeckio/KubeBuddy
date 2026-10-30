@@ -641,7 +641,7 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "value": {
       "path": "allowVolumeExpansion"
     },
-    "operator": "not_equals",
+    "operator": "equals",
     "expected": true,
     "sourceFile": "network-storage.yaml"
   },
@@ -2122,10 +2122,10 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Security",
     "severity": "High",
     "weight": 5,
-    "description": "Detects pods running with UID 0 or no explicit runAsUser setting, which defaults to root in many images.",
-    "failMessage": "Pod runs as root user or has no runAsUser set",
-    "recommendation": "Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>RunAsUser Hardening</h4>\n  <ul>\n    <li>Set <code>runAsUser</code> to a non-zero UID at pod or container level.</li>\n    <li>Avoid relying on container defaults and define securityContext explicitly.</li>\n    <li>Validate any custom base images that may default to root.</li>\n  </ul>\n</div>\n",
+    "description": "Detects real containers explicitly using UID 0 or lacking a non-root user guarantee. An unspecified UID does not prove root execution; verify the image user. Respects container overrides and inherited runAsNonRoot settings.",
+    "failMessage": "Container explicitly uses UID 0 or lacks a non-root user guarantee",
+    "recommendation": "Set runAsNonRoot to true or runAsUser to a non-zero UID in pod or container securityContext. Verify the image user before treating an unspecified UID as root.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Non-root User Hardening</h4>\n  <ul>\n    <li>Set <code>runAsNonRoot: true</code> or a non-zero <code>runAsUser</code> at pod or container level.</li>\n    <li>Container settings override inherited pod settings.</li>\n    <li>Verify the image user when a UID is not specified; absence alone does not prove root execution.</li>\n  </ul>\n</div>\n",
     "url": "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
     "resourceKind": "Pod",
     "nativeHandler": "SEC003",
@@ -2545,7 +2545,7 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "value": {
       "path": "spec.failurePolicy"
     },
-    "operator": "equals",
+    "operator": "not_equals",
     "expected": "Ignore",
     "sourceFile": "security.yaml"
   },

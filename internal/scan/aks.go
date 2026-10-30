@@ -147,28 +147,42 @@ func evaluateAKSCheck(check checks.Check, document map[string]any, eval checks.E
 			if !strings.EqualFold(stringifyLookup(pool, "mode"), "System") {
 				continue
 			}
+			tainted := false
 			for _, taint := range asSlice(mustResolve(pool, "nodeTaints")) {
 				if strings.EqualFold(fmt.Sprint(taint), "CriticalAddonsOnly=true:NoSchedule") {
-					ok = true
+					tainted = true
 					break
 				}
 			}
+			if !tainted {
+				return aksBoolEval(true, false), nil
+			}
+			ok = true
 		}
 		return aksBoolEval(!ok, ok), nil
 	case "AKSBP008":
 		channel := strings.TrimSpace(stringifyLookup(document, "properties.autoUpgradeProfile.upgradeChannel"))
-		ok := !strings.EqualFold(channel, "none")
+		ok := channel != "" && !strings.EqualFold(channel, "none")
 		return aksBoolEval(!ok, ok), nil
 	case "AKSBP009":
 		channel := strings.TrimSpace(stringifyLookup(document, "properties.autoUpgradeProfile.nodeOSUpgradeChannel"))
-		ok := !strings.EqualFold(channel, "none")
+		ok := channel != "" && !strings.EqualFold(channel, "none")
 		return aksBoolEval(!ok, ok), nil
 	case "AKSBP010":
 		group := strings.TrimSpace(stringifyLookup(document, "properties.nodeResourceGroup"))
 		ok := !strings.HasPrefix(group, "MC_")
 		return aksBoolEval(!ok, ok), nil
 	case "AKSBP011":
-		ok := aksSystemNodeCount(document) >= 2
+		ok := false
+		for _, pool := range aksAgentPools(document) {
+			if !strings.EqualFold(stringifyLookup(pool, "mode"), "System") {
+				continue
+			}
+			if asInt64(mustResolve(pool, "count")) < 2 {
+				return aksBoolEval(true, false), nil
+			}
+			ok = true
+		}
 		return aksBoolEval(!ok, ok), nil
 	case "AKSBP012":
 		ok := aksNodePoolsMatchControlPlane(document)
@@ -186,22 +200,41 @@ func evaluateAKSCheck(check checks.Check, document map[string]any, eval checks.E
 		}
 		return aksCountEval(count > 0, count), nil
 	case "AKSDR002":
-		ok := strings.EqualFold(stringifyLookup(document, "sku.tier"), "Standard")
+		tier := stringifyLookup(document, "sku.tier")
+		ok := strings.EqualFold(tier, "Standard") || strings.EqualFold(tier, "Premium")
 		return aksBoolEval(!ok, ok), nil
 	case "AKSNET001":
 		ok := aksAuthorizedIPRangesConfigured(document)
 		return aksBoolEval(!ok, ok), nil
 	case "AKSNET002":
-		ok := !strings.EqualFold(stringifyLookup(document, "properties.networkProfile.networkPolicy"), "none")
+		policy := strings.TrimSpace(stringifyLookup(document, "properties.networkProfile.networkPolicy"))
+		ok := policy != "" && !strings.EqualFold(policy, "none")
 		return aksBoolEval(!ok, ok), nil
 	case "AKSRES001":
-		ok := mustResolve(document, "properties.autoScalerProfile") != nil
+		ok := aksAutoscalerEnabled(document)
+		return aksBoolEval(!ok, ok), nil
+	case "AKSRES005":
+		ok := strings.EqualFold(stringifyLookup(document, "properties.nodeProvisioningProfile.mode"), "Auto") ||
+			aksAutoscalerEnabled(document)
 		return aksBoolEval(!ok, ok), nil
 	case "AKSSEC007":
 		enabled := aksAddonEnabled(document, "kubeDashboard")
 		return aksBoolEval(enabled, enabled), nil
 	case "AKSSEC008":
-		ok := mustResolve(document, "properties.podSecurityAdmissionConfiguration") != nil
+		version := stringifyLookup(document, "properties.currentKubernetesVersion")
+		if version == "" {
+			version = stringifyLookup(document, "properties.kubernetesVersion")
+		}
+		parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
+		if len(parts) < 2 {
+			return aksEvaluation{}, fmt.Errorf("cannot determine Pod Security Admission availability without Kubernetes major.minor version")
+		}
+		major, majorErr := strconv.Atoi(parts[0])
+		minor, minorErr := strconv.Atoi(parts[1])
+		if majorErr != nil || minorErr != nil {
+			return aksEvaluation{}, fmt.Errorf("invalid Kubernetes version %q", version)
+		}
+		ok := major > 1 || major == 1 && minor >= 23
 		return aksBoolEval(!ok, ok), nil
 	}
 	return aksEvaluation{
@@ -255,21 +288,13 @@ func aksAgentPools(document map[string]any) []map[string]any {
 	return pools
 }
 
-func aksSystemNodeCount(document map[string]any) int {
-	total := 0
+func aksAutoscalerEnabled(document map[string]any) bool {
 	for _, pool := range aksAgentPools(document) {
-		if !strings.EqualFold(stringifyLookup(pool, "mode"), "System") {
-			continue
-		}
-		if count := asInt64(mustResolve(pool, "count")); count > 0 {
-			total += int(count)
-			continue
-		}
-		if count := asInt64(mustResolve(pool, "minCount")); count > 0 {
-			total += int(count)
+		if boolFromAny(mustResolve(pool, "enableAutoScaling")) {
+			return true
 		}
 	}
-	return total
+	return false
 }
 
 func aksNodePoolsMatchControlPlane(document map[string]any) bool {
@@ -280,9 +305,23 @@ func aksNodePoolsMatchControlPlane(document map[string]any) bool {
 	if control == "" {
 		return false
 	}
-	for _, pool := range aksAgentPools(document) {
-		if strings.TrimSpace(stringifyLookup(pool, "currentOrchestratorVersion")) != control {
+	pools := aksAgentPools(document)
+	if len(pools) == 0 {
+		return false
+	}
+	for _, pool := range pools {
+		version := strings.TrimSpace(stringifyLookup(pool, "currentOrchestratorVersion"))
+		if version == "" {
+			version = strings.TrimSpace(stringifyLookup(pool, "orchestratorVersion"))
+		}
+		if version == "" {
 			return false
+		}
+		cp, np := strings.Split(control, "."), strings.Split(version, ".")
+		for i := 0; i < len(cp) && i < len(np); i++ {
+			if cp[i] != np[i] {
+				return false
+			}
 		}
 	}
 	return true
