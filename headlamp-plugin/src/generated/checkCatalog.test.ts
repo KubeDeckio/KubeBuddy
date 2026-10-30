@@ -31,4 +31,13 @@ describe('generated check catalog', () => {
   it('does not include Prometheus-only checks in the browser catalog', () => {
     expect(KUBERNETES_CHECKS.some(check => check.sourceFile === 'prometheus.yaml')).toBe(false);
   });
+
+  it('uses passing predicates for expansion and admission failure policy', () => {
+    expect(KUBERNETES_CHECKS.find(check => check.id === 'SC004')).toEqual(
+      expect.objectContaining({ operator: 'equals', expected: true })
+    );
+    expect(KUBERNETES_CHECKS.find(check => check.id === 'SEC024')).toEqual(
+      expect.objectContaining({ operator: 'not_equals', expected: 'Ignore' })
+    );
+  });
 });

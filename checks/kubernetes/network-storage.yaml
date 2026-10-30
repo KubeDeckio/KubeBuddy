@@ -434,18 +434,19 @@ checks:
   resource_kind: PersistentVolumeClaim
   severity: Warning
   weight: 2
-  description: Detects PVCs not attached to any pod.
-  fail_message: PVC is not used by any running pod.
-  recommendation: "Review and delete unused PVCs to reclaim storage."
+  description: Detects PVCs not attached to any non-terminal pod. On Kubernetes 1.37 and newer, uses the PVC Unused condition and last transition time when available.
+  fail_message: PVC is not used by any non-terminal pod.
+  recommendation: "Review unused PVCs and their last-used time before deleting storage to reclaim capacity."
   url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
   native_handler: PVC001
   value:
     path: metadata.name
   operator: exists
-  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4BE Clean Up Unused PVCs</h4>\n  <ul>\n    <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n <namespace></code>.</li>\n    <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc <name></code>.</li>\n    <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>\n  </ul>\n</div>"
+  recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4BE Clean Up Unused PVCs</h4>\n  <ul>\n    <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n <namespace> <name></code>.</li>\n    <li><strong>Check age:</strong> On Kubernetes 1.37 and newer, review the <code>Unused</code> condition <code>lastTransitionTime</code> to see when the PVC became idle.</li>\n    <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc <name> -n <namespace></code>.</li>\n    <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>\n  </ul>\n</div>"
   speech_bubble:
   - PVCs reserve storage in your cluster.
-  - These are NOT in use by any pod.
+  - These are NOT in use by any non-terminal pod.
+  - Kubernetes 1.37 can report when they became unused.
   - Check before deleting.
 - id: PVC003
   name: ReadWriteMany PVCs on Incompatible Storage
@@ -589,7 +590,7 @@ checks:
   url: https://kubernetes.io/docs/concepts/storage/storage-classes/#allow-volume-expansion
   value:
     path: allowVolumeExpansion
-  operator: not_equals
+  operator: equals
   expected: true
   recommendation_html: "<div class=\"recommendation-content\">\n  <h4>\U0001F4C8 Enable Volume Expansion</h4>\n  <ul>\n    <li><strong>Assess:</strong> Determine if your applications need dynamic volume resizing.</li>\n    <li><strong>Configure:</strong> Add or set <code>allowVolumeExpansion: true</code> in the StorageClass definition.</li>\n    <li><strong>Backend Check:</strong> Ensure your storage backend supports online volume expansion.</li>\n  </ul>\n</div>"
   speech_bubble:

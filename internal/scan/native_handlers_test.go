@@ -36,10 +36,10 @@ func TestExecuteNativeHandlerSEC003(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected native handler to be registered")
 	}
-	if len(findings) != 3 {
-		t.Fatalf("expected 3 findings, got %d", len(findings))
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding for the actual container, got %d", len(findings))
 	}
-	if findings[0].Value != "Not Set (Defaults to root)" {
+	if findings[0].Value != "Not Set (Verify image user)" {
 		t.Fatalf("unexpected value: %+v", findings[0])
 	}
 }
@@ -195,6 +195,89 @@ func TestRunCFG002IgnoresKubeRootCAConfigMap(t *testing.T) {
 		t.Fatalf("unexpected finding: %+v", duplicateFindings[0])
 	}
 }
+
+func TestPVC001UsesUnusedConditionWhenPresent(t *testing.T) {
+	check := checks.Check{ID: "PVC001", NativeHandler: "PVC001"}
+	pvc := map[string]any{
+		"metadata": map[string]any{"name": "data", "namespace": "apps"},
+		"spec":     map[string]any{"resources": map[string]any{"requests": map[string]any{"storage": "10Gi"}}},
+		"status": map[string]any{"conditions": []any{
+			map[string]any{"type": "Unused", "status": "True", "lastTransitionTime": "2026-09-14T12:03:11Z"},
+		}},
+	}
+	cache := map[string][]map[string]any{
+		"pods": {{
+			"metadata": map[string]any{"name": "old-job", "namespace": "apps"},
+			"spec": map[string]any{"volumes": []any{
+				map[string]any{"persistentVolumeClaim": map[string]any{"claimName": "data"}},
+			}},
+		}},
+	}
+
+	findings, ok, err := executeNativeHandler(check, []map[string]any{pvc}, cache)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected native handler to be registered")
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one finding, got %d", len(findings))
+	}
+	if !strings.Contains(findings[0].Message, "unused since 2026-09-14T12:03:11Z") {
+		t.Fatalf("expected unused timestamp in message, got %+v", findings[0])
+	}
+	if !strings.Contains(findings[0].Value, "Unused since: 2026-09-14T12:03:11Z") {
+		t.Fatalf("expected unused timestamp in value, got %+v", findings[0])
+	}
+}
+
+func TestPVC001SkipsWhenUnusedConditionIsFalse(t *testing.T) {
+	check := checks.Check{ID: "PVC001", NativeHandler: "PVC001"}
+	pvc := map[string]any{
+		"metadata": map[string]any{"name": "data", "namespace": "apps"},
+		"status": map[string]any{"conditions": []any{
+			map[string]any{"type": "Unused", "status": "False", "lastTransitionTime": "2026-09-14T12:03:11Z"},
+		}},
+	}
+
+	findings, ok, err := executeNativeHandler(check, []map[string]any{pvc}, map[string][]map[string]any{"pods": {}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected native handler to be registered")
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected no findings, got %+v", findings)
+	}
+}
+
+func TestPVC001FallbackIgnoresTerminalPods(t *testing.T) {
+	check := checks.Check{ID: "PVC001", NativeHandler: "PVC001"}
+	pvc := map[string]any{"metadata": map[string]any{"name": "data", "namespace": "apps"}}
+	cache := map[string][]map[string]any{
+		"pods": {{
+			"metadata": map[string]any{"name": "old-job", "namespace": "apps"},
+			"status":   map[string]any{"phase": "Succeeded"},
+			"spec": map[string]any{"volumes": []any{
+				map[string]any{"persistentVolumeClaim": map[string]any{"claimName": "data"}},
+			}},
+		}},
+	}
+
+	findings, ok, err := executeNativeHandler(check, []map[string]any{pvc}, cache)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected native handler to be registered")
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected terminal pod reference to be ignored, got %+v", findings)
+	}
+}
+
 func TestNewRiskHandlers(t *testing.T) {
 	tests := []struct {
 		name     string

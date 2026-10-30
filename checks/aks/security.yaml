@@ -106,23 +106,20 @@ checks:
       coalesce:
         - path: properties.addonProfiles.kubeDashboard.enabled
         - value: false
-    operator: not_equals
+    operator: equals
     expected: false
-    fail_message: Kubernetes Dashboard is active and publicly accessible, creating a significant security vulnerability. The dashboard has historically been targeted by attackers and provides broad cluster access if compromised. It lacks robust authentication mechanisms and can expose sensitive cluster information.
+    fail_message: The legacy Kubernetes Dashboard addon is enabled. Review its authentication and network restrictions or disable it; addon enablement alone does not establish public accessibility.
     recommendation: Disable the Kubernetes dashboard using 'az aks disable-addons --addons kube-dashboard --resource-group <rg> --name <cluster>'. Use Azure Portal, kubectl, or other secure management tools instead. If dashboard access is required, implement proper authentication and network restrictions.
     url: https://learn.microsoft.com/azure/aks/kubernetes-dashboard
 
   - id: AKSSEC008
-    name: Pod Security Admission Enabled
+    name: Pod Security Admission Available
     category: Security
     severity: High
     resource_kind: aksCluster
     sources:
       - aks.cluster
-    value:
-      path: properties.podSecurityAdmissionConfiguration
-    operator: not_equals
-    expected: null
-    fail_message: Pod Security Admission is not configured on this cluster, meaning there are no built-in Kubernetes security controls to prevent insecure pod configurations. Without PSA, pods can run with dangerous settings like privileged mode, host network access, or unsafe capabilities, increasing container escape risks.
-    recommendation: Configure Pod Security Admission by setting pod security standards on namespaces. Use 'kubectl label namespace <namespace> pod-security.kubernetes.io/enforce=restricted pod-security.kubernetes.io/audit=restricted pod-security.kubernetes.io/warn=restricted' for production namespaces. Consider 'baseline' for less restrictive environments. This is separate from Azure Policy and provides Kubernetes-native security controls.
+    native_handler: AKSSEC008
+    fail_message: The cluster Kubernetes version predates AKS support for Pod Security Admission.
+    recommendation: Upgrade to a supported AKS Kubernetes version. AKS enables Pod Security Admission by default on Kubernetes 1.23 and newer; availability does not prove enforcement. Use the in-cluster SEC007 check to review namespace pod-security labels and configure baseline or restricted enforcement as appropriate.
     url: https://learn.microsoft.com/azure/aks/use-psa

@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-10-30
+
+### Security
+
+* Applied the five pending Dependabot Go dependency updates:
+  * Bumped `cloud.google.com/go/container` from `1.53.1` to `1.55.0`.
+  * Bumped `golang.org/x/oauth2` from `0.36.0` to `0.37.0`.
+  * Bumped `golang.org/x/term` from `0.45.0` to `0.46.0`.
+  * Bumped `k8s.io/apimachinery` and `k8s.io/client-go` from `0.37.0` to `0.37.1`.
+  * Aligned transitive `k8s.io/api` to `0.37.1` and updated the required `golang.org/x/sys` dependency to `0.48.0`.
+* These dependency updates passed the full Go test suite, build, and module checksum verification; they do not establish that all outstanding security alerts are resolved.
+
+### Changed
+
+* Headlamp's unused PVC check uses the Kubernetes `Unused` condition when available and includes its `lastTransitionTime` in findings. Without that condition, it checks references from non-terminal pods.
+* Clarified that missing container user settings require image-user verification and do not prove root execution.
+* AKS Pod Security Admission checks now distinguish version-based availability from namespace enforcement, which is covered by the in-cluster `SEC007` check.
+
+### Fixed
+
+* Corrected AKS dashboard detection so absent or disabled addons do not fail, and removed the unsupported inference that an enabled dashboard is publicly accessible.
+* Check the actual node count in every AKS system pool rather than counting pools or relying on autoscaler minimums. Require isolation taints on system pools, not user pools.
+* Detect enabled autoscaling from node-pool flags, accept Node Auto-provisioning as an alternative, and correctly handle Standard/Premium SLA tiers, both managed identity types, running Kubernetes versions, and VM generations v10 and newer.
+* Missing AKS upgrade channels and network-policy settings no longer silently pass.
+* Exclude built-in namespaces and automatically created `default` ServiceAccounts from orphan cleanup findings while retaining application-resource checks.
+* Recognise the standard AKS isolation taint only on labelled system-pool nodes.
+* Root-user checks inspect only actual containers and respect inherited security settings and container overrides.
+* Avoid Service-selector false positives when a Service targets another Deployment or pod in the namespace.
+* Account for aggregated ClusterRoles, managed roles, and bootstrap bindings in orphaned RBAC checks.
+* Corrected inverted StorageClass volume-expansion and admission-policy failure-policy predicates in the Go and Headlamp catalogues.
+* Added regression tests and regenerated the Headlamp check catalogue.
+
 ## [0.0.37] - 2026-09-09
 
 ### Security

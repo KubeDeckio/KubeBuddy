@@ -512,10 +512,10 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Storage",
     "severity": "Warning",
     "weight": 2,
-    "description": "Detects PVCs not attached to any pod.",
-    "failMessage": "PVC is not used by any running pod.",
-    "recommendation": "Review and delete unused PVCs to reclaim storage.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>💾 Clean Up Unused PVCs</h4>\n  <ul>\n    <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n <namespace></code>.</li>\n    <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc <name></code>.</li>\n    <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>\n  </ul>\n</div>",
+    "description": "Detects PVCs not attached to any non-terminal pod. On Kubernetes 1.37 and newer, uses the PVC Unused condition and last transition time when available.",
+    "failMessage": "PVC is not used by any non-terminal pod.",
+    "recommendation": "Review unused PVCs and their last-used time before deleting storage to reclaim capacity.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>💾 Clean Up Unused PVCs</h4>\n  <ul>\n    <li><strong>Audit:</strong> Confirm PVC is not needed using <code>kubectl describe pvc -n <namespace> <name></code>.</li>\n    <li><strong>Check age:</strong> On Kubernetes 1.37 and newer, review the <code>Unused</code> condition <code>lastTransitionTime</code> to see when the PVC became idle.</li>\n    <li><strong>Delete:</strong> Remove PVCs no longer required with <code>kubectl delete pvc <name> -n <namespace></code>.</li>\n    <li><strong>Prevent:</strong> Automate cleanup for stale environments or ephemeral workloads.</li>\n  </ul>\n</div>",
     "url": "https://kubernetes.io/docs/concepts/storage/persistent-volumes/",
     "resourceKind": "PersistentVolumeClaim",
     "nativeHandler": "PVC001",
@@ -641,7 +641,7 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "value": {
       "path": "allowVolumeExpansion"
     },
-    "operator": "not_equals",
+    "operator": "equals",
     "expected": true,
     "sourceFile": "network-storage.yaml"
   },
@@ -2122,10 +2122,10 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Security",
     "severity": "High",
     "weight": 5,
-    "description": "Detects pods running with UID 0 or no explicit runAsUser setting, which defaults to root in many images.",
-    "failMessage": "Pod runs as root user or has no runAsUser set",
-    "recommendation": "Avoid running pods as root by explicitly setting runAsUser to a non-zero UID in pod or container securityContext.",
-    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>RunAsUser Hardening</h4>\n  <ul>\n    <li>Set <code>runAsUser</code> to a non-zero UID at pod or container level.</li>\n    <li>Avoid relying on container defaults and define securityContext explicitly.</li>\n    <li>Validate any custom base images that may default to root.</li>\n  </ul>\n</div>\n",
+    "description": "Detects real containers explicitly using UID 0 or lacking a non-root user guarantee. An unspecified UID does not prove root execution; verify the image user. Respects container overrides and inherited runAsNonRoot settings.",
+    "failMessage": "Container explicitly uses UID 0 or lacks a non-root user guarantee",
+    "recommendation": "Set runAsNonRoot to true or runAsUser to a non-zero UID in pod or container securityContext. Verify the image user before treating an unspecified UID as root.",
+    "recommendationHtml": "<div class=\"recommendation-content\">\n  <h4>Non-root User Hardening</h4>\n  <ul>\n    <li>Set <code>runAsNonRoot: true</code> or a non-zero <code>runAsUser</code> at pod or container level.</li>\n    <li>Container settings override inherited pod settings.</li>\n    <li>Verify the image user when a UID is not specified; absence alone does not prove root execution.</li>\n  </ul>\n</div>\n",
     "url": "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
     "resourceKind": "Pod",
     "nativeHandler": "SEC003",
@@ -2545,7 +2545,7 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "value": {
       "path": "spec.failurePolicy"
     },
-    "operator": "equals",
+    "operator": "not_equals",
     "expected": "Ignore",
     "sourceFile": "security.yaml"
   },

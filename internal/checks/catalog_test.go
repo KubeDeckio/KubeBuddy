@@ -26,6 +26,34 @@ func TestLoadCatalogLoadsNativeKubernetesCatalog(t *testing.T) {
 	}
 }
 
+func TestExpansionAndAdmissionPolicyCataloguePredicates(t *testing.T) {
+	catalogue, err := LoadCatalog("../../checks/kubernetes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitions := map[string]Check{}
+	for _, check := range catalogue.Checks {
+		definitions[check.ID] = check
+	}
+	for _, tt := range []struct {
+		id     string
+		item   map[string]any
+		failed bool
+	}{
+		{"SC004", map[string]any{"allowVolumeExpansion": true}, false},
+		{"SC004", map[string]any{"allowVolumeExpansion": false}, true},
+		{"SC004", map[string]any{}, true},
+		{"SEC024", map[string]any{"spec": map[string]any{"failurePolicy": "Fail"}}, false},
+		{"SEC024", map[string]any{"spec": map[string]any{"failurePolicy": "Ignore"}}, true},
+		{"SEC024", map[string]any{"spec": map[string]any{}}, false},
+	} {
+		got, err := EvaluateItem(definitions[tt.id], tt.item)
+		if err != nil || got.Failed != tt.failed {
+			t.Fatalf("%s %v: got %+v, %v; want failed=%t", tt.id, tt.item, got, err, tt.failed)
+		}
+	}
+}
+
 func TestLoadCatalogFallsBackToBundledCatalog(t *testing.T) {
 	t.Helper()
 	t.Chdir(t.TempDir())

@@ -7,9 +7,14 @@ checks:
     sources:
       - aks.cluster
     value:
-      path: properties.autoScalerProfile
-    operator: not_equals
-    expected: null
+      count_where:
+        path: properties.agentPoolProfiles
+        where:
+          path: enableAutoScaling
+          operator: equals
+          expected: true
+    operator: greater_than
+    expected: 0
     fail_message: Cluster autoscaler is disabled, requiring manual node scaling that leads to over-provisioning during low demand (wasted costs) or under-provisioning during peak times (performance issues and pod scheduling failures). This significantly increases operational overhead and cloud spending.
     recommendation: Enable Cluster Autoscaler using 'az aks update --resource-group <rg> --name <cluster> --enable-cluster-autoscaler --min-count <min> --max-count <max>' on node pools. Configure appropriate min/max node counts, scale-down parameters, and node pool priorities for optimal cost and performance balance.
     url: https://learn.microsoft.com/azure/aks/cluster-autoscaler
@@ -75,16 +80,7 @@ checks:
     automatic_relevance: alignment
     automatic_scope: platform
     automatic_reason: aks_autoscaling
-    value:
-      any:
-        - path: properties.nodeProvisioningProfile.mode
-          operator: equals
-          expected: Auto
-        - path: properties.autoScalerProfile
-          operator: not_equals
-          expected: null
-    operator: equals
-    expected: true
+    native_handler: AKSRES005
     fail_message: Neither Node Auto-provisioning (NAP) nor Cluster Autoscaler is enabled, requiring manual node scaling that leads to inefficient resource allocation. NAP uses Karpenter to automatically select optimal VM SKUs based on workload requirements, providing better cost optimization and scaling flexibility than traditional cluster autoscaler.
     recommendation: Enable Node Auto-provisioning using 'az aks update --resource-group <rg> --name <cluster> --node-provisioning-mode Auto' for Karpenter-based dynamic provisioning. Alternatively, enable Cluster Autoscaler with 'az aks update --enable-cluster-autoscaler'. NAP is recommended for modern workloads with diverse resource requirements.
     url: https://learn.microsoft.com/azure/aks/node-auto-provisioning
