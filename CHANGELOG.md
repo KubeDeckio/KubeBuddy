@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-10-30
+
+### Security
+
+* Updated Headlamp development-tool dependency overrides for Storybook, Vite, Undici, Vitest, fast-uri, source-map-js, postcss-selector-parser, qs, brace-expansion, and pbkdf2 to patched versions.
+* Updated webpack-dev-middleware from 6.x to 7.4.6 to address its path-traversal advisory; validated compatibility with the SDK's Storybook webpack builder.
+* Two low-severity advisories remain in transitive `deepmerge` and `elliptic` dependencies because neither has a published patched version. npm audit also reports the parent dependency chains; these are not additional independently vulnerable packages.
+
 ## [0.0.38] - 2026-10-30
 
 ### Security

@@ -52,14 +52,24 @@
     "yaml": "^2.8.1"
   },
   "overrides": {
-    "@vitest/mocker": "4.1.11",
-    "@vitest/coverage-istanbul": "4.1.11",
-    "fast-uri": "3.1.6",
+    "@vitest/mocker": "4.1.12",
+    "@vitest/coverage-istanbul": "4.1.12",
+    "fast-uri": "3.1.9",
     "form-data": "4.0.6",
     "js-yaml": "4.3.2",
     "postcss": "8.5.23",
-    "vitest": "4.1.11",
-    "undici": "7.29.0",
+    "vitest": "4.1.12",
+    "undici": "7.30.1",
+    "storybook": "9.1.21",
+    "vite": "6.4.5",
+    "pbkdf2": "3.1.7",
+    "source-map-js": "1.2.2",
+    "postcss-selector-parser": "7.1.6",
+    "qs": "6.16.1",
+    "brace-expansion@^1": "1.1.21",
+    "brace-expansion@^2": "2.1.7",
+    "brace-expansion@^5": "5.0.12",
+    "webpack-dev-middleware": "7.4.6",
     "typescript": "5.6.2"
   }
 }
