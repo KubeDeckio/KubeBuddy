@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased] - 2026-10-30
 
+### Changed
+
+* The default AI recommendation model is now `gpt-5.6-terra`, OpenAI's replacement for `gpt-5-mini`, which OpenAI shuts down on 2026-12-11. Set `KUBEBUDDY_OPENAI_MODEL` to use a different model.
+
 ### Security
 
 * Updated Headlamp development-tool dependency overrides for Storybook, Vite, Undici, Vitest, fast-uri, source-map-js, postcss-selector-parser, qs, brace-expansion, and pbkdf2 to patched versions.
