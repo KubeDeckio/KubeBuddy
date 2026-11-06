@@ -36,7 +36,7 @@ func NewFromEnv() *Client {
 	}
 	model := strings.TrimSpace(os.Getenv("KUBEBUDDY_OPENAI_MODEL"))
 	if model == "" {
-		model = "gpt-5-mini"
+		model = "gpt-5.6-terra"
 	}
 	return &Client{
 		apiKey:  key,
