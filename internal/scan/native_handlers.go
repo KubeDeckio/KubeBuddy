@@ -41,6 +41,7 @@ var nativeHandlers = map[string]nativeHandler{
 	"POD007":          runPOD007,
 	"POD008":          runPOD008,
 	"POD010":          runPOD010,
+	"POD014":          runPOD014,
 	"RBAC001":         runRBAC001,
 	"RBAC002":         runRBAC002,
 	"RBAC003":         runRBAC003,
@@ -52,6 +53,7 @@ var nativeHandlers = map[string]nativeHandler{
 	"RBAC009":         runRBAC009,
 	"RBAC010":         runRBAC010,
 	"RBAC011":         runRBAC011,
+	"RBAC012":         runRBAC012,
 	"SEC001":          runSEC001,
 	"SEC002":          runSEC002,
 	"SEC003":          runSEC003,
@@ -548,7 +550,7 @@ func runSEC010(check checks.Check, item map[string]any, cache map[string][]map[s
 func runSEC009(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	podNamespace := namespaceOf(item)
 	podName := strings.TrimSpace(stringifyLookup(item, "metadata.name"))
-	containers := containersOnly(item)
+	containers := containersIncludingInit(item)
 
 	var findings []Finding
 	for _, container := range containers {
@@ -603,7 +605,7 @@ func runSEC013(check checks.Check, item map[string]any, cache map[string][]map[s
 func runSEC006(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	podNamespace := namespaceOf(item)
 	podName := strings.TrimSpace(stringifyLookup(item, "metadata.name"))
-	containers := containersOnly(item)
+	containers := containersIncludingInit(item)
 
 	var findings []Finding
 	for _, container := range containers {
@@ -644,7 +646,7 @@ func runSEC006(check checks.Check, item map[string]any, cache map[string][]map[s
 func runSEC012(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	podNamespace := namespaceOf(item)
 	podName := strings.TrimSpace(stringifyLookup(item, "metadata.name"))
-	containers := containersOnly(item)
+	containers := containersIncludingInit(item)
 
 	var findings []Finding
 	for _, container := range containers {
@@ -1175,7 +1177,7 @@ func runNODE002(check checks.Check, item map[string]any, cache map[string][]map[
 	}
 	topByNode, err := parseTopNodes()
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("node metrics unavailable: %w", err)
 	}
 	var findings []Finding
 	for _, node := range nodes {
@@ -1382,31 +1384,19 @@ func runNET004(check checks.Check, item map[string]any, cache map[string][]map[s
 	if err != nil {
 		return nil, err
 	}
-	pods, err := getCachedItems(cache, "pods")
-	if err != nil {
-		return nil, err
+	policyNamespaces := make(map[string]bool, len(policies))
+	for _, policy := range policies {
+		policyNamespaces[namespaceOf(policy)] = true
 	}
 	var findings []Finding
 	for _, ns := range namespaces {
 		name := stringifyLookup(ns, "metadata.name")
-		activePods := 0
-		for _, pod := range pods {
-			if namespaceOf(pod) == name {
-				activePods++
-			}
-		}
-		if activePods == 0 {
+		switch name {
+		case "kube-system", "kube-public", "kube-node-lease":
 			continue
 		}
-		found := false
-		for _, np := range policies {
-			if namespaceOf(np) == name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			findings = append(findings, Finding{Namespace: name, Resource: "namespace/" + name, Value: "", Message: "No NetworkPolicy in active namespace"})
+		if !policyNamespaces[name] {
+			findings = append(findings, Finding{Namespace: name, Resource: "namespace/" + name, Value: "", Message: "Namespace has no NetworkPolicy"})
 		}
 	}
 	return findings, nil
@@ -2761,6 +2751,23 @@ func runPOD008(check checks.Check, item map[string]any, cache map[string][]map[s
 	}}, nil
 }
 
+func runPOD014(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, container := range containersIncludingInit(item) {
+		limits, _ := mustResolve(container, "resources.limits").(map[string]any)
+		if len(limits) > 0 {
+			continue
+		}
+		findings = append(findings, Finding{
+			Namespace: namespaceOf(item),
+			Resource:  resourceRef("pod", item),
+			Value:     stringifyLookup(container, "name"),
+			Message:   "Container has no resource limits",
+		})
+	}
+	return findings, nil
+}
+
 func runCFG006(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	name := stringifyLookup(item, "metadata.name")
 	namespace := namespaceOf(item)
@@ -3092,6 +3099,37 @@ func runRBAC001(check checks.Check, item map[string]any, cache map[string][]map[
 
 func runRBAC002(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
 	return rbacOverexposureFindings(cache)
+}
+
+func runRBAC012(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {
+	var findings []Finding
+	for _, resource := range []string{"roles", "clusterroles"} {
+		roles, err := getCachedItems(cache, resource)
+		if err != nil {
+			return nil, err
+		}
+		for _, role := range roles {
+			name := stringifyLookup(role, "metadata.name")
+			labels, _ := mustResolve(role, "metadata.labels").(map[string]any)
+			if strings.HasPrefix(name, "system:") || labels["kubernetes.io/bootstrapping"] == "rbac-defaults" ||
+				(resource == "clusterroles" && isBuiltInClusterRole(role)) {
+				continue
+			}
+			for _, rule := range asSlice(mustResolve(role, "rules")) {
+				if containsString(asSlice(mustResolve(rule, "verbs")), "*") && containsString(asSlice(mustResolve(rule, "resources")), "*") {
+					kind := "role"
+					ns := namespaceOf(role)
+					if resource == "clusterroles" {
+						kind = "clusterrole"
+						ns = "(cluster)"
+					}
+					findings = append(findings, Finding{Namespace: ns, Resource: kind + "/" + name, Value: "*", Message: "Role grants all verbs on all resources in an API group"})
+					break
+				}
+			}
+		}
+	}
+	return findings, nil
 }
 
 func runRBAC003(check checks.Check, item map[string]any, cache map[string][]map[string]any) ([]Finding, error) {

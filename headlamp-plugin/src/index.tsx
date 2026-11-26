@@ -55,7 +55,7 @@ import type { Theme } from '@mui/material/styles';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import YAML from 'yaml';
-import { isBuiltInNamespace, isSystemIsolationTaint, podContainers, rootUserIssue } from './checkHygiene';
+import { hasResourceLimits, hasWildcardRule, isBuiltInNamespace, isSystemIsolationTaint, namespaceNeedsNetworkPolicy, podContainers, rootUserIssue } from './checkHygiene';
 import {
   GeneratedCheck,
   GeneratedExpression,
@@ -2491,7 +2491,7 @@ const SCORE_COMPAT_OVERRIDES: Record<string, ScoreCompatOverride> = {
   NET005: { weight: 5 },
   NET007: { weight: 4 },
   NET012: { weight: 4 },
-  NODE002: { weight: 6, findingCount: 0 },
+  NODE002: { weight: 6 },
   NODE003: { weight: 2 },
   NS004: { weight: 1 },
   POD008: { weight: 3 },
@@ -2907,7 +2907,7 @@ function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[
       containerYamlOptions(pod, container, 'securityContext.privileged')
     ))),
     SEC005: pods.filter(pod => json(pod)?.spec?.hostIPC).map(pod => finding(pod, 'hostIPC enabled', 'hostIPC enabled', { yamlPath: 'spec.hostIPC' })),
-    SEC006: pods.flatMap(pod => containers(pod, false).filter(container => {
+    SEC006: pods.flatMap(pod => containers(pod).filter(container => {
       const context = container?.securityContext;
       return !context || context.runAsNonRoot !== true || context.readOnlyRootFilesystem !== true || context.allowPrivilegeEscalation !== false;
     }).map(container => finding(pod, `Container ${container.name} missing hardened securityContext`, `Container ${container.name} missing hardened securityContext`, containerYamlOptions(pod, container, 'securityContext', container.securityContext || {})))),
@@ -2917,10 +2917,10 @@ function podSecurityHandlers(resources: ResourceStates): Record<string, Finding[
       `Secret exposed through env ${env.name} in ${container.name}`,
       containerYamlOptions(pod, container, `env[name=${env.name || 'unknown'}].valueFrom.secretKeyRef`, env.valueFrom.secretKeyRef)
     )))),
-    SEC009: pods.flatMap(pod => containers(pod, false).filter(container => !(container?.securityContext?.capabilities?.drop || []).some((value: any) => String(value).toLowerCase() === 'all')).map(container => finding(pod, `Container ${container.name} does not drop ALL capabilities`, `Container ${container.name} does not drop ALL capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.drop', container?.securityContext?.capabilities?.drop || [])))),
+    SEC009: pods.flatMap(pod => containers(pod).filter(container => !(container?.securityContext?.capabilities?.drop || []).some((value: any) => String(value).toLowerCase() === 'all')).map(container => finding(pod, `Container ${container.name} does not drop ALL capabilities`, `Container ${container.name} does not drop ALL capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.drop', container?.securityContext?.capabilities?.drop || [])))),
     SEC010: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.hostPath?.path).map((volume: any) => finding(pod, `hostPath volume ${volume.name}: ${volume.hostPath.path}`, `hostPath volume ${volume.name}: ${volume.hostPath.path}`, { yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].hostPath`, yamlValue: volume.hostPath }))),
     SEC011: pods.flatMap(pod => containers(pod, false).filter(container => Number(container?.securityContext?.runAsUser || 0) === 0).map(container => finding(pod, `Container ${container.name} runs as UID 0`, `Container ${container.name} runs as UID 0`, containerYamlOptions(pod, container, 'securityContext.runAsUser', container?.securityContext?.runAsUser || 0)))),
-    SEC012: pods.flatMap(pod => containers(pod, false).filter(container => (container?.securityContext?.capabilities?.add || []).length > 0).map(container => finding(pod, `Container ${container.name} adds capabilities`, `Container ${container.name} adds capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.add')))),
+    SEC012: pods.flatMap(pod => containers(pod).filter(container => (container?.securityContext?.capabilities?.add || []).length > 0).map(container => finding(pod, `Container ${container.name} adds capabilities`, `Container ${container.name} adds capabilities`, containerYamlOptions(pod, container, 'securityContext.capabilities.add')))),
     SEC013: pods.flatMap(pod => (json(pod)?.spec?.volumes || []).filter((volume: any) => volume.emptyDir).map((volume: any) => finding(pod, `emptyDir volume ${volume.name}`, `emptyDir volume ${volume.name}`, { yamlPath: `spec.volumes[name=${volume.name || 'unknown'}].emptyDir`, yamlValue: volume.emptyDir }))),
     SEC016: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.windowsOptions?.hostProcess).map(container => finding(pod, `Windows HostProcess container ${container.name}`, `Windows HostProcess container ${container.name}`, containerYamlOptions(pod, container, 'securityContext.windowsOptions.hostProcess')))),
     SEC017: pods.flatMap(pod => containers(pod).filter(container => container?.securityContext?.procMount === 'Unmasked').map(container => finding(pod, `Container ${container.name} uses Unmasked procMount`, `Container ${container.name} uses Unmasked procMount`, containerYamlOptions(pod, container, 'securityContext.procMount')))),
@@ -4668,7 +4668,11 @@ const nativeHandlers: Record<string, NativeHandler> = {
     });
     return findings;
   }),
-  NET004: resources => resources.namespace.data.filter(ns => resources.pod.data.some(pod => namespace(pod) === name(ns)) && !resources.networkpolicy.data.some(policy => namespace(policy) === name(ns))).map(ns => finding(ns, 'Namespace has pods but no NetworkPolicy')),
+  NET004: resources => {
+    const policyNamespaces = new Set(resources.networkpolicy.data.map(policy => namespace(policy)).filter((ns): ns is string => Boolean(ns)));
+    return resources.namespace.data.filter(ns => namespaceNeedsNetworkPolicy(name(ns), policyNamespaces))
+      .map(ns => finding(ns, 'Namespace has no NetworkPolicy'));
+  },
   NET005: resources => resources.ingress.data.flatMap(ingress => {
     const seen = new Set<string>();
     return (json(ingress)?.spec?.rules || []).flatMap((rule: any) => (rule.http?.paths || []).flatMap((path: any) => {
@@ -4746,6 +4750,9 @@ const nativeHandlers: Record<string, NativeHandler> = {
   POD011: resources => resources.pod.data.filter(pod => json(pod)?.spec?.shareProcessNamespace === true).map(pod => finding(pod, 'shareProcessNamespace enabled')),
   POD012: resources => resources.pod.data.filter(pod => Number(json(pod)?.spec?.terminationGracePeriodSeconds) === 0).map(pod => finding(pod, 'terminationGracePeriodSeconds is 0')),
   POD013: bidirectionalMountPropagationFindings,
+  POD014: resources => resources.pod.data.flatMap(pod => containers(pod)
+    .filter(container => !hasResourceLimits(container?.resources))
+    .map(container => finding(pod, `Container ${container.name} has no resource limits`, `Container ${container.name} has no resource limits`, containerYamlOptions(pod, container, 'resources.limits')))),
   PV001: resources => resources.persistentvolume.data.filter(pv => json(pv)?.status?.phase !== 'Bound' && !resources.persistentvolumeclaim.data.some(pvc => json(pvc)?.spec?.volumeName === name(pv))).map(pv => finding(pv, 'PV is not bound to any PVC')),
   PVC001: resources => resources.persistentvolumeclaim.data.filter(pvc => {
     const condition = pvcUnusedCondition(pvc);
@@ -4793,6 +4800,11 @@ const nativeHandlers: Record<string, NativeHandler> = {
   RBAC009: defaultServiceAccountDangerousFindings,
   RBAC010: sensitiveServiceAccountWorkloadFindings,
   RBAC011: eventTamperingRbacFindings,
+  RBAC012: resources => [...resources.role.data, ...resources.clusterrole.data]
+    .filter(role => !name(role).startsWith('system:') && objectLabels(role)['kubernetes.io/bootstrapping'] !== 'rbac-defaults')
+    .filter(role => !resources.clusterrole.data.includes(role) || !isBuiltInClusterRole(role))
+    .filter(role => hasWildcardRule(json(role)?.rules))
+    .map(role => finding(role, 'Role grants all verbs on all resources in an API group')),
   SC002_AKS: resources => resources.storageclass.data.filter(sc => ['kubernetes.io/azure-disk', 'kubernetes.io/azure-file'].includes(json(sc)?.provisioner)).map(sc => finding(sc, 'Azure in-tree provisioner')),
   SC002_EXPANSION: resources => resources.storageclass.data.filter(sc => json(sc)?.allowVolumeExpansion !== true).map(sc => finding(sc, 'Volume expansion disabled')),
   SC003: clusterStoragePressureFindings,
@@ -4894,6 +4906,17 @@ const nativeHandlers: Record<string, NativeHandler> = {
 };
 
 function evaluateCheck(check: GeneratedCheck, resources: ResourceStates, config: KubeBuddyConfig): CheckResult {
+  const requiredResources = check.id === 'NET004'
+    ? [['Namespaces', resources.namespace], ['NetworkPolicies', resources.networkpolicy]] as const
+    : check.id === 'RBAC012'
+    ? [['Roles', resources.role], ['ClusterRoles', resources.clusterrole]] as const
+    : check.id === 'POD014' ? [['Pods', resources.pod]] as const : [];
+  for (const [label, resource] of requiredResources) {
+    if (resource.error) {
+      return resultFromCheck(check, [], 'skipped', formatResourceError(label, resource.error));
+    }
+  }
+
   if (check.nativeHandler) {
     const handler = nativeHandlers[check.nativeHandler];
     if (!handler) {

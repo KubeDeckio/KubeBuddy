@@ -8,6 +8,37 @@ import (
 	"github.com/KubeDeckio/KubeBuddy/internal/scan"
 )
 
+func TestNodePressureRendersActualFindingsAndUnavailableState(t *testing.T) {
+	check := scan.CheckResult{ID: "NODE002", Name: "Node Resource Pressure", Weight: 6, Total: 1, Items: []scan.Finding{{Resource: "node/test", Value: "CPU 80.00%", Message: "Node resource pressure detected"}}}
+	normalized := CompatChecks([]scan.CheckResult{check})
+	if normalized[0].Total != 1 {
+		t.Fatalf("findings were overwritten: %+v", normalized[0])
+	}
+	rendered := renderNodeSection(normalized[0], reportSnapshot{}, nil, nil)
+	if !strings.Contains(rendered, "test") || !strings.Contains(rendered, "CPU 80.00%") || !strings.Contains(rendered, "Total Nodes with Issues: 1") {
+		t.Fatalf("node pressure findings missing from HTML: %s", rendered)
+	}
+	snapshot := reportSnapshot{
+		NodeObjects: []map[string]any{{
+			"metadata": map[string]any{"name": "test"},
+			"status": map[string]any{
+				"conditions":  []any{map[string]any{"type": "Ready", "status": "True"}},
+				"allocatable": map[string]any{"cpu": "1000m", "memory": "1048576Ki"},
+			},
+		}},
+		Metrics: &kubernetes.ClusterMetrics{Nodes: []kubernetes.NodeMetrics{{NodeName: "test", CPUAvg: 25}}},
+	}
+	rendered = renderNodeSection(normalized[0], snapshot, nil, nil)
+	if !strings.Contains(rendered, "CPU 80.00%") || !strings.Contains(rendered, "Prometheus node usage averages (last 24 hours)") || !strings.Contains(rendered, "25.00%") || !strings.Contains(rendered, "Total Nodes with Issues: 1") {
+		t.Fatalf("current findings and historical metrics not separated: %s", rendered)
+	}
+	skipped := scan.CheckResult{ID: "NODE002", Name: check.Name, Weight: 6, SummaryMessage: "Unable to check due to: node metrics unavailable"}
+	normalized = CompatChecks([]scan.CheckResult{skipped})
+	if normalized[0].Weight != 0 || passedChecks(normalized) != 0 || !strings.Contains(renderNodeSection(normalized[0], reportSnapshot{}, nil, nil), skipped.SummaryMessage) {
+		t.Fatalf("unavailable node pressure check was treated as healthy: %+v", normalized[0])
+	}
+}
+
 func TestScanRenderer(t *testing.T) {
 	t.Helper()
 

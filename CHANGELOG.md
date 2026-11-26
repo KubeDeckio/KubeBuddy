@@ -4,18 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-10-30
+## [0.0.39] - 2026-11-26
+
+### Added
+
+* Added **POD014** to detect application and init containers without resource limits.
+* Added **RBAC012** to detect wildcard permissions in non-managed Roles and ClusterRoles, including unbound roles.
 
 ### Changed
 
 * The default AI recommendation model is now `gpt-6.1-terra`, replacing `gpt-5-mini`, which OpenAI shuts down on 2026-12-11. The default model runs with low reasoning effort and a 2,000-token output limit, so reasoning doesn't cut off the JSON recommendation. Set `KUBEBUDDY_OPENAI_MODEL` to use a different model; custom models are sent without a reasoning setting.
 * AI responses cut off by the output limit now fail with `incomplete ai response (<reason>)` instead of a JSON parse error.
 
+### Fixed
+
+* Corrected NODE002 finding counts and details in JSON, text, HTML, and Headlamp scoring. CLI findings use current metrics-server data; optional Prometheus 24-hour averages are shown separately in HTML. Unavailable node metrics are reported as skipped rather than passed.
+* NET004 now checks empty namespaces as well as namespaces with pods, excluding Kubernetes system namespaces and respecting configured namespace exclusions.
+* SEC006, SEC009, and SEC012 now include init containers in CLI and Headlamp checks.
+
 ### Security
 
 * Updated Headlamp development-tool dependency overrides for Storybook, Vite, Undici, Vitest, fast-uri, source-map-js, postcss-selector-parser, qs, brace-expansion, and pbkdf2 to patched versions.
 * Updated webpack-dev-middleware from 6.x to 7.4.6 to address its path-traversal advisory; validated compatibility with the SDK's Storybook webpack builder.
-* Two low-severity advisories remain in transitive `deepmerge` and `elliptic` dependencies because neither has a published patched version. npm audit also reports the parent dependency chains; these are not additional independently vulnerable packages.
+* Updated `cloud.google.com/go/container` to `1.56.1`, `github.com/Azure/azure-sdk-for-go/sdk/azcore` to `1.23.3`, and `golang.org/x/term` to `0.47.0`; updated OpenTelemetry to `1.47.0` to address a security advisory.
+* Updated Headlamp development-tool overrides for `i18next`, `minimatch`, `glob`, and `rimraf` to address security advisories.
+* A low-severity advisory remains in the transitive `elliptic` development dependency because no patched release is available. npm audit also reports its parent dependency chain.
 
 ## [0.0.38] - 2026-10-30
 

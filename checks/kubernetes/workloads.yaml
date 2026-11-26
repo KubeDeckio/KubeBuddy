@@ -99,3 +99,19 @@ checks:
   - "\U0001F916 A pod has allocated hardware resources reporting unhealthy or unknown."
   - "\U0001F4CC Check the node device plugin or DRA driver."
   - "\u26A0\uFE0F Accelerator workloads may crash or perform poorly until fixed."
+- id: POD014
+  name: Containers Without Resource Limits
+  section: Pods
+  category: Workloads
+  resource_kind: Pod
+  severity: Warning
+  weight: 2
+  description: Detects application and init containers without any resource limits.
+  fail_message: Container has no resource limits.
+  recommendation: Define appropriate resource limits for each application and init container.
+  recommendation_html: "<ul><li>Set resource limits appropriate for each container's workload.</li><li>Review resource consumption and tune limits to avoid unnecessary throttling or termination.</li></ul>"
+  url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  native_handler: POD014
+  value:
+    path: metadata.name
+  operator: exists

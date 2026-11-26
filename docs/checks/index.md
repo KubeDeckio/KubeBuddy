@@ -74,7 +74,7 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | NET001 | Services Without Endpoints | Identifies services that have no backing endpoints. | High | 2 |
 | NET002 | Publicly Accessible Services | Detects services of type LoadBalancer or NodePort that may be publicly exposed. | High | 4 |
 | NET003 | Ingress Health Validation | Validates ingress classes, TLS secrets, and backend service references. | High | 3 |
-| NET004 | Namespace Missing Network Policy | Flags namespaces that do not define any NetworkPolicy. | Warning | 2 |
+| NET004 | Namespace Missing Network Policy | Flags namespaces without a NetworkPolicy, including empty namespaces, except Kubernetes system namespaces. | Warning | 2 |
 | NET005 | Ingress Host/Path Conflicts | Detects duplicate host/path combinations across ingresses in the same namespace. | High | 2 |
 | NET006 | Ingress Using Wildcard Hosts | Detects ingress rules that use wildcard hosts. | Warning | 2 |
 | NET007 | Service TargetPort Mismatch | Detects services whose `targetPort` does not exist on backing pods. | High | 2 |
@@ -100,7 +100,7 @@ Some low-severity checks are marked as advisories in the check catalog. Advisori
 | ID      | Name                   | Description                                  | Severity | Weight |
 | ------- | ---------------------- | -------------------------------------------- | -------- | ------ |
 | NODE001 | Node Readiness         | Nodes not ready or with critical conditions. | High     | 3      |
-| NODE002 | Node Resource Pressure | High usage of CPU, memory, or disk.          | High     | 3      |
+| NODE002 | Node Resource Pressure | CLI: current CPU and memory usage from metrics-server; Headlamp: node pressure conditions. Optional Prometheus 24-hour averages are shown separately in HTML. | Warning | 6 |
 | NODE003 | Max Pods per Node      | Node pod count exceeds configured threshold. | Warning  | 2      |
 
 ### Control Plane
@@ -143,6 +143,7 @@ The built-in namespaces `default`, `kube-system`, `kube-public`, and `kube-node-
 | POD011 | Shared Process Namespace Enabled | Detects pods with `shareProcessNamespace: true`. | Medium | 2 |
 | POD012 | Zero Termination Grace Period | Detects pods with `terminationGracePeriodSeconds: 0`. | Medium | 2 |
 | POD013 | Bidirectional Mount Propagation | Detects pod volume mounts using bidirectional mount propagation. | High | 4 |
+| POD014 | Containers Without Resource Limits | Detects application and init containers with no resource limits. | Warning | 2 |
 
 ### RBAC
 
@@ -158,6 +159,7 @@ The built-in namespaces `default`, `kube-system`, `kube-public`, and `kube-node-
 | RBAC008 | Cross-Namespace ServiceAccount Binding | Detects ServiceAccounts bound outside their namespace or cluster-wide. | High | 4 |
 | RBAC009 | Default ServiceAccount with Dangerous Permissions | Detects default ServiceAccounts bound to dangerous permissions. | High | 4 |
 | RBAC010 | Sensitive ServiceAccount Bound to Workload | Detects workloads using ServiceAccounts that hold dangerous RBAC permissions. | High | 4 |
+| RBAC012 | Roles With Wildcard Permissions | Detects non-managed Roles and ClusterRoles granting all verbs on all resources within an API group, even when unbound. | High | 3 |
 
 ### Security
 

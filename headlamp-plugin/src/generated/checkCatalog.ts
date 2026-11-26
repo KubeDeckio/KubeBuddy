@@ -152,9 +152,9 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Networking",
     "severity": "Warning",
     "weight": 2,
-    "description": "Flags namespaces that do not define any NetworkPolicy.",
+    "description": "Flags namespaces without a NetworkPolicy, including empty namespaces, except Kubernetes system namespaces.",
     "failMessage": "Namespace has no NetworkPolicy.",
-    "recommendation": "Apply a default deny-all ingress/egress NetworkPolicy in each namespace that hosts workloads, then selectively allow traffic as needed.\n",
+    "recommendation": "Apply a default deny-all ingress/egress NetworkPolicy in each application namespace before deploying workloads, then selectively allow traffic as needed.\n",
     "recommendationHtml": "<ul>\n  <li>Apply a default <code>deny-all</code> NetworkPolicy for ingress and egress.</li>\n  <li>Use additional policies to allow traffic between required pods/services.</li>\n</ul>",
     "url": "https://kubernetes.io/docs/concepts/services-networking/network-policies/",
     "resourceKind": "Namespace",
@@ -1582,7 +1582,7 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "section": "Nodes",
     "severity": "Warning",
     "weight": 6,
-    "description": "Detects nodes under high CPU, memory, or disk usage.",
+    "description": "Detects high current CPU or memory usage in the CLI and node pressure conditions in Headlamp.",
     "failMessage": "One or more nodes are under high resource usage.",
     "recommendation": "Investigate and rebalance workloads on nodes with high resource usage.",
     "recommendationHtml": "<div class=\"recommendation-content\">\n  <ul>\n    <li>Review node workloads with <code>kubectl top nodes</code>.</li>\n    <li>Move resource-hungry pods to less loaded nodes.</li>\n    <li>Scale node pool or optimize workloads if necessary.</li>\n  </ul>\n</div>",
@@ -2047,6 +2047,26 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "url": "https://kubernetes.io/docs/concepts/storage/volumes/#mount-propagation",
     "resourceKind": "Pod",
     "nativeHandler": "POD013",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "operations.yaml"
+  },
+  {
+    "id": "RBAC012",
+    "name": "Roles With Wildcard Permissions",
+    "category": "RBAC",
+    "section": "Security",
+    "severity": "High",
+    "weight": 3,
+    "description": "Detects non-managed Roles and ClusterRoles granting all verbs on all resources within an API group, including unbound roles.",
+    "failMessage": "Role grants wildcard verbs and resources.",
+    "recommendation": "Replace wildcard rules with the specific resources and verbs needed by each role.",
+    "recommendationHtml": "<ul><li>Review the role's rules and remove unnecessary wildcard permissions.</li><li>Grant only the resources and verbs needed by the workload.</li><li>Review bindings before changing a role.</li></ul>",
+    "url": "https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources",
+    "resourceKind": "ClusterRole",
+    "nativeHandler": "RBAC012",
     "value": {
       "path": "metadata.name"
     },
@@ -2939,6 +2959,26 @@ export const KUBERNETES_CHECKS: GeneratedCheck[] = [
     "url": "https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/",
     "resourceKind": "Pod",
     "nativeHandler": "POD009",
+    "value": {
+      "path": "metadata.name"
+    },
+    "operator": "exists",
+    "sourceFile": "workloads.yaml"
+  },
+  {
+    "id": "POD014",
+    "name": "Containers Without Resource Limits",
+    "category": "Workloads",
+    "section": "Pods",
+    "severity": "Warning",
+    "weight": 2,
+    "description": "Detects application and init containers without any resource limits.",
+    "failMessage": "Container has no resource limits.",
+    "recommendation": "Define appropriate resource limits for each application and init container.",
+    "recommendationHtml": "<ul><li>Set resource limits appropriate for each container's workload.</li><li>Review resource consumption and tune limits to avoid unnecessary throttling or termination.</li></ul>",
+    "url": "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+    "resourceKind": "Pod",
+    "nativeHandler": "POD014",
     "value": {
       "path": "metadata.name"
     },

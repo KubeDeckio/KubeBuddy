@@ -49,6 +49,29 @@ func TestWriteScanResultJSON(t *testing.T) {
 	}
 }
 
+func TestNodePressureReportUsesScanFindingsNotPrometheusAverages(t *testing.T) {
+	check := scan.CheckResult{ID: "NODE002", Name: "Node Resource Pressure", Total: 1, Items: []scan.Finding{{Resource: "node/test", Value: "CPU 80.00%", Message: "Node resource pressure detected"}}}
+	for _, metrics := range []any{nil, map[string]any{"nodes": []any{map[string]any{"nodeName": "other", "cpuAvg": 90}}}} {
+		got := buildCompatCheckResult(check, metrics)
+		items, ok := got.Items.([]map[string]any)
+		if got.Total != 1 || !ok || len(items) != 1 || items[0]["Node"] != "test" || items[0]["Usage"] != "CPU 80.00%" {
+			t.Fatalf("unexpected NODE002 output: %+v", got)
+		}
+		lines, _ := compatTextLines(got)
+		if !strings.Contains(strings.Join(lines, "\n"), "CPU 80.00%") {
+			t.Fatalf("text report lost node usage: %v", lines)
+		}
+	}
+}
+
+func TestNodePressureUnavailableIsNotReportedAsHealthy(t *testing.T) {
+	check := scan.CheckResult{ID: "NODE002", Name: "Node Resource Pressure", SummaryMessage: "Unable to check due to: node metrics unavailable"}
+	got := buildCompatCheckResult(check, nil)
+	if got.Message != check.SummaryMessage {
+		t.Fatalf("expected unavailable message, got %+v", got)
+	}
+}
+
 func TestWriteScanResultText(t *testing.T) {
 	t.Helper()
 

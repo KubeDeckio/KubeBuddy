@@ -171,6 +171,94 @@ func TestRootUserChecksOnlyRealContainersAndEffectiveSecurityContext(t *testing.
 	}
 }
 
+func TestPodAuditChecksIncludeInitContainers(t *testing.T) {
+	pod := correctionDocument(t, `{"metadata":{"name":"app","namespace":"test"},"spec":{"containers":[{"name":"web","resources":{"limits":{"memory":"128Mi"}},"securityContext":{"runAsNonRoot":true,"readOnlyRootFilesystem":true,"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}}],"initContainers":[{"name":"init","securityContext":{"capabilities":{"add":["NET_ADMIN"]}}}]}}`)
+	for _, tt := range []struct {
+		name    string
+		handler nativeHandler
+	}{
+		{"secure defaults", runSEC006},
+		{"capabilities drop", runSEC009},
+		{"added capabilities", runSEC012},
+		{"resource limits", runPOD014},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			findings, err := tt.handler(checks.Check{}, pod, nil)
+			if err != nil || len(findings) != 1 || !strings.Contains(findings[0].Message+" "+findings[0].Value, "init") {
+				t.Fatalf("expected one finding for init container, got %v, %v", findings, err)
+			}
+		})
+	}
+}
+
+func TestPodResourceLimitsCheckHandlesEmptyAndConfiguredLimits(t *testing.T) {
+	pod := correctionDocument(t, `{"metadata":{"name":"app","namespace":"test"},"spec":{"containers":[{"name":"missing"},{"name":"empty","resources":{"limits":{}}},{"name":"limited","resources":{"limits":{"memory":"128Mi"}}}],"ephemeralContainers":[{"name":"debug"}]}}`)
+	findings, err := runPOD014(checks.Check{}, pod, nil)
+	if err != nil || len(findings) != 2 || findings[0].Value != "missing" || findings[1].Value != "empty" {
+		t.Fatalf("expected only missing and empty limits, got %v, %v", findings, err)
+	}
+}
+
+func TestWildcardRolesIncludeUnboundAndExcludeManaged(t *testing.T) {
+	cache := map[string][]map[string]any{
+		"roles": {
+			correctionDocument(t, `{"metadata":{"name":"custom","namespace":"app"},"rules":[{"apiGroups":[""],"verbs":["*"],"resources":["*"]}]}`),
+			correctionDocument(t, `{"metadata":{"name":"separate","namespace":"app"},"rules":[{"verbs":["*"],"resources":["pods"]},{"verbs":["get"],"resources":["*"]}]}`),
+		},
+		"clusterroles": {
+			correctionDocument(t, `{"metadata":{"name":"unbound"},"rules":[{"apiGroups":["apps"],"verbs":["*"],"resources":["*"]}]}`),
+			correctionDocument(t, `{"metadata":{"name":"cluster-admin"},"rules":[{"verbs":["*"],"resources":["*"]}]}`),
+			correctionDocument(t, `{"metadata":{"name":"bootstrap","labels":{"kubernetes.io/bootstrapping":"rbac-defaults"}},"rules":[{"verbs":["*"],"resources":["*"]}]}`),
+		},
+	}
+	findings, err := runRBAC012(checks.Check{}, nil, cache)
+	if err != nil || len(findings) != 2 || findings[0].Resource != "role/custom" || findings[1].Resource != "clusterrole/unbound" {
+		t.Fatalf("expected custom and unbound wildcard roles, got %v, %v", findings, err)
+	}
+}
+
+func TestNodePressureReportsUnavailableMetrics(t *testing.T) {
+	previous := currentRuntime
+	currentRuntime = runtimeContext{}
+	t.Cleanup(func() { currentRuntime = previous })
+	_, err := runNODE002(checks.Check{}, nil, map[string][]map[string]any{"nodes": {}})
+	if err == nil || !strings.Contains(err.Error(), "node metrics unavailable") {
+		t.Fatalf("expected explicit node metrics error, got %v", err)
+	}
+}
+
+func TestNetworkPolicyCoverageIncludesEmptyNamespaces(t *testing.T) {
+	previous := currentRuntime
+	currentRuntime = runtimeContext{Excluded: map[string]struct{}{"excluded": {}}}
+	t.Cleanup(func() { currentRuntime = previous })
+	namespaces := []map[string]any{
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"empty"}}`),
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"active"}}`),
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"covered"}}`),
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"default"}}`),
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"excluded"}}`),
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"kube-system"}}`),
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"kube-public"}}`),
+		correctionDocument(t, `{"kind":"Namespace","metadata":{"name":"kube-node-lease"}}`),
+	}
+	cache := map[string][]map[string]any{
+		"namespaces": filterExcludedItems(namespaces),
+		"networkpolicies": {
+			correctionDocument(t, `{"metadata":{"name":"deny","namespace":"covered"}}`),
+		},
+		"pods": {correctionDocument(t, `{"metadata":{"name":"pod","namespace":"active"}}`)},
+	}
+	findings, err := runNET004(checks.Check{}, nil, cache)
+	if err != nil || len(findings) != 3 {
+		t.Fatalf("expected empty, active and default namespaces, got %v, %v", findings, err)
+	}
+	for i, name := range []string{"empty", "active", "default"} {
+		if findings[i].Resource != "namespace/"+name {
+			t.Fatalf("unexpected finding: %+v", findings[i])
+		}
+	}
+}
+
 func TestNodeTaintExemptionRequiresActualSystemPoolLabel(t *testing.T) {
 	for _, mode := range []string{"system", "user", ""} {
 		node := correctionDocument(t, `{"metadata":{"name":"node","labels":{"kubernetes.azure.com/mode":"`+mode+`"}},"spec":{"taints":[{"key":"CriticalAddonsOnly","value":"true","effect":"NoSchedule"},{"key":"custom","value":"true","effect":"NoSchedule"}]}}`)

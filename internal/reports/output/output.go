@@ -201,10 +201,6 @@ func resolveMetadata(metadata Metadata, result scan.Result) Metadata {
 }
 
 func buildCompatCheckResult(check scan.CheckResult, metrics any) jsonCheckResult {
-	total := check.Total
-	if check.ID == "NODE002" {
-		total = compatNode002IssueCount(metrics)
-	}
 	out := jsonCheckResult{
 		ID:                         check.ID,
 		Name:                       check.Name,
@@ -221,7 +217,7 @@ func buildCompatCheckResult(check scan.CheckResult, metrics any) jsonCheckResult
 		AutomaticReason:            nilIfEmpty(check.AutomaticReason),
 		AutomaticAdmissionBehavior: nilIfEmpty(check.AutomaticAdmissionBehavior),
 		AutomaticMutationOutcome:   nilIfEmpty(check.AutomaticMutationOutcome),
-		Total:                      total,
+		Total:                      check.Total,
 		SuppressedTotal:            len(check.SuppressedFindings),
 		SuppressedFindings:         compatSuppressedFindings(check),
 		Items:                      compatItems(check, metrics),
@@ -284,7 +280,7 @@ func compatItems(check scan.CheckResult, metrics any) any {
 	case "NODE001":
 		return compatNode001Items(check)
 	case "NODE002":
-		return compatNode002Items(metrics)
+		return compatNode002Items(check)
 	case "NODE003":
 		return compatNode003Items(check)
 	case "PROM003":
@@ -423,56 +419,16 @@ func compatNode001Items(check scan.CheckResult) any {
 	return items
 }
 
-func compatNode002Items(metrics any) any {
-	items := make([]map[string]any, 0)
-	for _, metric := range extractNodeMetrics(metrics) {
-		cpuAvg := nodeMetricFloat(metric["cpuAvg"])
-		memAvg := nodeMetricFloat(metric["memAvg"])
-		diskAvg := nodeMetricFloat(metric["diskAvg"])
-		cpuTotal := nodeMetricInt(metric["cpuTotal"])
-		memTotal := nodeMetricInt(metric["memTotal"])
-		cpuUsed := int(float64(cpuTotal) * cpuAvg / 100)
-		memUsed := int(float64(memTotal) * memAvg / 100)
+func compatNode002Items(check scan.CheckResult) any {
+	items := make([]map[string]any, 0, len(check.Items))
+	for _, finding := range check.Items {
 		items = append(items, map[string]any{
-			"Node":           metric["nodeName"],
-			"CPU Status":     compatPressureStatus(cpuAvg, 50, 75),
-			"CPU %":          fmt.Sprintf("%.2f%%", cpuAvg),
-			"CPU Used":       fmt.Sprintf("%d mC", cpuUsed),
-			"CPU Total":      fmt.Sprintf("%d mC", cpuTotal),
-			"Mem Status":     compatPressureStatus(memAvg, 50, 75),
-			"Mem %":          fmt.Sprintf("%.2f%%", memAvg),
-			"Mem Used":       fmt.Sprintf("%d Mi", memUsed),
-			"Mem Total":      fmt.Sprintf("%d Mi", memTotal),
-			"Disk %":         fmt.Sprintf("%.2f%%", diskAvg),
-			"Disk Status":    compatPressureStatus(diskAvg, 60, 80),
-			"UsedPrometheus": true,
+			"Node":    strings.TrimPrefix(finding.Resource, "node/"),
+			"Usage":   finding.Value,
+			"Message": finding.Message,
 		})
 	}
 	return items
-}
-
-func compatNode002IssueCount(metrics any) int {
-	count := 0
-	for _, metric := range extractNodeMetrics(metrics) {
-		cpuAvg := nodeMetricFloat(metric["cpuAvg"])
-		memAvg := nodeMetricFloat(metric["memAvg"])
-		diskAvg := nodeMetricFloat(metric["diskAvg"])
-		if cpuAvg > 50 || memAvg > 50 || diskAvg > 60 {
-			count++
-		}
-	}
-	return count
-}
-
-func compatPressureStatus(value, warn, crit float64) string {
-	switch {
-	case value > crit:
-		return "🔴 Critical"
-	case value > warn:
-		return "🟡 Warning"
-	default:
-		return "✅ Normal"
-	}
 }
 
 func compatNode003Items(check scan.CheckResult) any {
@@ -557,48 +513,6 @@ func clusterNodeNames() []string {
 		}
 	}
 	return names
-}
-
-func extractNodeMetrics(metrics any) []map[string]any {
-	if metrics == nil {
-		return nil
-	}
-	raw, err := json.Marshal(metrics)
-	if err != nil {
-		return nil
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil
-	}
-	nodes, _ := payload["nodes"].([]any)
-	out := make([]map[string]any, 0, len(nodes))
-	for _, item := range nodes {
-		if metric, ok := item.(map[string]any); ok {
-			out = append(out, metric)
-		}
-	}
-	return out
-}
-
-func nodeMetricFloat(value any) float64 {
-	switch raw := value.(type) {
-	case float64:
-		return raw
-	case float32:
-		return float64(raw)
-	case int:
-		return float64(raw)
-	case int64:
-		return float64(raw)
-	case json.Number:
-		parsed, _ := raw.Float64()
-		return parsed
-	default:
-		var parsed float64
-		fmt.Sscan(fmt.Sprint(value), &parsed)
-		return parsed
-	}
 }
 
 func nodeMetricInt(value any) int {
@@ -765,6 +679,9 @@ func round2(value float64) float64 {
 }
 
 func checkMessage(check scan.CheckResult) string {
+	if check.ID == "NODE002" && strings.TrimSpace(check.SummaryMessage) != "" {
+		return check.SummaryMessage
+	}
 	if check.Total == 0 {
 		if strings.TrimSpace(check.Name) == "" {
 			return "No issues detected."
@@ -1355,13 +1272,12 @@ func compatTextLines(check jsonCheckResult) ([]string, bool) {
 		for _, item := range flattenLegacyMaps(check.Items) {
 			rows = append(rows, []string{
 				textSanitize(fmt.Sprint(item["Node"])),
-				textSanitize(fmt.Sprint(item["CPU Status"])),
-				textSanitize(fmt.Sprint(item["Mem Status"])),
-				textSanitize(fmt.Sprint(item["Disk Status"])),
+				textSanitize(fmt.Sprint(item["Usage"])),
+				textSanitize(fmt.Sprint(item["Message"])),
 			})
 		}
 		if len(rows) > 0 {
-			return renderTextTable([]string{"Node", "CPU Status", "Mem Status", "Disk Status"}, rows), true
+			return renderTextTable([]string{"Node", "Usage", "Message"}, rows), true
 		}
 	case "NODE003":
 		rows := make([][]string, 0)

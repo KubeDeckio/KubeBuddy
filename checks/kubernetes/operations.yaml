@@ -879,7 +879,7 @@ checks:
   resource_kind: Node
   severity: Warning
   weight: 6
-  description: Detects nodes under high CPU, memory, or disk usage.
+  description: Detects high current CPU or memory usage in the CLI and node pressure conditions in Headlamp.
   fail_message: One or more nodes are under high resource usage.
   recommendation: "Investigate and rebalance workloads on nodes with high resource usage."
   url: https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/
@@ -889,10 +889,9 @@ checks:
   operator: exists
   recommendation_html: "<div class=\"recommendation-content\">\n  <ul>\n    <li>Review node workloads with <code>kubectl top nodes</code>.</li>\n    <li>Move resource-hungry pods to less loaded nodes.</li>\n    <li>Scale node pool or optimize workloads if necessary.</li>\n  </ul>\n</div>"
   speech_bubble:
-  - "\U0001F916 Checking for high CPU, memory, or disk usage on nodes."
-  - "\U0001F4CC This check compares usage against configured thresholds."
-  - '- CPU, memory: from metrics-server'
-  - '- Disk: estimated from node summary'
+  - "\U0001F916 Checking node resource pressure."
+  - '- CLI: current CPU and memory usage from metrics-server, compared with node capacity.'
+  - '- Headlamp: node memory, disk, and PID pressure conditions.'
   - "\u26A0\uFE0F High usage may lead to evictions or degraded performance."
 - id: NODE003
   name: Max Pods per Node
@@ -1333,3 +1332,19 @@ checks:
   speech_bubble:
   - Bidirectional mount propagation can affect host mounts.
   - Restrict it to trusted node agents with documented exceptions.
+- id: RBAC012
+  name: Roles With Wildcard Permissions
+  category: RBAC
+  section: Security
+  resource_kind: ClusterRole
+  severity: High
+  weight: 3
+  description: Detects non-managed Roles and ClusterRoles granting all verbs on all resources within an API group, including unbound roles.
+  fail_message: Role grants wildcard verbs and resources.
+  recommendation: Replace wildcard rules with the specific resources and verbs needed by each role.
+  recommendation_html: "<ul><li>Review the role's rules and remove unnecessary wildcard permissions.</li><li>Grant only the resources and verbs needed by the workload.</li><li>Review bindings before changing a role.</li></ul>"
+  url: https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources
+  native_handler: RBAC012
+  value:
+    path: metadata.name
+  operator: exists

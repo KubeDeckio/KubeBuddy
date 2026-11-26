@@ -2,6 +2,10 @@ export function isBuiltInNamespace(name: string): boolean {
   return ['default', 'kube-system', 'kube-public', 'kube-node-lease'].includes(name);
 }
 
+export function namespaceNeedsNetworkPolicy(name: string, policyNamespaces: Set<string>): boolean {
+  return !(name !== 'default' && isBuiltInNamespace(name)) && !policyNamespaces.has(name);
+}
+
 export function podContainers<T>(spec: {
   containers?: T[];
   initContainers?: T[];
@@ -12,6 +16,14 @@ export function podContainers<T>(spec: {
     ...(spec.initContainers || []),
     ...(spec.ephemeralContainers || []),
   ];
+}
+
+export function hasResourceLimits(resources?: { limits?: Record<string, unknown> | null } | null): boolean {
+  return Object.keys(resources?.limits || {}).length > 0;
+}
+
+export function hasWildcardRule(rules: { verbs?: string[]; resources?: string[] }[] = []): boolean {
+  return rules.some(rule => (rule.verbs || []).includes('*') && (rule.resources || []).includes('*'));
 }
 
 export function isSystemIsolationTaint(

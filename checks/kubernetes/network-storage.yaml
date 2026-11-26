@@ -69,9 +69,9 @@ checks:
   resource_kind: Namespace
   severity: Warning
   weight: 2
-  description: Flags namespaces that do not define any NetworkPolicy.
+  description: Flags namespaces without a NetworkPolicy, including empty namespaces, except Kubernetes system namespaces.
   fail_message: Namespace has no NetworkPolicy.
-  recommendation: "Apply a default deny-all ingress/egress NetworkPolicy in each namespace that hosts workloads, then selectively allow traffic as needed.\n"
+  recommendation: "Apply a default deny-all ingress/egress NetworkPolicy in each application namespace before deploying workloads, then selectively allow traffic as needed.\n"
 
   url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
   native_handler: NET004
@@ -80,7 +80,7 @@ checks:
   operator: exists
   recommendation_html: "<ul>\n  <li>Apply a default <code>deny-all</code> NetworkPolicy for ingress and egress.</li>\n  <li>Use additional policies to allow traffic between required pods/services.</li>\n</ul>"
   speech_bubble:
-  - Some namespaces have pods but no NetworkPolicy.
+  - Some namespaces have no NetworkPolicy, even if they do not currently have pods.
   - Unrestricted traffic between pods could be a security risk.
 - id: NET005
   name: Ingress Host/Path Conflicts

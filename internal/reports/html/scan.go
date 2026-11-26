@@ -74,7 +74,12 @@ func buildBody(title string, result scan.Result, opts RenderOptions) string {
 	htmlChecks := compatHTMLChecks(result.Checks)
 	pages, aksPage, gkePage := buildPages(scan.Result{Checks: htmlChecks, AutomaticReadiness: result.AutomaticReadiness})
 	overviewChecks := overviewChecks(htmlChecks)
-	totalChecks := len(overviewChecks)
+	totalChecks := 0
+	for _, check := range overviewChecks {
+		if !unavailableNodePressure(check) {
+			totalChecks++
+		}
+	}
 	passedChecks := passedChecks(overviewChecks)
 	clusterScore := score(htmlChecks)
 
@@ -913,7 +918,7 @@ func renderNodeSection(check scan.CheckResult, snapshot reportSnapshot, directRi
 	if check.ID == "PROM006" && strings.Contains(strings.ToLower(check.SummaryMessage), "insufficient") {
 		b.WriteString(`<div class="skipped-notice">⚠️ Node-exporter is not deployed. Deploy node-exporter with a GMP <code>ClusterPodMonitoring</code> to enable node sizing insights. See: <a href="https://cloud.google.com/stackdriver/docs/managed-prometheus/setup-unmanaged" target="_blank">GMP node-exporter setup</a>.</div>`)
 	}
-	if check.ID == "NODE003" || check.ID == "PROM006" || check.ID == "PROM008" {
+	if check.ID == "NODE002" || check.ID == "NODE003" || check.ID == "PROM006" || check.ID == "PROM008" {
 		b.WriteString(renderRecommendationDetails(check))
 		b.WriteString(renderCapabilityImpactForCheck(check.ID, directRiskPaths, combinedRiskPaths))
 	}
@@ -1015,10 +1020,19 @@ func renderNodeTable(check scan.CheckResult, snapshot reportSnapshot) string {
 			b.WriteString(`<tr><td>` + esc(name) + `</td><td>` + esc(status) + `</td><td>` + esc(issues) + `</td></tr>`)
 		}
 	case "NODE002":
-		b.WriteString(`<table><tr><th>Node</th><th>CPU Status</th><th>CPU %</th><th>CPU Used</th><th>CPU Total</th><th>Mem Status</th><th>Mem %</th><th>Mem Used</th><th>Mem Total</th><th>Disk %</th><th>Disk Status</th></tr>`)
-		for _, row := range buildNodePressureRows(snapshot) {
-			b.WriteString(`<tr><td>` + esc(row.Node) + `</td><td>` + esc(row.CPUStatus) + `</td><td>` + esc(row.CPUPct) + `</td><td>` + esc(row.CPUUsed) + `</td><td>` + esc(row.CPUTotal) + `</td><td>` + esc(row.MemStatus) + `</td><td>` + esc(row.MemPct) + `</td><td>` + esc(row.MemUsed) + `</td><td>` + esc(row.MemTotal) + `</td><td>` + esc(row.DiskPct) + `</td><td>` + esc(row.DiskStatus) + `</td></tr>`)
+		b.WriteString(`<table><tr><th>Node</th><th>Current Usage</th><th>Message</th></tr>`)
+		for _, item := range check.Items {
+			b.WriteString(`<tr><td>` + esc(strings.TrimPrefix(item.Resource, "node/")) + `</td><td>` + esc(item.Value) + `</td><td>` + esc(item.Message) + `</td></tr>`)
 		}
+		b.WriteString(`</table>`)
+		if rows := buildNodePressureRows(snapshot); len(rows) > 0 {
+			b.WriteString(`<p>Prometheus node usage averages (last 24 hours):</p><table><tr><th>Node</th><th>CPU Status</th><th>CPU %</th><th>CPU Used</th><th>CPU Total</th><th>Mem Status</th><th>Mem %</th><th>Mem Used</th><th>Mem Total</th><th>Disk %</th><th>Disk Status</th></tr>`)
+			for _, row := range rows {
+				b.WriteString(`<tr><td>` + esc(row.Node) + `</td><td>` + esc(row.CPUStatus) + `</td><td>` + esc(row.CPUPct) + `</td><td>` + esc(row.CPUUsed) + `</td><td>` + esc(row.CPUTotal) + `</td><td>` + esc(row.MemStatus) + `</td><td>` + esc(row.MemPct) + `</td><td>` + esc(row.MemUsed) + `</td><td>` + esc(row.MemTotal) + `</td><td>` + esc(row.DiskPct) + `</td><td>` + esc(row.DiskStatus) + `</td></tr>`)
+			}
+			b.WriteString(`</table>`)
+		}
+		return b.String()
 	case "NODE003":
 		b.WriteString(`<table><tr><th>Node</th><th>PodCount</th><th>Capacity</th><th>Percentage</th><th>Threshold</th><th>Status</th></tr>`)
 		for _, item := range check.Items {
@@ -1048,22 +1062,20 @@ func compatNodeTableNeeded(check scan.CheckResult, snapshot reportSnapshot) bool
 	case "NODE001":
 		return len(snapshot.NodeObjects) > 0
 	case "NODE002":
-		return len(buildNodePressureRows(snapshot)) > 0
+		return len(check.Items) > 0 || len(buildNodePressureRows(snapshot)) > 0
 	default:
 		return len(check.Items) > 0
 	}
 }
 
 func compatNodeHeading(check scan.CheckResult) string {
-	switch check.ID {
-	case "NODE002":
-		return check.Name + " (Last 24h)"
-	default:
-		return check.Name
-	}
+	return check.Name
 }
 
 func compatNodeStatusLine(check scan.CheckResult) string {
+	if check.ID == "NODE002" && strings.TrimSpace(check.SummaryMessage) != "" {
+		return `⚠️ ` + esc(check.SummaryMessage)
+	}
 	switch check.ID {
 	case "NODE003":
 		if check.Total > 0 {
@@ -1090,7 +1102,7 @@ func headingTooltip(check scan.CheckResult) string {
 	case "NODE001":
 		text = "Detects nodes that are not in Ready state or reporting other warning conditions."
 	case "NODE002":
-		text = "Detects nodes under high CPU, memory, or disk pressure.<br><br>Data source: Prometheus (24h average)"
+		text = "Detects nodes with high current CPU or memory usage using metrics-server. Prometheus 24-hour averages, when available, are shown separately."
 	case "NODE003":
 		text = "Alerts when any node is running too many pods according to configured thresholds."
 	case "PROM005":
@@ -2147,7 +2159,7 @@ func compatHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {
 		"NET005":  {Severity: "critical", Weight: 5},
 		"NET007":  {Severity: "critical", Weight: 4},
 		"NET012":  {Severity: "critical", Weight: 4},
-		"NODE002": {Severity: "warning", Weight: 6, Total: intPtr(0)},
+		"NODE002": {Severity: "warning", Weight: 6},
 		"NODE003": {Severity: "warning", Weight: 2},
 		"NS004":   {Severity: "warning", Weight: 1},
 		"POD008":  {Severity: "warning", Weight: 3},
@@ -2169,9 +2181,16 @@ func compatHTMLChecks(checks []scan.CheckResult) []scan.CheckResult {
 		if override, ok := baseOverrides[current.ID]; ok {
 			current = applyCompatHTMLOverride(current, override)
 		}
+		if unavailableNodePressure(current) {
+			current.Weight = 0
+		}
 		out = append(out, current)
 	}
 	return out
+}
+
+func unavailableNodePressure(check scan.CheckResult) bool {
+	return check.ID == "NODE002" && strings.TrimSpace(check.SummaryMessage) != ""
 }
 
 func applyCompatHTMLOverride(check scan.CheckResult, override compatHTMLOverride) scan.CheckResult {
@@ -2222,7 +2241,7 @@ func totalFindings(checks []scan.CheckResult) int {
 func passedChecks(checks []scan.CheckResult) int {
 	total := 0
 	for _, check := range checks {
-		if check.Total == 0 {
+		if check.Total == 0 && !unavailableNodePressure(check) {
 			total++
 		}
 	}

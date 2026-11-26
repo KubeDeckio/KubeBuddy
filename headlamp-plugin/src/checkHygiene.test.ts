@@ -1,12 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hasResourceLimits,
+  hasWildcardRule,
   isBuiltInNamespace,
   isSystemIsolationTaint,
+  namespaceNeedsNetworkPolicy,
   podContainers,
   rootUserIssue,
 } from './checkHygiene';
 
 describe('built-in resources and security evidence', () => {
+  it('distinguishes missing and empty limits from configured limits', () => {
+    expect(hasResourceLimits()).toBe(false);
+    expect(hasResourceLimits({ limits: {} })).toBe(false);
+    expect(hasResourceLimits({ limits: { memory: '256Mi' } })).toBe(true);
+  });
+
+  it('requires wildcard verbs and resources in the same rule', () => {
+    expect(hasWildcardRule([{ verbs: ['*'], resources: ['*'] }])).toBe(true);
+    expect(hasWildcardRule([{ verbs: ['*'], resources: ['pods'] }, { verbs: ['get'], resources: ['*'] }])).toBe(false);
+  });
+
+  it('checks empty and default namespaces while excluding Kubernetes system namespaces', () => {
+    const policyNamespaces = new Set(['covered']);
+    expect(namespaceNeedsNetworkPolicy('empty', policyNamespaces)).toBe(true);
+    expect(namespaceNeedsNetworkPolicy('default', policyNamespaces)).toBe(true);
+    expect(namespaceNeedsNetworkPolicy('covered', policyNamespaces)).toBe(false);
+    for (const name of ['kube-system', 'kube-public', 'kube-node-lease']) {
+      expect(namespaceNeedsNetworkPolicy(name, policyNamespaces)).toBe(false);
+    }
+  });
   it.each(['default', 'kube-system', 'kube-public', 'kube-node-lease'])(
     'does not classify %s as namespace clutter',
     name => expect(isBuiltInNamespace(name)).toBe(true)
