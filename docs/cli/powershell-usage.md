@@ -35,6 +35,12 @@ $env:OpenAIKey = "<your-openai-api-key>"
 
 KubeBuddy will detect this and enrich reports with AI-generated summaries and HTML guidance where applicable.
 
+To use a different OpenAI model (the default is `gpt-6.1-terra`):
+
+```powershell
+$env:KUBEBUDDY_OPENAI_MODEL = "<model>"
+```
+
 ## 🔗 Related Guide
 
 If you're running AKS checks or using the `-Aks` flag, see the full [AKS Configuration & Best Practices Setup](../checks/aks-best-practices.md) guide for prerequisites and role setup.
