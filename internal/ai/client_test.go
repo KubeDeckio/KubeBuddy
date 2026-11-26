@@ -43,8 +43,8 @@ func TestNewFromEnvUsesDefaultModel(t *testing.T) {
 	if c == nil {
 		t.Fatalf("expected a client when OPENAI_API_KEY is set")
 	}
-	if c.model != defaultModel {
-		t.Fatalf("expected default model %q, got %q", defaultModel, c.model)
+	if c.model != "gpt-6.1-terra" {
+		t.Fatalf("expected default model %q, got %q", "gpt-6.1-terra", c.model)
 	}
 	if c.reasoningEffort != defaultReasoningEffort {
 		t.Fatalf("expected default reasoning effort %q, got %q", defaultReasoningEffort, c.reasoningEffort)

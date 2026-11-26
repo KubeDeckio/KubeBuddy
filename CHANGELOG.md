@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
-* The default AI recommendation model is now `gpt-5.6-terra`, replacing `gpt-5-mini`, which OpenAI shuts down on 2026-12-11. The default model runs with low reasoning effort and a 2,000-token output limit, so reasoning doesn't cut off the JSON recommendation. Set `KUBEBUDDY_OPENAI_MODEL` to use a different model; custom models are sent without a reasoning setting.
+* The default AI recommendation model is now `gpt-6.1-terra`, replacing `gpt-5-mini`, which OpenAI shuts down on 2026-12-11. The default model runs with low reasoning effort and a 2,000-token output limit, so reasoning doesn't cut off the JSON recommendation. Set `KUBEBUDDY_OPENAI_MODEL` to use a different model; custom models are sent without a reasoning setting.
 * AI responses cut off by the output limit now fail with `incomplete ai response (<reason>)` instead of a JSON parse error.
 
 ### Security

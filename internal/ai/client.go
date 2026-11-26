@@ -12,7 +12,7 @@ import (
 
 const (
 	// defaultModel is used when KUBEBUDDY_OPENAI_MODEL is not set.
-	defaultModel = "gpt-5.6-terra"
+	defaultModel = "gpt-6.1-terra"
 	// defaultReasoningEffort is sent only with defaultModel. Reasoning tokens
 	// count toward maxOutputTokens, so a low effort leaves room for the JSON.
 	defaultReasoningEffort = "low"

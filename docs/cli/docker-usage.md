@@ -183,7 +183,7 @@ inside the image and maps the environment variables below onto the same runtime.
 | Variable    | Description                                                                   |
 | ----------- | ----------------------------------------------------------------------------- |
 | `OpenAIKey` | Your OpenAI API key. Enables native AI enrichment for failing checks. |
-| `KUBEBUDDY_OPENAI_MODEL` | Optional. The OpenAI model used for recommendations. Defaults to `gpt-5.6-terra`. |
+| `KUBEBUDDY_OPENAI_MODEL` | Optional. The OpenAI model used for recommendations. Defaults to `gpt-6.1-terra`. |
 
 > ✅ If `OpenAIKey` is provided, KubeBuddy uses the native AI client to generate AI-powered recommendations for failing checks:
 >     • **Short text summary** (shown in the plain-text report)
@@ -205,7 +205,7 @@ docker run -it --rm \
   ghcr.io/kubedeckio/kubebuddy:$tagId
 ```
 
-To use a different model, add `-e KUBEBUDDY_OPENAI_MODEL="<model>"`. When it's unset, KubeBuddy uses `gpt-5.6-terra`.
+To use a different model, add `-e KUBEBUDDY_OPENAI_MODEL="<model>"`. When it's unset, KubeBuddy uses `gpt-6.1-terra`.
 
 ### ☁️ AKS Mode (Optional, for AKS Clusters)
 

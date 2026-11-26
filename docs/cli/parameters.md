@@ -166,7 +166,7 @@ Container-oriented entrypoint that reads configuration from environment variable
 | `RADAR_API_SECRET_ENV` | Name of the env var containing the Radar API secret |
 | `RADAR_API_PASSWORD_ENV` | Legacy alias for `RADAR_API_SECRET_ENV` |
 | `OpenAIKey` | OpenAI API key for native AI enrichment |
-| `KUBEBUDDY_OPENAI_MODEL` | Model for native AI enrichment (default `gpt-5.6-terra`) |
+| `KUBEBUDDY_OPENAI_MODEL` | Model for native AI enrichment (default `gpt-6.1-terra`) |
 
 ## AI Enrichment
 
@@ -175,7 +175,7 @@ Native AI enrichment is environment-driven.
 | Input | Description |
 | --- | --- |
 | `OpenAIKey` | OpenAI API key used for AI-generated recommendation enrichment on failing checks |
-| `KUBEBUDDY_OPENAI_MODEL` | Optional model override. When unset, KubeBuddy uses `gpt-5.6-terra` with low reasoning effort; a custom model is sent without a reasoning setting |
+| `KUBEBUDDY_OPENAI_MODEL` | Optional model override. When unset, KubeBuddy uses `gpt-6.1-terra` with low reasoning effort; a custom model is sent without a reasoning setting |
 
 ## PowerShell Wrapper Notes
 
